@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Comprehensive documentation
 - Issue and PR templates
 
-## [1.0.0] - 2025-01-17
+## [1.0.0] - 2025-10-17
 
 ### 🎉 Initial Release
 
@@ -77,23 +77,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### Security
 
-- 🔒 JWT authentication
-- 🔒 User isolation
-- 🔒 Document access control
-- 🔒 Secure file storage
-- 🔒 Input validation
+- 🔒 JWT authentication(not yet)
+- 🔒 User isolation(not yet)
+- 🔒 Document access control(not yet)
+- 🔒 Secure file storage(not yet)
+- 🔒 Input validation(not yet)
 - 🔒 SQL injection prevention
-
-## [0.9.0] - 2025-01-10 (Beta)
-
-### Added
-- Beta release for testing
-- Core features implemented
-- Basic documentation
-
-### Fixed
-- Various bug fixes
-- Performance improvements
 
 ## [0.5.0] - 2024-12-15 (Alpha)
 
@@ -147,24 +136,10 @@ docker-compose exec -T postgres psql -U raguser agentic_rag < backup.sql
 
 ## Roadmap
 
-### v1.1.0 (Q2 2025)
-- [ ] GraphRAG integration
-- [ ] Advanced analytics
-- [ ] Mobile app
-- [ ] Voice input/output
-- [ ] Collaborative features
-
-### v1.2.0 (Q3 2025)
-- [ ] Plugin system
-- [ ] Custom agent builder
-- [ ] Workflow automation
-- [ ] Advanced visualization
-
-### v2.0.0 (Q4 2025)
-- [ ] Multi-tenant support
-- [ ] Federated learning
-- [ ] Edge deployment
-- [ ] Enterprise features
+### v1.1.0 (Q4 2025)
+- [ ] Core Features more...
+- [ ] Accuraty Up..
+- [ ] MultiModal Up...
 
 ---
 
@@ -176,10 +151,10 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for how to contribute to this changelog.
 
 ## Links
 
-- [GitHub Repository](https://github.com/yourusername/agenticrag)
+- [GitHub Repository](https://github.com/showjihyun/agentrag-v1)
 - [Documentation](docs/)
-- [Issue Tracker](https://github.com/yourusername/agenticrag/issues)
-- [Discussions](https://github.com/yourusername/agenticrag/discussions)
+- [Issue Tracker](https://github.com/showjihyun/agentrag-v1/issues)
+- [Discussions](https://github.com/showjihyun/agentrag-v1/discussions)
 
 ---
 
