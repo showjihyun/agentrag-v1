@@ -685,6 +685,8 @@ furnished to do so, subject to the following conditions:
 
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
+
+반박시 니말이 맞음.
 ```
 
 ---
@@ -696,7 +698,7 @@ copies or substantial portions of the Software.
 - 📖 [Documentation](docs/)
 - 💬 [Discussions](https://github.com/showjihyun/agentrag-v1/discussions)
 - 🐛 [Issue Tracker](https://github.com/showjihyun/agentrag-v1/issues)
-- 📧 Email: showjihyun@users.noreply.github.com
+- 📧 Email: showjihyun@gmail.com
 
 ### Stay Updated
 
