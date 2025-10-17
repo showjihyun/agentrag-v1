@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs
+*.log
+logs/
+
+# Environment
+.env
+.env.local
+
+# Frontend
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+*.md
+!README.md
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+
+# Uploads (will be mounted as volume)
+backend/uploads/

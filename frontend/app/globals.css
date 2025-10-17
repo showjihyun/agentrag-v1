@@ -1,0 +1,422 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+  
+  /* Spacing System (8px base) */
+  --spacing-1: 0.25rem;
+  --spacing-2: 0.5rem;
+  --spacing-3: 0.75rem;
+  --spacing-4: 1rem;
+  --spacing-6: 1.5rem;
+  --spacing-8: 2rem;
+  --spacing-12: 3rem;
+  --spacing-16: 4rem;
+  
+  /* Animation Durations */
+  --duration-fast: 150ms;
+  --duration-normal: 300ms;
+  --duration-slow: 500ms;
+  
+  /* Easing Functions */
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+  overflow-x: hidden; /* Prevent horizontal scroll */
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* Custom Scrollbar Styles */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.5);
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.7);
+}
+
+/* Dark mode scrollbar */
+.dark *::-webkit-scrollbar-thumb {
+  background: rgba(75, 85, 99, 0.5);
+}
+
+.dark *::-webkit-scrollbar-thumb:hover {
+  background: rgba(75, 85, 99, 0.7);
+}
+
+/* Smooth transitions for interactive elements */
+button, a, input, textarea, select {
+  transition: all 0.2s ease;
+}
+
+/* Focus visible for accessibility */
+*:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Prevent layout shift during loading */
+img, video {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Better text rendering */
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.animate-slideUp {
+  animation: slideUp 0.3s ease-out;
+}
+
+.animate-pulse-slow {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Prevent text selection on UI elements */
+button, .no-select {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+/* Allow text selection in content areas */
+.selectable {
+  user-select: text;
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  overflow-x: hidden; /* Prevent horizontal scroll */
+}
+
+/* Custom Animations */
+@keyframes slide-in-right {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slide-out-right {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+@keyframes bounce-in {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right var(--duration-normal) var(--ease-out);
+}
+
+.animate-slide-out-right {
+  animation: slide-out-right var(--duration-normal) var(--ease-in);
+}
+
+.animate-fade-in {
+  animation: fade-in var(--duration-normal) var(--ease-out);
+}
+
+.animate-fade-out {
+  animation: fade-out var(--duration-normal) var(--ease-in);
+}
+
+.animate-shimmer {
+  animation: shimmer 2s infinite linear;
+  background-size: 2000px 100%;
+}
+
+.animate-bounce-in {
+  animation: bounce-in var(--duration-normal) var(--ease-out);
+}
+
+/* Focus Styles for Accessibility */
+*:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+  border-radius: 0.25rem;
+}
+
+/* Smooth Transitions */
+* {
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
+  transition-timing-function: var(--ease-in-out);
+  transition-duration: var(--duration-fast);
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+@media (prefers-color-scheme: dark) {
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+  }
+}
+
+/* Selection Styles */
+::selection {
+  background-color: #3b82f6;
+  color: white;
+}
+
+/* Print Styles */
+@media print {
+  body {
+    background: white;
+    color: black;
+  }
+  
+  .no-print {
+    display: none !important;
+  }
+}
+
+/* Defensive UI Styles - Prevent Layout Breaking */
+.prose p,
+.prose pre,
+.prose code,
+.prose blockquote {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  hyphens: auto;
+}
+
+/* Prevent long URLs or text from breaking layout */
+a,
+span,
+div {
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+}
+
+/* Ensure images don't break layout */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Prevent code blocks from breaking layout */
+pre {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+code {
+  word-break: break-all;
+  white-space: pre-wrap;
+}
+
+/* Ensure tables are responsive */
+table {
+  display: block;
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+/* Prevent very long words in headings */
+h1, h2, h3, h4, h5, h6 {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Container max-width safety */
+.container {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Prevent layout shift during content loading */
+.flex-1 {
+  min-height: 0;
+  min-width: 0;
+}
+
+/* Stable flex containers */
+.flex,
+.flex-col {
+  contain: layout style;
+}
+
+/* Prevent cumulative layout shift (CLS) */
+* {
+  box-sizing: border-box;
+}
+
+/* Smooth scroll for chat messages */
+.scroll-smooth {
+  scroll-behavior: smooth;
+}
+
+/* Prevent content jumping */
+.overflow-y-auto {
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior-y: contain;
+}
+
+/* Stable message containers */
+[role="article"] {
+  contain: layout style paint;
+  will-change: auto;
+}

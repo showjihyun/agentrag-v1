@@ -1,0 +1,94 @@
+name: E2E Tests & Performance Benchmarks
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    - cron: '0 2 * * *'  # Daily at 2 AM UTC
+
+jobs:
+  e2e-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Install Playwright
+        run: |
+          cd frontend
+          npx playwright install --with-deps chromium
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm run build
+
+      - name: Run E2E tests
+        run: |
+          cd frontend
+          npm run e2e -- --project=chromium
+
+      - name: Run performance benchmarks
+        run: |
+          cd frontend
+          npm run e2e -- test_performance_benchmarks --project=chromium
+        continue-on-error: true
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: e2e-results
+          path: |
+            tests/e2e-results/
+            tests/performance-results/
+          retention-days: 30
+
+  ml-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install pytest pytest-cov numpy
+
+      - name: Run ML tests
+        run: |
+          cd backend
+          pytest tests/unit/test_ml_confidence.py -v
+
+      - name: Test ML model
+        run: |
+          cd backend
+          python -c "from ml.confidence_predictor import get_confidence_predictor; p = get_confidence_predictor(); print('ML model initialized successfully')"

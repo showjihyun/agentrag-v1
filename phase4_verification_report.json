@@ -1,0 +1,225 @@
+{
+  "timestamp": "2025-10-06T14:53:58.629682",
+  "total_tests": 36,
+  "passed": 36,
+  "failed": 0,
+  "pass_rate": 100.0,
+  "results": [
+    {
+      "name": "Import Phase 1: Query Complexity Analyzer",
+      "passed": true,
+      "message": "",
+      "timestamp": "2025-10-06T14:53:58.276978"
+    },
+    {
+      "name": "Import Phase 2: Semantic Cache",
+      "passed": true,
+      "message": "",
+      "timestamp": "2025-10-06T14:53:58.278977"
+    },
+    {
+      "name": "Import Phase 4: Feedback Storage",
+      "passed": true,
+      "message": "",
+      "timestamp": "2025-10-06T14:53:58.323150"
+    },
+    {
+      "name": "Import Phase 3: Feedback API",
+      "passed": true,
+      "message": "",
+      "timestamp": "2025-10-06T14:53:58.502150"
+    },
+    {
+      "name": "Feedback Storage: Save",
+      "passed": true,
+      "message": "",
+      "timestamp": "2025-10-06T14:53:58.502150"
+    },
+    {
+      "name": "Feedback Storage: Get by query",
+      "passed": true,
+      "message": "",
+      "timestamp": "2025-10-06T14:53:58.502150"
+    },
+    {
+      "name": "Feedback Storage: Get stats",
+      "passed": true,
+      "message": "",
+      "timestamp": "2025-10-06T14:53:58.502150"
+    },
+    {
+      "name": "Feedback Storage: Delete",
+      "passed": true,
+      "message": "",
+      "timestamp": "2025-10-06T14:53:58.502150"
+    },
+    {
+      "name": "Feedback Storage: Singleton pattern",
+      "passed": true,
+      "message": "",
+      "timestamp": "2025-10-06T14:53:58.502150"
+    },
+    {
+      "name": "Semantic Cache: Set",
+      "passed": true,
+      "message": "",
+      "timestamp": "2025-10-06T14:53:58.503149"
+    },
+    {
+      "name": "Semantic Cache: Get exact match",
+      "passed": true,
+      "message": "",
+      "timestamp": "2025-10-06T14:53:58.503149"
+    },
+    {
+      "name": "Semantic Cache: Get with similarity",
+      "passed": true,
+      "message": "",
+      "timestamp": "2025-10-06T14:53:58.503149"
+    },
+    {
+      "name": "Semantic Cache: Get stats",
+      "passed": true,
+      "message": "",
+      "timestamp": "2025-10-06T14:53:58.503149"
+    },
+    {
+      "name": "Query Analyzer: Simple query",
+      "passed": true,
+      "message": "",
+      "timestamp": "2025-10-06T14:53:58.627682"
+    },
+    {
+      "name": "Query Analyzer: Complex query",
+      "passed": true,
+      "message": "",
+      "timestamp": "2025-10-06T14:53:58.627682"
+    },
+    {
+      "name": "Query Analyzer: Get explanation",
+      "passed": true,
+      "message": "",
+      "timestamp": "2025-10-06T14:53:58.627682"
+    },
+    {
+      "name": "Env Config: ENABLE_SEMANTIC_CACHE",
+      "passed": true,
+      "message": "",
+      "timestamp": "2025-10-06T14:53:58.627682"
+    },
+    {
+      "name": "Env Config: SEMANTIC_CACHE_MAX_SIZE",
+      "passed": true,
+      "message": "",
+      "timestamp": "2025-10-06T14:53:58.628682"
+    },
+    {
+      "name": "Env Config: SEMANTIC_CACHE_TTL",
+      "passed": true,
+      "message": "",
+      "timestamp": "2025-10-06T14:53:58.628682"
+    },
+    {
+      "name": "Env Config: SEMANTIC_CACHE_SIMILARITY_HIGH",
+      "passed": true,
+      "message": "",
+      "timestamp": "2025-10-06T14:53:58.628682"
+    },
+    {
+      "name": "Env Config: SEMANTIC_CACHE_SIMILARITY_MEDIUM",
+      "passed": true,
+      "message": "",
+      "timestamp": "2025-10-06T14:53:58.628682"
+    },
+    {
+      "name": "Env Config: ENABLE_FEEDBACK_COLLECTION",
+      "passed": true,
+      "message": "",
+      "timestamp": "2025-10-06T14:53:58.628682"
+    },
+    {
+      "name": "Env Config: FEEDBACK_STORAGE_BACKEND",
+      "passed": true,
+      "message": "",
+      "timestamp": "2025-10-06T14:53:58.628682"
+    },
+    {
+      "name": "Env Config: FEEDBACK_RETENTION_DAYS",
+      "passed": true,
+      "message": "",
+      "timestamp": "2025-10-06T14:53:58.628682"
+    },
+    {
+      "name": "Documentation: Phase 1 Documentation",
+      "passed": true,
+      "message": "",
+      "timestamp": "2025-10-06T14:53:58.628682"
+    },
+    {
+      "name": "Documentation: Phase 2 Documentation",
+      "passed": true,
+      "message": "",
+      "timestamp": "2025-10-06T14:53:58.628682"
+    },
+    {
+      "name": "Documentation: Phase 3 Documentation",
+      "passed": true,
+      "message": "",
+      "timestamp": "2025-10-06T14:53:58.628682"
+    },
+    {
+      "name": "Documentation: Phase 3 Integration",
+      "passed": true,
+      "message": "",
+      "timestamp": "2025-10-06T14:53:58.628682"
+    },
+    {
+      "name": "Documentation: Quick Start Guide",
+      "passed": true,
+      "message": "",
+      "timestamp": "2025-10-06T14:53:58.628682"
+    },
+    {
+      "name": "Documentation: Phase 4 Documentation",
+      "passed": true,
+      "message": "",
+      "timestamp": "2025-10-06T14:53:58.628682"
+    },
+    {
+      "name": "Documentation: Deployment Guide",
+      "passed": true,
+      "message": "",
+      "timestamp": "2025-10-06T14:53:58.629682"
+    },
+    {
+      "name": "Documentation: Complete Summary",
+      "passed": true,
+      "message": "",
+      "timestamp": "2025-10-06T14:53:58.629682"
+    },
+    {
+      "name": "API Endpoint: submit_feedback",
+      "passed": true,
+      "message": "",
+      "timestamp": "2025-10-06T14:53:58.629682"
+    },
+    {
+      "name": "API Endpoint: get_feedback_stats",
+      "passed": true,
+      "message": "",
+      "timestamp": "2025-10-06T14:53:58.629682"
+    },
+    {
+      "name": "API Endpoint: get_query_feedback",
+      "passed": true,
+      "message": "",
+      "timestamp": "2025-10-06T14:53:58.629682"
+    },
+    {
+      "name": "API Endpoint: delete_feedback",
+      "passed": true,
+      "message": "",
+      "timestamp": "2025-10-06T14:53:58.629682"
+    }
+  ]
+}

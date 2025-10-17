@@ -1,0 +1,30 @@
+# Dockerfile for MCP Servers
+FROM python:3.10-slim
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements file
+COPY backend/requirements.txt /app/requirements.txt
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy MCP servers and backend code
+COPY mcp_servers /app/mcp_servers
+COPY backend /app/backend
+
+# Create __init__.py files if they don't exist
+RUN touch /app/mcp_servers/__init__.py
+
+# Set Python path
+ENV PYTHONPATH=/app
+
+# Default command (will be overridden by docker-compose)
+CMD ["python", "-m", "mcp_servers.vector_server"]

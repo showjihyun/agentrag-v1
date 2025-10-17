@@ -1,0 +1,160 @@
+services:
+  # Etcd - Required for Milvus
+  etcd:
+    container_name: agenticrag-etcd
+    image: quay.io/coreos/etcd:v3.5.5
+    environment:
+      - ETCD_AUTO_COMPACTION_MODE=revision
+      - ETCD_AUTO_COMPACTION_RETENTION=1000
+      - ETCD_QUOTA_BACKEND_BYTES=4294967296
+      - ETCD_SNAPSHOT_COUNT=50000
+    volumes:
+      - etcd_data:/etcd
+    command: etcd -advertise-client-urls=http://127.0.0.1:2379 -listen-client-urls http://0.0.0.0:2379 --data-dir /etcd
+    healthcheck:
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - agenticrag-network
+
+  # MinIO - Object storage for Milvus
+  minio:
+    container_name: agenticrag-minio
+    image: minio/minio:RELEASE.2023-03-20T20-16-18Z
+    environment:
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+    ports:
+      - "9002:9001"
+      - "9003:9000"
+    volumes:
+      - minio_data:/minio_data
+    command: minio server /minio_data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - agenticrag-network
+
+  # Milvus - Vector Database
+  milvus:
+    container_name: agenticrag-milvus
+    image: milvusdb/milvus:v2.3.3
+    command: ["milvus", "run", "standalone"]
+    environment:
+      ETCD_ENDPOINTS: etcd:2379
+      MINIO_ADDRESS: minio:9000
+      # Performance tuning for concurrent users
+      MILVUS_PROXY_MAX_CONNECTIONS: 200
+      MILVUS_QUERY_NODE_CACHE_SIZE: 2048
+    volumes:
+      - milvus_data:/var/lib/milvus
+    ports:
+      - "19530:19530"
+      - "9092:9091"
+    depends_on:
+      - etcd
+      - minio
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8G
+        reservations:
+          cpus: '2'
+          memory: 2G
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
+      interval: 30s
+      start_period: 90s
+      timeout: 20s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - agenticrag-network
+
+  # PostgreSQL - User and Conversation Database
+  postgres:
+    container_name: agenticrag-postgres
+    image: postgres:15-alpine
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: agenticrag
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      # Performance tuning for 5-100 concurrent users
+      POSTGRES_MAX_CONNECTIONS: 200
+      POSTGRES_SHARED_BUFFERS: 256MB
+      POSTGRES_EFFECTIVE_CACHE_SIZE: 1GB
+      POSTGRES_WORK_MEM: 16MB
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 512M
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d agenticrag"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - agenticrag-network
+
+  # Redis - Session and Short-Term Memory
+  redis:
+    container_name: agenticrag-redis
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 2gb
+      --maxmemory-policy allkeys-lru
+      --maxclients 500
+      --tcp-backlog 511
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - agenticrag-network
+
+
+
+volumes:
+  postgres_data:
+  etcd_data:
+  minio_data:
+  milvus_data:
+  redis_data:
+  backend_uploads:
+
+networks:
+  agenticrag-network:
+    driver: bridge

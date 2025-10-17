@@ -1,0 +1,189 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  backend-test:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.11', '3.12']
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: raguser
+          POSTGRES_PASSWORD: ragpassword
+          POSTGRES_DB: agentic_rag_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        cd backend
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+    
+    - name: Lint with ruff
+      run: |
+        cd backend
+        ruff check .
+    
+    - name: Format check with black
+      run: |
+        cd backend
+        black --check .
+    
+    - name: Type check with mypy
+      run: |
+        cd backend
+        mypy .
+      continue-on-error: true
+    
+    - name: Run tests
+      env:
+        DATABASE_URL: postgresql://raguser:ragpassword@localhost:5432/agentic_rag_test
+        REDIS_HOST: localhost
+        REDIS_PORT: 6379
+        LLM_PROVIDER: ollama
+        LLM_MODEL: llama3.1
+      run: |
+        cd backend
+        pytest --cov=. --cov-report=xml --cov-report=html
+    
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./backend/coverage.xml
+        flags: backend
+        name: backend-${{ matrix.python-version }}
+
+  frontend-test:
+    name: Frontend Tests
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: ['18', '20']
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+    
+    - name: Install dependencies
+      run: |
+        cd frontend
+        npm ci
+    
+    - name: Lint
+      run: |
+        cd frontend
+        npm run lint
+    
+    - name: Type check
+      run: |
+        cd frontend
+        npm run type-check
+    
+    - name: Run tests
+      run: |
+        cd frontend
+        npm test -- --coverage
+    
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./frontend/coverage/coverage-final.json
+        flags: frontend
+        name: frontend-${{ matrix.node-version }}
+    
+    - name: Build
+      run: |
+        cd frontend
+        npm run build
+
+  docker-build:
+    name: Docker Build Test
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Build backend image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./backend
+        push: false
+        tags: agenticrag/backend:test
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+    
+    - name: Build frontend image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./frontend
+        push: false
+        tags: agenticrag/frontend:test
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+    
+    - name: Upload Trivy results to GitHub Security
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: 'trivy-results.sarif'

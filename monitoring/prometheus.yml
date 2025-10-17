@@ -1,0 +1,55 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'agentic-rag'
+    environment: 'production'
+
+# Alertmanager 설정
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+# 알림 규칙 파일
+rule_files:
+  - 'alerts.yml'
+
+# 메트릭 수집 대상
+scrape_configs:
+  # Prometheus 자체 모니터링
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Backend API
+  - job_name: 'backend'
+    static_configs:
+      - targets: ['backend:8000']
+    metrics_path: '/metrics'
+
+  # Node Exporter (시스템 메트릭)
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  # cAdvisor (컨테이너 메트릭)
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+
+  # PostgreSQL
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres:5432']
+
+  # Redis
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+
+  # Milvus
+  - job_name: 'milvus'
+    static_configs:
+      - targets: ['milvus:9091']

@@ -1,0 +1,54 @@
+global:
+  resolve_timeout: 5m
+
+# 알림 라우팅
+route:
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 12h
+  receiver: 'default'
+  routes:
+    - match:
+        severity: critical
+      receiver: 'critical'
+    - match:
+        severity: warning
+      receiver: 'warning'
+
+# 알림 수신자 설정
+receivers:
+  - name: 'default'
+    webhook_configs:
+      - url: 'http://localhost:5001/webhook'
+
+  - name: 'critical'
+    # Slack 알림
+    slack_configs:
+      - api_url: 'YOUR_SLACK_WEBHOOK_URL'
+        channel: '#alerts-critical'
+        title: '🚨 Critical Alert'
+        text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+    
+    # 이메일 알림
+    email_configs:
+      - to: 'admin@yourdomain.com'
+        from: 'alerts@yourdomain.com'
+        smarthost: 'smtp.gmail.com:587'
+        auth_username: 'your-email@gmail.com'
+        auth_password: 'your-app-password'
+
+  - name: 'warning'
+    slack_configs:
+      - api_url: 'YOUR_SLACK_WEBHOOK_URL'
+        channel: '#alerts-warning'
+        title: '⚠️ Warning Alert'
+        text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+
+# 알림 억제 규칙
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'cluster', 'service']

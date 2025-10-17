@@ -1,0 +1,51 @@
+API Integration Guide
+
+Overview:
+This guide explains how to integrate with our REST API. The API provides endpoints for data retrieval, processing, and analysis.
+
+Authentication:
+All API requests require an API key. Include the key in the Authorization header:
+Authorization: Bearer YOUR_API_KEY
+
+Endpoints:
+
+1. GET /api/data
+   Retrieves data records with optional filtering.
+   Parameters:
+   - limit: Maximum number of records (default: 100)
+   - offset: Pagination offset (default: 0)
+   - filter: JSON filter expression
+
+2. POST /api/process
+   Submits data for processing.
+   Request body:
+   {
+     "data": [...],
+     "options": {
+       "format": "json",
+       "validate": true
+     }
+   }
+
+3. GET /api/status/{job_id}
+   Checks the status of a processing job.
+   Returns: {"status": "completed", "result": {...}}
+
+Rate Limits:
+- Free tier: 100 requests per hour
+- Pro tier: 1000 requests per hour
+- Enterprise: Unlimited
+
+Error Handling:
+The API returns standard HTTP status codes:
+- 200: Success
+- 400: Bad request
+- 401: Unauthorized
+- 429: Rate limit exceeded
+- 500: Server error
+
+Best Practices:
+1. Cache responses when possible
+2. Implement exponential backoff for retries
+3. Use batch endpoints for multiple operations
+4. Monitor your rate limit usage

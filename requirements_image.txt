@@ -1,0 +1,37 @@
+# Image Processing Dependencies
+# Install with: pip install -r requirements_image.txt
+
+# OCR (Optical Character Recognition) - Required
+easyocr>=1.7.0              # Multi-language OCR with GPU support
+pillow>=10.0.0              # Image processing library
+opencv-python-headless>=4.8.0  # Computer vision (headless for servers)
+
+# Async support - Required
+nest-asyncio>=1.5.0         # Nested event loop support
+
+# Vision LLM (Optional - for high-accuracy fallback)
+# Uncomment if using Vision LLM features:
+# openai>=1.0.0             # For GPT-4V
+# anthropic>=0.7.0          # For Claude 3
+
+# GPU Acceleration (Optional but recommended)
+# Already installed if using PyTorch:
+# torch>=2.0.0              # PyTorch for GPU support
+# torchvision>=0.15.0       # Vision utilities
+
+# Additional utilities
+numpy>=1.24.0,<2.0.0        # Numerical computing (compatible version)
+scipy>=1.10.0               # Scientific computing
+
+# Installation Notes:
+# 1. If you encounter numpy version conflicts, run:
+#    pip install "numpy<2.0" --force-reinstall
+#
+# 2. For GPU support, ensure CUDA is installed:
+#    - CUDA 11.8 or 12.1 recommended
+#    - Check: nvidia-smi
+#
+# 3. EasyOCR will download language models on first use:
+#    - English: ~50MB
+#    - Korean: ~100MB
+#    - Models stored in: ~/.EasyOCR/
