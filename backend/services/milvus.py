@@ -160,7 +160,7 @@ class MilvusManager:
             if self._connected:
                 connections.disconnect(alias=self._connection_alias)
                 self._connected = False
-                logger.info(f"Disconnected from Milvus: {self._connection_alias}")
+                logger.debug(f"Disconnected from Milvus: {self._connection_alias}")
         except Exception as e:
             logger.warning(f"Error during disconnect: {str(e)}")
 
@@ -419,7 +419,7 @@ class MilvusManager:
         try:
             # Ensure connection is established
             if not self._connected:
-                logger.info("Milvus not connected, establishing connection...")
+                logger.debug("Milvus not connected, establishing connection...")
                 self.connect()
 
             # Ensure collection is loaded
@@ -577,7 +577,7 @@ class MilvusManager:
         try:
             # Ensure connection is established
             if not self._connected:
-                logger.info("Milvus not connected, establishing connection...")
+                logger.debug("Milvus not connected, establishing connection...")
                 self.connect()
 
             collection = self.get_collection()

@@ -47,7 +47,7 @@ export interface SearchResult {
 /**
  * Query mode for hybrid system.
  */
-export type QueryMode = 'FAST' | 'BALANCED' | 'DEEP';
+export type QueryMode = 'FAST' | 'BALANCED' | 'DEEP' | 'WEB_SEARCH';
 
 /**
  * Request model for query processing.
@@ -108,6 +108,7 @@ export type StreamChunkType =
   | 'refinement' 
   | 'final' 
   | 'step' 
+  | 'response'  // Streaming token-by-token response
   | 'error' 
   | 'done';
 
@@ -316,6 +317,11 @@ export interface MessageResponse {
   created_at: string;
   metadata?: Record<string, any>;
   sources?: SearchResult[];
+  // Progressive response properties
+  reasoning_steps?: AgentStep[];
+  response_type?: 'preliminary' | 'refinement' | 'final';
+  path_source?: 'speculative' | 'agentic' | 'hybrid';
+  confidence_score?: number;
 }
 
 /**

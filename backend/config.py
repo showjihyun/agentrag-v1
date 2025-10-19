@@ -865,11 +865,11 @@ class Settings(BaseSettings):
         print("\n[Provider Status]")
         for provider in ["ollama", "openai", "claude"]:
             is_valid, error_msg = self.validate_provider_config(provider)
-            status_icon = "✓" if is_valid else "✗"
+            status_icon = "[OK]" if is_valid else "[X]"
             status_text = "Configured" if is_valid else "Not Configured"
             print(f"  {status_icon} {provider.capitalize()}: {status_text}")
             if not is_valid and self.DEBUG:
-                print(f"      → {error_msg}")
+                print(f"      -> {error_msg}")
 
         # Database Configuration
         print("\n[Database Configuration]")

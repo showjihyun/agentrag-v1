@@ -4,6 +4,10 @@
 echo "Starting Agentic RAG System (Production Mode)"
 echo "=============================================="
 
+# Suppress Python warnings (including Pydantic deprecation warnings)
+export PYTHONWARNINGS="ignore::DeprecationWarning,ignore::UserWarning,ignore::FutureWarning"
+export HF_HUB_DISABLE_SYMLINKS_WARNING=1
+
 # Calculate optimal worker count
 # Formula: (2 x CPU cores) + 1
 CPU_CORES=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)

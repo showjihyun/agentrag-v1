@@ -1,49 +1,73 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/Card';
 
-interface MetricStats {
-  metric_name: string;
-  time_window_minutes: number;
-  count: number;
-  avg: number;
-  p50: number;
-  p95: number;
-  p99: number;
-  min: number;
-  max: number;
+interface FileUploadStats {
+  total_files: number;
+  successful_uploads: number;
+  failed_uploads: number;
+  total_size_mb: number;
+  avg_processing_time_ms: number;
+  by_file_type: Record<string, number>;
+  recent_uploads: Array<{
+    id: string;
+    filename: string;
+    file_type: string;
+    status: string;
+    created_at: string;
+    file_size_mb: number;
+  }>;
 }
 
-interface CacheMetrics {
-  cache_type: string;
-  hit_rate: number;
-  time_window_minutes: number;
+interface EmbeddingStats {
+  total_embeddings: number;
+  total_chunks: number;
+  avg_chunks_per_document: number;
+  embedding_model: string;
+  avg_embedding_time_ms: number;
+  by_chunking_strategy: Record<string, number>;
 }
 
-interface AgentMetrics {
-  agent_name: string;
+interface HybridSearchStats {
+  total_searches: number;
+  vector_only: number;
+  keyword_only: number;
+  hybrid: number;
+  avg_search_time_ms: number;
+  avg_results_count: number;
+  cache_hit_rate: number;
+}
+
+interface RAGProcessingStats {
+  total_queries: number;
+  by_mode: Record<string, number>;
+  by_complexity: Record<string, number>;
+  avg_response_time_ms: number;
+  avg_confidence_score: number;
   success_rate: number;
-  avg_latency_ms: number;
-  p95_latency_ms: number;
-  time_window_minutes: number;
+}
+
+interface AccuracyTrend {
+  date: string;
+  total_queries: number;
+  avg_confidence: number;
+  high_confidence_rate: number;
+  success_rate: number;
+  avg_response_time_ms: number;
 }
 
 interface SystemMetrics {
-  timestamp: string;
-  query_metrics: MetricStats | null;
-  cache_metrics: CacheMetrics[];
-  agent_metrics: AgentMetrics[];
-  llm_metrics: {
-    avg_latency_ms: number;
-    p95_latency_ms: number;
-    total_requests: number;
-  } | null;
+  file_uploads: FileUploadStats;
+  embeddings: EmbeddingStats;
+  hybrid_search: HybridSearchStats;
+  rag_processing: RAGProcessingStats;
+  accuracy_trends: AccuracyTrend[];
 }
 
 export default function MonitoringPage() {
   const [metrics, setMetrics] = useState<SystemMetrics | null>(null);
-  const [timeWindow, setTimeWindow] = useState(60);
+  const [days, setDays] = useState(7);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -51,18 +75,18 @@ export default function MonitoringPage() {
     fetchMetrics();
     const interval = setInterval(fetchMetrics, 30000); // Refresh every 30s
     return () => clearInterval(interval);
-  }, [timeWindow]);
+  }, [days]);
 
   const fetchMetrics = async () => {
     try {
       const response = await fetch(
-        `http://localhost:8000/api/monitoring/metrics/system?time_window=${timeWindow}`
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/monitoring/stats/overview?days=${days}`
       );
-      
+
       if (!response.ok) {
         throw new Error('Failed to fetch metrics');
       }
-      
+
       const data = await response.json();
       setMetrics(data);
       setError(null);
@@ -92,134 +116,120 @@ export default function MonitoringPage() {
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">System Monitoring</h1>
+        <h1 className="text-3xl font-bold dark:text-white">System Monitoring</h1>
         <select
-          value={timeWindow}
-          onChange={(e) => setTimeWindow(Number(e.target.value))}
-          className="px-4 py-2 border rounded-lg"
+          value={days}
+          onChange={(e) => setDays(Number(e.target.value))}
+          className="px-4 py-2 border rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-white"
         >
-          <option value={15}>Last 15 minutes</option>
-          <option value={60}>Last hour</option>
-          <option value={360}>Last 6 hours</option>
-          <option value={1440}>Last 24 hours</option>
+          <option value={1}>Last 24 hours</option>
+          <option value={7}>Last 7 days</option>
+          <option value={30}>Last 30 days</option>
+          <option value={90}>Last 90 days</option>
         </select>
       </div>
 
-      {/* Query Performance */}
-      {metrics?.query_metrics && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Query Performance</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <MetricCard
-                label="Total Queries"
-                value={metrics.query_metrics.count}
-              />
-              <MetricCard
-                label="Avg Latency"
-                value={`${metrics.query_metrics.avg.toFixed(0)}ms`}
-              />
-              <MetricCard
-                label="P95 Latency"
-                value={`${metrics.query_metrics.p95.toFixed(0)}ms`}
-                warning={metrics.query_metrics.p95 > 3000}
-              />
-              <MetricCard
-                label="P99 Latency"
-                value={`${metrics.query_metrics.p99.toFixed(0)}ms`}
-                warning={metrics.query_metrics.p99 > 5000}
-              />
-            </div>
-          </CardContent>
+      {/* File Upload Stats */}
+      {metrics?.file_uploads && (
+        <Card title="File Uploads">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <MetricCard
+              label="Total Files"
+              value={metrics.file_uploads.total_files}
+            />
+            <MetricCard
+              label="Successful"
+              value={metrics.file_uploads.successful_uploads}
+            />
+            <MetricCard
+              label="Failed"
+              value={metrics.file_uploads.failed_uploads}
+              warning={metrics.file_uploads.failed_uploads > 0}
+            />
+            <MetricCard
+              label="Total Size"
+              value={`${metrics.file_uploads.total_size_mb.toFixed(1)} MB`}
+            />
+          </div>
         </Card>
       )}
 
-      {/* Cache Performance */}
-      {metrics?.cache_metrics && metrics.cache_metrics.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Cache Performance</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {metrics.cache_metrics.map((cache) => (
-                <MetricCard
-                  key={cache.cache_type}
-                  label={`${cache.cache_type} Cache`}
-                  value={`${(cache.hit_rate * 100).toFixed(1)}%`}
-                  warning={cache.hit_rate < 0.3}
-                />
-              ))}
-            </div>
-          </CardContent>
+      {/* Embedding Stats */}
+      {metrics?.embeddings && (
+        <Card title="Embeddings">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <MetricCard
+              label="Total Embeddings"
+              value={metrics.embeddings.total_embeddings}
+            />
+            <MetricCard
+              label="Total Chunks"
+              value={metrics.embeddings.total_chunks}
+            />
+            <MetricCard
+              label="Avg Chunks/Doc"
+              value={metrics.embeddings.avg_chunks_per_document.toFixed(1)}
+            />
+            <MetricCard
+              label="Avg Time"
+              value={`${metrics.embeddings.avg_embedding_time_ms.toFixed(0)}ms`}
+            />
+          </div>
         </Card>
       )}
 
-      {/* Agent Performance */}
-      {metrics?.agent_metrics && metrics.agent_metrics.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Agent Performance</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {metrics.agent_metrics.map((agent) => (
-                <div key={agent.agent_name} className="border-b pb-4 last:border-b-0">
-                  <h3 className="font-semibold mb-2 capitalize">
-                    {agent.agent_name.replace('_', ' ')}
-                  </h3>
-                  <div className="grid grid-cols-3 gap-4">
-                    <MetricCard
-                      label="Success Rate"
-                      value={`${(agent.success_rate * 100).toFixed(1)}%`}
-                      warning={agent.success_rate < 0.9}
-                    />
-                    <MetricCard
-                      label="Avg Latency"
-                      value={`${agent.avg_latency_ms.toFixed(0)}ms`}
-                    />
-                    <MetricCard
-                      label="P95 Latency"
-                      value={`${agent.p95_latency_ms.toFixed(0)}ms`}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
+      {/* Hybrid Search Stats */}
+      {metrics?.hybrid_search && (
+        <Card title="Hybrid Search">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <MetricCard
+              label="Total Searches"
+              value={metrics.hybrid_search.total_searches}
+            />
+            <MetricCard
+              label="Cache Hit Rate"
+              value={`${(metrics.hybrid_search.cache_hit_rate * 100).toFixed(1)}%`}
+              warning={metrics.hybrid_search.cache_hit_rate < 0.3}
+            />
+            <MetricCard
+              label="Avg Search Time"
+              value={`${metrics.hybrid_search.avg_search_time_ms.toFixed(0)}ms`}
+            />
+            <MetricCard
+              label="Avg Results"
+              value={metrics.hybrid_search.avg_results_count.toFixed(1)}
+            />
+          </div>
         </Card>
       )}
 
-      {/* LLM Performance */}
-      {metrics?.llm_metrics && (
-        <Card>
-          <CardHeader>
-            <CardTitle>LLM Performance</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-3 gap-4">
-              <MetricCard
-                label="Total Requests"
-                value={metrics.llm_metrics.total_requests}
-              />
-              <MetricCard
-                label="Avg Latency"
-                value={`${metrics.llm_metrics.avg_latency_ms.toFixed(0)}ms`}
-              />
-              <MetricCard
-                label="P95 Latency"
-                value={`${metrics.llm_metrics.p95_latency_ms.toFixed(0)}ms`}
-                warning={metrics.llm_metrics.p95_latency_ms > 10000}
-              />
-            </div>
-          </CardContent>
+      {/* RAG Processing Stats */}
+      {metrics?.rag_processing && (
+        <Card title="RAG Processing">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <MetricCard
+              label="Total Queries"
+              value={metrics.rag_processing.total_queries}
+            />
+            <MetricCard
+              label="Success Rate"
+              value={`${(metrics.rag_processing.success_rate * 100).toFixed(1)}%`}
+              warning={metrics.rag_processing.success_rate < 0.8}
+            />
+            <MetricCard
+              label="Avg Confidence"
+              value={metrics.rag_processing.avg_confidence_score.toFixed(2)}
+            />
+            <MetricCard
+              label="Avg Response Time"
+              value={`${metrics.rag_processing.avg_response_time_ms.toFixed(0)}ms`}
+            />
+          </div>
         </Card>
       )}
 
-      <div className="text-sm text-gray-500 text-center">
-        Last updated: {metrics?.timestamp ? new Date(metrics.timestamp).toLocaleString() : 'N/A'}
+      <div className="text-sm text-gray-500 dark:text-gray-400 text-center">
+        Last updated: {new Date().toLocaleString()}
       </div>
     </div>
   );

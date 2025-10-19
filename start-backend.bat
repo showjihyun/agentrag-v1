@@ -22,8 +22,9 @@ echo.
 REM Set PYTHONPATH to include the project root
 set PYTHONPATH=%CD%
 
-REM Suppress Python warnings
-set PYTHONWARNINGS=ignore::FutureWarning
+REM Suppress Python warnings (including Pydantic deprecation warnings)
+set PYTHONWARNINGS=ignore::DeprecationWarning,ignore::UserWarning,ignore::FutureWarning
 set HF_HUB_DISABLE_SYMLINKS_WARNING=1
+set HF_HUB_DISABLE_TORCH_LOAD_CHECK=1
 
 venv\Scripts\python.exe -m uvicorn backend.main:app --reload --port 8000

@@ -2,6 +2,40 @@
 LLM Provider Manager with multi-provider support (Ollama, OpenAI, Claude)
 """
 
+# Suppress ALL Pydantic and litellm warnings before any imports
+import warnings
+import sys
+import os
+
+# Set environment variable BEFORE any imports
+os.environ["PYTHONWARNINGS"] = "ignore"
+
+# Comprehensive warning suppression - catch everything
+warnings.filterwarnings("ignore")
+warnings.simplefilter("ignore")
+
+# Specific suppressions for known warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", category=UserWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
+warnings.filterwarnings("ignore", message=".*Pydantic.*")
+warnings.filterwarnings("ignore", message=".*pydantic.*")
+warnings.filterwarnings("ignore", message=".*model_fields.*")
+warnings.filterwarnings("ignore", message=".*PydanticSerializationUnexpectedValue.*")
+warnings.filterwarnings("ignore", message=".*PydanticDeprecatedSince.*")
+warnings.filterwarnings("ignore", message=".*dict.*method is deprecated.*")
+warnings.filterwarnings("ignore", message=".*model_dump.*")
+warnings.filterwarnings("ignore", message=".*StreamingChoices.*")
+warnings.filterwarnings("ignore", message=".*Message.*serialized value.*")
+
+# Suppress specific pydantic warnings by category
+try:
+    from pydantic import PydanticDeprecatedSince20, PydanticDeprecatedSince211
+    warnings.filterwarnings("ignore", category=PydanticDeprecatedSince20)
+    warnings.filterwarnings("ignore", category=PydanticDeprecatedSince211)
+except ImportError:
+    pass
+
 from enum import Enum
 from typing import Optional, List, Dict, Any, AsyncGenerator, Union
 import logging
@@ -323,7 +357,7 @@ class LLMManager:
             Timeout in seconds
         """
         if self.provider == LLMProvider.OLLAMA:
-            return 30.0  # Local provider - shorter timeout
+            return 10.0  # Local provider - optimized for speculative mode
         else:
             return 60.0  # Cloud providers - longer timeout
 

@@ -94,13 +94,27 @@ class EmbeddingService:
             else:
                 # Determine device (GPU if available, else CPU)
                 import torch
+                import os
                 device = "cuda" if torch.cuda.is_available() else "cpu"
                 
                 # Load model and add to cache
                 logger.info(f"Loading embedding model: {self.model_name} on device: {device}")
-                self._model = SentenceTransformer(self.model_name, device=device)
-                self._model_cache[self.model_name] = self._model
-                logger.info(f"Model loaded successfully: {self.model_name} on {device}")
+                
+                # Temporarily disable transformers security check for legacy models
+                # This model doesn't have safetensors format
+                old_env = os.environ.get('HF_HUB_DISABLE_TORCH_LOAD_CHECK')
+                os.environ['HF_HUB_DISABLE_TORCH_LOAD_CHECK'] = '1'
+                
+                try:
+                    self._model = SentenceTransformer(self.model_name, device=device)
+                    self._model_cache[self.model_name] = self._model
+                    logger.info(f"Model loaded successfully: {self.model_name} on {device}")
+                finally:
+                    # Restore original environment
+                    if old_env is None:
+                        os.environ.pop('HF_HUB_DISABLE_TORCH_LOAD_CHECK', None)
+                    else:
+                        os.environ['HF_HUB_DISABLE_TORCH_LOAD_CHECK'] = old_env
 
             # Get embedding dimension
             self._dimension = self._model.get_sentence_embedding_dimension()

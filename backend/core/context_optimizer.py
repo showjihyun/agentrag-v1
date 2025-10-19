@@ -72,20 +72,41 @@ class ContextOptimizer:
         results: List[Any],
         min_score: Optional[float] = None,
         max_docs: Optional[int] = None,
+        dynamic_threshold: bool = True
     ) -> List[Any]:
         """
-        Filter search results by relevance score.
+        Filter search results by relevance score with dynamic thresholding.
 
         Args:
             results: List of search results with 'score' attribute
             min_score: Minimum score threshold (uses default if None)
             max_docs: Maximum documents to return (uses default if None)
+            dynamic_threshold: Use dynamic threshold based on score distribution
 
         Returns:
             Filtered list of results
         """
+        if not results:
+            return []
+        
         min_score = min_score if min_score is not None else self.min_relevance_score
         max_docs = max_docs if max_docs is not None else self.max_docs
+
+        # Dynamic threshold: adjust based on score distribution
+        if dynamic_threshold and len(results) > 1:
+            scores = [r.score for r in results]
+            avg_score = sum(scores) / len(scores)
+            max_score = max(scores)
+            
+            # If top score is significantly higher, use stricter threshold
+            if max_score > avg_score * 1.5:
+                # Use higher threshold for high-quality results
+                dynamic_min = max(min_score, avg_score * 0.8)
+                logger.debug(
+                    f"Dynamic threshold: {dynamic_min:.3f} "
+                    f"(avg={avg_score:.3f}, max={max_score:.3f})"
+                )
+                min_score = dynamic_min
 
         # Filter by score
         filtered = [r for r in results if r.score >= min_score]
@@ -95,7 +116,7 @@ class ContextOptimizer:
 
         logger.debug(
             f"Filtered {len(results)} → {len(filtered)} documents "
-            f"(min_score={min_score}, max_docs={max_docs})"
+            f"(min_score={min_score:.3f}, max_docs={max_docs})"
         )
 
         return filtered

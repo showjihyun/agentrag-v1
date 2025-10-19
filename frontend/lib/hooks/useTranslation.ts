@@ -9,7 +9,7 @@ import { Locale } from '../i18n/config';
 
 export function useTranslation() {
   const locale = useAppStore((state) => state.locale);
-  const setLocale = useAppStore((state) => state.actions.setLocale);
+  const setLocale = useAppStore((state) => state.setLocale);
 
   const t = useCallback(
     (key: TranslationKey, params?: Record<string, string | number>): string => {

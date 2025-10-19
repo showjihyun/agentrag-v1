@@ -9,7 +9,7 @@ interface ReasoningStepsProps {
 }
 
 const ReasoningSteps: React.FC<ReasoningStepsProps> = ({ steps, isProcessing = false }) => {
-  const [isExpanded, setIsExpanded] = useState(true); // Auto-expand for better visibility
+  const [isExpanded, setIsExpanded] = useState(false); // Default collapsed - user can expand when needed
   const [highlightedIndex, setHighlightedIndex] = useState<number | null>(null);
   const stepsEndRef = useRef<HTMLDivElement>(null);
   const prevStepsLengthRef = useRef(steps.length);
@@ -161,9 +161,44 @@ const ReasoningSteps: React.FC<ReasoningStepsProps> = ({ steps, isProcessing = f
           )}
         </div>
         <span className="text-xs font-medium text-gray-600 dark:text-gray-400 px-2 py-1 rounded hover:bg-white/50 dark:hover:bg-black/20 transition-colors">
-          {isExpanded ? '▼ Hide' : '▶ Show'}
+          {isExpanded ? '▼ Hide' : '▶ Show Details'}
         </span>
       </button>
+
+      {/* Simple text-based progress indicator when collapsed */}
+      {!isExpanded && steps.length > 0 && (
+        <div className={`px-4 py-3 border-t ${
+          isProcessing 
+            ? 'bg-blue-50/50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-800' 
+            : 'bg-gray-50/50 dark:bg-gray-900/10 border-gray-200 dark:border-gray-700'
+        }`}>
+          <div className="flex items-start gap-2">
+            {isProcessing ? (
+              <svg className="w-4 h-4 mt-0.5 text-blue-600 dark:text-blue-400 animate-pulse flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+              </svg>
+            ) : (
+              <svg className="w-4 h-4 mt-0.5 text-green-600 dark:text-green-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-gray-700 dark:text-gray-300 font-medium">
+                {isProcessing 
+                  ? (steps[steps.length - 1]?.content || 'Processing...') 
+                  : `Completed ${steps.length} reasoning ${steps.length === 1 ? 'step' : 'steps'}`
+                }
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                {isProcessing 
+                  ? `Step ${steps.length} • Click "Show Details" to see all steps`
+                  : 'Click "Show Details" to see all steps'
+                }
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isExpanded && (
         <div className="p-4 space-y-2 max-h-[500px] overflow-y-auto bg-gray-50/50 dark:bg-gray-900/50">

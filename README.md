@@ -113,6 +113,42 @@ Features:
   - 비용 최적화
 ```
 
+### 🔍 Web Search Integration
+
+**무료 웹 검색 기능** - DuckDuckGo 기반 (API 키 불필요!)
+
+```python
+# 간단한 사용 예제
+from backend.services.web_search_service import get_web_search_service
+
+search_service = get_web_search_service()
+results = await search_service.search(
+    query="Python FastAPI tutorial",
+    max_results=10,
+    language="ko",
+    region="kr"
+)
+```
+
+**특징:**
+- ✅ 무료 (DuckDuckGo 사용)
+- 🌍 다국어 지원 (한국어, 영어 등)
+- 🔄 자동 폴백 (Google/Bing → DuckDuckGo)
+- ⚡ 비동기 처리로 빠른 응답
+- 🎯 쿼리 향상 (Query Enhancement)
+- 📊 관련성 기반 결과 필터링
+
+**API 엔드포인트:**
+```bash
+# 웹 검색
+GET /api/web-search/search?q=검색어&max_results=10
+
+# 헬스 체크
+GET /api/web-search/health
+```
+
+📖 **자세한 사용법**: [Web Search Guide](docs/WEB_SEARCH_GUIDE.md)
+
 ### 🧠 Dual Memory System
 
 ```
@@ -202,12 +238,14 @@ docker-compose down
 ```
 
 **Services:**
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:8000
-- API Docs: http://localhost:8000/docs
-- Milvus: localhost:19530
-- PostgreSQL: localhost:5433
-- Redis: localhost:6379
+- 🌐 Frontend: http://localhost:3000
+- 🚀 Backend API: http://localhost:8000
+- 📚 API Docs: http://localhost:8000/docs
+- 📊 Monitoring: http://localhost:3000/monitoring
+- 📈 Statistics: http://localhost:3000/monitoring/stats
+- 🗄️ Milvus: localhost:19530
+- 🐘 PostgreSQL: localhost:5433
+- 🔴 Redis: localhost:6379
 
 ### 4️⃣ Or Manual Setup
 
@@ -271,9 +309,18 @@ curl http://localhost:11434/api/tags
 - [HWP Table/Chart Guide](HWP_TABLE_CHART_GUIDE.md) - HWP 표/차트 인식
 - [API Documentation](backend/ADAPTIVE_ROUTING_API_DOCUMENTATION.md) - API 문서
 
-### 📊 Monitoring
-- [Monitoring Guide](backend/ADAPTIVE_ROUTING_MONITORING_GUIDE.md) - 모니터링
+### 📊 Monitoring & Analytics
+- [Monitoring Dashboard](http://localhost:3000/monitoring) - 실시간 시스템 모니터링
+- [Statistics Dashboard](http://localhost:3000/monitoring/stats) - 상세 통계 분석
+- [Monitoring Guide](backend/ADAPTIVE_ROUTING_MONITORING_GUIDE.md) - 모니터링 가이드
 - [Performance Tuning](backend/PERFORMANCE_TUNING.md) - 성능 최적화
+
+**모니터링 기능:**
+- 📈 파일 업로드 통계 (성공/실패율, 파일 타입별 분석)
+- 🔍 임베딩 통계 (청크 수, 처리 시간, 전략별 분석)
+- 🔎 하이브리드 검색 통계 (캐시 히트율, 검색 시간)
+- 🤖 RAG 처리 통계 (쿼리 모드별, 신뢰도 점수, 성공률)
+- 📊 일별 정확도 트렌드 분석
 
 ---
 
@@ -345,17 +392,25 @@ i18n: Custom (EN, KO, JA, ZH)
 <details>
 <summary>📸 Click to view screenshots</summary>
 
-### Chat Interface
+### 💬 Chat Interface
+실시간 스트리밍 응답과 에이전트 추론 과정 표시
 ![Chat Interface](docs/images/chat.png)
 
-### Document Upload
+### 📤 Document Upload
+다양한 포맷 지원 (PDF, DOCX, HWP, 이미지 등)
 ![Document Upload](docs/images/upload.png)
 
-### Monitoring Dashboard
+### 📊 Monitoring Dashboard
+실시간 시스템 성능 및 통계 모니터링
 ![Monitoring](docs/images/monitoring.png)
 
-### Agent Reasoning
+### 🤖 Agent Reasoning
+멀티 에이전트 협업 및 의사결정 과정
 ![Agent Reasoning](docs/images/reasoning.png)
+
+### 📈 Statistics Dashboard
+상세한 파일 업로드, 임베딩, 검색 통계
+![Statistics](docs/images/stats.png)
 
 </details>
 
@@ -608,6 +663,11 @@ We welcome contributions! 🎉
 - [x] Real-time streaming
 - [x] Multi-LLM support
 - [x] Korean language optimization
+- [x] Web search integration (DuckDuckGo)
+- [x] Monitoring dashboard
+- [x] Statistics & analytics
+- [x] Query enhancement
+- [x] HWP/HWPX support
 
 ### 🚧 In Progress (v1.1)
 - [ ] GraphRAG integration
@@ -615,6 +675,7 @@ We welcome contributions! 🎉
 - [ ] Mobile app (React Native)
 - [ ] Voice input/output
 - [ ] Collaborative features
+- [ ] Custom agent builder UI
 
 ### 🔮 Future (v2.0)
 - [ ] Multi-tenant support
@@ -629,10 +690,10 @@ We welcome contributions! 🎉
 
 ```
 📊 Code Statistics
-├─ Backend:   15,000+ lines (Python)
-├─ Frontend:  12,000+ lines (TypeScript)
-├─ Tests:     5,000+ lines
-└─ Docs:      3,000+ lines
+├─ Backend:   18,000+ lines (Python)
+├─ Frontend:  15,000+ lines (TypeScript)
+├─ Tests:     6,000+ lines
+└─ Docs:      4,000+ lines
 
 🧪 Test Coverage
 ├─ Backend:   85%+
@@ -642,7 +703,14 @@ We welcome contributions! 🎉
 ⚡ Performance
 ├─ Query Speed:     < 3s (avg)
 ├─ Cache Hit Rate:  60%+
+├─ Web Search:      < 2s (avg)
 └─ Uptime:          99.9%
+
+📈 Features
+├─ Supported Formats:  10+ (PDF, DOCX, HWP, etc.)
+├─ LLM Providers:      3+ (Ollama, OpenAI, Claude)
+├─ Languages:          4+ (KO, EN, JA, ZH)
+└─ Agents:             4 (Aggregator, Vector, Local, Web)
 ```
 
 ---

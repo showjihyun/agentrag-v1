@@ -15,12 +15,14 @@ class QueryMode(str, Enum):
     - FAST: Speculative path only, returns results within ~2 seconds
     - BALANCED: Both speculative and agentic paths in parallel, progressive refinement
     - DEEP: Agentic path only, full reasoning with comprehensive analysis
+    - WEB_SEARCH: RAG + Web Search hybrid mode for comprehensive analysis
     """
 
     AUTO = "auto"
     FAST = "fast"
     BALANCED = "balanced"
     DEEP = "deep"
+    WEB_SEARCH = "web_search"
 
 
 class ResponseType(str, Enum):
@@ -42,11 +44,13 @@ class PathSource(str, Enum):
     - SPECULATIVE: Fast vector search + simple LLM generation
     - AGENTIC: Full ReAct/CoT reasoning with agent orchestration
     - HYBRID: Merged results from both paths
+    - WEB_SEARCH: RAG + Web Search combined analysis
     """
 
     SPECULATIVE = "speculative"
     AGENTIC = "agentic"
     HYBRID = "hybrid"
+    WEB_SEARCH = "web_search"
 
 
 class ResponseChunk(BaseModel):
@@ -102,7 +106,7 @@ class HybridQueryRequest(QueryRequest):
 
     mode: QueryMode = Field(
         default=QueryMode.AUTO,
-        description="Query processing mode: auto (intelligent routing), fast, balanced, or deep",
+        description="Query processing mode: auto (intelligent routing, default), web_search (web + RAG), fast, balanced, or deep",
     )
     enable_cache: bool = Field(
         default=True, description="Whether to use speculative response caching"

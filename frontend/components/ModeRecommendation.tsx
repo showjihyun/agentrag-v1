@@ -6,14 +6,14 @@ import { apiClient } from '@/lib/api-client';
 
 interface ModeRecommendationProps {
   query: string;
-  onModeSelect: (mode: 'fast' | 'balanced' | 'deep') => void;
-  currentMode: 'fast' | 'balanced' | 'deep';
+  onModeSelect: (mode: string) => void;
+  currentMode: string;
   autoMode: boolean;
   onAutoModeChange: (enabled: boolean) => void;
 }
 
 interface ComplexityAnalysis {
-  recommended_mode: 'fast' | 'balanced' | 'deep';
+  recommended_mode: string;
   complexity_level: 'simple' | 'moderate' | 'complex';
   confidence: number;
   reasoning: {
@@ -93,91 +93,61 @@ export default function ModeRecommendation({
     return 'text-orange-600';
   };
 
-  if (!autoMode) {
-    return null;
-  }
-
   return (
-    <div className="mb-4 space-y-2">
-      {/* Auto Mode Toggle */}
+    <div className="space-y-2">
+      {/* Auto Mode Toggle - Compact */}
       <div className="flex items-center justify-between">
-        <label className="flex items-center space-x-2 text-sm text-gray-700 cursor-pointer">
+        <label className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400 cursor-pointer hover:text-gray-800 dark:hover:text-gray-200 transition-colors">
           <input
             type="checkbox"
             checked={autoMode}
             onChange={(e) => onAutoModeChange(e.target.checked)}
-            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
           />
           <Sparkles className="w-4 h-4 text-blue-500" />
-          <span>Auto-select mode based on query</span>
+          <span>Smart Mode</span>
         </label>
       </div>
 
-      {/* Recommendation Display */}
-      {isAnalyzing && (
-        <div className="flex items-center space-x-2 text-sm text-gray-500 animate-pulse">
-          <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-          <span>Analyzing query complexity...</span>
+      {/* Recommendation Display - Compact */}
+      {autoMode && isAnalyzing && (
+        <div className="flex items-center space-x-2 text-xs text-gray-500 dark:text-gray-400">
+          <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <span>Analyzing...</span>
         </div>
       )}
 
-      {analysis && !isAnalyzing && (
-        <div className={`p-3 rounded-lg border ${getModeColor(analysis.recommended_mode)}`}>
-          <div className="flex items-start justify-between">
-            <div className="flex items-start space-x-2 flex-1">
+      {autoMode && analysis && !isAnalyzing && (
+        <div className={`p-2 rounded-lg border text-xs ${getModeColor(analysis.recommended_mode)}`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2 flex-1">
               {getModeIcon(analysis.recommended_mode)}
-              <div className="flex-1">
-                <div className="flex items-center space-x-2">
-                  <span className="font-medium text-sm">
-                    Recommended: {analysis.recommended_mode.toUpperCase()} mode
-                  </span>
-                  <span className={`text-xs ${getConfidenceColor(analysis.confidence)}`}>
-                    ({Math.round(analysis.confidence * 100)}% confident)
-                  </span>
-                </div>
-                
-                <p className="text-xs mt-1 opacity-90">
-                  {analysis.explanation.split('.')[0]}.
-                </p>
-
-                {/* Complexity Factors */}
-                {showDetails && (
-                  <div className="mt-2 pt-2 border-t border-current border-opacity-20">
-                    <div className="text-xs space-y-1">
-                      <div className="font-medium">Analysis:</div>
-                      <div className="opacity-80">
-                        Complexity: {analysis.complexity_level} 
-                        ({Math.round(analysis.reasoning.complexity_score * 100)}%)
-                      </div>
-                      <ul className="list-disc list-inside opacity-80 space-y-0.5">
-                        {analysis.reasoning.factors.map((factor, idx) => (
-                          <li key={idx}>{factor}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                )}
-              </div>
+              <span className="font-medium">
+                {analysis.recommended_mode.toUpperCase()}
+              </span>
+              <span className={`${getConfidenceColor(analysis.confidence)}`}>
+                {Math.round(analysis.confidence * 100)}%
+              </span>
             </div>
 
             {/* Toggle Details Button */}
             <button
               onClick={() => setShowDetails(!showDetails)}
-              className="text-xs opacity-70 hover:opacity-100 transition-opacity ml-2"
+              className="text-xs opacity-70 hover:opacity-100 transition-opacity"
             >
-              {showDetails ? 'Less' : 'More'}
+              {showDetails ? '▲' : '▼'}
             </button>
           </div>
 
-          {/* Override Option */}
-          {analysis.recommended_mode !== currentMode && (
-            <div className="mt-2 pt-2 border-t border-current border-opacity-20">
-              <button
-                onClick={() => onModeSelect(analysis.recommended_mode)}
-                className="text-xs font-medium hover:underline"
-              >
-                Use recommended mode →
-              </button>
+          {/* Expanded Details */}
+          {showDetails && (
+            <div className="mt-2 pt-2 border-t border-current border-opacity-20 space-y-1">
+              <p className="opacity-90">
+                {analysis.explanation.split('.')[0]}.
+              </p>
+              <div className="opacity-80 text-xs">
+                Complexity: {analysis.complexity_level} ({Math.round(analysis.reasoning.complexity_score * 100)}%)
+              </div>
             </div>
           )}
         </div>

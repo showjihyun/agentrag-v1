@@ -4,10 +4,12 @@ import logging
 import json
 import uuid
 import asyncio
-from typing import AsyncGenerator, Optional
+from typing import AsyncGenerator, Optional, Dict
 from datetime import datetime
+from collections import defaultdict
+from time import time
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -17,12 +19,14 @@ from backend.memory.manager import MemoryManager
 from backend.models.query import QueryRequest, QueryResponse
 from backend.models.hybrid import HybridQueryRequest, QueryMode, ResponseChunk
 from backend.models.agent import AgentStep, AgentState
+from backend.services.llm_manager import LLMManager
 from backend.core.auth_dependencies import get_optional_user
 from backend.core.dependencies import (
     get_aggregator_agent,
     get_memory_manager,
     get_hybrid_query_router,
     get_intelligent_mode_router,
+    get_llm_manager,
 )
 from backend.db.models.user import User
 from backend.db.database import get_db
@@ -36,6 +40,47 @@ from backend.config import settings
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/query", tags=["query"])
+
+
+# Rate Limiting (메모리 기반)
+class RateLimiter:
+    """간단한 메모리 기반 Rate Limiter"""
+    
+    def __init__(self, requests_per_minute: int = 20):
+        self.requests_per_minute = requests_per_minute
+        self.request_counts: Dict[str, list] = defaultdict(list)
+        self.window = 60  # 60초 윈도우
+    
+    def check_rate_limit(self, client_ip: str) -> bool:
+        """Rate limit 체크. True면 허용, False면 거부"""
+        now = time()
+        
+        # 윈도우 밖의 요청 제거
+        self.request_counts[client_ip] = [
+            t for t in self.request_counts[client_ip] 
+            if now - t < self.window
+        ]
+        
+        # 제한 확인
+        if len(self.request_counts[client_ip]) >= self.requests_per_minute:
+            return False
+        
+        # 요청 기록
+        self.request_counts[client_ip].append(now)
+        return True
+    
+    def get_remaining(self, client_ip: str) -> int:
+        """남은 요청 수 반환"""
+        now = time()
+        self.request_counts[client_ip] = [
+            t for t in self.request_counts[client_ip] 
+            if now - t < self.window
+        ]
+        return max(0, self.requests_per_minute - len(self.request_counts[client_ip]))
+
+
+# Rate Limiter 인스턴스
+rate_limiter = RateLimiter(requests_per_minute=20)
 
 
 def serialize_for_json(obj):
@@ -298,6 +343,123 @@ async def stream_agent_response(
         yield f"data: {json.dumps({'type': 'error', 'data': error_data, 'timestamp': datetime.now().isoformat()})}\n\n"
 
 
+async def stream_web_search_response(
+    query: str,
+    session_id: str,
+    user: User | None = None,
+    db: Session | None = None,
+    top_k: int = 10,
+) -> AsyncGenerator[str, None]:
+    """
+    Stream Web Search + RAG hybrid response.
+    
+    Combines internal RAG search with external web search for comprehensive answers.
+    """
+    query_id = str(uuid.uuid4())
+    
+    try:
+        from backend.agents.web_search_agent import get_web_search_agent
+        
+        logger.info(f"Starting Web Search + RAG hybrid query: '{query[:50]}...'")
+        
+        # Get Web Search Agent
+        web_search_agent = await get_web_search_agent()
+        
+        # Save user message to database if authenticated
+        if user and db:
+            try:
+                from backend.db.models.conversation import Message, MessageRole
+                from backend.db.models.conversation import Conversation
+                
+                # Get or create conversation
+                conversation = (
+                    db.query(Conversation)
+                    .filter(Conversation.session_id == session_id)
+                    .first()
+                )
+                
+                if not conversation:
+                    conversation = Conversation(
+                        session_id=session_id,
+                        user_id=user.id,
+                        title=query[:100],
+                    )
+                    db.add(conversation)
+                    db.flush()
+                
+                # Save user message
+                user_message = Message(
+                    conversation_id=conversation.id,
+                    role=MessageRole.USER,
+                    content=query,
+                )
+                db.add(user_message)
+                db.commit()
+                
+            except Exception as e:
+                logger.warning(f"Failed to save user message: {e}")
+                db.rollback()
+        
+        # Process query through Web Search Agent
+        response_buffer = []
+        sources = []
+        
+        async for chunk in web_search_agent.process_query(
+            query=query,
+            session_id=session_id,
+            top_k=top_k,
+            web_results=5
+        ):
+            chunk_type = chunk.get("type")
+            chunk_data = chunk.get("data", {})
+            
+            # Forward chunk to client
+            yield f"data: {json.dumps({'type': chunk_type, 'data': chunk_data, 'timestamp': datetime.now().isoformat()})}\n\n"
+            
+            # Collect response content
+            if chunk_type == "response":
+                content = chunk_data.get("content", "")
+                if content:
+                    response_buffer.append(content)
+            
+            # Collect sources
+            if chunk_type == "final":
+                sources = chunk_data.get("sources", [])
+        
+        # Save assistant message to database if authenticated
+        if user and db and response_buffer:
+            try:
+                full_response = "".join(response_buffer)
+                
+                assistant_message = Message(
+                    conversation_id=conversation.id,
+                    role=MessageRole.ASSISTANT,
+                    content=full_response,
+                    metadata={
+                        "query_id": query_id,
+                        "mode": "web_search",
+                        "sources": sources,
+                    },
+                )
+                db.add(assistant_message)
+                db.commit()
+                
+            except Exception as e:
+                logger.warning(f"Failed to save assistant message: {e}")
+                db.rollback()
+        
+        logger.info("Web Search + RAG query completed")
+        
+    except asyncio.CancelledError:
+        logger.info("Web Search query cancelled")
+        yield f"data: {json.dumps({'type': 'error', 'data': {'error': 'Query processing cancelled'}, 'timestamp': datetime.now().isoformat()})}\n\n"
+    
+    except Exception as e:
+        logger.error(f"Web Search query failed: {e}", exc_info=True)
+        error_data = {"error": str(e), "error_type": type(e).__name__}
+        yield f"data: {json.dumps({'type': 'error', 'data': error_data, 'timestamp': datetime.now().isoformat()})}\n\n"
+
+
 async def stream_hybrid_response(
     query: str,
     session_id: str,
@@ -530,6 +692,7 @@ async def stream_hybrid_response(
 
 @router.post("/", response_class=StreamingResponse)
 async def process_query(
+    http_request: Request,
     request: HybridQueryRequest,
     user: User | None = Depends(get_optional_user),
     db: Session = Depends(get_db),
@@ -666,6 +829,16 @@ async def process_query(
     Requirements: 6.5, 6.10, 12.2, 12.3
     """
     try:
+        # Rate Limiting 체크
+        client_ip = http_request.client.host if http_request.client else "unknown"
+        if not rate_limiter.check_rate_limit(client_ip):
+            remaining = rate_limiter.get_remaining(client_ip)
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"Rate limit exceeded. Try again in {60 - int(time() % 60)} seconds.",
+                headers={"X-RateLimit-Remaining": str(remaining)}
+            )
+        
         # Validate request
         if not request.query or len(request.query.strip()) == 0:
             raise HTTPException(
@@ -742,8 +915,29 @@ async def process_query(
             f"(session: {session_id}, mode: {mode.value}, hybrid_enabled: {hybrid_enabled})"
         )
 
-        # Route to appropriate handler based on feature flag
-        if hybrid_enabled and hybrid_router is not None:
+        # Route to appropriate handler based on mode
+        if mode == QueryMode.WEB_SEARCH:
+            # Use Web Search + RAG hybrid mode
+            logger.info("Using Web Search + RAG hybrid mode")
+            
+            from backend.agents.web_search_agent import get_web_search_agent
+            
+            return StreamingResponse(
+                stream_web_search_response(
+                    query=request.query,
+                    session_id=session_id,
+                    user=user,
+                    db=db,
+                    top_k=request.top_k,
+                ),
+                media_type="text/event-stream",
+                headers={
+                    "Cache-Control": "no-cache",
+                    "Connection": "keep-alive",
+                    "X-Accel-Buffering": "no",
+                },
+            )
+        elif hybrid_enabled and hybrid_router is not None:
             # Use hybrid query router (Requirements: 12.1, 12.4)
             logger.info(f"Using hybrid query router in {mode.value.upper()} mode")
 
@@ -1095,3 +1289,106 @@ async def process_query_auto_mode(
             "X-Accel-Buffering": "no",
         },
     )
+
+
+
+# Related Questions Generation Endpoint
+class RelatedQuestionsRequest(BaseModel):
+    """Request model for generating related questions."""
+    query: str = Field(..., description="Original query")
+    answer: str = Field(..., description="Generated answer")
+    sources: list[str] = Field(default_factory=list, description="Source document names")
+
+
+class RelatedQuestionsResponse(BaseModel):
+    """Response model for related questions."""
+    questions: list[str] = Field(..., description="List of related questions")
+    generated_at: str = Field(..., description="Generation timestamp")
+
+
+@router.post("/related-questions", response_model=RelatedQuestionsResponse)
+async def generate_related_questions(
+    request: RelatedQuestionsRequest,
+    llm_manager: LLMManager = Depends(get_llm_manager),
+) -> RelatedQuestionsResponse:
+    """
+    Generate related follow-up questions based on the query and answer.
+    
+    This helps users continue the conversation naturally by suggesting
+    relevant questions they might want to ask next.
+    
+    Args:
+        request: Request with query, answer, and sources
+        llm_manager: LLM manager for generating questions
+        
+    Returns:
+        List of 3-5 related questions
+    """
+    try:
+        logger.info(f"Generating related questions for query: {request.query[:50]}...")
+        
+        # Create prompt for generating related questions
+        prompt = f"""Based on the following question and answer, generate 4 related follow-up questions that a user might want to ask next.
+
+Original Question: {request.query}
+
+Answer: {request.answer[:500]}...
+
+{"Sources: " + ", ".join(request.sources[:3]) if request.sources else ""}
+
+Generate 4 specific, relevant follow-up questions that:
+1. Dive deeper into specific aspects mentioned in the answer
+2. Ask for examples or practical applications
+3. Compare or contrast related concepts
+4. Explore implications or consequences
+
+Format: Return only the questions, one per line, without numbering or bullets.
+"""
+
+        # Generate questions using LLM
+        response = await llm_manager.generate(
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant that generates relevant follow-up questions to help users explore topics more deeply."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7,
+            max_tokens=300,
+        )
+        
+        # Parse questions from response
+        questions = [
+            q.strip() 
+            for q in response.split('\n') 
+            if q.strip() and len(q.strip()) > 10 and '?' in q
+        ]
+        
+        # Limit to 4 questions
+        questions = questions[:4]
+        
+        # Fallback if generation failed
+        if len(questions) < 2:
+            questions = [
+                "Can you explain this in more detail?",
+                "What are some practical examples?",
+                "How does this compare to related concepts?",
+                "What are the implications of this?",
+            ]
+        
+        logger.info(f"Generated {len(questions)} related questions")
+        
+        return RelatedQuestionsResponse(
+            questions=questions,
+            generated_at=datetime.now().isoformat(),
+        )
+        
+    except Exception as e:
+        logger.error(f"Failed to generate related questions: {e}", exc_info=True)
+        # Return fallback questions instead of error
+        return RelatedQuestionsResponse(
+            questions=[
+                "Can you provide more details about this?",
+                "What are some examples?",
+                "How can this be applied in practice?",
+            ],
+            generated_at=datetime.now().isoformat(),
+        )

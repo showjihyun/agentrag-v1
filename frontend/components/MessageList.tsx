@@ -1,49 +1,29 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
-import { AgentStep, SearchResult } from '@/lib/types';
-import ReasoningSteps from '@/components/ReasoningSteps';
-import SourceCitations from '@/components/SourceCitations';
-import ResponseStatusBadge from '@/components/ResponseStatusBadge';
-import RefinementHighlight from '@/components/RefinementHighlight';
-import ResponseComparison from '@/components/ResponseComparison';
-import CacheIndicator from '@/components/CacheIndicator';
-import ResponseFeedback from '@/components/ResponseFeedback';
+import React, { useEffect, useRef, useMemo } from 'react';
 import { EmptyState } from '@/components/ui/EmptyState';
+import MessageItem, { Message } from '@/components/MessageItem';
+import MessageSkeleton from '@/components/MessageSkeleton';
 
-export interface Message {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: Date;
-  reasoningSteps?: AgentStep[];
-  sources?: SearchResult[];
-  // Progressive response properties
-  responseType?: 'preliminary' | 'refinement' | 'final';
-  pathSource?: 'speculative' | 'agentic' | 'hybrid';
-  confidenceScore?: number;
-  isRefining?: boolean;
-  previousContent?: string; // For comparison toggle
-  // Cache properties
-  isCached?: boolean;
-  cacheSimilarity?: number;
-  cacheType?: 'exact' | 'semantic';
-  // Performance metrics
-  processingTime?: number; // Processing time in seconds
-}
+export type { Message };
 
 interface MessageListProps {
   messages: Message[];
   isProcessing?: boolean;
+  onRegenerate?: (messageId: string) => void;
+  onRelatedQuestionClick?: (question: string) => void;
 }
 
-const MessageList: React.FC<MessageListProps> = ({ messages, isProcessing }) => {
+const MessageList: React.FC<MessageListProps> = ({ messages, isProcessing, onRegenerate, onRelatedQuestionClick }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isUserScrolling, setIsUserScrolling] = React.useState(false);
   const [shouldAutoScroll, setShouldAutoScroll] = React.useState(true);
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastScrollTop = useRef<number>(0);
+  
+  // Memoize messages to prevent unnecessary re-renders
+  const memoizedMessages = useMemo(() => messages, [messages]);
 
   // Detect if user is scrolling
   useEffect(() => {
@@ -147,198 +127,16 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isProcessing }) => 
         />
       ) : (
         <div className="space-y-6">
-          {messages.map((message, index) => (
-            <div
+          {memoizedMessages.map((message, index) => (
+            <MessageItem
               key={message.id}
-              className={`flex ${
-                message.role === 'user' ? 'justify-end' : 'justify-start'
-              } animate-fadeIn`}
-              style={{
-                animationDelay: `${index * 0.05}s`,
-                animationFillMode: 'both'
-              }}
-              role="article"
-              aria-label={`${message.role === 'user' ? 'User' : 'Assistant'} message`}
-            >
-              <div
-                className={`w-full max-w-3xl ${
-                  message.role === 'user'
-                    ? 'bg-blue-600 text-white shadow-lg'
-                    : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-md hover:shadow-lg'
-                } rounded-2xl p-5 transition-all duration-200`}
-                style={{ minWidth: 0 }}
-              >
-                <div className="flex items-start gap-3">
-                  <div
-                    className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-                      message.role === 'user'
-                        ? 'bg-blue-700'
-                        : 'bg-gray-200 dark:bg-gray-700'
-                    }`}
-                  >
-                    {message.role === 'user' ? (
-                      <svg
-                        className="w-5 h-5"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    ) : (
-                      <svg
-                        className="w-5 h-5 text-gray-600 dark:text-gray-300"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path d="M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5z" />
-                        <path d="M15 7v2a4 4 0 01-4 4H9.828l-1.766 1.767c.28.149.599.233.938.233h2l3 3v-3h2a2 2 0 002-2V9a2 2 0 00-2-2h-1z" />
-                      </svg>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium mb-1">
-                      {message.role === 'user' ? 'You' : 'Assistant'}
-                    </p>
-                    
-                    {message.role === 'assistant' && (
-                      <div className="mb-2 flex flex-wrap items-center gap-2">
-                        <ResponseStatusBadge
-                          responseType={message.responseType}
-                          pathSource={message.pathSource}
-                          confidenceScore={message.confidenceScore}
-                          isRefining={message.isRefining}
-                        />
-                        <CacheIndicator
-                          isCached={message.isCached || false}
-                          similarity={message.cacheSimilarity}
-                          cacheType={message.cacheType}
-                        />
-                      </div>
-                    )}
-                    
-                    {message.role === 'assistant' && message.responseType ? (
-                      message.isRefining ? (
-                        <RefinementHighlight
-                          content={message.content}
-                          previousContent={message.previousContent}
-                          isRefining={message.isRefining}
-                        />
-                      ) : (
-                        <ResponseComparison
-                          currentContent={message.content}
-                          previousContent={message.previousContent}
-                          responseType={message.responseType}
-                        />
-                      )
-                    ) : (
-                      <div className="prose prose-sm dark:prose-invert max-w-none break-words overflow-wrap-anywhere">
-                        <p className="whitespace-pre-wrap break-words">{message.content || ''}</p>
-                      </div>
-                    )}
-                    {message.reasoningSteps && message.reasoningSteps.length > 0 && (
-                      <div className="mt-3">
-                        <ReasoningSteps 
-                          steps={message.reasoningSteps} 
-                          isProcessing={message.role === 'assistant' && message.isRefining}
-                        />
-                      </div>
-                    )}
-                    {message.sources && message.sources.length > 0 && (
-                      <div className="mt-3">
-                        <SourceCitations sources={message.sources} />
-                      </div>
-                    )}
-                    
-                    {message.role === 'assistant' && message.responseType === 'final' && (
-                      <ResponseFeedback
-                        messageId={message.id}
-                        onFeedback={async (rating, details) => {
-                          // Send feedback to backend
-                          try {
-                            await fetch('/api/feedback', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({
-                                message_id: message.id,
-                                rating,
-                                details,
-                                mode: message.pathSource,
-                                confidence: message.confidenceScore,
-                                timestamp: new Date().toISOString()
-                              })
-                            });
-                          } catch (error) {
-                            console.error('Failed to submit feedback:', error);
-                          }
-                        }}
-                      />
-                    )}
-                    
-                    <div className="flex items-center gap-3 text-xs opacity-70 mt-2">
-                      <span>{message.timestamp.toLocaleTimeString()}</span>
-                      {message.role === 'assistant' && message.processingTime !== undefined && (
-                        <span className="flex items-center gap-1">
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          {message.processingTime < 1 
-                            ? `${(message.processingTime * 1000).toFixed(0)}ms`
-                            : `${message.processingTime.toFixed(2)}s`
-                          }
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+              message={message}
+              index={index}
+              onRegenerate={onRegenerate}
+              onRelatedQuestionClick={onRelatedQuestionClick}
+            />
           ))}
-          {isProcessing && (
-            <div className="flex justify-start animate-fadeIn">
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-5">
-                <div className="flex items-center gap-3">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                    <svg
-                      className="w-5 h-5 text-white animate-spin"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      />
-                    </svg>
-                  </div>
-                  <div className="flex flex-col">
-                    <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                      AI is thinking...
-                    </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      Analyzing your question
-                    </div>
-                  </div>
-                  <div className="flex gap-1 ml-2">
-                    <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                    <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                    <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          {isProcessing && <MessageSkeleton />}
         </div>
       )}
       <div ref={messagesEndRef} className="h-4" />

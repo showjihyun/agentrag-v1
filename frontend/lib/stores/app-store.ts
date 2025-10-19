@@ -30,8 +30,8 @@ interface AppState {
   setIsLoading: (loading: boolean) => void;
   
   // Query mode
-  selectedMode: 'fast' | 'balanced' | 'deep' | 'auto';
-  setSelectedMode: (mode: 'fast' | 'balanced' | 'deep' | 'auto') => void;
+  selectedMode: 'fast' | 'balanced' | 'deep' | 'auto' | 'web_search';
+  setSelectedMode: (mode: 'fast' | 'balanced' | 'deep' | 'auto' | 'web_search') => void;
   
   // Theme
   theme: 'light' | 'dark' | 'system';

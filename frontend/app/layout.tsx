@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "@/components/Toast";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { QueryProvider } from "@/lib/providers/query-provider";
@@ -44,6 +44,8 @@ export const viewport: Viewport = {
 
 import SkipToContent from "@/components/SkipToContent";
 import PWAInit from "@/components/PWAInit";
+import { Header } from "@/components/Header";
+import NetworkStatus from "@/components/NetworkStatus";
 
 export default function RootLayout({
   children,
@@ -57,11 +59,13 @@ export default function RootLayout({
       >
         <SkipToContent />
         <PWAInit />
+        <NetworkStatus />
         <ErrorBoundary>
           <ThemeProvider>
             <QueryProvider>
               <AuthProvider>
                 <ToastProvider>
+                  <Header />
                   {children}
                 </ToastProvider>
               </AuthProvider>

@@ -1,4 +1,39 @@
 # FastAPI application entry point
+
+# Suppress ALL warnings globally before any imports
+import warnings
+import os
+import sys
+
+# Set environment variable BEFORE any imports
+os.environ["PYTHONWARNINGS"] = "ignore"
+
+# Comprehensive warning suppression - catch everything
+warnings.filterwarnings("ignore")
+warnings.simplefilter("ignore")
+
+# Specific suppressions for known warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", category=UserWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
+warnings.filterwarnings("ignore", message=".*Pydantic.*")
+warnings.filterwarnings("ignore", message=".*pydantic.*")
+warnings.filterwarnings("ignore", message=".*model_fields.*")
+warnings.filterwarnings("ignore", message=".*PydanticSerializationUnexpectedValue.*")
+warnings.filterwarnings("ignore", message=".*PydanticDeprecatedSince.*")
+warnings.filterwarnings("ignore", message=".*dict.*method is deprecated.*")
+warnings.filterwarnings("ignore", message=".*model_dump.*")
+warnings.filterwarnings("ignore", message=".*StreamingChoices.*")
+warnings.filterwarnings("ignore", message=".*Message.*serialized value.*")
+
+# Suppress specific pydantic warnings by category
+try:
+    from pydantic import PydanticDeprecatedSince20, PydanticDeprecatedSince211
+    warnings.filterwarnings("ignore", category=PydanticDeprecatedSince20)
+    warnings.filterwarnings("ignore", category=PydanticDeprecatedSince211)
+except ImportError:
+    pass
+
 import logging
 import os
 import uuid
@@ -502,10 +537,14 @@ from backend.api import (
     usage,
     models,
     react_stats,
-    monitoring,
     advanced_rag,
     enterprise,
+    monitoring_stats,
+    web_search,
 )
+
+# Import new monitoring API
+from backend.api import monitoring as monitoring_api
 
 app.include_router(health.router)
 app.include_router(auth.router)
@@ -531,11 +570,16 @@ app.include_router(usage.router)
 # ReAct Statistics API
 app.include_router(react_stats.router)
 # Monitoring API (Priority 1)
-app.include_router(monitoring.router)
+app.include_router(monitoring_stats.router)
+
+# New Monitoring Statistics API (PostgreSQL-based)
+app.include_router(monitoring_api.router)
 # Advanced RAG API (Priority 3)
 app.include_router(advanced_rag.router)
 # Enterprise API (Priority 4)
 app.include_router(enterprise.router)
+# Web Search API
+app.include_router(web_search.router)
 
 
 @app.get("/api/health")

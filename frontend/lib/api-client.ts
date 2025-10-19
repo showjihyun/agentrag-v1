@@ -297,9 +297,12 @@ export class RAGApiClient {
     query: string,
     options?: { mode?: string; session_id?: string; top_k?: number }
   ): AsyncGenerator<StreamChunk> {
+    // Convert mode to lowercase for backend compatibility
+    const mode = options?.mode ? options.mode.toLowerCase() : 'auto';
+    
     const requestBody: any = {
       query,
-      mode: options?.mode || 'fast',
+      mode,
       top_k: options?.top_k || 10,
     };
     
@@ -338,6 +341,8 @@ export class RAGApiClient {
       const lines = chunk.split('\n');
 
       for (const line of lines) {
+        if (!line || !line.trim()) continue; // Skip empty lines
+        
         if (line.startsWith('data: ')) {
           const data = line.slice(6);
           if (data === '[DONE]') {
@@ -346,7 +351,7 @@ export class RAGApiClient {
           try {
             yield JSON.parse(data) as StreamChunk;
           } catch (e) {
-            console.error('Failed to parse chunk:', e);
+            console.error('Failed to parse chunk:', data, e);
           }
         }
       }

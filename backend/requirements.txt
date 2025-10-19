@@ -11,7 +11,7 @@ langchain-community==0.3.18
 langchain-core==0.3.37  # Required by langchain-community 0.3.18
 langgraph==0.2.55
 langsmith==0.3.45  # Required by langchain-core 0.3.37+
-litellm==1.17.9
+litellm==1.17.9  # LLM provider abstraction (Ollama, OpenAI, Claude)
 
 # Embeddings (Numpy 2.x compatible - Fixed versions)
 transformers==4.44.2  # Hugging Face transformers (stable, numpy 2.x compatible)
@@ -90,6 +90,9 @@ networkx==3.2.1  # For knowledge graph and entity relationships
 
 # Retry and Resilience
 tenacity==8.2.3  # Retry logic for LLM calls
+
+# Token Management
+tiktoken==0.5.2  # Token counting for LLM optimization
 
 # Testing
 pytest==7.4.0
