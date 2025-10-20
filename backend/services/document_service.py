@@ -212,12 +212,18 @@ class DocumentService:
                 text = result['native_text']
                 chunks = result['native_chunks']
                 
+                # Safe access to optional fields
+                text_ratio = result.get('text_ratio', 0.0)
+                is_scanned = result.get('is_scanned', False)
+                colpali_processed = result.get('colpali_processed', False)
+                processing_method = result.get('processing_method', 'unknown')
+                
                 logger.info(
                     f"Hybrid processing completed for {document_id}: "
-                    f"method={result['processing_method']}, "
-                    f"text_ratio={result['text_ratio']:.2f}, "
-                    f"is_scanned={result['is_scanned']}, "
-                    f"colpali_processed={result['colpali_processed']}, "
+                    f"method={processing_method}, "
+                    f"text_ratio={text_ratio:.2f}, "
+                    f"is_scanned={is_scanned}, "
+                    f"colpali_processed={colpali_processed}, "
                     f"chunks={len(chunks)}"
                 )
 
@@ -240,7 +246,17 @@ class DocumentService:
 
             # Step 7: Generate embeddings
             try:
-                chunk_texts = [chunk.text for chunk in chunks]
+                # Handle both dict and object chunks
+                chunk_texts = []
+                for chunk in chunks:
+                    if isinstance(chunk, dict):
+                        # Dict format: get 'text' or 'content' key
+                        chunk_text = chunk.get('text') or chunk.get('content', '')
+                    else:
+                        # Object format: use .text attribute
+                        chunk_text = chunk.text
+                    chunk_texts.append(chunk_text)
+                
                 embeddings = await self.embedding_service.embed_batch(chunk_texts)
                 logger.info(
                     f"Generated {len(embeddings)} embeddings for document {document_id}"
@@ -271,11 +287,21 @@ class DocumentService:
                 upload_timestamp = int(datetime.utcnow().timestamp())
 
                 for i, chunk in enumerate(chunks):
+                    # Handle both dict and object chunks
+                    if isinstance(chunk, dict):
+                        chunk_id = chunk.get('chunk_id', f"{document_id}_chunk_{i}")
+                        chunk_text = chunk.get('text') or chunk.get('content', '')
+                        chunk_index = chunk.get('chunk_index', i)
+                    else:
+                        chunk_id = chunk.chunk_id
+                        chunk_text = chunk.text
+                        chunk_index = chunk.chunk_index
+                    
                     metadata = {
-                        "id": chunk.chunk_id,
+                        "id": chunk_id,
                         "document_id": str(document_id),
-                        "text": chunk.text,
-                        "chunk_index": chunk.chunk_index,
+                        "text": chunk_text,
+                        "chunk_index": chunk_index,
                         "document_name": file.filename,
                         "file_type": file_type,
                         "upload_date": upload_timestamp,

@@ -182,7 +182,7 @@ class HybridDocumentProcessor:
                 logger.info(f"💾 Saving {len(docling_result['tables'])} tables to Milvus...")
                 for table in docling_result['tables']:
                     try:
-                        self.structured_data_service.insert_table(
+                        await self.structured_data_service.insert_table(
                             table_id=table['table_id'],
                             document_id=table['document_id'],
                             user_id=table['user_id'],
@@ -197,11 +197,13 @@ class HybridDocumentProcessor:
                         logger.error(f"Failed to save table {table['table_id']}: {e}")
             
             # 결과 변환 (기존 형식과 호환)
+            native_text = self._combine_text_chunks(docling_result.get('text_chunks', []))
+            
             result = {
                 'document_id': document_id,
                 'file_type': file_type,
                 'processing_method': 'docling',
-                'native_text': self._combine_text_chunks(docling_result.get('text_chunks', [])),
+                'native_text': native_text,
                 'native_chunks': docling_result.get('text_chunks', []),
                 'tables': docling_result.get('tables', []),
                 'figures': docling_result.get('figures', []),
@@ -215,7 +217,10 @@ class HybridDocumentProcessor:
                 ),
                 'layout': docling_result.get('layout', {}),
                 'metadata': docling_result.get('metadata', {}),
-                'stats': docling_result.get('stats', {})
+                'stats': docling_result.get('stats', {}),
+                # Add missing fields for compatibility
+                'text_ratio': 1.0 if native_text and len(native_text.strip()) > 100 else 0.5,
+                'is_scanned': False  # Docling handles text extraction well
             }
             
             logger.info(

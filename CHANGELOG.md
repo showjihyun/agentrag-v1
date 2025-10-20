@@ -7,10 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-- GitHub Actions CI/CD workflows
-- Comprehensive documentation
-- Issue and PR templates
+### Fixed
+- **Web Search Service**: Updated DuckDuckGo package from deprecated `duckduckgo-search` to `ddgs`
+- **Web Search Agent**: Fixed `AttributeError` - changed `embed_query()` to `embed_text()` for EmbeddingService
+- **Dependencies**: Updated `backend/requirements.txt` to use `ddgs>=1.0.0`
+
+### Changed
+- Improved error handling in web search agent RAG functionality
+- Enhanced compatibility with latest package versions
 
 ## [1.0.0] - 2025-10-17
 

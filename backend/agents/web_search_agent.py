@@ -239,7 +239,7 @@ class WebSearchAgent:
             logger.info(f"RAG search: '{query[:50]}...' (top_k={top_k})")
             
             # 쿼리 임베딩
-            query_embedding: List[float] = await self.embedding_service.embed_query(query)
+            query_embedding: List[float] = await self.embedding_service.embed_text(query)
             
             # Milvus 검색
             results: List[Dict[str, Any]] = await self.milvus_manager.search(

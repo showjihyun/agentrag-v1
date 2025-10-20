@@ -11,6 +11,17 @@ import json
 
 logger = logging.getLogger(__name__)
 
+# Lazy import for embedding service
+_embedding_service = None
+
+def get_embedding_service():
+    """Get or create embedding service instance"""
+    global _embedding_service
+    if _embedding_service is None:
+        from backend.services.embedding import EmbeddingService
+        _embedding_service = EmbeddingService()
+    return _embedding_service
+
 
 class StructuredDataService:
     """
@@ -73,6 +84,8 @@ class StructuredDataService:
                 FieldSchema(name="table_data", dtype=DataType.JSON),  # 구조화된 데이터
                 FieldSchema(name="bbox", dtype=DataType.JSON),
                 FieldSchema(name="metadata", dtype=DataType.JSON),
+                # Milvus requires at least one vector field
+                FieldSchema(name="text_embedding", dtype=DataType.FLOAT_VECTOR, dim=768),  # 텍스트 임베딩
             ]
             
             schema = CollectionSchema(
@@ -96,13 +109,24 @@ class StructuredDataService:
                 index_name="document_id_index"
             )
             
+            # 벡터 필드 인덱스 생성
+            index_params = {
+                "metric_type": "L2",
+                "index_type": "IVF_FLAT",
+                "params": {"nlist": 128}
+            }
+            self.collection.create_index(
+                field_name="text_embedding",
+                index_params=index_params
+            )
+            
             logger.info(f"Created new collection: {self.collection_name}")
             
         except Exception as e:
             logger.error(f"Failed to initialize collection: {e}")
             raise
     
-    def insert_table(
+    async def insert_table(
         self,
         table_id: str,
         document_id: str,
@@ -132,6 +156,11 @@ class StructuredDataService:
             table_id
         """
         try:
+            # Generate text embedding for searchable text
+            embedding_service = get_embedding_service()
+            text_for_embedding = f"{caption} {searchable_text}"[:1000]  # Limit length
+            text_embedding = await embedding_service.embed_text(text_for_embedding)
+            
             entities = [
                 [table_id],
                 [table_id],
@@ -142,7 +171,8 @@ class StructuredDataService:
                 [searchable_text[:10000]],
                 [table_data],
                 [bbox or []],
-                [metadata or {}]
+                [metadata or {}],
+                [text_embedding]  # Add embedding
             ]
             
             self.collection.insert(entities)

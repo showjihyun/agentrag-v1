@@ -121,10 +121,14 @@ class PoolMonitor:
 
                 # Check for potential leaks
                 if duration > self.leak_detection_threshold:
+                    import traceback
+                    stack_trace = ''.join(traceback.format_stack())
+                    
                     leak_data = {
                         "duration": duration,
                         "timestamp": datetime.utcnow(),
                         "threshold": self.leak_detection_threshold,
+                        "stack_trace": stack_trace
                     }
                     self.potential_leaks.append(leak_data)
 
@@ -132,6 +136,7 @@ class PoolMonitor:
                         f"POTENTIAL CONNECTION LEAK: {duration:.2f}s "
                         f"(threshold: {self.leak_detection_threshold}s)"
                     )
+                    logger.debug(f"Stack trace:\n{stack_trace}")
 
                 del self.checkout_times[conn_id]
 

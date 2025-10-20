@@ -3,7 +3,6 @@
 import React, { useEffect } from 'react';
 import { X } from 'lucide-react';
 import ModeSelector from './ModeSelector';
-import ModelSelector from './ModelSelector';
 import { QueryMode } from '@/lib/types';
 
 interface MobileBottomSheetProps {
@@ -133,14 +132,6 @@ export default function MobileBottomSheet({
               />
             </div>
           )}
-
-          {/* Model Selector */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              AI Model
-            </label>
-            <ModelSelector />
-          </div>
 
           {/* Web Search Toggle */}
           <div className="space-y-2">

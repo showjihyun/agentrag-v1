@@ -9,45 +9,45 @@ import type { NextRequest } from 'next/server'
  */
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
-  
+
   // Get auth token from cookies
   const token = request.cookies.get('auth_token')?.value
-  
+
   // Define protected routes
   const protectedRoutes = [
     '/dashboard',
     '/api/documents',
     '/api/conversations',
   ]
-  
+
   // Define auth routes (redirect to home if already authenticated)
   const authRoutes = [
     '/auth/login',
     '/auth/register',
   ]
-  
+
   // Check if current path is protected
-  const isProtectedRoute = protectedRoutes.some(route => 
+  const isProtectedRoute = protectedRoutes.some(route =>
     pathname.startsWith(route)
   )
-  
+
   // Check if current path is auth route
-  const isAuthRoute = authRoutes.some(route => 
+  const isAuthRoute = authRoutes.some(route =>
     pathname.startsWith(route)
   )
-  
+
   // Redirect to login if accessing protected route without token
   if (isProtectedRoute && !token) {
     const loginUrl = new URL('/auth/login', request.url)
     loginUrl.searchParams.set('redirect', pathname)
     return NextResponse.redirect(loginUrl)
   }
-  
+
   // Redirect to home if accessing auth route with valid token
   if (isAuthRoute && token) {
     return NextResponse.redirect(new URL('/', request.url))
   }
-  
+
   return NextResponse.next()
 }
 

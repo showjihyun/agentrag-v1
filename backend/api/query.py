@@ -1345,14 +1345,17 @@ Generate 4 specific, relevant follow-up questions that:
 Format: Return only the questions, one per line, without numbering or bullets.
 """
 
-        # Generate questions using LLM
-        response = await llm_manager.generate(
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant that generates relevant follow-up questions to help users explore topics more deeply."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.7,
-            max_tokens=300,
+        # Generate questions using LLM with shorter timeout (non-critical feature)
+        response = await asyncio.wait_for(
+            llm_manager.generate(
+                messages=[
+                    {"role": "system", "content": "You are a helpful assistant that generates relevant follow-up questions to help users explore topics more deeply."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.7,
+                max_tokens=300,
+            ),
+            timeout=5.0  # 5 seconds timeout for non-critical feature
         )
         
         # Parse questions from response
@@ -1381,8 +1384,19 @@ Format: Return only the questions, one per line, without numbering or bullets.
             generated_at=datetime.now().isoformat(),
         )
         
+    except asyncio.TimeoutError:
+        logger.warning("Related questions generation timed out (5s), using fallback questions")
+        # Return fallback questions instead of error
+        return RelatedQuestionsResponse(
+            questions=[
+                "Can you provide more details about this?",
+                "What are some examples?",
+                "How can this be applied in practice?",
+            ],
+            generated_at=datetime.now().isoformat(),
+        )
     except Exception as e:
-        logger.error(f"Failed to generate related questions: {e}", exc_info=True)
+        logger.error(f"Failed to generate related questions: {e}")
         # Return fallback questions instead of error
         return RelatedQuestionsResponse(
             questions=[

@@ -2,7 +2,6 @@ import React, { memo } from 'react';
 import ModeSelector from './ModeSelector';
 import ModeRecommendation from './ModeRecommendation';
 import QueryComplexityIndicator from './QueryComplexityIndicator';
-import ModelSelector from './ModelSelector';
 
 interface AdvancedOptionsProps {
   input: string;
@@ -54,8 +53,6 @@ const AdvancedOptions: React.FC<AdvancedOptionsProps> = memo(({
           />
         </div>
       )}
-      
-      <ModelSelector />
       
       <div className="flex items-center gap-2">
         <button

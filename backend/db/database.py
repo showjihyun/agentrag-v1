@@ -29,7 +29,9 @@ try:
     from backend.db.pool_monitor import setup_pool_monitoring
 
     pool_monitor = setup_pool_monitoring(
-        engine=engine, long_connection_threshold=5.0, leak_detection_threshold=30.0
+        engine=engine, 
+        long_connection_threshold=10.0,  # Increased for document processing
+        leak_detection_threshold=60.0    # Increased for long-running operations
     )
     logger.info("✅ Pool monitoring enabled")
 except Exception as e:

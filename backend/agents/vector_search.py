@@ -440,15 +440,28 @@ class VectorSearchAgent:
                 
                 # Convert to standard format
                 for result in search_results:
-                    all_results.append({
-                        "id": result.get("chunk_id", result.get("id", "")),
-                        "chunk_id": result.get("chunk_id", ""),
-                        "document_id": result.get("document_id", ""),
-                        "document_name": result.get("document_name", "Unknown"),
-                        "text": result.get("text", ""),
-                        "score": result.get("score", 0.0),
-                        "metadata": result.get("metadata", {})
-                    })
+                    # Handle both dict and SearchResult object
+                    if isinstance(result, dict):
+                        all_results.append({
+                            "id": result.get("chunk_id", result.get("id", "")),
+                            "chunk_id": result.get("chunk_id", ""),
+                            "document_id": result.get("document_id", ""),
+                            "document_name": result.get("document_name", "Unknown"),
+                            "text": result.get("text", ""),
+                            "score": result.get("score", 0.0),
+                            "metadata": result.get("metadata", {})
+                        })
+                    else:
+                        # Handle Milvus SearchResult object
+                        all_results.append({
+                            "id": getattr(result, "chunk_id", getattr(result, "id", "")),
+                            "chunk_id": getattr(result, "chunk_id", ""),
+                            "document_id": getattr(result, "document_id", ""),
+                            "document_name": getattr(result, "document_name", "Unknown"),
+                            "text": getattr(result, "text", ""),
+                            "score": getattr(result, "score", getattr(result, "distance", 0.0)),
+                            "metadata": getattr(result, "metadata", {})
+                        })
                     
             except Exception as e:
                 logger.error(f"Direct Milvus search failed for query '{query}': {e}")

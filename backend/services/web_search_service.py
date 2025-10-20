@@ -260,7 +260,7 @@ class WebSearchService:
         DuckDuckGo로 검색 (폴백)
         """
         try:
-            from duckduckgo_search import DDGS
+            from ddgs import DDGS
             
             ddgs = DDGS()
             results = []
@@ -283,7 +283,7 @@ class WebSearchService:
             return results
             
         except ImportError:
-            logger.warning("duckduckgo-search not installed, using HTML fallback")
+            logger.warning("ddgs not installed, using HTML fallback")
             return await self._search_duckduckgo_html(query, max_results, region)
         except Exception as e:
             logger.error(f"DuckDuckGo search failed: {e}")

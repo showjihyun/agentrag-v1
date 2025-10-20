@@ -156,9 +156,27 @@ class ColPaliProcessor:
             raise FileNotFoundError(f"Image not found: {image_path}")
         
         try:
-            # 이미지 로드
-            image = Image.open(image_path).convert("RGB")
-            image_size = image.size
+            # Check if it's a PDF file
+            if image_path.lower().endswith('.pdf'):
+                # Convert PDF to images
+                import fitz  # PyMuPDF
+                doc = fitz.open(image_path)
+                
+                # Process first page only for now
+                page = doc[0]
+                pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))  # 2x scale for better quality
+                
+                # Convert to PIL Image
+                import io
+                img_data = pix.tobytes("png")
+                image = Image.open(io.BytesIO(img_data)).convert("RGB")
+                image_size = image.size
+                
+                doc.close()
+            else:
+                # 이미지 로드
+                image = Image.open(image_path).convert("RGB")
+                image_size = image.size
             
             # 전처리
             inputs = self.processor(
@@ -307,9 +325,18 @@ class ColPaliProcessor:
             쿼리 임베딩 (M, D)
         """
         try:
-            # 텍스트 전처리
+            # PaliGemmaProcessor는 이미지가 필요하므로 더미 이미지 생성
+            # 또는 텍스트 전용 처리 방식 사용
+            from PIL import Image
+            import numpy as np
+            
+            # 작은 더미 이미지 생성 (1x1 흰색 이미지)
+            dummy_image = Image.new('RGB', (1, 1), color='white')
+            
+            # 텍스트와 더미 이미지로 전처리
             inputs = self.processor(
                 text=query,
+                images=dummy_image,
                 return_tensors="pt"
             ).to(self.device)
             

@@ -218,6 +218,7 @@ class ServiceContainer:
                     
                     colpali_processor = get_colpali_processor(
                         model_name=settings.COLPALI_MODEL,
+                        use_gpu=settings.COLPALI_USE_GPU,
                         enable_binarization=settings.COLPALI_ENABLE_BINARIZATION,
                         enable_pooling=settings.COLPALI_ENABLE_POOLING,
                         pooling_factor=settings.COLPALI_POOLING_FACTOR
