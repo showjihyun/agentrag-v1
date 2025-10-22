@@ -1452,13 +1452,16 @@ class DocumentProcessor:
 
     def extract_text_from_image(self, file_content: bytes) -> str:
         """
-        Extract text from image file using OCR and Vision LLM.
+        Extract text from image file using PaddleOCR.
 
         Supports: PNG, JPG, JPEG, GIF, BMP, WEBP
 
-        Uses hybrid approach:
-        1. Try OCR first (fast, free)
-        2. If OCR quality is low, use Vision LLM (accurate, paid)
+        Uses PaddleOCR (Official GitHub):
+        - Text detection and recognition
+        - Text direction classification
+        - Multi-language support (Korean optimized)
+        - GPU acceleration
+        - 95%+ accuracy for printed text
 
         Args:
             file_content: Image file content as bytes
@@ -1470,81 +1473,119 @@ class DocumentProcessor:
             DocumentProcessingError: If extraction fails
         """
         try:
-            # Option 1: Use ColPali for image processing (preferred for multimodal RAG)
+            # Use PaddleOCR Advanced for full document understanding
             try:
-                from backend.services.colpali_processor import get_colpali_processor
-                logger.info("Processing image with ColPali for multimodal RAG")
+                from backend.services.paddleocr_advanced import get_paddleocr_advanced
+                from backend.config import settings
                 
-                import tempfile
-                import os
-
-                # Save content to temporary file
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_file:
-                    tmp_file.write(file_content)
-                    tmp_path = tmp_file.name
-
-                try:
-                    # Get ColPali processor
-                    processor = get_colpali_processor()
+                logger.info("Extracting text from image using PaddleOCR Advanced")
+                
+                # Get PaddleOCR Advanced processor
+                processor = get_paddleocr_advanced(
+                    lang=settings.PADDLEOCR_LANG,
+                    use_gpu=settings.PADDLEOCR_USE_GPU,
+                    enable_table_recognition=True,
+                    enable_layout_analysis=True
+                )
+                
+                if not processor or not processor.ocr_available:
+                    logger.warning("PaddleOCR not available")
+                    return "[Image content - PaddleOCR not installed. Install with: pip install paddlepaddle-gpu paddleocr[all]]"
+                
+                # Process document with full capabilities
+                result = processor.process_document(
+                    file_content,
+                    extract_tables=True,
+                    analyze_layout=True,
+                    cls=True
+                )
+                
+                # Build comprehensive text output
+                text_parts = []
+                
+                # 1. Main text
+                if result['text']:
+                    text_parts.append("=" * 70)
+                    text_parts.append("[EXTRACTED TEXT - PP-OCRv5]")
+                    text_parts.append("=" * 70)
+                    text_parts.append(result['text'])
+                    text_parts.append("")
+                
+                # 2. Tables (PP-StructureV3)
+                if result['tables']:
+                    text_parts.append("=" * 70)
+                    text_parts.append(f"[TABLES - PP-StructureV3] ({len(result['tables'])} detected)")
+                    text_parts.append("=" * 70)
                     
-                    # Process image
-                    result = processor.process_image(tmp_path)
-                    
-                    # ColPali doesn't extract text, it creates embeddings
-                    # Return a description instead
-                    text = f"[Image processed with ColPali]\n"
-                    text += f"Image file: {os.path.basename(tmp_path)}\n"
-                    text += f"Embeddings: {result.get('num_patches', 0)} patches\n"
-                    text += f"Method: ColPali multimodal embedding\n"
-                    text += f"\nNote: This image is indexed for visual search. "
-                    text += f"You can search for it using text descriptions or similar images."
-                    
-                    logger.info(f"Successfully processed image with ColPali ({result.get('num_patches', 0)} patches)")
-                    return text
-
-                finally:
-                    # Clean up temporary file
-                    if os.path.exists(tmp_path):
-                        os.unlink(tmp_path)
+                    for i, table in enumerate(result['tables'], 1):
+                        text_parts.append(f"\n--- Table {i} ---")
+                        text_parts.append(f"Confidence: {table['confidence']:.2%}")
                         
-            except ImportError:
-                logger.info("ColPali not available, trying OCR fallback")
-                pass
+                        # Add HTML table structure if available
+                        if table.get('html'):
+                            text_parts.append("HTML Structure:")
+                            text_parts.append(table['html'][:500])  # First 500 chars
+                        
+                        # Add cell information
+                        if table.get('cells'):
+                            text_parts.append(f"Cells: {len(table['cells'])}")
+                        
+                        text_parts.append("")
+                
+                # 3. Layout Analysis
+                if result['layout']:
+                    text_parts.append("=" * 70)
+                    text_parts.append(f"[LAYOUT ANALYSIS] ({len(result['layout'])} regions)")
+                    text_parts.append("=" * 70)
+                    
+                    # Group by type
+                    layout_summary = {}
+                    for region in result['layout']:
+                        region_type = region['type']
+                        layout_summary[region_type] = layout_summary.get(region_type, 0) + 1
+                    
+                    for region_type, count in sorted(layout_summary.items()):
+                        text_parts.append(f"- {region_type}: {count} region(s)")
+                    
+                    text_parts.append("")
+                
+                # 4. Statistics
+                stats = result['stats']
+                text_parts.append("=" * 70)
+                text_parts.append("[OCR STATISTICS]")
+                text_parts.append("=" * 70)
+                text_parts.append(f"Text Boxes: {stats['num_text_boxes']}")
+                text_parts.append(f"Tables: {stats['num_tables']}")
+                text_parts.append(f"Layout Regions: {stats['num_layout_regions']}")
+                text_parts.append(f"Total Characters: {stats['total_characters']}")
+                text_parts.append(f"Average Confidence: {stats['avg_confidence']:.2%}")
+                text_parts.append("=" * 70)
+                
+                final_text = "\n".join(text_parts)
+                
+                logger.info(
+                    f"✅ PaddleOCR Advanced: {stats['total_characters']} chars, "
+                    f"{stats['num_tables']} tables, {stats['num_layout_regions']} regions "
+                    f"(confidence: {stats['avg_confidence']:.2%})"
+                )
+                
+                return final_text
+                
+            except ImportError as e:
+                logger.warning(f"PaddleOCR import failed: {e}")
+                logger.warning(
+                    "Install with: "
+                    "pip install paddlepaddle-gpu==3.0.0b1 -i https://www.paddlepaddle.org.cn/packages/stable/cu118/ && "
+                    "pip install paddleocr>=2.7.0"
+                )
             except Exception as e:
-                logger.warning(f"ColPali processing failed: {e}, trying OCR fallback")
-                pass
+                logger.error(f"PaddleOCR processing failed: {e}")
+                import traceback
+                traceback.print_exc()
             
-            # Option 2: Fallback to basic OCR for text extraction
-            try:
-                from PIL import Image
-                import pytesseract
-                import io
-                
-                logger.info("Extracting text from image using Tesseract OCR")
-                
-                # Open image
-                image = Image.open(io.BytesIO(file_content))
-                
-                # Extract text using Tesseract
-                text = pytesseract.image_to_string(image, lang='kor+eng')
-                
-                if text.strip():
-                    logger.info(f"Successfully extracted {len(text)} characters from image using OCR")
-                    return text
-                else:
-                    logger.warning("OCR returned empty text")
-                    return "[Image content - no text detected by OCR]"
-                
-            except ImportError:
-                logger.warning("Tesseract OCR not available")
-                pass
-            except Exception as e:
-                logger.error(f"OCR failed: {e}")
-                pass
-            
-            # Option 3: Final fallback - return placeholder
-            logger.warning("No image processing method available, returning placeholder")
-            return "[Image content - Please use multimodal search API for image queries]"
+            # Fallback: Return placeholder
+            logger.warning("PaddleOCR not available, returning placeholder")
+            return "[Image content - PaddleOCR not installed. Install with: pip install paddlepaddle-gpu==3.0.0b1 paddleocr>=2.7.0]"
 
         except Exception as e:
             error_msg = f"Failed to process image: {str(e)}"

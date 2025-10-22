@@ -208,31 +208,6 @@ class ServiceContainer:
             # Connect to MCP servers with graceful degradation
             await self._initialize_mcp_servers()
 
-            # Initialize ColPali for image search
-            colpali_processor = None
-            colpali_milvus = None
-            if settings.ENABLE_COLPALI:
-                try:
-                    from backend.services.colpali_processor import get_colpali_processor
-                    from backend.services.colpali_milvus_service import get_colpali_milvus_service
-                    
-                    colpali_processor = get_colpali_processor(
-                        model_name=settings.COLPALI_MODEL,
-                        use_gpu=settings.COLPALI_USE_GPU,
-                        enable_binarization=settings.COLPALI_ENABLE_BINARIZATION,
-                        enable_pooling=settings.COLPALI_ENABLE_POOLING,
-                        pooling_factor=settings.COLPALI_POOLING_FACTOR
-                    )
-                    
-                    colpali_milvus = get_colpali_milvus_service(
-                        host=settings.MILVUS_HOST,
-                        port=str(settings.MILVUS_PORT)
-                    )
-                    
-                    logger.info("ColPali image search initialized")
-                except Exception as e:
-                    logger.warning(f"ColPali initialization failed: {e}")
-            
             # Initialize specialized agents with advanced services
             # Add direct Milvus fallback for VectorSearchAgent
             vector_agent = VectorSearchAgent(
@@ -243,9 +218,6 @@ class ServiceContainer:
                 cache_manager=self._search_cache_manager,
                 milvus_manager=self._milvus_manager,  # Direct Milvus fallback
                 embedding_service=self._embedding_service,  # For direct search
-                colpali_processor=colpali_processor,  # ColPali image search
-                colpali_milvus=colpali_milvus,  # ColPali Milvus service
-                enable_colpali_search=settings.ENABLE_COLPALI,  # Enable ColPali
             )
             local_agent = LocalDataAgent(mcp_manager=self._mcp_manager)
             search_agent = WebSearchAgent(mcp_manager=self._mcp_manager)

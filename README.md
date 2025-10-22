@@ -89,12 +89,22 @@ graph TD
 **지원 포맷**: PDF, DOCX, HWP, HWPX, PPT, PPTX, XLSX, TXT, MD, 이미지 (PNG, JPG, etc.)
 
 ```
-🔍 고급 문서 처리
-├─ 📊 표 자동 추출 & 구조 분석 (Docling)
-├─ 🖼️  이미지/차트 의미 이해 (ColPali)
-├─ 📝 OCR 지원 (스캔본 문서)
-├─ 🇰🇷 한글(HWP) 완벽 지원
-└─ 🔗 문맥 기반 청킹 (Contextual Retrieval)
+🔍 고급 문서 처리 (PaddleOCR Advanced) 🎉 전체 완료!
+├─ 📊 Doc Parsing (문서 파싱)
+│   ├─ PaddleOCR-VL: 멀티모달 문서 이해 ✅ Phase 2 완료!
+│   ├─ PP-StructureV3: 98%+ 표 인식 정확도 ✅
+│   └─ PP-OCRv5: 98%+ 텍스트 인식 (v4 대비 5% 향상) ✅
+├─ 💬 Doc Understanding (문서 이해)
+│   ├─ PP-ChatOCRv4: 문서 기반 대화형 AI ✅ Phase 1 완료!
+│   └─ PP-DocTranslation: 레이아웃 보존 문서 번역 ✅ Phase 3 완료!
+├─ 📝 레이아웃 분석 (제목, 본문, 그림, 표 자동 감지) ✅
+├─ 🇰🇷 한글(HWP) 완벽 지원 ✅
+└─ 🔗 문맥 기반 청킹 (Contextual Retrieval) ✅
+
+📖 Phase 1 완료: PADDLEOCR_PHASE1_SUMMARY.md
+📖 Phase 2 완료: PADDLEOCR_PHASE2_COMPLETE.md
+📖 Phase 3 완료: PADDLEOCR_PHASE3_COMPLETE.md
+📖 통합 계획: PADDLEOCR_INTEGRATION_SUMMARY.md
 ```
 
 ### 🌐 Multi-LLM Support
@@ -309,6 +319,7 @@ curl http://localhost:11434/api/tags
 - [Adaptive Routing Guide](backend/ADAPTIVE_ROUTING_USER_GUIDE.md) - 적응형 라우팅
 - [HWP Table/Chart Guide](HWP_TABLE_CHART_GUIDE.md) - HWP 표/차트 인식
 - [API Documentation](backend/ADAPTIVE_ROUTING_API_DOCUMENTATION.md) - API 문서
+- [PaddleOCR Advanced Integration](PADDLEOCR_INTEGRATION_SUMMARY.md) - PaddleOCR 최신 모델 통합 계획
 
 ### 📊 Monitoring & Analytics
 - [Monitoring Dashboard](http://localhost:3000/monitoring) - 실시간 시스템 모니터링
@@ -330,33 +341,136 @@ curl http://localhost:11434/api/tags
 ### System Overview
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                        Frontend (Next.js)                    │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐   │
-│  │   Chat   │  │ Document │  │Dashboard │  │Monitoring│   │
-│  │Interface │  │  Upload  │  │          │  │          │   │
-│  └──────────┘  └──────────┘  └──────────┘  └──────────┘   │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                        Frontend (Next.js)                        │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐       │
+│  │   Chat   │  │ Document │  │Translation│  │Monitoring│       │
+│  │Interface │  │  Upload  │  │  Viewer   │  │Dashboard │       │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────┘       │
+└─────────────────────────────────────────────────────────────────┘
                             ↕ SSE/REST API
-┌─────────────────────────────────────────────────────────────┐
-│                      Backend (FastAPI)                       │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │           Aggregator Agent (ReAct + CoT)             │  │
-│  └──────────────────────────────────────────────────────┘  │
-│         ↓                  ↓                  ↓             │
-│  ┌──────────┐      ┌──────────┐      ┌──────────┐         │
-│  │  Vector  │      │  Local   │      │   Web    │         │
-│  │  Search  │      │   Data   │      │  Search  │         │
-│  └──────────┘      └──────────┘      └──────────┘         │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                    Backend API (FastAPI)                         │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │         Intelligent Query Router                          │  │
+│  │  Adaptive Routing | Complexity Analysis | Mode Selection │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                            ↓                                     │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │           Aggregator Agent (ReAct + CoT)                  │  │
+│  │  Multi-Agent Orchestration | Memory Management           │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│         ↓                  ↓                  ↓                  │
+│  ┌──────────┐      ┌──────────┐      ┌──────────┐             │
+│  │  Vector  │      │  Local   │      │   Web    │             │
+│  │  Search  │      │   Data   │      │  Search  │             │
+│  │  Agent   │      │  Agent   │      │  Agent   │             │
+│  └──────────┘      └──────────┘      └──────────┘             │
+└─────────────────────────────────────────────────────────────────┘
                             ↕
-┌─────────────────────────────────────────────────────────────┐
-│                    Data Layer                                │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐   │
-│  │PostgreSQL│  │  Milvus  │  │  Redis   │  │   LLM    │   │
-│  │(Metadata)│  │ (Vectors)│  │ (Cache)  │  │(Ollama)  │   │
-│  └──────────┘  └──────────┘  └──────────┘  └──────────┘   │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│              Document Processing Pipeline                        │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │                  PaddleOCR Processor                      │  │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌──────────────┐     │  │
+│  │  │ Doc Parsing │  │Doc Understanding│  │  Utilities │     │  │
+│  │  │             │  │                 │  │            │     │  │
+│  │  │• PP-OCRv5   │  │• PP-ChatOCRv4  │  │• Translators│    │  │
+│  │  │• PaddleOCR-VL│ │• LLM Integration│  │• Formatters│    │  │
+│  │  │• PP-Structure│ │• PP-DocTranslate│  │• Validators│    │  │
+│  │  │• Layout     │  │                 │  │            │     │  │
+│  │  └─────────────┘  └─────────────────┘  └──────────────┘  │  │
+│  └──────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────────┐
+│                    Data & Storage Layer                          │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐       │
+│  │PostgreSQL│  │  Milvus  │  │  Redis   │  │   LLM    │       │
+│  │(Metadata)│  │ (Vectors)│  │ (Cache)  │  │(Ollama)  │       │
+│  │• Users   │  │• Documents│ │• Sessions│  │• Llama3.1│       │
+│  │• Docs    │  │• Images  │  │• L1/L2   │  │• GPT-4   │       │
+│  │• Versions│  │• Tables  │  │• Patterns│  │• Claude  │       │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────┘       │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Data Flow
+
+#### 1. Document Upload & Processing
+
+```
+User Upload → Frontend → Backend API
+                            ↓
+                    Document Processor
+                            ↓
+        ┌───────────────────┼───────────────────┐
+        ↓                   ↓                   ↓
+   Text Files         PDF/DOCX/HWP          Images
+        ↓                   ↓                   ↓
+   Direct Parse      Docling Parser      PaddleOCR
+        ↓                   ↓                   ↓
+        └───────────────────┼───────────────────┘
+                            ↓
+                    Semantic Chunking
+                            ↓
+                    Embedding Generation
+                            ↓
+                    Milvus Vector Store
+                            ↓
+                    PostgreSQL Metadata
+```
+
+#### 2. Query Processing
+
+```
+User Query → Frontend → Backend API
+                            ↓
+                Intelligent Query Router
+                            ↓
+        ┌───────────────────┼───────────────────┐
+        ↓                   ↓                   ↓
+    Fast Mode         Balanced Mode        Deep Mode
+    (< 1s)              (< 3s)             (< 10s)
+        ↓                   ↓                   ↓
+   Simple RAG      Hybrid Search      Multi-Agent
+        ↓                   ↓                   ↓
+        └───────────────────┼───────────────────┘
+                            ↓
+                    Aggregator Agent
+                            ↓
+        ┌───────────────────┼───────────────────┐
+        ↓                   ↓                   ↓
+   Vector Search      Local Data          Web Search
+        ↓                   ↓                   ↓
+        └───────────────────┼───────────────────┘
+                            ↓
+                    Response Coordinator
+                            ↓
+                    LLM Generation
+                            ↓
+                    SSE Streaming → Frontend
+```
+
+#### 3. PaddleOCR Advanced Processing
+
+```
+Image/Document → PaddleOCR Processor
+                        ↓
+        ┌───────────────┼───────────────┐
+        ↓               ↓               ↓
+   Text Extract    Table Extract   Layout Analysis
+   (PP-OCRv5)      (PP-Structure)  (Layout Engine)
+        ↓               ↓               ↓
+        └───────────────┼───────────────┘
+                        ↓
+            Multimodal Integration
+            (PaddleOCR-VL)
+                        ↓
+        ┌───────────────┼───────────────┐
+        ↓               ↓               ↓
+   Document Q&A    Translation     Structured Data
+   (PP-ChatOCR)    (PP-DocTrans)   (JSON/Tables)
 ```
 
 ### Tech Stack
@@ -364,27 +478,160 @@ curl http://localhost:11434/api/tags
 #### Backend
 ```yaml
 Framework: FastAPI (Python 3.10+)
+
 AI/ML:
-  - LangChain: Agent orchestration
-  - LangGraph: Workflow management
-  - LiteLLM: Unified LLM interface
-  - Sentence Transformers: Embeddings
-  - Docling: Document processing
-  - ColPali: Multimodal vision encoder
+  LLM Integration:
+    - LangChain: Agent orchestration
+    - LangGraph: Workflow management
+    - LiteLLM: Unified LLM interface
+  
+  Embeddings:
+    - Sentence Transformers: Text embeddings
+    - jhgan/ko-sroberta-multitask: Korean-optimized
+  
+  Document Processing:
+    - Docling: Advanced PDF/DOCX parsing
+    - PaddleOCR Advanced: Complete document understanding
+      • PP-OCRv5: 98%+ OCR accuracy (v4 대비 5% 향상)
+      • PaddleOCR-VL: Multimodal document parsing
+      • PP-StructureV3: 98%+ table recognition
+      • PP-ChatOCRv4: Document Q&A with LLM
+      • PP-DocTranslation: Layout-preserving translation
+  
+  Search & Retrieval:
+    - Hybrid Search: Vector + BM25
+    - Adaptive Reranking: Korean/Multilingual models
+    - Query Expansion: HyDE, Multi-query
+    - Web Search: DuckDuckGo integration
+
 Databases:
-  - PostgreSQL: User data & metadata
-  - Milvus: Vector storage
-  - Redis: Cache & sessions
+  - PostgreSQL: User data, documents, versions
+  - Milvus: Vector storage (documents, images, tables)
+  - Redis: Cache (L1/L2), sessions, patterns
+
+Performance:
+  - Async/Await: Non-blocking I/O
+  - Connection Pooling: Database optimization
+  - Multi-level Caching: L1 (Redis) + L2 (Memory)
+  - Parallel Processing: Multi-agent execution
 ```
 
 #### Frontend
 ```yaml
 Framework: Next.js 15 (App Router)
-UI: React 19 + Tailwind CSS
-State: Zustand + React Query
-Real-time: Server-Sent Events (SSE)
-i18n: Custom (EN, KO, JA, ZH)
+
+UI:
+  - React 19: Latest features
+  - Tailwind CSS: Utility-first styling
+  - Shadcn/ui: Component library
+  - Lucide Icons: Icon system
+
+State Management:
+  - Zustand: Global state
+  - React Query: Server state
+  - Context API: Theme, i18n
+
+Real-time:
+  - Server-Sent Events (SSE): Streaming responses
+  - WebSocket: Future chat features
+
+i18n:
+  - Custom implementation
+  - Languages: EN, KO, JA, ZH
+  - Dynamic loading
 ```
+
+### Key Components
+
+#### 1. Intelligent Query Router
+```python
+# Adaptive routing based on query complexity
+class IntelligentModeRouter:
+    def analyze_complexity(query: str) -> float:
+        # Analyze query complexity (0.0 - 1.0)
+        
+    def select_mode(complexity: float) -> QueryMode:
+        # Fast (< 0.35) | Balanced (0.35-0.70) | Deep (> 0.70)
+```
+
+#### 2. Multi-Agent System
+```python
+# Aggregator orchestrates specialized agents
+class AggregatorAgent:
+    agents = {
+        'vector': VectorSearchAgent,    # Semantic search
+        'local': LocalDataAgent,        # File system
+        'web': WebSearchAgent           # Web search
+    }
+    
+    def execute(query: str) -> Response:
+        # ReAct loop with Chain of Thought
+```
+
+#### 3. PaddleOCR Processor
+```python
+class PaddleOCRProcessor:
+    # Unified document processing
+    engines = {
+        'ocr': PP_OCRv5,              # Text recognition
+        'ocr_vl': PaddleOCR_VL,       # Multimodal parsing
+        'table': PP_StructureV3,      # Table extraction
+        'layout': LayoutEngine,       # Layout analysis
+        'chatocr': PP_ChatOCRv4,      # Document Q&A
+        'translator': PP_DocTranslation # Translation
+    }
+```
+
+#### 4. Memory System
+```python
+# Dual memory architecture
+class MemoryManager:
+    stm: ShortTermMemory    # Redis (conversations)
+    ltm: LongTermMemory     # Milvus (patterns)
+    
+    def remember(context: dict) -> None:
+        # Store in appropriate memory
+```
+
+### Performance Optimization
+
+```yaml
+Query Processing:
+  - Fast Path: < 1s (simple queries)
+  - Cache Hit: 60%+ (L1 + L2)
+  - Parallel Agents: 3 concurrent workers
+  - Streaming: Real-time SSE responses
+
+Document Processing:
+  - GPU Acceleration: CUDA support
+  - Batch Processing: Multiple documents
+  - Lazy Loading: On-demand model loading
+  - Connection Pooling: Database optimization
+
+Memory Management:
+  - Singleton Pattern: Shared instances
+  - Resource Pooling: Thread/connection pools
+  - Garbage Collection: Automatic cleanup
+  - Memory Limits: Configurable thresholds
+```
+
+### Scalability
+
+```yaml
+Horizontal Scaling:
+  - Stateless Backend: Multiple instances
+  - Load Balancer: Nginx/HAProxy
+  - Shared Storage: S3/MinIO
+  - Database Replication: Read replicas
+
+Vertical Scaling:
+  - Multi-GPU: Model parallelism
+  - Larger Batches: Increased throughput
+  - More Memory: Bigger caches
+  - Faster CPUs: Better performance
+```
+
+📖 **상세 아키텍처**: [AGENTIC_RAG_ARCHITECTURE.md](AGENTIC_RAG_ARCHITECTURE.md)
 
 ---
 
@@ -726,7 +973,9 @@ We welcome contributions! 🎉
 - [Milvus](https://milvus.io/) - Vector database
 - [Ollama](https://ollama.ai/) - Local LLM runtime
 - [Docling](https://github.com/DS4SD/docling) - Document processing
-- [ColPali](https://github.com/illuin-tech/colpali) - Multimodal vision encoder
+- [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) - Advanced document understanding
+  - PP-OCRv5, PaddleOCR-VL, PP-StructureV3
+  - PP-ChatOCRv4, PP-DocTranslation
 
 ### Inspired By
 

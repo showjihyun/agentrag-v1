@@ -504,21 +504,46 @@ class Settings(BaseSettings):
     CHUNKING_STRATEGY: str = "semantic"  # semantic, sentence, paragraph, heading, fixed
     MAX_FILE_SIZE: int = 52428800  # 50MB (increased from 10MB)
     
-    # Hybrid Document Processing (Native + ColPali)
-    ENABLE_HYBRID_PROCESSING: bool = True  # 하이브리드 처리 활성화
-    HYBRID_COLPALI_THRESHOLD: float = 0.3  # 텍스트 비율 임계값 (스캔본 감지)
-    HYBRID_PROCESS_IMAGES_ALWAYS: bool = False  # False=Native 우선, True=항상 하이브리드
+
     
-    # Image Processing (ColPali + Fallbacks)
-    ENABLE_COLPALI: bool = True  # ColPali 활성화 (최우선)
-    ENABLE_VISION_LLM_FALLBACK: bool = False  # Vision LLM 폴백 (설정 필요)
-    ENABLE_OCR_FALLBACK: bool = True  # OCR 폴백 (기본)
-    COLPALI_MODEL: str = "vidore/colpali-v1.2"
-    COLPALI_USE_GPU: bool = True  # GPU 사용 (자동 감지, 없으면 CPU)
-    COLPALI_ENABLE_BINARIZATION: bool = True  # 메모리 32배 감소
-    COLPALI_ENABLE_POOLING: bool = True  # 속도 13배 향상
-    COLPALI_POOLING_FACTOR: int = 9  # 1024 patches → ~128 patches
-    COLPALI_COLLECTION_NAME: str = "colpali_images"  # Milvus collection for ColPali
+    # Image Processing - PaddleOCR Advanced
+    # https://github.com/PaddlePaddle/PaddleOCR
+    # 
+    # Features:
+    # 1. PP-OCRv5: Latest OCR engine (98%+ accuracy)
+    # 2. PP-StructureV3: Table structure recognition (98%+ accuracy)
+    # 3. Layout Analysis: Automatic document structure detection
+    # 4. Multi-language Support: 80+ languages (Korean optimized)
+    #
+    ENABLE_PADDLEOCR: bool = True  # PaddleOCR 활성화
+    PADDLEOCR_USE_GPU: bool = True  # GPU 사용 (자동 감지, 없으면 CPU)
+    PADDLEOCR_LANG: str = "korean"  # 언어 설정 (korean, en, ch, japan, etc.)
+    PADDLEOCR_USE_ANGLE_CLS: bool = True  # 각도 분류기 (회전된 텍스트 처리)
+    
+    # Advanced Features
+    PADDLEOCR_ENABLE_TABLE: bool = True  # PP-StructureV3 표 인식 활성화
+    PADDLEOCR_ENABLE_LAYOUT: bool = True  # 레이아웃 분석 활성화
+    PADDLEOCR_SHOW_LOG: bool = False  # PaddleOCR 로그 표시
+    
+    # PaddleOCR Advanced - Phase 1: PP-ChatOCRv4 (Document Q&A)
+    ENABLE_PP_CHATOCR: bool = True  # PP-ChatOCR 문서 Q&A 활성화
+    PP_CHATOCR_VERSION: str = "PP-ChatOCRv4"  # ChatOCR 버전
+    PP_CHATOCR_USE_LLM: bool = True  # LLM 사용 여부 (False면 단순 검색)
+    
+    # PaddleOCR Advanced - Phase 2: PaddleOCR-VL (Multimodal Parsing) ✅
+    ENABLE_PADDLEOCR_VL: bool = True  # PaddleOCR-VL 멀티모달 파싱
+    PADDLEOCR_VL_MODEL: str = "PP-OCRv4"  # VL 모델 버전
+    
+    # PaddleOCR Advanced - Phase 3: PP-DocTranslation (Document Translation) ✅
+    ENABLE_PP_DOC_TRANSLATION: bool = True  # PP-DocTranslation
+    PP_DOC_TRANSLATION_SERVICE: str = "auto"  # 'auto', 'google', 'deepl', 'papago'
+    
+    # Translation API Keys (Optional - Phase 3)
+    DEEPL_API_KEY: Optional[str] = None
+    PAPAGO_CLIENT_ID: Optional[str] = None
+    PAPAGO_CLIENT_SECRET: Optional[str] = None
+    
+
 
     # Memory Configuration
     STM_TTL: int = 3600  # 1 hour

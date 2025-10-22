@@ -45,6 +45,14 @@ passlib[bcrypt]==1.7.4
 # Cache and Session
 redis==5.0.1
 
+# OCR - PaddleOCR (Latest stable, 98%+ accuracy, replaces ColPali)
+paddlepaddle-gpu>=2.6.0  # PaddlePaddle GPU version (latest stable)
+paddleocr>=2.7.0  # PaddleOCR with PP-OCRv4/v5 support
+shapely>=2.0.0  # Required by PaddleOCR
+pyclipper>=1.3.0  # Required by PaddleOCR
+opencv-python>=4.8.0  # Required by PaddleOCR
+Pillow>=10.0.0  # Image processing
+
 # MCP Integration
 # Note: MCP servers are optional and can be run separately
 # If you need MCP functionality, uncomment the line below:

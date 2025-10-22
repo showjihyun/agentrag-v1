@@ -546,6 +546,9 @@ from backend.api import (
 # Import new monitoring API
 from backend.api import monitoring as monitoring_api
 
+# Import PaddleOCR Advanced API
+from backend.api import paddleocr_advanced
+
 app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(conversations.router)
@@ -580,6 +583,9 @@ app.include_router(advanced_rag.router)
 app.include_router(enterprise.router)
 # Web Search API
 app.include_router(web_search.router)
+
+# PaddleOCR Advanced API (Phase 1: PP-ChatOCRv4)
+app.include_router(paddleocr_advanced.router)
 
 
 @app.get("/api/health")

@@ -181,50 +181,26 @@ class DocumentService:
                 logger.error(f"Failed to update document status to processing: {e}")
                 raise DocumentServiceError(f"Failed to update document status: {e}")
 
-            # Step 6: Process document (hybrid: Native + ColPali)
+            # Step 6: Process document
             try:
-                # Detect file type
-                file_type = self.doc_processor.detect_file_type(file.filename)
+                # Read file content
+                with open(file_path, 'rb') as f:
+                    file_content = f.read()
                 
-                # Use hybrid processor for intelligent processing
-                from backend.services.hybrid_document_processor import get_hybrid_document_processor
-                from backend.config import settings
-                
-                hybrid_processor = get_hybrid_document_processor(
-                    enable_colpali=settings.ENABLE_HYBRID_PROCESSING and settings.ENABLE_COLPALI,
-                    colpali_threshold=settings.HYBRID_COLPALI_THRESHOLD,
-                    process_images_always=settings.HYBRID_PROCESS_IMAGES_ALWAYS
+                # Process document with standard processor
+                document_obj, chunks = await self.doc_processor.process_document(
+                    file_content=file_content,
+                    filename=file.filename,
+                    file_size=file_size
                 )
                 
-                # Hybrid processing
-                result = await hybrid_processor.process_document(
-                    file_path=file_path,
-                    file_type=file_type,
-                    document_id=str(document_id),
-                    metadata={
-                        'user_id': str(user_id),
-                        'filename': file.filename,
-                        'original_filename': file.filename
-                    }
-                )
-                
-                # Get processed data
-                text = result['native_text']
-                chunks = result['native_chunks']
-                
-                # Safe access to optional fields
-                text_ratio = result.get('text_ratio', 0.0)
-                is_scanned = result.get('is_scanned', False)
-                colpali_processed = result.get('colpali_processed', False)
-                processing_method = result.get('processing_method', 'unknown')
+                # Extract text and file_type from document_obj
+                text = "\n\n".join([chunk.text for chunk in chunks])
+                file_type = document_obj.file_type
                 
                 logger.info(
-                    f"Hybrid processing completed for {document_id}: "
-                    f"method={processing_method}, "
-                    f"text_ratio={text_ratio:.2f}, "
-                    f"is_scanned={is_scanned}, "
-                    f"colpali_processed={colpali_processed}, "
-                    f"chunks={len(chunks)}"
+                    f"Document processing completed for {document_id}: "
+                    f"file_type={file_type}, chunks={len(chunks)}"
                 )
 
             except (DocumentProcessingError, ValueError) as e:
