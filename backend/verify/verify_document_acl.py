@@ -37,29 +37,29 @@ from backend.services.document_acl_service import (
 )
 
 
-def print_section(title: str):
+def print_section(title: str) -> None:
     """Print section header."""
     print(f"\n{'='*80}")
     print(f"  {title}")
     print(f"{'='*80}\n")
 
 
-def print_success(message: str):
+def print_success(message: str) -> None:
     """Print success message."""
     print(f"✅ {message}")
 
 
-def print_error(message: str):
+def print_error(message: str) -> None:
     """Print error message."""
     print(f"❌ {message}")
 
 
-def print_info(message: str):
+def print_info(message: str) -> None:
     """Print info message."""
     print(f"ℹ️  {message}")
 
 
-async def verify_database_models():
+async def verify_database_models() -> bool:
     """Verify database models are properly defined."""
     print_section("1. Database Models Verification")
 
@@ -107,7 +107,7 @@ async def verify_database_models():
         return False
 
 
-async def verify_database_migration():
+async def verify_database_migration() -> bool:
     """Verify database migration was applied."""
     print_section("2. Database Migration Verification")
 
@@ -175,7 +175,7 @@ async def verify_database_migration():
         return False
 
 
-async def verify_acl_service():
+async def verify_acl_service() -> bool:
     """Verify ACL service functionality."""
     print_section("3. ACL Service Verification")
 
@@ -362,7 +362,7 @@ async def verify_acl_service():
         return False
 
 
-async def verify_api_endpoints():
+async def verify_api_endpoints() -> bool:
     """Verify API endpoints are registered."""
     print_section("4. API Endpoints Verification")
 
@@ -399,7 +399,7 @@ async def verify_api_endpoints():
         return False
 
 
-async def main():
+async def main() -> int:
     """Run all verifications."""
     print("\n" + "=" * 80)
     print("  Document ACL (Access Control List) Verification")

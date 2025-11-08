@@ -13,6 +13,8 @@ import numpy as np
 from typing import List, Dict, Any, Optional
 from collections import defaultdict
 
+from backend.models.enums import ModalityType, RerankerMethod
+
 logger = logging.getLogger(__name__)
 
 
@@ -196,16 +198,16 @@ class MultimodalReranker:
             normalized_score = result.get('normalized_score', 0.0)
             
             # 모달리티별 가중치 적용
-            if modality == 'text':
+            if modality == ModalityType.TEXT:
                 weighted_score = normalized_score * weights['text']
-            elif modality == 'image':
+            elif modality == ModalityType.IMAGE:
                 # CLIP vs ColPali 구분 (메타데이터 확인)
-                method = result.get('metadata', {}).get('method', 'clip')
-                if method == 'colpali':
+                method = result.get('metadata', {}).get('method', RerankerMethod.CLIP)
+                if method == RerankerMethod.COLPALI:
                     weighted_score = normalized_score * weights['colpali']
                 else:
                     weighted_score = normalized_score * weights['clip']
-            elif modality == 'audio':
+            elif modality == ModalityType.AUDIO:
                 weighted_score = normalized_score * weights['audio']
             else:
                 weighted_score = normalized_score * 0.1  # 기타
@@ -225,21 +227,21 @@ class MultimodalReranker:
         Returns:
             모달리티별 가중치
         """
-        if query_type == 'text':
+        if query_type == ModalityType.TEXT:
             return {
                 'text': 0.4,
                 'clip': 0.3,
                 'colpali': 0.2,
                 'audio': 0.1
             }
-        elif query_type == 'image':
+        elif query_type == ModalityType.IMAGE:
             return {
                 'text': 0.2,
                 'clip': 0.3,
                 'colpali': 0.4,
                 'audio': 0.1
             }
-        elif query_type == 'audio':
+        elif query_type == ModalityType.AUDIO:
             return {
                 'text': 0.3,
                 'clip': 0.1,
@@ -277,9 +279,9 @@ class MultimodalReranker:
             
             # 크로스 모달 여부 확인
             is_cross_modal = (
-                (query_type == 'text' and modality in ['image', 'audio']) or
-                (query_type == 'image' and modality in ['text', 'audio']) or
-                (query_type == 'audio' and modality in ['text', 'image'])
+                (query_type == ModalityType.TEXT and modality in [ModalityType.IMAGE, ModalityType.AUDIO]) or
+                (query_type == ModalityType.IMAGE and modality in [ModalityType.TEXT, ModalityType.AUDIO]) or
+                (query_type == ModalityType.AUDIO and modality in [ModalityType.TEXT, ModalityType.IMAGE])
             )
             
             if is_cross_modal:

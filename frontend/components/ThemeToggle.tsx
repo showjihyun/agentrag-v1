@@ -5,11 +5,24 @@
  * Button to toggle between light, dark, and system themes
  */
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
 
 export default function ThemeToggle() {
+  const [mounted, setMounted] = useState(false);
   const { theme, effectiveTheme, toggleTheme } = useTheme();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <div className="p-2 w-9 h-9" aria-hidden="true">
+        {/* Placeholder to prevent layout shift */}
+      </div>
+    );
+  }
 
   return (
     <button

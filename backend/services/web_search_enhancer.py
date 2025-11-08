@@ -139,7 +139,13 @@ class SourceCredibilityScorer:
                 score += 0.05
             
         except Exception as e:
-            logger.warning(f"Error scoring source {url}: {e}")
+            logger.warning(
+                "Error scoring source",
+                extra={
+                    "url": url,
+                    "error_type": type(e).__name__
+                }
+            )
         
         return min(1.0, max(0.0, score))
     
@@ -351,7 +357,10 @@ class ResultDeduplicator:
             
             # URL 중복 체크
             if normalized_url in seen_urls:
-                logger.debug(f"Duplicate URL: {url}")
+                logger.debug(
+                    "Duplicate URL",
+                    extra={"url": url}
+                )
                 continue
             
             seen_urls.add(normalized_url)
@@ -361,7 +370,10 @@ class ResultDeduplicator:
             if domain:
                 domain_count = seen_domains.get(domain, 0)
                 if domain_count >= 3:
-                    logger.debug(f"Too many from domain {domain}: {url}")
+                    logger.debug(
+                        "Too many from domain",
+                        extra={"domain": domain, "url": url, "count": domain_count}
+                    )
                     continue
                 seen_domains[domain] = domain_count + 1
             
@@ -388,7 +400,10 @@ class ResultDeduplicator:
             content_hash = self._content_hash(content)
             
             if content_hash in seen_hashes:
-                logger.debug(f"Duplicate content: {result.get('title', '')[:50]}")
+                logger.debug(
+                    "Duplicate content",
+                    extra={"title": result.get('title', '')[:50]}
+                )
                 continue
             
             seen_hashes.add(content_hash)

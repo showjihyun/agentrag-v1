@@ -21,6 +21,7 @@ from backend.services.korean_chunking_strategy import (
 )
 from backend.services.hwp_processor_wrapper import get_hwp_processor_wrapper
 from backend.services.korean_text_processor import get_korean_text_processor
+from backend.models.enums import FileType
 
 logger = logging.getLogger(__name__)
 
@@ -181,34 +182,34 @@ class KoreanDocumentPipeline:
         """파일 타입별 텍스트 추출"""
         
         # HWP/HWPX는 전용 프로세서 사용
-        if file_type == 'hwp':
+        if file_type == FileType.HWP:
             result = self.hwp_processor.process_hwp(file_content, filename)
             return result['text']
         
-        elif file_type == 'hwpx':
+        elif file_type == FileType.HWPX:
             result = self.hwp_processor.process_hwpx(file_content, filename)
             return result['text']
         
         # 나머지는 기본 프로세서 사용
-        elif file_type == 'pdf':
+        elif file_type == FileType.PDF:
             return self.doc_processor.extract_text_from_pdf(file_content)
         
-        elif file_type == 'txt':
+        elif file_type == FileType.TXT:
             return self.doc_processor.extract_text_from_txt(file_content)
         
-        elif file_type == 'docx':
+        elif file_type == FileType.DOCX:
             return self.doc_processor.extract_text_from_docx(file_content)
         
-        elif file_type == 'pptx':
+        elif file_type == FileType.PPTX:
             return self.doc_processor.extract_text_from_pptx(file_content)
         
-        elif file_type == 'xlsx':
+        elif file_type == FileType.XLSX:
             return self.doc_processor.extract_text_from_xlsx(file_content)
         
-        elif file_type == 'csv':
+        elif file_type == FileType.CSV:
             return self.doc_processor.extract_text_from_csv(file_content)
         
-        elif file_type == 'json':
+        elif file_type == FileType.JSON:
             return self.doc_processor.extract_text_from_json(file_content)
         
         else:

@@ -577,7 +577,8 @@ Provide a clear, direct answer based on the information above. If the documents 
         query = state["query"]
         speculative_results = state.get("speculative_results")
 
-        logger.debug(f"Loading memory context for session {session_id}")
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"Loading memory context for session {session_id}")
 
         # Get memory context
         memory_context = await self.memory.get_context_for_query(
@@ -660,7 +661,8 @@ Provide a clear, direct answer based on the information above. If the documents 
         query = state["query"]
         memory_context = state.get("memory_context", {})
 
-        logger.debug("Creating Chain of Thought plan")
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug("Creating Chain of Thought plan")
 
         # Summarize memory context
         memory_summary = self._summarize_memory_context(memory_context)
@@ -821,9 +823,10 @@ Step 2: ...
         completed_actions = len(state["action_history"])
         total_planned = len(state["planning_steps"])
 
-        logger.debug(
-            f"ReAct reasoning: {completed_actions}/{total_planned} actions completed"
-        )
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                f"ReAct reasoning: {completed_actions}/{total_planned} actions completed"
+            )
 
         # Check if all planned steps completed
         if completed_actions >= total_planned:
@@ -1008,7 +1011,8 @@ Action Input: [json parameters]
         action_input = current_action["input"]
         query = state["query"]
 
-        logger.debug(f"Executing action: {action}")
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"Executing action: {action}")
 
         observation = ""
 
@@ -1245,9 +1249,10 @@ Action Input: [json parameters]
         planned_steps = len(state["planning_steps"])
         retrieved_docs = len(state["retrieved_docs"])
 
-        logger.debug(
-            f"Reflecting on results: {completed_actions} actions, {retrieved_docs} docs"
-        )
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                f"Reflecting on results: {completed_actions} actions, {retrieved_docs} docs"
+            )
 
         # Get recent observation
         recent_observation = "None"
@@ -1404,7 +1409,8 @@ Reasoning: [your reasoning]
         memory_context = state.get("memory_context", {})
         speculative_findings = memory_context.get("speculative_findings")
 
-        logger.debug(f"Synthesizing response with {len(retrieved_docs)} documents")
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"Synthesizing response with {len(retrieved_docs)} documents")
 
         # Prepare context from all sources
         context_parts = []
@@ -1556,7 +1562,8 @@ Answer:"""
         # Determine if interaction was successful
         success = bool(final_response and not state.get("error"))
 
-        logger.debug(f"Saving to memory: session={session_id}, success={success}")
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"Saving to memory: session={session_id}, success={success}")
 
         try:
             # Determine contributing paths

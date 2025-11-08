@@ -5,13 +5,16 @@ Provides endpoints for usage statistics and analytics.
 """
 
 import logging
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, status
 from typing import Optional
 from datetime import datetime, timedelta
-import random
 
 from backend.db.database import get_db
 from sqlalchemy.orm import Session
+from backend.api.auth import get_current_user
+from backend.db.models.user import User
+from backend.services.usage_service import get_usage_service
+from backend.core.enhanced_error_handler import handle_error, DatabaseError
 
 logger = logging.getLogger(__name__)
 
@@ -21,82 +24,62 @@ router = APIRouter(prefix="/api/usage", tags=["Usage"])
 @router.get("/stats")
 async def get_usage_stats(
     timeRange: str = Query("week", description="Time range: day, week, month, year"),
-    userId: Optional[str] = Query(None),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Get usage statistics for specified time range."""
     try:
-        # TODO: Implement actual database operations
-        # For now, return mock data
+        usage_service = get_usage_service(db)
+        
+        stats = await usage_service.get_usage_stats(
+            user_id=current_user.id,
+            time_range=timeRange,
+            limit=30
+        )
+        
+        return stats
 
-        # Generate mock data based on time range
-        days_map = {"day": 1, "week": 7, "month": 30, "year": 365}
-
-        days = days_map.get(timeRange, 7)
-
-        # Generate usage data
-        usage_data = []
-        for i in range(min(days, 30)):  # Limit to 30 data points
-            date = (datetime.utcnow() - timedelta(days=days - i - 1)).strftime(
-                "%Y-%m-%d"
-            )
-            usage_data.append(
-                {
-                    "date": date,
-                    "queries": random.randint(10, 100),
-                    "documents": random.randint(0, 10),
-                    "tokens": random.randint(1000, 10000),
-                    "cost": round(random.uniform(0.1, 5.0), 2),
-                }
-            )
-
-        # Calculate summary statistics
-        total_queries = sum(d["queries"] for d in usage_data)
-        total_documents = sum(d["documents"] for d in usage_data)
-        total_tokens = sum(d["tokens"] for d in usage_data)
-        total_cost = sum(d["cost"] for d in usage_data)
-
-        avg_queries_per_day = total_queries / len(usage_data) if usage_data else 0
-
-        # Find peak usage day
-        peak_day = max(usage_data, key=lambda x: x["queries"]) if usage_data else None
-        peak_usage_day = peak_day["date"] if peak_day else "N/A"
-
-        return {
-            "usage": usage_data,
-            "summary": {
-                "totalQueries": total_queries,
-                "totalDocuments": total_documents,
-                "totalTokens": total_tokens,
-                "estimatedCost": round(total_cost, 2),
-                "avgQueriesPerDay": round(avg_queries_per_day, 1),
-                "peakUsageDay": peak_usage_day,
-            },
-        }
-
-    except Exception as e:
-        logger.error(f"Failed to get usage stats: {e}")
+    except DatabaseError as e:
+        app_error = handle_error(e)
         raise HTTPException(
-            status_code=500, detail=f"Failed to get usage stats: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=app_error.message
+        )
+    except Exception as e:
+        app_error = handle_error(e)
+        logger.error(f"Failed to get usage stats: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get usage stats"
         )
 
 
 @router.get("/summary")
-async def get_usage_summary(db: Session = Depends(get_db)):
+async def get_usage_summary(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """Get overall usage summary."""
     try:
-        # TODO: Implement actual database operations
+        usage_service = get_usage_service(db)
+        
+        summary = await usage_service.get_usage_summary(user_id=current_user.id)
+        
+        return summary
 
-        return {
-            "totalQueries": 1234,
-            "totalDocuments": 56,
-            "totalTokens": 123456,
-            "estimatedCost": 45.67,
-            "avgQueriesPerDay": 42.3,
-            "peakUsageDay": "2025-01-08",
-            "currentMonthCost": 12.34,
-            "projectedMonthCost": 37.02,
-        }
+    except DatabaseError as e:
+        app_error = handle_error(e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=app_error.message
+        )
+    except Exception as e:
+        app_error = handle_error(e)
+        logger.error(f"Failed to get usage summary: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get usage summary"
+        )
 
     except Exception as e:
         logger.error(f"Failed to get usage summary: {e}")

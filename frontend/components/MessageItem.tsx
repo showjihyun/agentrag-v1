@@ -34,9 +34,10 @@ interface MessageItemProps {
   index: number;
   onRegenerate?: (messageId: string) => void;
   onRelatedQuestionClick?: (question: string) => void;
+  onChunkClick?: (chunkId: string) => void;
 }
 
-const MessageItem: React.FC<MessageItemProps> = memo(({ message, index, onRegenerate, onRelatedQuestionClick }) => {
+const MessageItem: React.FC<MessageItemProps> = memo(({ message, index, onRegenerate, onRelatedQuestionClick, onChunkClick }) => {
   return (
     <div
       className={`flex ${
@@ -144,7 +145,7 @@ const MessageItem: React.FC<MessageItemProps> = memo(({ message, index, onRegene
             )}
             {message.sources && message.sources.length > 0 && (
               <div className="mt-3">
-                <SourceCitations sources={message.sources} />
+                <SourceCitations sources={message.sources} onChunkClick={onChunkClick} />
               </div>
             )}
             

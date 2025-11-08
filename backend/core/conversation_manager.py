@@ -102,6 +102,8 @@ class ConversationManager:
         """
         Select most relevant conversation turns for current query.
         
+        Uses embedding-based relevance scoring when available, falls back to recency.
+        
         Args:
             history: Full conversation history
             current_query: Current user query
@@ -115,8 +117,51 @@ class ConversationManager:
         if not history:
             return []
         
-        # For now, use simple recency-based selection
-        # TODO: Implement relevance-based selection using embeddings
+        # Try embedding-based relevance selection
+        try:
+            from backend.services.embedding import EmbeddingService
+            embedding_service = EmbeddingService()
+            
+            # Embed current query
+            query_embedding = embedding_service.embed_text(current_query)
+            
+            # Score each turn by relevance
+            scored_turns = []
+            for turn in history:
+                if turn.role == "user":  # Only score user queries
+                    turn_embedding = embedding_service.embed_text(turn.content)
+                    # Cosine similarity
+                    import numpy as np
+                    similarity = np.dot(query_embedding, turn_embedding) / (
+                        np.linalg.norm(query_embedding) * np.linalg.norm(turn_embedding)
+                    )
+                    scored_turns.append((similarity, turn))
+            
+            # Sort by relevance and take top turns
+            scored_turns.sort(key=lambda x: x[0], reverse=True)
+            relevant_user_turns = [turn for _, turn in scored_turns[:max_turns]]
+            
+            # Include corresponding assistant responses
+            selected = []
+            for user_turn in relevant_user_turns:
+                user_idx = history.index(user_turn)
+                selected.append(user_turn)
+                # Add assistant response if exists
+                if user_idx + 1 < len(history) and history[user_idx + 1].role == "assistant":
+                    selected.append(history[user_idx + 1])
+            
+            # Sort by original order
+            selected.sort(key=lambda t: history.index(t))
+            
+            logger.debug(f"Selected {len(selected)} turns using embedding-based relevance")
+            return selected
+            
+        except Exception as e:
+            logger.debug(f"Embedding-based selection failed, using recency: {e}")
+            # Fallback to recency-based selection
+            pass
+        
+        # Recency-based selection (fallback)
         recent_turns = history[-max_turns * 2:]  # Get recent turns (user + assistant pairs)
         
         # Ensure we have complete pairs (user + assistant)
@@ -218,7 +263,7 @@ class ConversationManager:
         turns: List[ConversationTurn]
     ) -> str:
         """
-        Generate summary of conversation turns.
+        Generate summary of conversation turns using LLM.
         
         Args:
             turns: Conversation turns to summarize
@@ -229,8 +274,38 @@ class ConversationManager:
         if not turns:
             return ""
         
-        # Simple summary: extract key topics
-        # TODO: Use LLM for better summarization
+        # Try LLM-based summarization
+        try:
+            from backend.services.llm_manager import LLMManager
+            
+            # Format conversation for summarization
+            conversation_text = "\n".join([
+                f"{turn.role.capitalize()}: {turn.content[:200]}"
+                for turn in turns[-10:]  # Last 10 turns
+            ])
+            
+            llm_manager = LLMManager()
+            summary_prompt = f"""Summarize the following conversation in 1-2 sentences, focusing on key topics and questions:
+
+{conversation_text}
+
+Summary:"""
+            
+            summary = llm_manager.generate(
+                prompt=summary_prompt,
+                max_tokens=100,
+                temperature=0.3
+            )
+            
+            logger.debug(f"Generated LLM-based summary: {summary[:100]}...")
+            return summary.strip()
+            
+        except Exception as e:
+            logger.debug(f"LLM summarization failed, using simple summary: {e}")
+            # Fallback to simple summary
+            pass
+        
+        # Simple summary: extract key topics (fallback)
         user_queries = [
             turn.content[:100] for turn in turns 
             if turn.role == "user"

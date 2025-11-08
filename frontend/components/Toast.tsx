@@ -12,9 +12,17 @@ interface Toast {
   duration?: number;
 }
 
+interface ToastOptions {
+  title: string;
+  description?: string;
+  variant?: ToastType;
+  duration?: number;
+}
+
 interface ToastContextType {
   showToast: (type: ToastType, message: string, duration?: number) => void;
   hideToast: (id: string) => void;
+  toast: (options: ToastOptions) => void;
 }
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
@@ -47,8 +55,18 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setToasts((prev) => prev.filter((toast) => toast.id !== id));
   }, []);
 
+  // Convenience function that matches the expected API
+  const toast = useCallback((options: ToastOptions) => {
+    const message = options.description 
+      ? `${options.title}: ${options.description}` 
+      : options.title;
+    const type = options.variant || 'info';
+    const duration = options.duration || 5000;
+    showToast(type, message, duration);
+  }, [showToast]);
+
   return (
-    <ToastContext.Provider value={{ showToast, hideToast }}>
+    <ToastContext.Provider value={{ showToast, hideToast, toast }}>
       {children}
       <ToastContainer toasts={toasts} onClose={hideToast} />
     </ToastContext.Provider>

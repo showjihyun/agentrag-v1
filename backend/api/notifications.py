@@ -5,30 +5,38 @@ Provides endpoints for managing notifications and settings.
 """
 
 import logging
-from fastapi import APIRouter, HTTPException, Depends, WebSocket, WebSocketDisconnect
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException, Depends, WebSocket, WebSocketDisconnect, status
+from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
+from uuid import UUID
 import json
 
 from backend.db.database import get_db
 from sqlalchemy.orm import Session
+from backend.api.auth import get_current_user
+from backend.db.models.user import User
+from backend.services.notification_service import get_notification_service
+from backend.core.enhanced_error_handler import handle_error, DatabaseError
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/notifications", tags=["Notifications"])
 
 
-class NotificationSettings(BaseModel):
-    emailNotifications: bool = True
-    pushNotifications: bool = True
-    notifyOnShare: bool = True
-    notifyOnComment: bool = True
-    notifyOnMention: bool = True
-    notifyOnSystemUpdate: bool = False
-    quietHoursEnabled: bool = False
-    quietHoursStart: str = "22:00"
-    quietHoursEnd: str = "08:00"
+class NotificationSettingsUpdate(BaseModel):
+    emailNotifications: Optional[bool] = Field(None, alias="email_notifications")
+    pushNotifications: Optional[bool] = Field(None, alias="push_notifications")
+    notifyOnShare: Optional[bool] = Field(None, alias="notify_on_share")
+    notifyOnComment: Optional[bool] = Field(None, alias="notify_on_comment")
+    notifyOnMention: Optional[bool] = Field(None, alias="notify_on_mention")
+    notifyOnSystemUpdate: Optional[bool] = Field(None, alias="notify_on_system_update")
+    quietHoursEnabled: Optional[bool] = Field(None, alias="quiet_hours_enabled")
+    quietHoursStart: Optional[str] = Field(None, alias="quiet_hours_start")
+    quietHoursEnd: Optional[str] = Field(None, alias="quiet_hours_end")
+    
+    class Config:
+        populate_by_name = True
 
 
 # WebSocket connection manager
@@ -56,130 +64,271 @@ manager = ConnectionManager()
 
 @router.get("")
 async def get_notifications(
-    unread_only: bool = False, limit: int = 50, db: Session = Depends(get_db)
+    unread_only: bool = False,
+    limit: int = 50,
+    offset: int = 0,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
-    """Get user's notifications."""
+    """Get user's notifications with pagination."""
     try:
-        # TODO: Implement actual database operations
-        # For now, return mock data
-
-        notifications = [
+        notification_service = get_notification_service(db)
+        
+        # Get notifications
+        notifications = await notification_service.get_notifications(
+            user_id=current_user.id,
+            unread_only=unread_only,
+            limit=limit,
+            offset=offset
+        )
+        
+        # Get unread count
+        unread_count = await notification_service.get_unread_count(user_id=current_user.id)
+        
+        # Format response
+        notification_list = [
             {
-                "id": "notif_1",
-                "type": "info",
-                "title": "Welcome!",
-                "message": "Welcome to the notification system",
-                "timestamp": datetime.utcnow().isoformat(),
-                "isRead": False,
-                "actionUrl": None,
-                "actionLabel": None,
-            },
-            {
-                "id": "notif_2",
-                "type": "success",
-                "title": "Document Uploaded",
-                "message": "Your document has been successfully uploaded",
-                "timestamp": datetime.utcnow().isoformat(),
-                "isRead": True,
-                "actionUrl": "/documents/doc_123",
-                "actionLabel": "View Document",
-            },
+                "id": str(n.id),
+                "type": n.type.value,
+                "title": n.title,
+                "message": n.message,
+                "actionUrl": n.action_url,
+                "actionLabel": n.action_label,
+                "isRead": n.is_read,
+                "timestamp": n.created_at.isoformat(),
+                "readAt": n.read_at.isoformat() if n.read_at else None,
+                "metadata": n.metadata,
+            }
+            for n in notifications
         ]
+        
+        return {
+            "notifications": notification_list,
+            "total": len(notification_list),
+            "unread_count": unread_count,
+            "has_more": len(notification_list) == limit,
+        }
 
-        if unread_only:
-            notifications = [n for n in notifications if not n["isRead"]]
-
-        return {"notifications": notifications[:limit]}
-
-    except Exception as e:
-        logger.error(f"Failed to get notifications: {e}")
+    except DatabaseError as e:
+        app_error = handle_error(e)
         raise HTTPException(
-            status_code=500, detail=f"Failed to get notifications: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=app_error.message
+        )
+    except Exception as e:
+        app_error = handle_error(e)
+        logger.error(f"Failed to get notifications: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get notifications"
         )
 
 
 @router.patch("/{notification_id}/read")
-async def mark_notification_read(notification_id: str, db: Session = Depends(get_db)):
+async def mark_notification_read(
+    notification_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """Mark notification as read."""
     try:
-        # TODO: Implement actual database operations
+        notification_service = get_notification_service(db)
+        
+        updated_notification = await notification_service.mark_as_read(
+            notification_id=notification_id,
+            user_id=current_user.id
+        )
+        
+        if not updated_notification:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Notification not found"
+            )
+        
+        # Broadcast update to WebSocket clients
+        await broadcast_notification({
+            "type": "notification_read",
+            "notificationId": str(notification_id),
+            "timestamp": datetime.utcnow().isoformat(),
+        })
 
-        return {"success": True, "notificationId": notification_id}
+        return {
+            "success": True,
+            "notificationId": str(notification_id),
+            "markedAt": updated_notification.read_at.isoformat(),
+        }
 
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Failed to mark notification as read: {e}")
+        app_error = handle_error(e)
+        logger.error(f"Failed to mark notification as read: {e}", exc_info=True)
         raise HTTPException(
-            status_code=500, detail=f"Failed to mark notification as read: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to mark notification as read"
         )
 
 
 @router.patch("/read-all")
-async def mark_all_notifications_read(db: Session = Depends(get_db)):
+async def mark_all_notifications_read(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """Mark all notifications as read."""
     try:
-        # TODO: Implement actual database operations
+        notification_service = get_notification_service(db)
+        
+        count = await notification_service.mark_all_as_read(user_id=current_user.id)
+        
+        # Broadcast update to WebSocket clients
+        await broadcast_notification({
+            "type": "all_notifications_read",
+            "userId": str(current_user.id),
+            "timestamp": datetime.utcnow().isoformat(),
+        })
 
-        return {"success": True, "message": "All notifications marked as read"}
+        return {
+            "success": True,
+            "message": f"Marked {count} notifications as read",
+            "count": count,
+            "markedAt": datetime.utcnow().isoformat(),
+        }
 
     except Exception as e:
-        logger.error(f"Failed to mark all notifications as read: {e}")
+        app_error = handle_error(e)
+        logger.error(f"Failed to mark all notifications as read: {e}", exc_info=True)
         raise HTTPException(
-            status_code=500,
-            detail=f"Failed to mark all notifications as read: {str(e)}",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to mark all notifications as read"
         )
 
 
-@router.delete("/{notification_id}")
-async def delete_notification(notification_id: str, db: Session = Depends(get_db)):
+@router.delete("/{notification_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_notification(
+    notification_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """Delete a notification."""
     try:
-        # TODO: Implement actual database operations
+        notification_service = get_notification_service(db)
+        
+        deleted = await notification_service.delete_notification(
+            notification_id=notification_id,
+            user_id=current_user.id
+        )
+        
+        if not deleted:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Notification not found"
+            )
+        
+        return None
 
-        return {"success": True, "message": "Notification deleted"}
-
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Failed to delete notification: {e}")
+        app_error = handle_error(e)
+        logger.error(f"Failed to delete notification: {e}", exc_info=True)
         raise HTTPException(
-            status_code=500, detail=f"Failed to delete notification: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete notification"
         )
 
 
 @router.get("/settings")
-async def get_notification_settings(db: Session = Depends(get_db)):
+async def get_notification_settings(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """Get user's notification settings."""
     try:
-        # TODO: Implement actual database operations
-        # For now, return default settings
-
-        default_settings = NotificationSettings()
-
-        return {"settings": default_settings.dict()}
+        notification_service = get_notification_service(db)
+        
+        settings = await notification_service.get_settings(user_id=current_user.id)
+        
+        return {
+            "settings": {
+                "emailNotifications": settings.email_notifications,
+                "pushNotifications": settings.push_notifications,
+                "notifyOnShare": settings.notify_on_share,
+                "notifyOnComment": settings.notify_on_comment,
+                "notifyOnMention": settings.notify_on_mention,
+                "notifyOnSystemUpdate": settings.notify_on_system_update,
+                "quietHoursEnabled": settings.quiet_hours_enabled,
+                "quietHoursStart": settings.quiet_hours_start,
+                "quietHoursEnd": settings.quiet_hours_end,
+            }
+        }
 
     except Exception as e:
-        logger.error(f"Failed to get notification settings: {e}")
+        app_error = handle_error(e)
+        logger.error(f"Failed to get notification settings: {e}", exc_info=True)
         raise HTTPException(
-            status_code=500, detail=f"Failed to get notification settings: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get notification settings"
         )
 
 
 @router.put("/settings")
 async def update_notification_settings(
-    settings: NotificationSettings, db: Session = Depends(get_db)
+    settings: NotificationSettingsUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     """Update user's notification settings."""
     try:
-        # TODO: Implement actual database operations
-
+        notification_service = get_notification_service(db)
+        
+        # Build update dict
+        update_data = {}
+        if settings.emailNotifications is not None:
+            update_data["email_notifications"] = settings.emailNotifications
+        if settings.pushNotifications is not None:
+            update_data["push_notifications"] = settings.pushNotifications
+        if settings.notifyOnShare is not None:
+            update_data["notify_on_share"] = settings.notifyOnShare
+        if settings.notifyOnComment is not None:
+            update_data["notify_on_comment"] = settings.notifyOnComment
+        if settings.notifyOnMention is not None:
+            update_data["notify_on_mention"] = settings.notifyOnMention
+        if settings.notifyOnSystemUpdate is not None:
+            update_data["notify_on_system_update"] = settings.notifyOnSystemUpdate
+        if settings.quietHoursEnabled is not None:
+            update_data["quiet_hours_enabled"] = settings.quietHoursEnabled
+        if settings.quietHoursStart is not None:
+            update_data["quiet_hours_start"] = settings.quietHoursStart
+        if settings.quietHoursEnd is not None:
+            update_data["quiet_hours_end"] = settings.quietHoursEnd
+        
+        updated_settings = await notification_service.update_settings(
+            user_id=current_user.id,
+            **update_data
+        )
+        
         return {
             "success": True,
             "message": "Notification settings updated",
-            "settings": settings.dict(),
+            "settings": {
+                "emailNotifications": updated_settings.email_notifications,
+                "pushNotifications": updated_settings.push_notifications,
+                "notifyOnShare": updated_settings.notify_on_share,
+                "notifyOnComment": updated_settings.notify_on_comment,
+                "notifyOnMention": updated_settings.notify_on_mention,
+                "notifyOnSystemUpdate": updated_settings.notify_on_system_update,
+                "quietHoursEnabled": updated_settings.quiet_hours_enabled,
+                "quietHoursStart": updated_settings.quiet_hours_start,
+                "quietHoursEnd": updated_settings.quiet_hours_end,
+            },
         }
 
     except Exception as e:
-        logger.error(f"Failed to update notification settings: {e}")
+        app_error = handle_error(e)
+        logger.error(f"Failed to update notification settings: {e}", exc_info=True)
         raise HTTPException(
-            status_code=500, detail=f"Failed to update notification settings: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update notification settings"
         )
 
 

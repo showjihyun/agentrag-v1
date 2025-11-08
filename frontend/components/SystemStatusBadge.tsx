@@ -6,7 +6,8 @@
  * Shows PostgreSQL pool utilization, Milvus status, and response times
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
 
 interface SystemHealth {
@@ -28,6 +29,8 @@ export default function SystemStatusBadge() {
   const [showDetails, setShowDetails] = useState(false);
   const [loading, setLoading] = useState(true);
   const [responseTime, setResponseTime] = useState<number | null>(null);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, right: 0 });
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   const fetchHealth = async () => {
     try {
@@ -57,6 +60,28 @@ export default function SystemStatusBadge() {
     const interval = setInterval(fetchHealth, 30000); // 30 seconds
     return () => clearInterval(interval);
   }, []);
+
+  const updateDropdownPosition = () => {
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + window.scrollY + 8,
+        right: window.innerWidth - rect.right - window.scrollX,
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (showDetails) {
+      updateDropdownPosition();
+      window.addEventListener('resize', updateDropdownPosition);
+      window.addEventListener('scroll', updateDropdownPosition, true);
+      return () => {
+        window.removeEventListener('resize', updateDropdownPosition);
+        window.removeEventListener('scroll', updateDropdownPosition, true);
+      };
+    }
+  }, [showDetails]);
 
   if (loading) {
     return (
@@ -111,7 +136,13 @@ export default function SystemStatusBadge() {
   return (
     <div className="relative">
       <button
-        onClick={() => setShowDetails(!showDetails)}
+        ref={buttonRef}
+        onClick={() => {
+          setShowDetails(!showDetails);
+          if (!showDetails) {
+            updateDropdownPosition();
+          }
+        }}
         className={cn(
           'flex items-center gap-2 px-3 py-1.5 rounded-full transition-all duration-200',
           colors.bg,
@@ -151,16 +182,23 @@ export default function SystemStatusBadge() {
         </svg>
       </button>
 
-      {/* Details Dropdown */}
-      {showDetails && (
+      {/* Details Dropdown with Portal */}
+      {showDetails && typeof window !== 'undefined' && createPortal(
         <>
           {/* Backdrop */}
           <div 
-            className="fixed inset-0 z-40" 
+            className="fixed inset-0 bg-black/10 dark:bg-black/30 z-[9998]" 
             onClick={() => setShowDetails(false)}
           />
           
-          <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-50">
+          {/* Dropdown */}
+          <div 
+            className="fixed w-80 bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-700 z-[9999]"
+            style={{
+              top: `${dropdownPosition.top}px`,
+              right: `${dropdownPosition.right}px`,
+            }}
+          >
             <div className="p-4 space-y-3">
               <div className="flex items-center justify-between pb-3 border-b border-gray-200 dark:border-gray-700">
                 <h3 className="font-semibold text-gray-900 dark:text-gray-100">System Status</h3>
@@ -279,7 +317,8 @@ export default function SystemStatusBadge() {
               </div>
             </div>
           </div>
-        </>
+        </>,
+        document.body
       )}
     </div>
   );

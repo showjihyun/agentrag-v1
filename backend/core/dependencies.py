@@ -9,6 +9,7 @@ from typing import Optional, AsyncGenerator
 from contextlib import asynccontextmanager
 
 import redis.asyncio as redis
+from fastapi import Depends
 
 from backend.config import settings
 from backend.services.embedding import EmbeddingService
@@ -67,6 +68,8 @@ class ServiceContainer:
         self._performance_monitor: Optional[PerformanceMonitor] = None
         self._adaptive_rag_service: Optional[AdaptiveRAGService] = None
         self._intelligent_mode_router: Optional[IntelligentModeRouter] = None
+        self._multi_level_cache: Optional["MultiLevelCache"] = None  # Phase 1 Architecture
+        self._circuit_breaker_registry: Optional["CircuitBreakerRegistry"] = None  # Phase 1 Architecture
         self._initialized = False
 
     async def initialize(self) -> None:
@@ -285,6 +288,41 @@ class ServiceContainer:
                 )
                 logger.info("IntelligentModeRouter initialized")
 
+            # Initialize Phase 1 Architecture Components
+            logger.info("Initializing Phase 1 Architecture Components...")
+            
+            # Initialize Multi-Level Cache
+            from backend.core.advanced_cache import MultiLevelCache
+            self._multi_level_cache = MultiLevelCache(
+                redis_client=self._redis_client,
+                l1_max_size=1000,
+                l1_ttl=300,  # 5 minutes
+                l2_ttl=3600  # 1 hour
+            )
+            logger.info("Multi-Level Cache initialized")
+            
+            # Initialize Circuit Breaker Registry
+            from backend.core.circuit_breaker import get_circuit_breaker_registry
+            self._circuit_breaker_registry = get_circuit_breaker_registry()
+            
+            # Register circuit breakers for critical services
+            self._circuit_breaker_registry.register(
+                name="llm_service",
+                failure_threshold=3,
+                timeout=30
+            )
+            self._circuit_breaker_registry.register(
+                name="milvus_service",
+                failure_threshold=5,
+                timeout=10
+            )
+            self._circuit_breaker_registry.register(
+                name="redis_service",
+                failure_threshold=5,
+                timeout=5
+            )
+            logger.info("Circuit Breaker Registry initialized with 3 breakers")
+
             self._initialized = True
             logger.info("ServiceContainer initialization complete!")
 
@@ -413,6 +451,14 @@ class ServiceContainer:
     def get_intelligent_mode_router(self) -> Optional[IntelligentModeRouter]:
         """Get IntelligentModeRouter (may be None if disabled)."""
         return self._intelligent_mode_router
+
+    def get_multi_level_cache(self) -> Optional["MultiLevelCache"]:
+        """Get Multi-Level Cache (Phase 1 Architecture)."""
+        return self._multi_level_cache
+
+    def get_circuit_breaker_registry(self) -> Optional["CircuitBreakerRegistry"]:
+        """Get Circuit Breaker Registry (Phase 1 Architecture)."""
+        return self._circuit_breaker_registry
 
     # Setters for testing
     def set_embedding_service(self, service: EmbeddingService) -> None:
@@ -543,3 +589,71 @@ async def get_adaptive_rag_service() -> Optional[AdaptiveRAGService]:
 async def get_intelligent_mode_router() -> Optional[IntelligentModeRouter]:
     """FastAPI dependency for IntelligentModeRouter."""
     return get_container().get_intelligent_mode_router()
+
+
+# Phase 1 Architecture Dependencies
+async def get_multi_level_cache() -> Optional["MultiLevelCache"]:
+    """FastAPI dependency for Multi-Level Cache."""
+    return get_container().get_multi_level_cache()
+
+
+async def get_circuit_breaker_registry() -> Optional["CircuitBreakerRegistry"]:
+    """FastAPI dependency for Circuit Breaker Registry."""
+    return get_container().get_circuit_breaker_registry()
+
+
+# ============================================================================
+# AGENT BUILDER DEPENDENCIES
+# ============================================================================
+
+from sqlalchemy.orm import Session
+from backend.db.database import get_db
+
+
+def get_agent_service(
+    db: Session = Depends(get_db)
+):
+    """
+    FastAPI dependency for AgentServiceRefactored.
+    
+    Returns:
+        AgentServiceRefactored instance with proper dependencies
+    """
+    from backend.services.agent_builder.agent_service_refactored import AgentServiceRefactored
+    
+    container = get_container()
+    cache = container.get_multi_level_cache()
+    
+    # Get circuit breaker for database operations
+    circuit_breaker_registry = container.get_circuit_breaker_registry()
+    db_breaker = None
+    if circuit_breaker_registry:
+        db_breaker = circuit_breaker_registry.get("database") or circuit_breaker_registry.get("milvus_service")
+    
+    return AgentServiceRefactored(db, cache, db_breaker)
+
+
+def get_workflow_service(
+    db: Session = Depends(get_db)
+):
+    """
+    FastAPI dependency for WorkflowService.
+    
+    Returns:
+        WorkflowService instance
+    """
+    from backend.services.agent_builder.workflow_service import WorkflowService
+    return WorkflowService(db)
+
+
+def get_block_service(
+    db: Session = Depends(get_db)
+):
+    """
+    FastAPI dependency for BlockService.
+    
+    Returns:
+        BlockService instance
+    """
+    from backend.services.agent_builder.block_service import BlockService
+    return BlockService(db)

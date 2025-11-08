@@ -71,6 +71,15 @@ class User(Base):
     usage_logs = relationship(
         "UsageLog", back_populates="user", cascade="all, delete-orphan"
     )
+    # notifications = relationship(
+    #     "Notification", back_populates="user", cascade="all, delete-orphan"
+    # )
+    # notification_settings = relationship(
+    #     "NotificationSettings", back_populates="user", cascade="all, delete-orphan", uselist=False
+    # )
+    bookmarks = relationship(
+        "Bookmark", back_populates="user", cascade="all, delete-orphan"
+    )
 
     # Database Constraints for data integrity
     __table_args__ = (

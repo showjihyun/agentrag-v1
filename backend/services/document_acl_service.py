@@ -26,6 +26,7 @@ from backend.db.models.permission import (
     PermissionType,
 )
 from backend.db.models.document import Document
+from backend.core.context_managers import db_transaction_sync
 
 logger = logging.getLogger(__name__)
 
@@ -332,54 +333,54 @@ class DocumentACLService:
                 .first()
             )
 
-            if existing:
-                # Update existing permission
-                old_type = existing.permission_type
-                existing.permission_type = permission_type
-                existing.expires_at = expires_at
-                existing.granted_by = owner_id
-                existing.granted_at = datetime.utcnow()
+            with db_transaction_sync(self.db):
+                if existing:
+                    # Update existing permission
+                    old_type = existing.permission_type
+                    existing.permission_type = permission_type
+                    existing.expires_at = expires_at
+                    existing.granted_by = owner_id
+                    existing.granted_at = datetime.utcnow()
 
-                self.db.commit()
-                self.db.refresh(existing)
+                    self.db.flush()
+                    self.db.refresh(existing)
+
+                    # Invalidate cache for this document
+                    _permission_cache.invalidate(str(document_id))
+
+                    logger.info(
+                        f"Updated permission: {existing.id} "
+                        f"(doc={document_id}, {old_type} -> {permission_type})"
+                    )
+                    return existing
+
+                # Create new permission
+                permission = DocumentPermission(
+                    document_id=document_id,
+                    user_id=target_user_id,
+                    group_id=target_group_id,
+                    permission_type=permission_type,
+                    granted_by=owner_id,
+                    expires_at=expires_at,
+                )
+
+                self.db.add(permission)
+                self.db.flush()
+                self.db.refresh(permission)
 
                 # Invalidate cache for this document
                 _permission_cache.invalidate(str(document_id))
 
                 logger.info(
-                    f"Updated permission: {existing.id} "
-                    f"(doc={document_id}, {old_type} -> {permission_type})"
+                    f"Permission granted: {permission.id} "
+                    f"(doc={document_id}, type={permission_type})"
                 )
-                return existing
 
-            # Create new permission
-            permission = DocumentPermission(
-                document_id=document_id,
-                user_id=target_user_id,
-                group_id=target_group_id,
-                permission_type=permission_type,
-                granted_by=owner_id,
-                expires_at=expires_at,
-            )
-
-            self.db.add(permission)
-            self.db.commit()
-            self.db.refresh(permission)
-
-            # Invalidate cache for this document
-            _permission_cache.invalidate(str(document_id))
-
-            logger.info(
-                f"Permission granted: {permission.id} "
-                f"(doc={document_id}, type={permission_type})"
-            )
-
-            return permission
+                return permission
 
         except DocumentACLServiceError:
             raise
         except Exception as e:
-            self.db.rollback()
             logger.error(f"Failed to grant permission: {e}", exc_info=True)
             raise DocumentACLServiceError(f"Failed to grant permission: {e}")
 
@@ -415,16 +416,15 @@ class DocumentACLService:
                     "Only document admin can revoke permissions"
                 )
 
-            # Delete permission
-            self.db.delete(permission)
-            self.db.commit()
+            with db_transaction_sync(self.db):
+                # Delete permission
+                self.db.delete(permission)
 
             logger.info(f"Permission revoked: {permission_id}")
 
         except DocumentACLServiceError:
             raise
         except Exception as e:
-            self.db.rollback()
             logger.error(f"Failed to revoke permission: {e}", exc_info=True)
             raise DocumentACLServiceError(f"Failed to revoke permission: {e}")
 
@@ -498,20 +498,20 @@ class DocumentACLService:
             if existing:
                 raise DocumentACLServiceError(f"Group '{name}' already exists")
 
-            # Create group
-            group = Group(name=name, description=description, created_by=creator_id)
+            with db_transaction_sync(self.db):
+                # Create group
+                group = Group(name=name, description=description, created_by=creator_id)
 
-            self.db.add(group)
-            self.db.commit()
-            self.db.refresh(group)
+                self.db.add(group)
+                self.db.flush()
+                self.db.refresh(group)
 
-            # Add creator as first member
-            member = GroupMember(
-                group_id=group.id, user_id=creator_id, added_by=creator_id
-            )
+                # Add creator as first member
+                member = GroupMember(
+                    group_id=group.id, user_id=creator_id, added_by=creator_id
+                )
 
-            self.db.add(member)
-            self.db.commit()
+                self.db.add(member)
 
             logger.info(f"Group created: {group.id} ({name})")
 
@@ -520,7 +520,6 @@ class DocumentACLService:
         except DocumentACLServiceError:
             raise
         except Exception as e:
-            self.db.rollback()
             logger.error(f"Failed to create group: {e}", exc_info=True)
             raise DocumentACLServiceError(f"Failed to create group: {e}")
 
@@ -576,15 +575,16 @@ class DocumentACLService:
                 logger.info(f"User {user_id} already in group {group_id}")
                 return existing
 
-            # Add member
-            member = GroupMember(group_id=group_id, user_id=user_id, added_by=added_by)
+            with db_transaction_sync(self.db):
+                # Add member
+                member = GroupMember(group_id=group_id, user_id=user_id, added_by=added_by)
 
-            self.db.add(member)
-            self.db.commit()
-            self.db.refresh(member)
+                self.db.add(member)
+                self.db.flush()
+                self.db.refresh(member)
 
-            # Invalidate cache for all documents with this group permission
-            _permission_cache.invalidate(str(group_id))
+                # Invalidate cache for all documents with this group permission
+                _permission_cache.invalidate(str(group_id))
 
             logger.info(f"User {user_id} added to group {group_id}")
 
@@ -593,7 +593,6 @@ class DocumentACLService:
         except DocumentACLServiceError:
             raise
         except Exception as e:
-            self.db.rollback()
             logger.error(f"Failed to add group member: {e}", exc_info=True)
             raise DocumentACLServiceError(f"Failed to add group member: {e}")
 
@@ -639,19 +638,18 @@ class DocumentACLService:
             if user_id == group.created_by:
                 raise DocumentACLServiceError("Cannot remove group creator from group")
 
-            # Remove member
-            self.db.delete(member)
-            self.db.commit()
+            with db_transaction_sync(self.db):
+                # Remove member
+                self.db.delete(member)
 
-            # Invalidate cache
-            _permission_cache.invalidate(str(group_id))
+                # Invalidate cache
+                _permission_cache.invalidate(str(group_id))
 
             logger.info(f"User {user_id} removed from group {group_id}")
 
         except DocumentACLServiceError:
             raise
         except Exception as e:
-            self.db.rollback()
             logger.error(f"Failed to remove group member: {e}", exc_info=True)
             raise DocumentACLServiceError(f"Failed to remove group member: {e}")
 
@@ -739,21 +737,19 @@ class DocumentACLService:
 
             count = len(expired)
 
-            # Delete expired permissions
-            for permission in expired:
-                self.db.delete(permission)
+            with db_transaction_sync(self.db):
+                # Delete expired permissions
+                for permission in expired:
+                    self.db.delete(permission)
 
-            self.db.commit()
-
-            # Clear cache
-            _permission_cache.invalidate()
+                # Clear cache
+                _permission_cache.invalidate()
 
             logger.info(f"Cleaned up {count} expired permissions")
 
             return count
 
         except Exception as e:
-            self.db.rollback()
             logger.error(f"Failed to cleanup expired permissions: {e}", exc_info=True)
             return 0
 

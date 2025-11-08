@@ -1,86 +1,126 @@
 /**
- * Performance Monitoring System
- * 
- * Tracks Web Vitals and custom performance metrics
+ * Performance monitoring utilities
  */
 
-import { useEffect } from 'react';
-
-// Web Vitals types
-export interface WebVitalsMetric {
-  name: 'CLS' | 'FID' | 'FCP' | 'LCP' | 'TTFB' | 'INP';
-  value: number;
-  rating: 'good' | 'needs-improvement' | 'poor';
-  delta: number;
-  id: string;
-  navigationType: string;
-}
-
-// Custom metric types
-export interface CustomMetric {
+interface PerformanceMetric {
   name: string;
   value: number;
   timestamp: number;
   metadata?: Record<string, any>;
 }
 
-/**
- * Performance Monitor class
- */
 class PerformanceMonitor {
-  private metrics: CustomMetric[] = [];
-  private webVitals: WebVitalsMetric[] = [];
-  private enabled: boolean = true;
+  private metrics: PerformanceMetric[] = [];
+  private observers: PerformanceObserver[] = [];
 
-  constructor() {
-    if (typeof window !== 'undefined') {
-      this.initWebVitals();
+  /**
+   * Initialize performance monitoring
+   */
+  init() {
+    if (typeof window === 'undefined') return;
+
+    // Monitor Long Tasks
+    if ('PerformanceObserver' in window) {
+      try {
+        const longTaskObserver = new PerformanceObserver((list) => {
+          for (const entry of list.getEntries()) {
+            this.recordMetric('long-task', entry.duration, {
+              name: entry.name,
+              startTime: entry.startTime,
+            });
+          }
+        });
+        longTaskObserver.observe({ entryTypes: ['longtask'] });
+        this.observers.push(longTaskObserver);
+      } catch (e) {
+        console.warn('[Performance] Long task monitoring not supported');
+      }
+
+      // Monitor Layout Shifts
+      try {
+        const clsObserver = new PerformanceObserver((list) => {
+          for (const entry of list.getEntries()) {
+            if ((entry as any).hadRecentInput) continue;
+            
+            this.recordMetric('layout-shift', (entry as any).value, {
+              sources: (entry as any).sources,
+            });
+          }
+        });
+        clsObserver.observe({ entryTypes: ['layout-shift'] });
+        this.observers.push(clsObserver);
+      } catch (e) {
+        console.warn('[Performance] Layout shift monitoring not supported');
+      }
+
+      // Monitor First Input Delay
+      try {
+        const fidObserver = new PerformanceObserver((list) => {
+          for (const entry of list.getEntries()) {
+            this.recordMetric('first-input-delay', entry.processingStart - entry.startTime, {
+              name: entry.name,
+            });
+          }
+        });
+        fidObserver.observe({ entryTypes: ['first-input'] });
+        this.observers.push(fidObserver);
+      } catch (e) {
+        console.warn('[Performance] First input delay monitoring not supported');
+      }
     }
+
+    // Monitor Core Web Vitals
+    this.monitorWebVitals();
+
+    console.log('[Performance] Monitoring initialized');
   }
 
   /**
-   * Initialize Web Vitals tracking
+   * Monitor Core Web Vitals
    */
-  private async initWebVitals() {
-    try {
-      const { onCLS, onFID, onFCP, onLCP, onTTFB, onINP } = await import('web-vitals');
+  private monitorWebVitals() {
+    if (typeof window === 'undefined') return;
 
-      onCLS(this.handleWebVital.bind(this));
-      onFID(this.handleWebVital.bind(this));
-      onFCP(this.handleWebVital.bind(this));
-      onLCP(this.handleWebVital.bind(this));
-      onTTFB(this.handleWebVital.bind(this));
-      onINP(this.handleWebVital.bind(this));
-    } catch (error) {
-      console.warn('Web Vitals not available:', error);
+    // LCP - Largest Contentful Paint
+    if ('PerformanceObserver' in window) {
+      try {
+        const lcpObserver = new PerformanceObserver((list) => {
+          const entries = list.getEntries();
+          const lastEntry = entries[entries.length - 1];
+          this.recordMetric('lcp', lastEntry.startTime, {
+            element: (lastEntry as any).element?.tagName,
+          });
+        });
+        lcpObserver.observe({ entryTypes: ['largest-contentful-paint'] });
+        this.observers.push(lcpObserver);
+      } catch (e) {
+        console.warn('[Performance] LCP monitoring not supported');
+      }
     }
+
+    // FCP - First Contentful Paint
+    window.addEventListener('load', () => {
+      const perfData = performance.getEntriesByType('paint');
+      const fcp = perfData.find((entry) => entry.name === 'first-contentful-paint');
+      if (fcp) {
+        this.recordMetric('fcp', fcp.startTime);
+      }
+    });
+
+    // TTFB - Time to First Byte
+    window.addEventListener('load', () => {
+      const navTiming = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
+      if (navTiming) {
+        this.recordMetric('ttfb', navTiming.responseStart - navTiming.requestStart);
+      }
+    });
   }
 
   /**
-   * Handle Web Vital metric
+   * Record a performance metric
    */
-  private handleWebVital(metric: WebVitalsMetric) {
-    this.webVitals.push(metric);
-    
-    // Log to console in development
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`[Web Vital] ${metric.name}:`, {
-        value: metric.value,
-        rating: metric.rating,
-      });
-    }
-
-    // Send to analytics (implement your analytics service)
-    this.sendToAnalytics('web-vital', metric);
-  }
-
-  /**
-   * Track custom metric
-   */
-  trackMetric(name: string, value: number, metadata?: Record<string, any>) {
-    if (!this.enabled) return;
-
-    const metric: CustomMetric = {
+  recordMetric(name: string, value: number, metadata?: Record<string, any>) {
+    const metric: PerformanceMetric = {
       name,
       value,
       timestamp: Date.now(),
@@ -89,85 +129,109 @@ class PerformanceMonitor {
 
     this.metrics.push(metric);
 
+    // Log in development
     if (process.env.NODE_ENV === 'development') {
-      console.log(`[Metric] ${name}:`, value, metadata);
+      console.log(`[Performance] ${name}:`, value.toFixed(2), 'ms', metadata);
     }
 
-    this.sendToAnalytics('custom-metric', metric);
+    // Send to analytics in production
+    if (process.env.NODE_ENV === 'production') {
+      this.sendToAnalytics(metric);
+    }
+
+    // Keep only last 100 metrics
+    if (this.metrics.length > 100) {
+      this.metrics.shift();
+    }
   }
 
   /**
-   * Track page load time
+   * Send metric to analytics
    */
-  trackPageLoad(pageName: string) {
-    if (typeof window === 'undefined') return;
-
-    const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
-    
-    if (navigation) {
-      this.trackMetric('page-load', navigation.loadEventEnd - navigation.fetchStart, {
-        page: pageName,
-        domContentLoaded: navigation.domContentLoadedEventEnd - navigation.fetchStart,
-        domInteractive: navigation.domInteractive - navigation.fetchStart,
+  private sendToAnalytics(metric: PerformanceMetric) {
+    // Send to your analytics service
+    if (typeof window !== 'undefined' && (window as any).gtag) {
+      (window as any).gtag('event', 'performance_metric', {
+        metric_name: metric.name,
+        metric_value: metric.value,
+        ...metric.metadata,
       });
     }
   }
 
   /**
-   * Track API call performance
+   * Measure function execution time
    */
-  trackAPICall(endpoint: string, duration: number, status: number) {
-    this.trackMetric('api-call', duration, {
-      endpoint,
-      status,
-      success: status >= 200 && status < 300,
-    });
+  measure<T>(name: string, fn: () => T): T {
+    const startTime = performance.now();
+    const result = fn();
+    const endTime = performance.now();
+    
+    this.recordMetric(name, endTime - startTime);
+    
+    return result;
   }
 
   /**
-   * Track component render time
+   * Measure async function execution time
    */
-  trackComponentRender(componentName: string, duration: number) {
-    this.trackMetric('component-render', duration, {
-      component: componentName,
-    });
+  async measureAsync<T>(name: string, fn: () => Promise<T>): Promise<T> {
+    const startTime = performance.now();
+    const result = await fn();
+    const endTime = performance.now();
+    
+    this.recordMetric(name, endTime - startTime);
+    
+    return result;
   }
 
   /**
-   * Track user interaction
+   * Start a performance mark
    */
-  trackInteraction(action: string, duration?: number) {
-    this.trackMetric('user-interaction', duration || 0, {
-      action,
-    });
+  mark(name: string) {
+    if (typeof performance !== 'undefined' && performance.mark) {
+      performance.mark(name);
+    }
+  }
+
+  /**
+   * Measure between two marks
+   */
+  measureBetween(name: string, startMark: string, endMark: string) {
+    if (typeof performance !== 'undefined' && performance.measure) {
+      try {
+        performance.measure(name, startMark, endMark);
+        const measure = performance.getEntriesByName(name)[0];
+        this.recordMetric(name, measure.duration);
+      } catch (e) {
+        console.warn('[Performance] Failed to measure:', e);
+      }
+    }
   }
 
   /**
    * Get all metrics
    */
-  getMetrics() {
-    return {
-      webVitals: this.webVitals,
-      custom: this.metrics,
-    };
+  getMetrics(): PerformanceMetric[] {
+    return [...this.metrics];
   }
 
   /**
-   * Get Web Vitals summary
+   * Get metrics by name
    */
-  getWebVitalsSummary() {
-    const summary: Record<string, any> = {};
+  getMetricsByName(name: string): PerformanceMetric[] {
+    return this.metrics.filter((m) => m.name === name);
+  }
 
-    this.webVitals.forEach(metric => {
-      if (!summary[metric.name]) {
-        summary[metric.name] = {
-          value: metric.value,
-          rating: metric.rating,
-        };
-      }
-    });
-
-    return summary;
+  /**
+   * Get average metric value
+   */
+  getAverageMetric(name: string): number {
+    const metrics = this.getMetricsByName(name);
+    if (metrics.length === 0) return 0;
+    
+    const sum = metrics.reduce((acc, m) => acc + m.value, 0);
+    return sum / metrics.length;
   }
 
   /**
@@ -175,89 +239,64 @@ class PerformanceMonitor {
    */
   clearMetrics() {
     this.metrics = [];
-    this.webVitals = [];
   }
 
   /**
-   * Enable/disable monitoring
+   * Cleanup observers
    */
-  setEnabled(enabled: boolean) {
-    this.enabled = enabled;
-  }
-
-  /**
-   * Send to analytics service
-   */
-  private sendToAnalytics(type: string, data: any) {
-    // Implement your analytics service here
-    // Examples: Google Analytics, Mixpanel, Custom API
-    
-    if (typeof window !== 'undefined' && (window as any).gtag) {
-      (window as any).gtag('event', type, data);
-    }
+  cleanup() {
+    this.observers.forEach((observer) => observer.disconnect());
+    this.observers = [];
   }
 }
 
-// Global instance
-const performanceMonitor = new PerformanceMonitor();
-
-export default performanceMonitor;
+// Singleton instance
+export const performanceMonitor = new PerformanceMonitor();
 
 /**
- * Hook for tracking component performance
+ * React hook for performance monitoring
  */
-export function usePerformanceTracking(componentName: string) {
-  useEffect(() => {
-    const startTime = performance.now();
+export function usePerformanceMonitoring(componentName: string) {
+  if (typeof window === 'undefined') return;
 
-    return () => {
-      const duration = performance.now() - startTime;
-      performanceMonitor.trackComponentRender(componentName, duration);
-    };
-  }, [componentName]);
+  const mountTime = performance.now();
+
+  // Record mount time
+  performanceMonitor.recordMetric(`${componentName}-mount`, mountTime);
+
+  // Cleanup on unmount
+  return () => {
+    const unmountTime = performance.now();
+    const lifetime = unmountTime - mountTime;
+    performanceMonitor.recordMetric(`${componentName}-lifetime`, lifetime);
+  };
 }
 
 /**
- * Hook for tracking page load
+ * Measure component render time
  */
-export function usePageLoadTracking(pageName: string) {
-  useEffect(() => {
-    performanceMonitor.trackPageLoad(pageName);
-  }, [pageName]);
+export function measureRender(componentName: string) {
+  return {
+    onRenderStart: () => {
+      performanceMonitor.mark(`${componentName}-render-start`);
+    },
+    onRenderEnd: () => {
+      performanceMonitor.mark(`${componentName}-render-end`);
+      performanceMonitor.measureBetween(
+        `${componentName}-render`,
+        `${componentName}-render-start`,
+        `${componentName}-render-end`
+      );
+    },
+  };
 }
 
 /**
- * Measure function execution time
+ * Report Web Vitals
  */
-export function measurePerformance<T extends (...args: any[]) => any>(
-  fn: T,
-  name: string
-): T {
-  return ((...args: Parameters<T>) => {
-    const start = performance.now();
-    const result = fn(...args);
-    const duration = performance.now() - start;
-    
-    performanceMonitor.trackMetric(`function-${name}`, duration);
-    
-    return result;
-  }) as T;
-}
-
-/**
- * Measure async function execution time
- */
-export function measureAsyncPerformance<T extends (...args: any[]) => Promise<any>>(
-  fn: T,
-  name: string
-): T {
-  return (async (...args: Parameters<T>) => {
-    const start = performance.now();
-    const result = await fn(...args);
-    const duration = performance.now() - start;
-    
-    performanceMonitor.trackMetric(`async-function-${name}`, duration);
-    
-    return result;
-  }) as T;
+export function reportWebVitals(metric: any) {
+  performanceMonitor.recordMetric(metric.name, metric.value, {
+    id: metric.id,
+    label: metric.label,
+  });
 }

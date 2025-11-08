@@ -13,6 +13,10 @@ from pathlib import Path
 backend_dir = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(backend_dir))
 
+# Add parent directory (project root) to path for 'backend' module imports
+project_root = backend_dir.parent
+sys.path.insert(0, str(project_root))
+
 from config import settings
 
 # this is the Alembic Config object, which provides

@@ -590,3 +590,63 @@ async def initialize_health_checks(container) -> None:
         pass  # Background tasks might not be available
 
     logger.info(f"Initialized {len(checker.checks)} health checks")
+
+
+async def check_agent_builder_health(db_session_factory) -> ComponentHealth:
+    """Check Agent Builder services health."""
+    try:
+        from backend.services.agent_builder.secret_manager import SecretManager
+        from backend.db.models.agent_builder import Agent, Workflow, Block
+        
+        start_time = time.time()
+        db = db_session_factory()
+        
+        try:
+            # Check secret encryption
+            secret_manager = SecretManager(db)
+            encryption_valid = secret_manager.validate_encryption()
+            
+            # Count resources
+            agent_count = db.query(Agent).count()
+            workflow_count = db.query(Workflow).count()
+            block_count = db.query(Block).count()
+            
+            response_time = (time.time() - start_time) * 1000
+            
+            if encryption_valid:
+                return ComponentHealth(
+                    name="agent_builder",
+                    status=HealthStatus.HEALTHY,
+                    message="Agent Builder services operational",
+                    details={
+                        "encryption": "validated",
+                        "agents": agent_count,
+                        "workflows": workflow_count,
+                        "blocks": block_count
+                    },
+                    response_time_ms=response_time
+                )
+            else:
+                return ComponentHealth(
+                    name="agent_builder",
+                    status=HealthStatus.DEGRADED,
+                    message="Encryption validation failed",
+                    details={
+                        "encryption": "failed",
+                        "agents": agent_count,
+                        "workflows": workflow_count,
+                        "blocks": block_count
+                    },
+                    response_time_ms=response_time
+                )
+                
+        finally:
+            db.close()
+            
+    except Exception as e:
+        return ComponentHealth(
+            name="agent_builder",
+            status=HealthStatus.UNHEALTHY,
+            message=f"Agent Builder check failed: {str(e)}",
+            details={"error": str(e)}
+        )

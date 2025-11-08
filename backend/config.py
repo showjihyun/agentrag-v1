@@ -1,7 +1,7 @@
 # Environment configuration
 from pydantic_settings import BaseSettings
 from typing import Optional, List
-from pydantic import field_validator, ValidationError, model_validator
+from pydantic import Field, field_validator, ValidationError, model_validator
 import logging
 import sys
 
@@ -55,12 +55,12 @@ class Settings(BaseSettings):
     MILVUS_MAX_IDLE_TIME: int = 300  # Max idle time before refresh (seconds)
 
     # PostgreSQL Configuration (Phase 5)
-    DATABASE_URL: str = "postgresql://raguser:ragpassword@localhost:5433/agentic_rag"
-    POSTGRES_HOST: str = "localhost"
-    POSTGRES_PORT: int = 5433
-    POSTGRES_DB: str = "agentic_rag"
-    POSTGRES_USER: str = "raguser"
-    POSTGRES_PASSWORD: str = "ragpassword"
+    DATABASE_URL: str = Field(default="postgresql://postgres:postgres@localhost:5433/agenticrag", env="DATABASE_URL")
+    POSTGRES_HOST: str = Field(default="localhost", env="POSTGRES_HOST")
+    POSTGRES_PORT: int = Field(default=5433, env="POSTGRES_PORT")
+    POSTGRES_DB: str = Field(default="agenticrag", env="POSTGRES_DB")
+    POSTGRES_USER: str = Field(default="postgres", env="POSTGRES_USER")
+    POSTGRES_PASSWORD: str = Field(default="postgres", env="POSTGRES_PASSWORD")
 
     # Connection Pool Configuration (Optimized)
     DB_POOL_SIZE: int = 20  # Base connection pool size
@@ -90,11 +90,11 @@ class Settings(BaseSettings):
     MAX_BATCH_SIZE_MB: int = 100
 
     # Redis Configuration
-    REDIS_HOST: str = "localhost"
-    REDIS_PORT: int = 6379
-    REDIS_DB: int = 0
-    REDIS_PASSWORD: Optional[str] = None
-    REDIS_MAX_CONNECTIONS: int = 50  # Connection pool size
+    REDIS_HOST: str = Field(default="localhost", env="REDIS_HOST")
+    REDIS_PORT: int = Field(default=6380, env="REDIS_PORT")
+    REDIS_DB: int = Field(default=0, env="REDIS_DB")
+    REDIS_PASSWORD: Optional[str] = Field(default=None, env="REDIS_PASSWORD")
+    REDIS_MAX_CONNECTIONS: int = Field(default=50, env="REDIS_MAX_CONNECTIONS")
 
     # Embedding Configuration
     # Best Korean models (in order of quality):
@@ -863,6 +863,53 @@ class Settings(BaseSettings):
                 )
 
         return status
+
+    # ==========================================
+    # Agent Builder Configuration
+    # ==========================================
+    
+    # Agent Builder Feature Toggle
+    AGENT_BUILDER_ENABLED: bool = True
+    
+    # Resource Limits per User
+    AGENT_BUILDER_MAX_AGENTS_PER_USER: int = 50
+    AGENT_BUILDER_MAX_WORKFLOWS_PER_USER: int = 100
+    AGENT_BUILDER_MAX_BLOCKS_PER_USER: int = 200
+    AGENT_BUILDER_MAX_KNOWLEDGEBASES_PER_USER: int = 20
+    
+    # Block Execution Configuration
+    BLOCK_EXECUTOR_TYPE: str = "restricted"  # "restricted" or "docker"
+    BLOCK_EXECUTOR_TIMEOUT: int = 5  # seconds
+    BLOCK_EXECUTOR_MAX_MEMORY: int = 128  # MB
+    
+    # Secret Management
+    SECRET_ENCRYPTION_KEY: str = Field(
+        default="change-this-in-production-use-strong-key",
+        env="SECRET_ENCRYPTION_KEY"
+    )
+    SECRET_KEY_ROTATION_DAYS: int = 90
+    
+    # Execution Scheduler
+    SCHEDULER_CHECK_INTERVAL: int = 60  # seconds
+    SCHEDULER_MAX_CONCURRENT_JOBS: int = 10
+    
+    # Permission System
+    PERMISSION_CACHE_TTL: int = 300  # seconds (5 minutes)
+    PERMISSION_CACHE_MAX_SIZE: int = 1000
+    
+    # Workflow Execution
+    WORKFLOW_MAX_EXECUTION_TIME: int = 300  # seconds (5 minutes)
+    WORKFLOW_MAX_STEPS: int = 100
+    
+    # Agent Execution
+    AGENT_EXECUTION_TIMEOUT: int = 60  # seconds
+    AGENT_MAX_TOOL_CALLS: int = 20
+    
+    # Knowledgebase Configuration
+    KB_DEFAULT_CHUNK_SIZE: int = 500
+    KB_DEFAULT_CHUNK_OVERLAP: int = 50
+    KB_MAX_DOCUMENTS_PER_KB: int = 1000
+    KB_MAX_FILE_SIZE_MB: int = 50
 
     def print_config_summary(self) -> None:
         """

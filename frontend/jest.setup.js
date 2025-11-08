@@ -1,5 +1,25 @@
-// Learn more: https://github.com/testing-library/jest-dom
 import '@testing-library/jest-dom';
+
+// Mock Next.js router
+jest.mock('next/navigation', () => ({
+  useRouter() {
+    return {
+      push: jest.fn(),
+      replace: jest.fn(),
+      prefetch: jest.fn(),
+      back: jest.fn(),
+      pathname: '/',
+      query: {},
+      asPath: '/',
+    };
+  },
+  usePathname() {
+    return '/';
+  },
+  useSearchParams() {
+    return new URLSearchParams();
+  },
+}));
 
 // Mock window.matchMedia
 Object.defineProperty(window, 'matchMedia', {
@@ -8,8 +28,8 @@ Object.defineProperty(window, 'matchMedia', {
     matches: false,
     media: query,
     onchange: null,
-    addListener: jest.fn(), // deprecated
-    removeListener: jest.fn(), // deprecated
+    addListener: jest.fn(),
+    removeListener: jest.fn(),
     addEventListener: jest.fn(),
     removeEventListener: jest.fn(),
     dispatchEvent: jest.fn(),
@@ -24,5 +44,13 @@ global.IntersectionObserver = class IntersectionObserver {
   takeRecords() {
     return [];
   }
+  unobserve() {}
+};
+
+// Mock ResizeObserver
+global.ResizeObserver = class ResizeObserver {
+  constructor() {}
+  disconnect() {}
+  observe() {}
   unobserve() {}
 };

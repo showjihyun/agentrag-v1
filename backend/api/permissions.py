@@ -434,16 +434,32 @@ async def cleanup_expired_permissions(
     This endpoint should be called periodically or by admin users.
     """
     try:
-        # TODO: Add admin check
-        # if not current_user.is_admin:
-        #     raise HTTPException(status_code=403, detail="Admin only")
+        # Admin check - verify user has admin role
+        if not hasattr(current_user, 'is_admin') or not current_user.is_admin:
+            # Check if user has admin role in database
+            from backend.db.repositories.user_repository import UserRepository
+            user_repo = UserRepository(db)
+            user_data = await user_repo.get_by_id(current_user.id)
+            
+            if not user_data or not getattr(user_data, 'is_admin', False):
+                logger.warning(
+                    f"Non-admin user {current_user.id} attempted to cleanup permissions"
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Admin privileges required"
+                )
 
         acl_service = get_document_acl_service(db)
 
         count = await acl_service.cleanup_expired_permissions()
 
+        logger.info(f"Admin {current_user.id} cleaned up {count} expired permissions")
+        
         return {"cleaned_up": count, "message": f"Removed {count} expired permissions"}
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Unexpected error cleaning up permissions: {e}", exc_info=True)
         raise HTTPException(

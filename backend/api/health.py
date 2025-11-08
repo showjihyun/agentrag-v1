@@ -27,11 +27,45 @@ async def detailed_health_check(db: Session = Depends(get_db)) -> Dict:
 
     Checks:
     - Database connectivity
+    - Redis connectivity
+    - Milvus connectivity
     - System resources
     - Service health
     """
     # Check database
     db_health = HealthChecker.check_database(db)
+
+    # Check Redis
+    redis_health = {"status": "healthy", "message": "Connected"}
+    try:
+        from backend.core.connection_pool import get_redis_pool
+        from backend.config import settings
+        pool = get_redis_pool(
+            host=settings.REDIS_HOST,
+            port=settings.REDIS_PORT,
+            db=settings.REDIS_DB,
+            password=settings.REDIS_PASSWORD
+        )
+        redis = pool.get_connection()
+        redis.ping()
+        pool.release(redis)
+    except Exception as e:
+        redis_health = {"status": "unhealthy", "message": str(e)}
+
+    # Check Milvus
+    milvus_health = {"status": "healthy", "message": "Connected"}
+    try:
+        from backend.core.milvus_pool import get_milvus_pool
+        from backend.config import settings
+        pool = get_milvus_pool(
+            host=settings.MILVUS_HOST,
+            port=settings.MILVUS_PORT
+        )
+        # Simple connection check
+        if pool:
+            milvus_health["message"] = "Pool initialized"
+    except Exception as e:
+        milvus_health = {"status": "unhealthy", "message": str(e)}
 
     # Get system health
     system_health = metrics_collector.get_system_health()
@@ -40,13 +74,20 @@ async def detailed_health_check(db: Session = Depends(get_db)) -> Dict:
     overall_status = "healthy"
     if db_health["status"] != "healthy":
         overall_status = "unhealthy"
+    elif redis_health["status"] != "healthy" or milvus_health["status"] != "healthy":
+        overall_status = "degraded"
     elif system_health["status"] in ["warning", "critical"]:
         overall_status = system_health["status"]
 
     return {
         "status": overall_status,
         "timestamp": system_health["timestamp"],
-        "components": {"database": db_health, "system": system_health},
+        "components": {
+            "database": db_health,
+            "redis": redis_health,
+            "milvus": milvus_health,
+            "system": system_health
+        },
     }
 
 

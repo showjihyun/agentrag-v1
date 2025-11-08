@@ -12,9 +12,10 @@ interface MessageListProps {
   isProcessing?: boolean;
   onRegenerate?: (messageId: string) => void;
   onRelatedQuestionClick?: (question: string) => void;
+  onChunkClick?: (chunkId: string) => void;
 }
 
-const MessageList: React.FC<MessageListProps> = ({ messages, isProcessing, onRegenerate, onRelatedQuestionClick }) => {
+const MessageList: React.FC<MessageListProps> = ({ messages, isProcessing, onRegenerate, onRelatedQuestionClick, onChunkClick }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isUserScrolling, setIsUserScrolling] = React.useState(false);
@@ -134,6 +135,7 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isProcessing, onReg
               index={index}
               onRegenerate={onRegenerate}
               onRelatedQuestionClick={onRelatedQuestionClick}
+              onChunkClick={onChunkClick}
             />
           ))}
           {isProcessing && <MessageSkeleton />}

@@ -65,13 +65,22 @@ log_file = (
     if os.path.exists("logs") or os.makedirs("logs", exist_ok=True)
     else None
 )
+
+# Optimize logging level based on environment
+effective_log_level = settings.LOG_LEVEL if settings.DEBUG else "INFO"
 setup_structured_logging(
-    log_level=settings.LOG_LEVEL,
+    log_level=effective_log_level,
     log_file=log_file,
     json_format=not settings.DEBUG,  # JSON in production, plain text in debug
 )
 
 logger = get_logger(__name__)
+
+# Suppress verbose third-party loggers in production
+if not settings.DEBUG:
+    logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 
 @asynccontextmanager
@@ -114,6 +123,14 @@ async def lifespan(app: FastAPI):
         cache_manager = get_cache_manager(redis_client)
         await cache_manager.start_cleanup_task()
         logger.info("Cache manager initialized")
+
+        # Initialize embedding configuration
+        from backend.services.system_config_service import SystemConfigService
+        try:
+            await SystemConfigService.initialize_embedding_config()
+            logger.info("Embedding configuration initialized")
+        except Exception as e:
+            logger.warning(f"Failed to initialize embedding config: {e}")
 
         # Initialize background task manager
         from backend.core.background_tasks import get_task_manager
@@ -185,6 +202,38 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.warning(f"Failed to initialize cache warmer: {e}")
 
+        # Initialize tool integrations
+        try:
+            from backend.core.tools.init_tools import initialize_tools, get_tool_summary
+            
+            tool_count = initialize_tools()
+            tool_summary = get_tool_summary()
+            
+            logger.info(
+                f"Tool integrations initialized: {tool_count} tools across "
+                f"{len(tool_summary['categories'])} categories"
+            )
+            
+            for category, count in tool_summary['by_category'].items():
+                logger.info(f"  - {category}: {count} tools")
+            
+            # Sync tools to database
+            try:
+                from backend.core.tools.sync_tools_to_db import sync_tools_to_database
+                from backend.db.database import SessionLocal
+                
+                db = SessionLocal()
+                try:
+                    synced_count = sync_tools_to_database(db)
+                    logger.info(f"✅ Synced {synced_count} tools to database")
+                finally:
+                    db.close()
+            except Exception as sync_error:
+                logger.warning(f"Failed to sync tools to database: {sync_error}")
+                
+        except Exception as e:
+            logger.warning(f"Failed to initialize tool integrations: {e}")
+
         logger.info(
             "Startup complete!", system_version="1.0.0", debug_mode=settings.DEBUG
         )
@@ -233,9 +282,16 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Add GZip compression middleware for better performance
+from fastapi.middleware.gzip import GZipMiddleware
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+logger.info("GZip compression middleware enabled (minimum size: 1000 bytes)")
+
 # Configure CORS
+print(f"DEBUG MODE: {settings.DEBUG}")
 if settings.DEBUG:
     # Development mode: Allow all origins
+    print("⚠️  CORS configured for ALL origins (DEBUG mode - Development only!)")
     logger.warning(
         "⚠️  CORS configured for ALL origins (DEBUG mode - Development only!)"
     )
@@ -248,6 +304,7 @@ if settings.DEBUG:
         expose_headers=["*"],  # Expose all headers
         max_age=3600,
     )
+    print("✓ CORS middleware added successfully")
 else:
     # Production mode: Restrict origins
     allowed_origins = [
@@ -400,9 +457,85 @@ async def request_id_middleware(request: Request, call_next):
 
 
 # Rate limiting middleware (최내곽 - 실제 endpoint 직전)
-# Note: Rate limiting is currently handled per-endpoint using SecurityManager
-# TODO: Implement global rate_limit_middleware for centralized rate limiting
-# app.middleware("http")(rate_limit_middleware)
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    """Global rate limiting middleware with Redis-based distributed limiting."""
+    from backend.core.rate_limiter import RateLimiter
+    from backend.core.dependencies import get_redis_client
+    
+    # Skip rate limiting for health checks and static files
+    skip_paths = ["/api/health", "/docs", "/redoc", "/openapi.json"]
+    if any(request.url.path.startswith(path) for path in skip_paths):
+        return await call_next(request)
+    
+    try:
+        redis_client = await get_redis_client()
+        
+        # Get identifier (user_id or IP)
+        identifier = request.client.host if request.client else "unknown"
+        
+        # Try to get user_id if authenticated
+        try:
+            if hasattr(request.state, "user") and request.state.user:
+                identifier = f"user:{request.state.user.id}"
+        except:
+            pass
+        
+        # Create rate limiter with default limits
+        rate_limiter = RateLimiter(
+            redis_client=redis_client,
+            requests_per_minute=60,
+            requests_per_hour=1000,
+            requests_per_day=10000,
+            enabled=not settings.DEBUG  # Disable in debug mode
+        )
+        
+        # Check rate limit
+        is_allowed, error_msg, remaining = await rate_limiter.check_rate_limit(
+            identifier=identifier,
+            endpoint=request.url.path
+        )
+        
+        if not is_allowed:
+            logger.warning(
+                f"Rate limit exceeded for {identifier}",
+                extra={
+                    "identifier": identifier,
+                    "endpoint": request.url.path,
+                    "remaining": remaining,
+                }
+            )
+            
+            return JSONResponse(
+                status_code=429,
+                content={
+                    "error": "Rate limit exceeded",
+                    "message": error_msg,
+                    "remaining": remaining,
+                    "retry_after": 60
+                },
+                headers={
+                    "X-RateLimit-Remaining-Minute": str(remaining.get("minute", 0)),
+                    "X-RateLimit-Remaining-Hour": str(remaining.get("hour", 0)),
+                    "X-RateLimit-Remaining-Day": str(remaining.get("day", 0)),
+                    "Retry-After": "60",
+                }
+            )
+        
+        # Process request
+        response = await call_next(request)
+        
+        # Add rate limit headers to response
+        response.headers["X-RateLimit-Remaining-Minute"] = str(remaining.get("minute", 0))
+        response.headers["X-RateLimit-Remaining-Hour"] = str(remaining.get("hour", 0))
+        response.headers["X-RateLimit-Remaining-Day"] = str(remaining.get("day", 0))
+        
+        return response
+        
+    except Exception as e:
+        # Graceful degradation: allow request if rate limiting fails
+        logger.error(f"Rate limiting failed: {e}", exc_info=True)
+        return await call_next(request)
 
 
 # Exception handlers
@@ -418,10 +551,19 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
 
     from backend.models.error import ErrorResponse
 
+    # Handle detail being a dict or string
+    detail_str = exc.detail
+    if isinstance(exc.detail, dict):
+        error_msg = exc.detail.get('error', 'HTTP error')
+        detail_str = str(exc.detail)
+    else:
+        error_msg = str(exc.detail) if exc.detail else "HTTP error"
+        detail_str = str(exc.detail)
+
     error_response = ErrorResponse(
-        error=exc.detail or "HTTP error",
+        error=error_msg,
         error_type="HTTPException",
-        detail=str(exc.detail),
+        detail=detail_str,
         status_code=exc.status_code,
         timestamp=datetime.now().isoformat(),
         path=str(request.url.path),
@@ -586,6 +728,85 @@ app.include_router(web_search.router)
 
 # PaddleOCR Advanced API (Phase 1: PP-ChatOCRv4)
 app.include_router(paddleocr_advanced.router)
+
+# Document Preview API (with PaddleOCR)
+from backend.api import document_preview
+app.include_router(document_preview.router)
+
+# Connection Pool Metrics API
+from backend.api import pool_metrics
+app.include_router(pool_metrics.router)
+
+# Cache Metrics API
+from backend.api import cache_metrics
+app.include_router(cache_metrics.router)
+
+# Admin API
+from backend.api import admin
+app.include_router(admin.router)
+
+# Agent Builder API
+from backend.api.agent_builder import (
+    agents as agent_builder_agents,
+    blocks as agent_builder_blocks,
+    workflows as agent_builder_workflows,
+    knowledgebases as agent_builder_knowledgebases,
+    variables as agent_builder_variables,
+    executions as agent_builder_executions,
+    permissions as agent_builder_permissions,
+    audit_logs as agent_builder_audit_logs,
+    dashboard as agent_builder_dashboard,
+    oauth as agent_builder_oauth,
+    webhooks as agent_builder_webhooks,
+    chat as agent_builder_chat,
+    memory as agent_builder_memory,
+    cost as agent_builder_cost,
+    branches as agent_builder_branches,
+    collaboration as agent_builder_collaboration,
+    prompt_optimization as agent_builder_prompt_optimization,
+    insights as agent_builder_insights,
+    marketplace as agent_builder_marketplace,
+    advanced_export as agent_builder_advanced_export,
+    tools as agent_builder_tools,
+    analytics as agent_builder_analytics,
+    custom_tools as agent_builder_custom_tools,
+)
+
+# Circuit Breaker Status API (Phase 1 Architecture)
+from backend.api import circuit_breaker_status
+
+# Knowledge Base API
+from backend.api import knowledge_base
+app.include_router(agent_builder_dashboard.router)
+app.include_router(agent_builder_agents.router)
+app.include_router(agent_builder_blocks.router)
+app.include_router(agent_builder_workflows.router)
+app.include_router(agent_builder_knowledgebases.router)
+app.include_router(agent_builder_variables.router)
+app.include_router(agent_builder_executions.router)
+app.include_router(agent_builder_permissions.router)
+app.include_router(agent_builder_audit_logs.router)
+app.include_router(agent_builder_oauth.router)
+app.include_router(agent_builder_webhooks.router)
+app.include_router(agent_builder_chat.router)
+# New Agent Builder APIs (Frontend-Backend Gap)
+app.include_router(agent_builder_memory.router)
+app.include_router(agent_builder_cost.router)
+app.include_router(agent_builder_branches.router)
+app.include_router(agent_builder_collaboration.router)
+app.include_router(agent_builder_prompt_optimization.router)
+app.include_router(agent_builder_insights.router)
+app.include_router(agent_builder_marketplace.router)
+app.include_router(agent_builder_advanced_export.router)
+app.include_router(agent_builder_tools.router)
+app.include_router(agent_builder_analytics.router)
+app.include_router(agent_builder_custom_tools.router)
+
+# Knowledge Base API (for workflow integration)
+app.include_router(knowledge_base.router)
+
+# Circuit Breaker Status API (Phase 1 Architecture)
+app.include_router(circuit_breaker_status.router)
 
 
 @app.get("/api/health")

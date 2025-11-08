@@ -1,17 +1,22 @@
 @echo off
 echo ========================================
-echo Starting Backend Server
+echo Starting Backend Server (venv)
 echo ========================================
 echo.
 
-REM Check if venv exists
-if not exist "venv\Scripts\python.exe" (
-    echo ERROR: Virtual environment not found!
-    echo Please run: python -m venv venv
+REM Check if venv exists in backend directory
+if not exist "backend\venv\Scripts\activate.bat" (
+    echo ERROR: Virtual environment not found in backend\venv!
+    echo Please run: cd backend ^&^& python -m venv venv
+    echo Then install dependencies: backend\venv\Scripts\pip install -r backend\requirements.txt
     pause
     exit /b 1
 )
 
+echo Activating virtual environment...
+call backend\venv\Scripts\activate.bat
+
+echo.
 echo Starting FastAPI server...
 echo.
 echo Backend will be available at:
@@ -27,4 +32,4 @@ set PYTHONWARNINGS=ignore::DeprecationWarning,ignore::UserWarning,ignore::Future
 set HF_HUB_DISABLE_SYMLINKS_WARNING=1
 set HF_HUB_DISABLE_TORCH_LOAD_CHECK=1
 
-venv\Scripts\python.exe -m uvicorn backend.main:app --reload --port 8000
+python -m uvicorn backend.main:app --reload --port 8000

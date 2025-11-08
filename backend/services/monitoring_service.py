@@ -17,6 +17,8 @@ from backend.db.models.monitoring import (
     RAGProcessingStat,
     DailyAccuracyTrend
 )
+from backend.models.enums import UploadStatus, SearchType
+from backend.core.context_managers import db_transaction_sync
 
 logger = logging.getLogger(__name__)
 
@@ -41,20 +43,19 @@ class MonitoringService:
     ) -> None:
         """Save file upload statistics"""
         try:
-            stat = FileUploadStat(
-                file_id=file_id,
-                filename=filename,
-                file_type=file_type,
-                file_size_mb=file_size_mb,
-                status=status,
-                processing_time_ms=processing_time_ms,
-                error_message=error_message
-            )
-            self.db.add(stat)
-            self.db.commit()
+            with db_transaction_sync(self.db):
+                stat = FileUploadStat(
+                    file_id=file_id,
+                    filename=filename,
+                    file_type=file_type,
+                    file_size_mb=file_size_mb,
+                    status=status,
+                    processing_time_ms=processing_time_ms,
+                    error_message=error_message
+                )
+                self.db.add(stat)
         except Exception as e:
             logger.error(f"Failed to save file upload stat: {e}")
-            self.db.rollback()
     
     def get_file_upload_stats(self, days: int = 7) -> Dict[str, Any]:
         """Get file upload statistics"""
@@ -69,14 +70,14 @@ class MonitoringService:
             successful = self.db.query(func.count(FileUploadStat.id)).filter(
                 and_(
                     FileUploadStat.created_at >= cutoff_date,
-                    FileUploadStat.status == 'completed'
+                    FileUploadStat.status == UploadStatus.COMPLETED
                 )
             ).scalar() or 0
             
             failed = self.db.query(func.count(FileUploadStat.id)).filter(
                 and_(
                     FileUploadStat.created_at >= cutoff_date,
-                    FileUploadStat.status == 'failed'
+                    FileUploadStat.status == UploadStatus.FAILED
                 )
             ).scalar() or 0
             
@@ -150,18 +151,17 @@ class MonitoringService:
     ) -> None:
         """Save embedding statistics"""
         try:
-            stat = EmbeddingStat(
-                document_id=document_id,
-                embedding_model=embedding_model,
-                total_chunks=total_chunks,
-                chunking_strategy=chunking_strategy,
-                embedding_time_ms=embedding_time_ms
-            )
-            self.db.add(stat)
-            self.db.commit()
+            with db_transaction_sync(self.db):
+                stat = EmbeddingStat(
+                    document_id=document_id,
+                    embedding_model=embedding_model,
+                    total_chunks=total_chunks,
+                    chunking_strategy=chunking_strategy,
+                    embedding_time_ms=embedding_time_ms
+                )
+                self.db.add(stat)
         except Exception as e:
             logger.error(f"Failed to save embedding stat: {e}")
-            self.db.rollback()
     
     def get_embedding_stats(self, days: int = 7) -> Dict[str, Any]:
         """Get embedding statistics"""
@@ -234,19 +234,18 @@ class MonitoringService:
     ) -> None:
         """Save hybrid search statistics"""
         try:
-            stat = HybridSearchStat(
-                session_id=session_id,
-                search_type=search_type,
-                query_text=query_text[:1000] if query_text else None,
-                results_count=results_count,
-                search_time_ms=search_time_ms,
-                cache_hit=1 if cache_hit else 0
-            )
-            self.db.add(stat)
-            self.db.commit()
+            with db_transaction_sync(self.db):
+                stat = HybridSearchStat(
+                    session_id=session_id,
+                    search_type=search_type,
+                    query_text=query_text[:1000] if query_text else None,
+                    results_count=results_count,
+                    search_time_ms=search_time_ms,
+                    cache_hit=1 if cache_hit else 0
+                )
+                self.db.add(stat)
         except Exception as e:
             logger.error(f"Failed to save hybrid search stat: {e}")
-            self.db.rollback()
     
     def get_hybrid_search_stats(self, days: int = 7) -> Dict[str, Any]:
         """Get hybrid search statistics"""
@@ -260,21 +259,21 @@ class MonitoringService:
             vector_only = self.db.query(func.count(HybridSearchStat.id)).filter(
                 and_(
                     HybridSearchStat.created_at >= cutoff_date,
-                    HybridSearchStat.search_type == 'vector_only'
+                    HybridSearchStat.search_type == SearchType.VECTOR_ONLY
                 )
             ).scalar() or 0
             
             keyword_only = self.db.query(func.count(HybridSearchStat.id)).filter(
                 and_(
                     HybridSearchStat.created_at >= cutoff_date,
-                    HybridSearchStat.search_type == 'keyword_only'
+                    HybridSearchStat.search_type == SearchType.KEYWORD_ONLY
                 )
             ).scalar() or 0
             
             hybrid = self.db.query(func.count(HybridSearchStat.id)).filter(
                 and_(
                     HybridSearchStat.created_at >= cutoff_date,
-                    HybridSearchStat.search_type == 'hybrid'
+                    HybridSearchStat.search_type == SearchType.HYBRID
                 )
             ).scalar() or 0
             
@@ -336,27 +335,26 @@ class MonitoringService:
     ) -> None:
         """Save RAG processing statistics"""
         try:
-            stat = RAGProcessingStat(
-                session_id=session_id,
-                query_text=query_text[:1000] if query_text else None,
-                mode=mode,
-                complexity=complexity,
-                response_time_ms=response_time_ms,
-                confidence_score=confidence_score,
-                success=1 if success else 0,
-                error_message=error_message,
-                token_usage=token_usage,
-                quality_scores=quality_scores
-            )
-            self.db.add(stat)
-            self.db.commit()
+            with db_transaction_sync(self.db):
+                stat = RAGProcessingStat(
+                    session_id=session_id,
+                    query_text=query_text[:1000] if query_text else None,
+                    mode=mode,
+                    complexity=complexity,
+                    response_time_ms=response_time_ms,
+                    confidence_score=confidence_score,
+                    success=1 if success else 0,
+                    error_message=error_message,
+                    token_usage=token_usage,
+                    quality_scores=quality_scores
+                )
+                self.db.add(stat)
             
             # Update daily trend
             self._update_daily_trend()
             
         except Exception as e:
             logger.error(f"Failed to save RAG processing stat: {e}")
-            self.db.rollback()
     
     def get_rag_processing_stats(self, days: int = 7) -> Dict[str, Any]:
         """Get RAG processing statistics"""
@@ -503,11 +501,11 @@ class MonitoringService:
                     logger.warning(f"Could not calculate avg quality score: {e}")
                     trend.avg_quality_score = None
             
-            self.db.commit()
+            with db_transaction_sync(self.db):
+                pass  # Commit the changes made above
             
         except Exception as e:
             logger.error(f"Failed to update daily trend: {e}")
-            self.db.rollback()
     
     def get_daily_trends(self, days: int = 7) -> List[Dict[str, Any]]:
         """Get daily accuracy trends"""

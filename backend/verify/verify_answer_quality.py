@@ -21,7 +21,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 
-def test_imports():
+def test_imports() -> bool:
     """Test that all required modules can be imported."""
     print("Testing imports...")
 
@@ -47,7 +47,7 @@ def test_imports():
         return False
 
 
-def test_service_init():
+def test_service_init() -> bool:
     """Test AnswerQualityService initialization."""
     print("\nTesting AnswerQualityService initialization...")
 
@@ -73,7 +73,7 @@ def test_service_init():
         return False
 
 
-def test_source_relevance():
+def test_source_relevance() -> bool:
     """Test source relevance evaluation."""
     print("\nTesting source relevance evaluation...")
 
@@ -105,7 +105,7 @@ def test_source_relevance():
         return False
 
 
-def test_grounding():
+def test_grounding() -> bool:
     """Test answer grounding evaluation."""
     print("\nTesting grounding evaluation...")
 
@@ -135,7 +135,7 @@ def test_grounding():
         return False
 
 
-def test_hallucination_detection():
+def test_hallucination_detection() -> bool:
     """Test hallucination detection."""
     print("\nTesting hallucination detection...")
 
@@ -169,7 +169,7 @@ def test_hallucination_detection():
         return False
 
 
-def test_completeness():
+def test_completeness() -> bool:
     """Test completeness evaluation."""
     print("\nTesting completeness evaluation...")
 
@@ -202,7 +202,7 @@ def test_completeness():
         return False
 
 
-def test_overall_score():
+def test_overall_score() -> bool:
     """Test overall score calculation."""
     print("\nTesting overall score calculation...")
 
@@ -268,7 +268,7 @@ def test_overall_score():
         return False
 
 
-def test_quality_levels():
+def test_quality_levels() -> bool:
     """Test quality level assignment."""
     print("\nTesting quality level assignment...")
 
@@ -298,7 +298,7 @@ def test_quality_levels():
         return False
 
 
-def test_suggestions():
+def test_suggestions() -> bool:
     """Test suggestion generation."""
     print("\nTesting suggestion generation...")
 
@@ -340,7 +340,7 @@ def test_suggestions():
         return False
 
 
-def test_database_model():
+def test_database_model() -> bool:
     """Test AnswerFeedback database model."""
     print("\nTesting AnswerFeedback model...")
 
@@ -389,7 +389,7 @@ def test_database_model():
         return False
 
 
-def test_api_endpoints():
+def test_api_endpoints() -> bool:
     """Test API endpoints are defined."""
     print("\nTesting API endpoints...")
 
@@ -418,7 +418,7 @@ def test_api_endpoints():
         return False
 
 
-def main():
+def main() -> int:
     """Run all verification tests."""
     print("=" * 60)
     print("Answer Quality Evaluation Feature Verification")

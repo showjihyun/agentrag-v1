@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown, Check, RefreshCw, Cpu, AlertCircle } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
 
@@ -30,6 +31,8 @@ export default function ModelSelector({ onModelChange }: ModelSelectorProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [provider, setProvider] = useState<string>('ollama');
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   // Load models on mount
   useEffect(() => {
@@ -81,6 +84,29 @@ export default function ModelSelector({ onModelChange }: ModelSelectorProps) {
     onModelChange?.(modelName);
   };
 
+  const updateDropdownPosition = () => {
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + window.scrollY + 8,
+        left: rect.left + window.scrollX,
+        width: rect.width,
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      updateDropdownPosition();
+      window.addEventListener('resize', updateDropdownPosition);
+      window.addEventListener('scroll', updateDropdownPosition, true);
+      return () => {
+        window.removeEventListener('resize', updateDropdownPosition);
+        window.removeEventListener('scroll', updateDropdownPosition, true);
+      };
+    }
+  }, [isOpen]);
+
   const formatSize = (bytes: number): string => {
     const gb = bytes / (1024 * 1024 * 1024);
     return `${gb.toFixed(1)} GB`;
@@ -93,16 +119,22 @@ export default function ModelSelector({ onModelChange }: ModelSelectorProps) {
   return (
     <div className="relative">
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        ref={buttonRef}
+        onClick={() => {
+          setIsOpen(!isOpen);
+          if (!isOpen) {
+            updateDropdownPosition();
+          }
+        }}
         disabled={isLoading}
-        className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-w-[180px] sm:min-w-[220px]"
       >
         <Cpu className="w-4 h-4 text-gray-600 dark:text-gray-400 flex-shrink-0" />
-        <span className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 truncate max-w-[80px] sm:max-w-none">
-          {isLoading ? 'Loading...' : selectedModel || 'Model'}
+        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate flex-1 text-left">
+          {isLoading ? 'Loading...' : selectedModel || 'Select Model'}
         </span>
         {!isLoading && (
-          <ChevronDown className={`w-3 h-3 sm:w-4 sm:h-4 text-gray-500 transition-transform flex-shrink-0 ${isOpen ? 'rotate-180' : ''}`} />
+          <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform flex-shrink-0 ${isOpen ? 'rotate-180' : ''}`} />
         )}
       </button>
 
@@ -119,9 +151,25 @@ export default function ModelSelector({ onModelChange }: ModelSelectorProps) {
         <RefreshCw className={`w-3 h-3 text-gray-500 ${isLoading ? 'animate-spin' : ''}`} />
       </button>
 
-      {/* Dropdown */}
-      {isOpen && (
-        <div className="absolute top-full right-0 sm:left-0 mt-2 w-[90vw] sm:w-80 max-w-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
+      {/* Dropdown with Portal */}
+      {isOpen && typeof window !== 'undefined' && createPortal(
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/10 dark:bg-black/30 z-[9998]"
+            onClick={() => setIsOpen(false)}
+          />
+          
+          {/* Dropdown */}
+          <div 
+            className="fixed bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-2xl max-h-96 overflow-y-auto z-[9999]"
+            style={{
+              top: `${dropdownPosition.top}px`,
+              left: `${dropdownPosition.left}px`,
+              minWidth: `${Math.max(dropdownPosition.width, 384)}px`,
+              maxWidth: '90vw',
+            }}
+          >
           {error ? (
             <div className="p-4 text-center">
               <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-2" />
@@ -157,7 +205,7 @@ export default function ModelSelector({ onModelChange }: ModelSelectorProps) {
                   </div>
                   
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-medium text-sm text-gray-900 dark:text-gray-100">
                         {model.name}
                       </span>
@@ -168,7 +216,7 @@ export default function ModelSelector({ onModelChange }: ModelSelectorProps) {
                       )}
                     </div>
                     
-                    <div className="flex items-center gap-2 mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    <div className="flex items-center gap-2 mt-1 text-xs text-gray-500 dark:text-gray-400 flex-wrap">
                       <span>{formatSize(model.size)}</span>
                       {model.details?.parameter_size && (
                         <>
@@ -188,15 +236,9 @@ export default function ModelSelector({ onModelChange }: ModelSelectorProps) {
               ))}
             </div>
           )}
-        </div>
-      )}
-
-      {/* Backdrop */}
-      {isOpen && (
-        <div
-          className="fixed inset-0 z-40"
-          onClick={() => setIsOpen(false)}
-        />
+          </div>
+        </>,
+        document.body
       )}
     </div>
   );

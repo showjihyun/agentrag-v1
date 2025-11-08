@@ -22,7 +22,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def verify_configuration_loading():
+def verify_configuration_loading() -> bool:
     """Verify configuration loads successfully"""
     print("\n" + "=" * 70)
     print("TEST 1: Configuration Loading")
@@ -144,7 +144,7 @@ def verify_configuration_loading():
         return False
 
 
-def verify_validation_logic():
+def verify_validation_logic() -> bool:
     """Verify configuration validation logic"""
     print("\n" + "=" * 70)
     print("TEST 2: Configuration Validation")
@@ -240,7 +240,7 @@ def verify_validation_logic():
         return False
 
 
-async def verify_api_endpoints():
+async def verify_api_endpoints() -> bool:
     """Verify configuration API endpoints"""
     print("\n" + "=" * 70)
     print("TEST 3: Configuration API Endpoints")
@@ -319,7 +319,7 @@ async def verify_api_endpoints():
         return False
 
 
-def verify_feature_flag():
+def verify_feature_flag() -> bool:
     """Verify ADAPTIVE_ROUTING_ENABLED feature flag"""
     print("\n" + "=" * 70)
     print("TEST 4: Feature Flag")
@@ -349,7 +349,7 @@ def verify_feature_flag():
         return False
 
 
-async def main():
+async def main() -> int:
     """Run all verification tests"""
     print("\n" + "=" * 70)
     print("ADAPTIVE ROUTING CONFIGURATION VERIFICATION (Task 9)")

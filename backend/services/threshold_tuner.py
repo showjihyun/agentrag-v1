@@ -145,7 +145,10 @@ class ThresholdTuner:
         Returns:
             PerformanceAnalysis with current metrics
         """
-        logger.info(f"Analyzing performance for last {time_range_hours} hours")
+        logger.info(
+            "Analyzing performance",
+            extra={"time_range_hours": time_range_hours}
+        )
 
         try:
             # Get metrics from collector
@@ -219,7 +222,14 @@ class ThresholdTuner:
             return analysis
 
         except Exception as e:
-            logger.error(f"Error analyzing performance: {e}", exc_info=True)
+            logger.error(
+                "Error analyzing performance",
+                extra={
+                    "time_range_hours": time_range_hours,
+                    "error_type": type(e).__name__
+                },
+                exc_info=True
+            )
             return self._create_empty_analysis(time_range_hours)
 
     async def recommend_thresholds(
@@ -383,7 +393,10 @@ class ThresholdTuner:
         Returns:
             TuningResult with operation status
         """
-        logger.info(f"Applying thresholds (dry_run={dry_run})")
+        logger.info(
+            "Applying thresholds",
+            extra={"dry_run": dry_run, "new_thresholds": new_thresholds}
+        )
 
         # Store previous thresholds for rollback
         previous_thresholds = {
@@ -431,7 +444,10 @@ class ThresholdTuner:
             return result
 
         if dry_run:
-            logger.info(f"DRY RUN: Would update thresholds to {new_thresholds}")
+            logger.info(
+                "DRY RUN: Would update thresholds",
+                extra={"new_thresholds": new_thresholds}
+            )
             result = TuningResult(
                 status=TuningStatus.DRY_RUN,
                 previous_thresholds=previous_thresholds,
@@ -449,7 +465,10 @@ class ThresholdTuner:
                 recommendation.complex_threshold
             )
 
-            logger.info(f"Thresholds updated successfully: {new_thresholds}")
+            logger.info(
+                "Thresholds updated successfully",
+                extra={"new_thresholds": new_thresholds}
+            )
 
             # Notify administrators
             await self._notify_administrators(
@@ -481,7 +500,11 @@ class ThresholdTuner:
                 logger.info("Thresholds rolled back successfully")
                 status = TuningStatus.ROLLED_BACK
             except Exception as rollback_error:
-                logger.error(f"Rollback failed: {rollback_error}", exc_info=True)
+                logger.error(
+                    "Rollback failed",
+                    extra={"error_type": type(rollback_error).__name__},
+                    exc_info=True
+                )
                 status = TuningStatus.FAILED
 
             result = TuningResult(
@@ -510,11 +533,25 @@ class ThresholdTuner:
         """
         # Check range
         if not (self.MIN_THRESHOLD <= simple_threshold <= self.MAX_THRESHOLD):
-            logger.error(f"Simple threshold {simple_threshold} out of range")
+            logger.error(
+                "Simple threshold out of range",
+                extra={
+                    "threshold": simple_threshold,
+                    "min": self.MIN_THRESHOLD,
+                    "max": self.MAX_THRESHOLD
+                }
+            )
             return False
 
         if not (self.MIN_THRESHOLD <= complex_threshold <= self.MAX_THRESHOLD):
-            logger.error(f"Complex threshold {complex_threshold} out of range")
+            logger.error(
+                "Complex threshold out of range",
+                extra={
+                    "threshold": complex_threshold,
+                    "min": self.MIN_THRESHOLD,
+                    "max": self.MAX_THRESHOLD
+                }
+            )
             return False
 
         # Check ordering (simple < complex)
@@ -623,7 +660,10 @@ class ThresholdTuner:
             "expected_impact": recommendation.expected_impact,
         }
 
-        logger.info(f"Administrator notification: {notification}")
+        logger.info(
+            "Administrator notification",
+            extra={"notification": notification}
+        )
 
         # TODO: Implement actual notification mechanism (email, Slack, etc.)
         # For now, just log the notification

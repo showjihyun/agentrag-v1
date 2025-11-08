@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
-import { MessageResponse } from '@/lib/types';
+import React, { useState, useRef, useEffect, useCallback, memo, useMemo } from 'react';
+import { MessageResponse, SearchResult } from '@/lib/types';
 import { Card } from './Card';
 import MessageList, { Message } from './MessageList';
 import { useChatStore } from '@/lib/stores/useChatStore';
@@ -10,10 +10,15 @@ import { useSmartMode } from '@/lib/hooks/useSmartMode';
 import { useChatInput } from '@/lib/hooks/useChatInput';
 import { useChatSubmit } from '@/lib/hooks/useChatSubmit';
 import { useLoadingState } from '@/lib/hooks/useLoadingState';
+import { useToggle } from '@/hooks/useToggle';
+import { measurePerformance } from '@/lib/performance';
 import FirstVisitGuide from './FirstVisitGuide';
 import MobileBottomSheet from './MobileBottomSheet';
 import ChatInputArea from './ChatInputArea';
 import { StageStreamingIndicator } from './StreamingIndicator';
+import DocumentViewer from './DocumentViewer';
+import DocumentUpload from './DocumentUpload';
+import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 
 interface ChatInterfaceProps {
   sessionId?: string;
@@ -26,8 +31,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = memo(({
   initialMessages,
   onNewMessage,
 }) => {
-  const [showMobileSheet, setShowMobileSheet] = useState(false);
-  const [elapsedTime, setElapsedTime] = useState(0);
+  const { isOpen: showMobileSheet, setIsOpen: setShowMobileSheet } = useToggle(false);
+  const [elapsedTime, setElapsedTime] = useState<number>(0);
+  const { isOpen: showDocViewer, setIsOpen: setShowDocViewer } = useToggle(true);
+  const [selectedChunkId, setSelectedChunkId] = useState<string | undefined>();
+  const [allSources, setAllSources] = useState<SearchResult[]>([]);
   
   const { 
     autoMode, 
@@ -61,6 +69,18 @@ const ChatInterface: React.FC<ChatInterfaceProps> = memo(({
       setElapsedTime(0);
     }
   }, [isProcessing]);
+
+  // Memoize sources extraction for performance
+  const extractedSources = useMemo(() => {
+    return messages
+      .filter(msg => msg.role === 'assistant' && msg.sources && msg.sources.length > 0)
+      .flatMap(msg => msg.sources || []);
+  }, [messages]);
+
+  // Update sources when extracted sources change
+  useEffect(() => {
+    setAllSources(extractedSources);
+  }, [extractedSources]);
   
   const { submitMessage } = useChatSubmit({
     mode,
@@ -119,6 +139,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = memo(({
     }));
     
     setMessages(convertedMessages);
+    
+    // Collect all sources from messages
+    const sources = convertedMessages
+      .filter(msg => msg.sources && msg.sources.length > 0)
+      .flatMap(msg => msg.sources || []);
+    setAllSources(sources);
+    setShowDocViewer(sources.length > 0);
   }, [sessionId, initialMessages?.length, setMessages]);
   
   useEffect(() => {
@@ -184,45 +211,173 @@ const ChatInterface: React.FC<ChatInterfaceProps> = memo(({
         isProcessing={isProcessing}
       />
       
-      <Card className="flex flex-col h-full min-h-[600px] overflow-hidden">
-        <MessageList 
-          messages={messages} 
-          isProcessing={isProcessing}
-          onRegenerate={handleRegenerate}
-          onRelatedQuestionClick={handleRelatedQuestionClick}
-        />
-        
-        {isProcessing && loadingStage && (
-          <div className="px-4 py-2 border-t border-gray-200 dark:border-gray-700">
-            <StageStreamingIndicator 
-              currentStage={loadingStage}
-              className="justify-center"
-            />
+      <div className="relative h-full">
+        {/* Desktop: Resizable 3-panel layout */}
+        <div className="hidden lg:block h-full">
+          <PanelGroup direction="horizontal" className="h-full">
+            {/* Upload Panel - Fixed width */}
+            <Panel defaultSize={20} minSize={15} maxSize={25} className="flex flex-col">
+              <Card className="h-full overflow-x-auto overflow-y-auto">
+                <DocumentUpload />
+              </Card>
+            </Panel>
+
+            {/* Resize Handle 1 */}
+            <PanelResizeHandle className="w-2 bg-gray-200 dark:bg-gray-700 hover:bg-blue-400 dark:hover:bg-blue-600 transition-colors cursor-col-resize flex items-center justify-center group">
+              <div className="w-1 h-12 bg-gray-400 dark:bg-gray-500 rounded-full group-hover:bg-blue-500 transition-colors" />
+            </PanelResizeHandle>
+
+            {/* Chat Panel - Reduced default width */}
+            <Panel defaultSize={35} minSize={25} maxSize={50} className="flex flex-col overflow-hidden">
+              <Card className="flex flex-col h-full min-h-[600px] overflow-x-auto">
+                <MessageList 
+                  messages={messages} 
+                  isProcessing={isProcessing}
+                  onRegenerate={handleRegenerate}
+                  onRelatedQuestionClick={handleRelatedQuestionClick}
+                  onChunkClick={setSelectedChunkId}
+                />
+                
+                {isProcessing && loadingStage && (
+                  <div className="px-4 py-2 border-t border-gray-200 dark:border-gray-700">
+                    <StageStreamingIndicator 
+                      currentStage={loadingStage}
+                      className="justify-center"
+                    />
+                  </div>
+                )}
+                
+                <ChatInputArea
+                  input={input}
+                  inputRef={inputRef}
+                  mode={mode}
+                  autoMode={autoMode}
+                  isProcessing={isProcessing}
+                  showSuccess={showSuccess}
+                  lastProcessingTime={lastProcessingTime}
+                  loadingStage={loadingStage}
+                  elapsedTime={elapsedTime}
+                  onSubmit={handleFormSubmit}
+                  onInputChange={handleInputChange}
+                  onKeyDown={handleKeyDown}
+                  onClearInput={clearInput}
+                  onModeSelect={handleModeSelect}
+                  onAutoModeChange={handleAutoModeChange}
+                  onAnalysisComplete={handleAnalysisComplete}
+                  onSuccessClose={hideSuccess}
+                  setMode={setMode}
+                  onMobileSheetOpen={() => setShowMobileSheet(true)}
+                />
+              </Card>
+            </Panel>
+
+            {/* Resize Handle 2 - Always show document viewer */}
+            {showDocViewer && (
+              <>
+                <PanelResizeHandle className="w-2 bg-gray-200 dark:bg-gray-700 hover:bg-blue-400 dark:hover:bg-blue-600 transition-colors cursor-col-resize flex items-center justify-center group">
+                  <div className="w-1 h-12 bg-gray-400 dark:bg-gray-500 rounded-full group-hover:bg-blue-500 transition-colors" />
+                </PanelResizeHandle>
+
+                {/* Document Viewer Panel - Expanded default width */}
+                <Panel defaultSize={45} minSize={30} maxSize={60} className="flex flex-col overflow-hidden">
+                  <Card className="h-full overflow-x-auto overflow-y-auto">
+                    <DocumentViewer
+                      sources={allSources}
+                      selectedChunkId={selectedChunkId}
+                      onChunkSelect={setSelectedChunkId}
+                    />
+                  </Card>
+                </Panel>
+              </>
+            )}
+          </PanelGroup>
+        </div>
+
+        {/* Mobile: Tab-based layout */}
+        <div className="lg:hidden h-full">
+          <div className="h-full flex flex-col">
+            {/* Mobile Tabs */}
+            <div className="flex-shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-2">
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowMobileSheet(true)}
+                  className="flex-1 px-4 py-2 rounded-lg bg-blue-500 text-white font-medium text-sm flex items-center justify-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  </svg>
+                  Upload
+                </button>
+                {allSources.length > 0 && (
+                  <button
+                    onClick={() => setShowDocViewer(!showDocViewer)}
+                    className="flex-1 px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium text-sm flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
+                    </svg>
+                    Docs ({allSources.length})
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Mobile Content */}
+            <div className="flex-1 overflow-hidden">
+              {showDocViewer && allSources.length > 0 ? (
+                <Card className="h-full overflow-hidden">
+                  <DocumentViewer
+                    sources={allSources}
+                    selectedChunkId={selectedChunkId}
+                    onChunkSelect={setSelectedChunkId}
+                  />
+                </Card>
+              ) : (
+                <Card className="flex flex-col h-full overflow-hidden">
+                  <MessageList 
+                    messages={messages} 
+                    isProcessing={isProcessing}
+                    onRegenerate={handleRegenerate}
+                    onRelatedQuestionClick={handleRelatedQuestionClick}
+                    onChunkClick={setSelectedChunkId}
+                  />
+                  
+                  {isProcessing && loadingStage && (
+                    <div className="px-4 py-2 border-t border-gray-200 dark:border-gray-700">
+                      <StageStreamingIndicator 
+                        currentStage={loadingStage}
+                        className="justify-center"
+                      />
+                    </div>
+                  )}
+                  
+                  <ChatInputArea
+                    input={input}
+                    inputRef={inputRef}
+                    mode={mode}
+                    autoMode={autoMode}
+                    isProcessing={isProcessing}
+                    showSuccess={showSuccess}
+                    lastProcessingTime={lastProcessingTime}
+                    loadingStage={loadingStage}
+                    elapsedTime={elapsedTime}
+                    onSubmit={handleFormSubmit}
+                    onInputChange={handleInputChange}
+                    onKeyDown={handleKeyDown}
+                    onClearInput={clearInput}
+                    onModeSelect={handleModeSelect}
+                    onAutoModeChange={handleAutoModeChange}
+                    onAnalysisComplete={handleAnalysisComplete}
+                    onSuccessClose={hideSuccess}
+                    setMode={setMode}
+                    onMobileSheetOpen={() => setShowMobileSheet(true)}
+                  />
+                </Card>
+              )}
+            </div>
           </div>
-        )}
-        
-        <ChatInputArea
-          input={input}
-          inputRef={inputRef}
-          mode={mode}
-          autoMode={autoMode}
-          isProcessing={isProcessing}
-          showSuccess={showSuccess}
-          lastProcessingTime={lastProcessingTime}
-          loadingStage={loadingStage}
-          elapsedTime={elapsedTime}
-          onSubmit={handleFormSubmit}
-          onInputChange={handleInputChange}
-          onKeyDown={handleKeyDown}
-          onClearInput={clearInput}
-          onModeSelect={handleModeSelect}
-          onAutoModeChange={handleAutoModeChange}
-          onAnalysisComplete={handleAnalysisComplete}
-          onSuccessClose={hideSuccess}
-          setMode={setMode}
-          onMobileSheetOpen={() => setShowMobileSheet(true)}
-        />
-      </Card>
+        </div>
+      </div>
     </>
   );
 });

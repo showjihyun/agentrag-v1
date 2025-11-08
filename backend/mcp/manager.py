@@ -40,9 +40,15 @@ class MCPServerManager:
     def __init__(self):
         """Initialize the MCP Server Manager."""
         if not MCP_AVAILABLE:
-            raise RuntimeError(
-                "MCP SDK is not installed. Install with: pip install mcp"
+            logger.warning(
+                "MCP SDK is not installed. MCP functionality will be disabled. "
+                "Install with: pip install mcp"
             )
+            self.servers: Dict[str, StdioServerParameters] = {}
+            self.sessions: Dict[str, ClientSession] = {}
+            self.read_streams: Dict[str, Any] = {}
+            self.write_streams: Dict[str, Any] = {}
+            return
 
         self.servers: Dict[str, StdioServerParameters] = {}
         self.sessions: Dict[str, ClientSession] = {}
@@ -72,6 +78,10 @@ class MCPServerManager:
             ValueError: If server_name is already connected
             RuntimeError: If connection fails
         """
+        if not MCP_AVAILABLE:
+            logger.warning("MCP SDK not available, skipping server connection")
+            return
+            
         if not server_name:
             raise ValueError("server_name cannot be empty")
         if not command:
@@ -221,6 +231,10 @@ class MCPServerManager:
             ValueError: If server is not connected or tool doesn't exist
             RuntimeError: If tool execution fails
         """
+        if not MCP_AVAILABLE:
+            logger.warning("MCP SDK not available, cannot call tool")
+            return {"error": "MCP SDK not installed"}
+            
         if server_name not in self._connected_servers:
             raise ValueError(
                 f"Server '{server_name}' is not connected. "

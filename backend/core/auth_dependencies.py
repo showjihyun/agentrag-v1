@@ -11,22 +11,25 @@ from backend.db.database import get_db
 from backend.db.repositories.user_repository import UserRepository
 from backend.db.models.user import User
 from backend.services.auth_service import AuthService
+from backend.config import settings
 
 logger = logging.getLogger(__name__)
 
 # HTTP Bearer token scheme
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)  # Don't auto-error in dev mode
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: Session = Depends(get_db),
 ) -> User:
     """
     Extract and validate user from JWT token.
+    
+    In DEBUG mode, automatically creates and returns a test user if no credentials provided.
 
     This dependency requires authentication and will raise 401 if:
-    - No token is provided
+    - No token is provided (except in DEBUG mode)
     - Token is invalid or expired
     - User is not found in database
     - User is inactive
@@ -46,6 +49,51 @@ async def get_current_user(
         async def protected_route(user: User = Depends(get_current_user)):
             return {"user_id": user.id}
     """
+    # DEBUG MODE: Always use test user when DEBUG=True
+    if settings.DEBUG:
+        logger.debug(f"🔧 DEBUG mode enabled: Using default test user")
+        user_repo = UserRepository(db)
+        
+        # Try to get existing test user
+        test_user = user_repo.get_user_by_email("test@example.com")
+        
+        # Create test user if doesn't exist
+        if not test_user:
+            logger.info("Creating default test user for DEBUG mode")
+            try:
+                test_user = User(
+                    email="test@example.com",
+                    username="testuser",
+                    password_hash=AuthService.hash_password("test1234"),
+                    role="admin",
+                    is_active=True,
+                )
+                db.add(test_user)
+                db.commit()
+                db.refresh(test_user)
+                logger.info("✓ Test user created: test@example.com / test1234 (admin)")
+            except Exception as e:
+                logger.error(f"Failed to create test user: {e}")
+                db.rollback()
+                # Try to get it again in case it was created by another request
+                test_user = user_repo.get_user_by_email("test@example.com")
+                if not test_user:
+                    raise HTTPException(
+                        status_code=500,
+                        detail="Failed to create or retrieve test user"
+                    )
+        
+        return test_user
+    
+    # Production mode: Require credentials
+    if not credentials:
+        logger.warning("No authentication credentials provided")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
     # Extract token
     token = credentials.credentials
 

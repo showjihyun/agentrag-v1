@@ -49,7 +49,10 @@ class StructuredDataService:
         self._connect()
         self._init_collection()
         
-        logger.info(f"StructuredDataService initialized: {collection_name}")
+        logger.info(
+            "StructuredDataService initialized",
+            extra={"collection_name": collection_name}
+        )
     
     def _connect(self):
         """Milvus 연결"""
@@ -59,9 +62,20 @@ class StructuredDataService:
                 host=self.host,
                 port=self.port
             )
-            logger.info(f"Connected to Milvus: {self.host}:{self.port}")
+            logger.info(
+                "Connected to Milvus",
+                extra={"host": self.host, "port": self.port}
+            )
         except Exception as e:
-            logger.error(f"Failed to connect to Milvus: {e}")
+            logger.error(
+                "Failed to connect to Milvus",
+                extra={
+                    "host": self.host,
+                    "port": self.port,
+                    "error_type": type(e).__name__
+                },
+                exc_info=True
+            )
             raise
     
     def _init_collection(self):
@@ -69,7 +83,10 @@ class StructuredDataService:
         try:
             if utility.has_collection(self.collection_name):
                 self.collection = Collection(self.collection_name)
-                logger.info(f"Using existing collection: {self.collection_name}")
+                logger.info(
+                    "Using existing collection",
+                    extra={"collection_name": self.collection_name}
+                )
                 return
             
             # 새 컬렉션 생성
@@ -120,10 +137,20 @@ class StructuredDataService:
                 index_params=index_params
             )
             
-            logger.info(f"Created new collection: {self.collection_name}")
+            logger.info(
+                "Created new collection",
+                extra={"collection_name": self.collection_name}
+            )
             
         except Exception as e:
-            logger.error(f"Failed to initialize collection: {e}")
+            logger.error(
+                "Failed to initialize collection",
+                extra={
+                    "collection_name": self.collection_name,
+                    "error_type": type(e).__name__
+                },
+                exc_info=True
+            )
             raise
     
     async def insert_table(

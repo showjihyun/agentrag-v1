@@ -56,7 +56,10 @@ class GoogleTranslator(BaseTranslator):
             logger.warning("googletrans not installed. Install with: pip install googletrans==4.0.0-rc1")
             self.translator = None
         except Exception as e:
-            logger.warning(f"Google Translator initialization failed: {e}")
+            logger.warning(
+                "Google Translator initialization failed",
+                extra={"error_type": type(e).__name__}
+            )
             self.translator = None
     
     def is_available(self) -> bool:
@@ -72,7 +75,16 @@ class GoogleTranslator(BaseTranslator):
             result = self.translator.translate(text, dest=target_lang, src=source_lang)
             return result.text
         except Exception as e:
-            logger.error(f"Google translation failed: {e}")
+            logger.error(
+                "Google translation failed",
+                extra={
+                    "target_lang": target_lang,
+                    "source_lang": source_lang,
+                    "text_length": len(text),
+                    "error_type": type(e).__name__
+                },
+                exc_info=True
+            )
             raise
 
 
@@ -104,7 +116,10 @@ class DeepLTranslator(BaseTranslator):
             logger.warning("deepl not installed. Install with: pip install deepl")
             self.translator = None
         except Exception as e:
-            logger.warning(f"DeepL Translator initialization failed: {e}")
+            logger.warning(
+                "DeepL Translator initialization failed",
+                extra={"error_type": type(e).__name__}
+            )
             self.translator = None
     
     def is_available(self) -> bool:
@@ -126,7 +141,16 @@ class DeepLTranslator(BaseTranslator):
             )
             return result.text
         except Exception as e:
-            logger.error(f"DeepL translation failed: {e}")
+            logger.error(
+                "DeepL translation failed",
+                extra={
+                    "target_lang": target_lang,
+                    "source_lang": source_lang,
+                    "text_length": len(text),
+                    "error_type": type(e).__name__
+                },
+                exc_info=True
+            )
             raise
     
     def _convert_lang_code(self, lang: str) -> str:
@@ -173,7 +197,10 @@ class PapagoTranslator(BaseTranslator):
             
             logger.info("Papago Translator initialized successfully")
         except Exception as e:
-            logger.warning(f"Papago Translator initialization failed: {e}")
+            logger.warning(
+                "Papago Translator initialization failed",
+                extra={"error_type": type(e).__name__}
+            )
     
     def is_available(self) -> bool:
         """Check if Papago Translator is available"""
@@ -211,7 +238,16 @@ class PapagoTranslator(BaseTranslator):
             return result['message']['result']['translatedText']
             
         except Exception as e:
-            logger.error(f"Papago translation failed: {e}")
+            logger.error(
+                "Papago translation failed",
+                extra={
+                    "target_lang": target_lang,
+                    "source_lang": source_lang,
+                    "text_length": len(text),
+                    "error_type": type(e).__name__
+                },
+                exc_info=True
+            )
             raise
     
     def _convert_lang_code(self, lang: str) -> str:
@@ -304,7 +340,10 @@ def get_best_available_translator() -> BaseTranslator:
             logger.info("Using DeepL Translator (best quality)")
             return translator
     except Exception as e:
-        logger.debug(f"DeepL not available: {e}")
+        logger.debug(
+            "DeepL not available",
+            extra={"error_type": type(e).__name__}
+        )
     
     # Try Papago (Korean-optimized)
     try:
@@ -313,7 +352,10 @@ def get_best_available_translator() -> BaseTranslator:
             logger.info("Using Papago Translator (Korean-optimized)")
             return translator
     except Exception as e:
-        logger.debug(f"Papago not available: {e}")
+        logger.debug(
+            "Papago not available",
+            extra={"error_type": type(e).__name__}
+        )
     
     # Try Google (free)
     try:
@@ -322,7 +364,10 @@ def get_best_available_translator() -> BaseTranslator:
             logger.info("Using Google Translator (free)")
             return translator
     except Exception as e:
-        logger.debug(f"Google not available: {e}")
+        logger.debug(
+            "Google not available",
+            extra={"error_type": type(e).__name__}
+        )
     
     # Fallback to Simple
     logger.warning("No translation service available, using Simple fallback")

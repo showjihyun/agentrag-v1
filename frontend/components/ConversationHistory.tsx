@@ -14,10 +14,10 @@ interface ConversationHistoryProps {
   onSessionSelect?: (sessionId: string) => void;
 }
 
-export default function ConversationHistory({
+const ConversationHistory: React.FC<ConversationHistoryProps> = React.memo(({
   activeSessionId,
   onSessionSelect,
-}: ConversationHistoryProps) {
+}) => {
   const router = useRouter();
   const { isAuthenticated } = useAuth();
   
@@ -35,7 +35,7 @@ export default function ConversationHistory({
   /**
    * Fetch sessions from API.
    */
-  const fetchSessions = async (offset: number = 0, append: boolean = false) => {
+  const fetchSessions = React.useCallback(async (offset: number = 0, append: boolean = false) => {
     try {
       if (!append) {
         setIsLoading(true);
@@ -61,7 +61,7 @@ export default function ConversationHistory({
       setIsLoading(false);
       setIsLoadingMore(false);
     }
-  };
+  }, []);
 
   /**
    * Load sessions on mount if authenticated.
@@ -77,7 +77,7 @@ export default function ConversationHistory({
   /**
    * Create a new conversation.
    */
-  const handleNewConversation = async () => {
+  const handleNewConversation = React.useCallback(async () => {
     try {
       const newSession = await apiClient.createSession();
       
@@ -97,12 +97,12 @@ export default function ConversationHistory({
       console.error('Failed to create session:', err);
       setError(err instanceof Error ? err.message : 'Failed to create conversation');
     }
-  };
+  }, [onSessionSelect, router]);
 
   /**
    * Handle session selection.
    */
-  const handleSessionSelect = (sessionId: string) => {
+  const handleSessionSelect = React.useCallback((sessionId: string) => {
     if (onSessionSelect) {
       onSessionSelect(sessionId);
     } else {
@@ -111,12 +111,12 @@ export default function ConversationHistory({
     
     // Close mobile sidebar
     setIsMobileOpen(false);
-  };
+  }, [onSessionSelect, router]);
 
   /**
    * Handle session deletion.
    */
-  const handleSessionDelete = async (sessionId: string) => {
+  const handleSessionDelete = React.useCallback(async (sessionId: string) => {
     try {
       await apiClient.deleteSession(sessionId);
       
@@ -131,12 +131,12 @@ export default function ConversationHistory({
       console.error('Failed to delete session:', err);
       setError(err instanceof Error ? err.message : 'Failed to delete conversation');
     }
-  };
+  }, [activeSessionId, router]);
 
   /**
    * Handle session rename.
    */
-  const handleSessionRename = async (sessionId: string, newTitle: string) => {
+  const handleSessionRename = React.useCallback(async (sessionId: string, newTitle: string) => {
     try {
       const updatedSession = await apiClient.updateSession(sessionId, newTitle);
       
@@ -148,20 +148,23 @@ export default function ConversationHistory({
       console.error('Failed to rename session:', err);
       setError(err instanceof Error ? err.message : 'Failed to rename conversation');
     }
-  };
+  }, []);
 
   /**
    * Load more sessions (pagination).
    */
-  const handleLoadMore = () => {
+  const handleLoadMore = React.useCallback(() => {
     fetchSessions(sessions.length, true);
-  };
+  }, [fetchSessions, sessions.length]);
 
   /**
    * Filter sessions by search query (local filter).
    */
-  const filteredSessions = sessions.filter((session) =>
-    session.title.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredSessions = React.useMemo(() => 
+    sessions.filter((session) =>
+      session.title.toLowerCase().includes(searchQuery.toLowerCase())
+    ),
+    [sessions, searchQuery]
   );
 
   // Don't render if not authenticated
@@ -410,4 +413,8 @@ export default function ConversationHistory({
       )}
     </>
   );
-}
+});
+
+ConversationHistory.displayName = 'ConversationHistory';
+
+export default ConversationHistory;

@@ -9,6 +9,7 @@ from backend.db.repositories.session_repository import SessionRepository
 from backend.db.repositories.message_repository import MessageRepository
 from backend.db.repositories.message_source_repository import MessageSourceRepository
 from backend.db.models.conversation import Session as SessionModel, Message
+from backend.core.context_managers import db_transaction_sync
 
 logger = logging.getLogger(__name__)
 
@@ -45,19 +46,17 @@ class ConversationService:
             Exception: If database operation fails
         """
         try:
-            # Create session in transaction
-            session = self.session_repo.create_session(user_id=user_id, title=title)
-
-            # Commit transaction
-            self.db.commit()
-            self.db.refresh(session)
+            with db_transaction_sync(self.db):
+                # Create session in transaction
+                session = self.session_repo.create_session(user_id=user_id, title=title)
+                self.db.flush()
+                self.db.refresh(session)
 
             logger.info(f"Created session {session.id} for user {user_id}")
             return session
 
         except Exception as e:
             logger.error(f"Failed to create session for user {user_id}: {e}")
-            self.db.rollback()
             raise
 
     def save_message_with_sources(
@@ -100,52 +99,53 @@ class ConversationService:
             Exception: If database operation fails (transaction will be rolled back)
         """
         try:
-            # Begin transaction (all operations below are atomic)
-            # Create message
-            message = self.message_repo.create_message(
-                session_id=session_id,
-                user_id=user_id,
-                role=role,
-                content=content,
-                metadata=metadata or {},
-            )
-
-            # Create sources if provided
-            if sources:
-                self.source_repo.create_sources(message_id=message.id, sources=sources)
-                logger.debug(f"Created {len(sources)} sources for message {message.id}")
-
-            # Update session stats
-            session = self.session_repo.get_session_by_id(session_id, user_id)
-            if session:
-                new_message_count = session.message_count + 1
-                new_total_tokens = session.total_tokens + (metadata or {}).get(
-                    "tokens_used", 0
-                )
-
-                self.session_repo.update_session_stats(
-                    session_id=session_id,
-                    message_count=new_message_count,
-                    total_tokens=new_total_tokens,
-                )
-
-            # Auto-generate title from first user message if session has no title
-            if role == "user" and session and not session.title:
-                auto_title = self._generate_title_from_content(content)
-                self.session_repo.update_session(
+            with db_transaction_sync(self.db):
+                # Begin transaction (all operations below are atomic)
+                # Create message
+                message = self.message_repo.create_message(
                     session_id=session_id,
                     user_id=user_id,
-                    updates={"title": auto_title},
-                )
-                logger.debug(
-                    f"Auto-generated title for session {session_id}: {auto_title}"
+                    role=role,
+                    content=content,
+                    metadata=metadata or {},
                 )
 
-            # Commit transaction - all operations succeed or fail together
-            self.db.commit()
+                # Create sources if provided
+                if sources:
+                    self.source_repo.create_sources(message_id=message.id, sources=sources)
+                    logger.debug(f"Created {len(sources)} sources for message {message.id}")
 
-            # Refresh to get updated relationships
-            self.db.refresh(message)
+                # Update session stats
+                session = self.session_repo.get_session_by_id(session_id, user_id)
+                if session:
+                    new_message_count = session.message_count + 1
+                    new_total_tokens = session.total_tokens + (metadata or {}).get(
+                        "tokens_used", 0
+                    )
+
+                    self.session_repo.update_session_stats(
+                        session_id=session_id,
+                        message_count=new_message_count,
+                        total_tokens=new_total_tokens,
+                    )
+
+                # Auto-generate title from first user message if session has no title
+                if role == "user" and session and not session.title:
+                    auto_title = self._generate_title_from_content(content)
+                    self.session_repo.update_session(
+                        session_id=session_id,
+                        user_id=user_id,
+                        updates={"title": auto_title},
+                    )
+                    logger.debug(
+                        f"Auto-generated title for session {session_id}: {auto_title}"
+                    )
+
+                # Commit transaction - all operations succeed or fail together
+                self.db.flush()
+
+                # Refresh to get updated relationships
+                self.db.refresh(message)
 
             logger.info(
                 f"Saved message {message.id} with {len(sources) if sources else 0} sources "
@@ -156,7 +156,6 @@ class ConversationService:
 
         except Exception as e:
             logger.error(f"Failed to save message in session {session_id}: {e}")
-            self.db.rollback()
             raise
 
     def get_or_create_session(
@@ -197,7 +196,6 @@ class ConversationService:
 
         except Exception as e:
             logger.error(f"Failed to get or create session for user {user_id}: {e}")
-            self.db.rollback()
             raise
 
     def search_conversations(
@@ -239,7 +237,6 @@ class ConversationService:
 
         except Exception as e:
             logger.error(f"Failed to search conversations for user {user_id}: {e}")
-            self.db.rollback()
             raise
 
     def update_session_title(
@@ -260,26 +257,25 @@ class ConversationService:
             Exception: If database operation fails
         """
         try:
-            # Update session in transaction
-            session = self.session_repo.update_session(
-                session_id=session_id, user_id=user_id, updates={"title": title}
-            )
-
-            if session:
-                # Commit transaction
-                self.db.commit()
-                self.db.refresh(session)
-                logger.info(f"Updated title for session {session_id}")
-            else:
-                logger.warning(
-                    f"Cannot update session {session_id}: not found or not owned by user {user_id}"
+            with db_transaction_sync(self.db):
+                # Update session in transaction
+                session = self.session_repo.update_session(
+                    session_id=session_id, user_id=user_id, updates={"title": title}
                 )
+
+                if session:
+                    self.db.flush()
+                    self.db.refresh(session)
+                    logger.info(f"Updated title for session {session_id}")
+                else:
+                    logger.warning(
+                        f"Cannot update session {session_id}: not found or not owned by user {user_id}"
+                    )
 
             return session
 
         except Exception as e:
             logger.error(f"Failed to update session {session_id}: {e}")
-            self.db.rollback()
             raise
 
     def delete_session(self, session_id: UUID, user_id: UUID) -> bool:
@@ -297,25 +293,23 @@ class ConversationService:
             Exception: If database operation fails
         """
         try:
-            # Delete session in transaction (cascade deletes messages and sources)
-            deleted = self.session_repo.delete_session(
-                session_id=session_id, user_id=user_id
-            )
-
-            if deleted:
-                # Commit transaction
-                self.db.commit()
-                logger.info(f"Deleted session {session_id} for user {user_id}")
-            else:
-                logger.warning(
-                    f"Cannot delete session {session_id}: not found or not owned by user {user_id}"
+            with db_transaction_sync(self.db):
+                # Delete session in transaction (cascade deletes messages and sources)
+                deleted = self.session_repo.delete_session(
+                    session_id=session_id, user_id=user_id
                 )
+
+                if deleted:
+                    logger.info(f"Deleted session {session_id} for user {user_id}")
+                else:
+                    logger.warning(
+                        f"Cannot delete session {session_id}: not found or not owned by user {user_id}"
+                    )
 
             return deleted
 
         except Exception as e:
             logger.error(f"Failed to delete session {session_id}: {e}")
-            self.db.rollback()
             raise
 
     @staticmethod

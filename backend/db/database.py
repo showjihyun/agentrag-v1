@@ -21,7 +21,8 @@ engine = create_engine(
     pool_timeout=settings.DB_POOL_TIMEOUT,
     echo_pool=settings.DB_ECHO_POOL,
     echo=settings.DEBUG,
-    connect_args={"options": f"-c statement_timeout={settings.DB_STATEMENT_TIMEOUT}"},
+    # Remove connect_args for compatibility with psycopg2
+    # Statement timeout can be set at session level if needed
 )
 
 # Setup pool monitoring (Phase 1)

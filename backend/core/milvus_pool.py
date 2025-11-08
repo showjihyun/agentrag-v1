@@ -14,15 +14,67 @@ import time
 logger = logging.getLogger(__name__)
 
 
+class MilvusPoolMetrics:
+    """Track Milvus connection pool metrics."""
+    
+    def __init__(self):
+        self.total_acquisitions = 0
+        self.total_releases = 0
+        self.total_timeouts = 0
+        self.total_errors = 0
+        self.wait_times = []  # Last 100 wait times
+        self.max_wait_time = 0.0
+        self.avg_wait_time = 0.0
+        
+    def record_acquisition(self, wait_time_ms: float):
+        """Record a connection acquisition."""
+        self.total_acquisitions += 1
+        self.wait_times.append(wait_time_ms)
+        
+        if len(self.wait_times) > 100:
+            self.wait_times.pop(0)
+        
+        self.max_wait_time = max(self.max_wait_time, wait_time_ms)
+        if self.wait_times:
+            self.avg_wait_time = sum(self.wait_times) / len(self.wait_times)
+    
+    def record_release(self):
+        """Record a connection release."""
+        self.total_releases += 1
+    
+    def record_timeout(self):
+        """Record a connection timeout."""
+        self.total_timeouts += 1
+    
+    def record_error(self):
+        """Record a connection error."""
+        self.total_errors += 1
+    
+    def get_metrics(self) -> dict:
+        """Get current metrics."""
+        return {
+            "total_acquisitions": self.total_acquisitions,
+            "total_releases": self.total_releases,
+            "total_timeouts": self.total_timeouts,
+            "total_errors": self.total_errors,
+            "active_connections": self.total_acquisitions - self.total_releases,
+            "max_wait_time_ms": self.max_wait_time,
+            "avg_wait_time_ms": self.avg_wait_time,
+            "recent_wait_times": self.wait_times[-10:] if self.wait_times else [],
+        }
+
+
 class MilvusConnectionPool:
     """
-    Connection pool manager for Milvus.
+    Connection pool manager for Milvus with enhanced monitoring.
 
     Features:
     - Connection pooling with configurable size
     - Automatic connection health checks
     - Connection reuse and lifecycle management
     - Thread-safe operations
+    - Performance metrics
+    - Alerting thresholds
     """
 
     def __init__(
@@ -53,6 +105,7 @@ class MilvusConnectionPool:
         self._lock = asyncio.Lock()
         self._initialized = False
         self._health_check_task: Optional[asyncio.Task] = None
+        self.metrics = MilvusPoolMetrics()
 
         logger.info(
             f"MilvusConnectionPool initialized: {host}:{port} "

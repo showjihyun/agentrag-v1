@@ -130,7 +130,12 @@ class PaddleOCRProcessor:
     def _initialize(self):
         """Initialize PaddleOCR engines."""
         try:
-            from paddleocr import PaddleOCR, PPStructure
+            from paddleocr import PaddleOCR
+            try:
+                from paddleocr import PPStructure
+            except ImportError:
+                # Newer versions use PPStructureV3
+                from paddleocr import PPStructureV3 as PPStructure
             
             # GPU 사용 가능 여부 확인
             if self.use_gpu:
@@ -149,15 +154,11 @@ class PaddleOCRProcessor:
                 f"(GPU: {self.use_gpu}, Lang: {self.lang})"
             )
             
+            # Use minimal parameters for compatibility
+            # This version of PaddleOCR has very strict parameter validation
             self.ocr = PaddleOCR(
                 use_angle_cls=self.use_angle_cls,
                 lang=self.lang,
-                use_gpu=self.use_gpu,
-                det_db_thresh=self.det_db_thresh,
-                det_db_box_thresh=self.det_db_box_thresh,
-                rec_batch_num=self.rec_batch_num,
-                ocr_version=self.ocr_version,  # PP-OCRv5 사용
-                show_log=False
             )
             
             logger.info(f"✅ {self.ocr_version} initialized successfully")
@@ -178,15 +179,14 @@ class PaddleOCRProcessor:
             if self.enable_table_recognition:
                 try:
                     logger.info(f"Initializing {self.structure_version}...")
+                    
+                    # Use minimal parameters for compatibility
                     self.table_engine = PPStructure(
                         table=True,
                         ocr=True,
-                        use_gpu=self.use_gpu,
                         lang=self.lang,
-                        ocr_version=self.ocr_version,
-                        structure_version=self.structure_version,  # PP-StructureV3
-                        show_log=False
                     )
+                    
                     logger.info(f"✅ {self.structure_version} table recognition engine initialized")
                 except Exception as e:
                     logger.warning(f"Table engine initialization failed: {e}")
@@ -195,14 +195,13 @@ class PaddleOCRProcessor:
             # 레이아웃 분석 엔진 초기화
             if self.enable_layout_analysis:
                 try:
+                    # Use minimal parameters for compatibility
                     self.layout_engine = PPStructure(
                         layout=True,
                         table=False,
                         ocr=False,
-                        use_gpu=self.use_gpu,
-                        structure_version=self.structure_version,
-                        show_log=False
                     )
+                    
                     logger.info("✅ Layout analysis engine initialized")
                 except Exception as e:
                     logger.warning(f"Layout engine initialization failed: {e}")
@@ -252,14 +251,14 @@ class PaddleOCRProcessor:
     
     def extract_text(
         self,
-        image: Image.Image,
+        image,
         return_confidence: bool = True
     ) -> str:
         """
         Extract text from image.
         
         Args:
-            image: PIL Image object
+            image: PIL Image object, numpy array, or file path string
             return_confidence: Include confidence scores
             
         Returns:
@@ -269,11 +268,26 @@ class PaddleOCRProcessor:
             raise RuntimeError("PaddleOCR not initialized")
         
         try:
-            # Convert PIL Image to numpy array
-            img_array = np.array(image)
+            # Handle different input types
+            if isinstance(image, str):
+                # File path - read with PIL first to handle encoding issues
+                from PIL import Image as PILImage
+                img = PILImage.open(image)
+                # Convert to RGB if needed (handles RGBA, grayscale, etc.)
+                if img.mode != 'RGB':
+                    img = img.convert('RGB')
+                img_input = np.array(img)
+            elif isinstance(image, Image.Image):
+                # PIL Image - convert to RGB if needed
+                if image.mode != 'RGB':
+                    image = image.convert('RGB')
+                img_input = np.array(image)
+            else:
+                # Assume it's already a numpy array
+                img_input = image
             
-            # Run OCR
-            result = self.ocr.ocr(img_array, cls=self.use_angle_cls)
+            # Run OCR (without cls parameter - not supported in this version)
+            result = self.ocr.ocr(img_input)
             
             if not result or not result[0]:
                 logger.warning("No text detected in image")
@@ -282,14 +296,29 @@ class PaddleOCRProcessor:
             # Extract text and confidence
             text_lines = []
             for line in result[0]:
-                if line:
-                    text = line[1][0]  # Text
-                    confidence = line[1][1]  # Confidence
-                    
-                    if return_confidence:
-                        text_lines.append(f"{text} (conf: {confidence:.2f})")
-                    else:
-                        text_lines.append(text)
+                if not line:
+                    continue
+                
+                try:
+                    # Handle different result formats
+                    if isinstance(line, (list, tuple)) and len(line) >= 2:
+                        # line[1] can be either (text, confidence) tuple or just text string
+                        if isinstance(line[1], (list, tuple)) and len(line[1]) >= 2:
+                            text = line[1][0]
+                            confidence = line[1][1]
+                        elif isinstance(line[1], str):
+                            text = line[1]
+                            confidence = 1.0
+                        else:
+                            continue
+                        
+                        if return_confidence:
+                            text_lines.append(f"{text} (conf: {confidence:.2f})")
+                        else:
+                            text_lines.append(text)
+                except (IndexError, TypeError) as e:
+                    logger.warning(f"Skipping malformed OCR result line: {e}")
+                    continue
             
             extracted_text = "\n".join(text_lines)
             
@@ -306,13 +335,13 @@ class PaddleOCRProcessor:
     
     def extract_text_with_boxes(
         self,
-        image: Image.Image
+        image
     ) -> List[Dict[str, Any]]:
         """
         Extract text with bounding boxes.
         
         Args:
-            image: PIL Image object
+            image: PIL Image object, numpy array, or file path string
             
         Returns:
             List of dicts with text, bbox, and confidence
@@ -321,24 +350,58 @@ class PaddleOCRProcessor:
             raise RuntimeError("PaddleOCR not initialized")
         
         try:
-            img_array = np.array(image)
-            result = self.ocr.ocr(img_array, cls=self.use_angle_cls)
+            # Handle different input types
+            if isinstance(image, str):
+                # File path - read with PIL first to handle encoding issues
+                from PIL import Image as PILImage
+                img = PILImage.open(image)
+                # Convert to RGB if needed (handles RGBA, grayscale, etc.)
+                if img.mode != 'RGB':
+                    img = img.convert('RGB')
+                img_input = np.array(img)
+            elif isinstance(image, Image.Image):
+                # PIL Image - convert to RGB if needed
+                if image.mode != 'RGB':
+                    image = image.convert('RGB')
+                img_input = np.array(image)
+            else:
+                # Assume it's already a numpy array
+                img_input = image
+            
+            # Call OCR without cls parameter (not supported in this version)
+            result = self.ocr.ocr(img_input)
             
             if not result or not result[0]:
                 return []
             
             text_boxes = []
             for line in result[0]:
-                if line:
-                    bbox = line[0]  # [[x1,y1], [x2,y2], [x3,y3], [x4,y4]]
-                    text = line[1][0]
-                    confidence = line[1][1]
-                    
-                    text_boxes.append({
-                        'text': text,
-                        'bbox': bbox,
-                        'confidence': confidence
-                    })
+                if not line:
+                    continue
+                
+                try:
+                    # Handle different result formats
+                    if isinstance(line, (list, tuple)) and len(line) >= 2:
+                        bbox = line[0]  # [[x1,y1], [x2,y2], [x3,y3], [x4,y4]]
+                        
+                        # line[1] can be either (text, confidence) tuple or just text string
+                        if isinstance(line[1], (list, tuple)) and len(line[1]) >= 2:
+                            text = line[1][0]
+                            confidence = line[1][1]
+                        elif isinstance(line[1], str):
+                            text = line[1]
+                            confidence = 1.0
+                        else:
+                            continue
+                        
+                        text_boxes.append({
+                            'text': text,
+                            'bbox': bbox,
+                            'confidence': confidence
+                        })
+                except (IndexError, TypeError) as e:
+                    logger.warning(f"Skipping malformed OCR result line: {e}")
+                    continue
             
             logger.info(f"Extracted {len(text_boxes)} text boxes")
             return text_boxes

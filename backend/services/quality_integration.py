@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from backend.services.answer_quality_service import get_answer_quality_service
 from backend.db.models.feedback import AnswerFeedback
+from backend.core.context_managers import db_transaction_sync
 
 logger = logging.getLogger(__name__)
 
@@ -50,31 +51,32 @@ async def evaluate_and_store_quality(
         )
 
         # Store in database
-        feedback_record = AnswerFeedback(
-            user_id=user_id,
-            session_id=session_id,
-            message_id=message_id,
-            query=query,
-            answer=answer,
-            overall_score=quality_metrics.get("overall_score", 0.5),
-            source_relevance=quality_metrics.get("metrics", {}).get("source_relevance"),
-            grounding_score=quality_metrics.get("metrics", {}).get("grounding"),
-            hallucination_risk=quality_metrics.get("metrics", {}).get(
-                "hallucination_risk"
-            ),
-            completeness_score=quality_metrics.get("metrics", {}).get("completeness"),
-            length_score=quality_metrics.get("metrics", {}).get("length_score"),
-            citation_score=quality_metrics.get("metrics", {}).get("citation_score"),
-            source_count=len(sources),
-            mode=mode,
-            quality_level=quality_metrics.get("quality_level"),
-            suggestions=quality_metrics.get("suggestions", []),
-            extra_metadata=quality_metrics.get("metadata", {}),
-        )
+        with db_transaction_sync(db):
+            feedback_record = AnswerFeedback(
+                user_id=user_id,
+                session_id=session_id,
+                message_id=message_id,
+                query=query,
+                answer=answer,
+                overall_score=quality_metrics.get("overall_score", 0.5),
+                source_relevance=quality_metrics.get("metrics", {}).get("source_relevance"),
+                grounding_score=quality_metrics.get("metrics", {}).get("grounding"),
+                hallucination_risk=quality_metrics.get("metrics", {}).get(
+                    "hallucination_risk"
+                ),
+                completeness_score=quality_metrics.get("metrics", {}).get("completeness"),
+                length_score=quality_metrics.get("metrics", {}).get("length_score"),
+                citation_score=quality_metrics.get("metrics", {}).get("citation_score"),
+                source_count=len(sources),
+                mode=mode,
+                quality_level=quality_metrics.get("quality_level"),
+                suggestions=quality_metrics.get("suggestions", []),
+                extra_metadata=quality_metrics.get("metadata", {}),
+            )
 
-        db.add(feedback_record)
-        db.commit()
-        db.refresh(feedback_record)
+            db.add(feedback_record)
+            db.flush()
+            db.refresh(feedback_record)
 
         logger.info(
             f"Quality evaluation stored: id={feedback_record.id}, "

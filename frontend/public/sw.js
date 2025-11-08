@@ -1,32 +1,33 @@
-/**
- * Service Worker for PWA
- * 
- * Provides offline support and caching
- */
+// Service Worker for Agent Builder PWA
 
-const CACHE_NAME = 'agentic-rag-v1';
-const RUNTIME_CACHE = 'runtime-cache-v1';
+const CACHE_NAME = 'agent-builder-v1';
+const RUNTIME_CACHE = 'agent-builder-runtime';
 
 // Assets to cache on install
 const PRECACHE_ASSETS = [
   '/',
+  '/agent-builder',
   '/offline',
-  '/manifest.json',
 ];
 
 // Install event - cache essential assets
 self.addEventListener('install', (event) => {
+  console.log('[SW] Installing service worker');
+  
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       console.log('[SW] Precaching assets');
       return cache.addAll(PRECACHE_ASSETS);
     })
   );
+  
   self.skipWaiting();
 });
 
 // Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
+  console.log('[SW] Activating service worker');
+  
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
@@ -39,10 +40,11 @@ self.addEventListener('activate', (event) => {
       );
     })
   );
+  
   self.clients.claim();
 });
 
-// Fetch event - serve from cache, fallback to network
+// Fetch event - network first, fallback to cache
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
@@ -59,8 +61,8 @@ self.addEventListener('fetch', (event) => {
         return new Response(
           JSON.stringify({ error: 'Offline' }),
           {
-            headers: { 'Content-Type': 'application/json' },
             status: 503,
+            headers: { 'Content-Type': 'application/json' },
           }
         );
       })
@@ -68,64 +70,96 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Network first, fallback to cache
-  event.respondWith(
-    fetch(request)
-      .then((response) => {
-        // Only cache GET requests
-        if (request.method === 'GET' && response.status === 200) {
-          // Clone response for caching
-          const responseClone = response.clone();
-          
-          caches.open(RUNTIME_CACHE).then((cache) => {
-            cache.put(request, responseClone);
-          });
-        }
-        
-        return response;
-      })
-      .catch(() => {
-        // Fallback to cache (only for GET requests)
-        if (request.method === 'GET') {
+  // Network first strategy for HTML
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          // Cache successful responses
+          if (response.ok) {
+            const responseClone = response.clone();
+            caches.open(RUNTIME_CACHE).then((cache) => {
+              cache.put(request, responseClone);
+            });
+          }
+          return response;
+        })
+        .catch(() => {
+          // Fallback to cache
           return caches.match(request).then((cachedResponse) => {
             if (cachedResponse) {
               return cachedResponse;
             }
-            
-            // Return offline page for navigation requests
-            if (request.mode === 'navigate') {
-              return caches.match('/offline');
-            }
-            
-            return new Response('Offline', { status: 503 });
+            // Fallback to offline page
+            return caches.match('/offline');
+          });
+        })
+    );
+    return;
+  }
+
+  // Cache first strategy for static assets
+  event.respondWith(
+    caches.match(request).then((cachedResponse) => {
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+
+      return fetch(request).then((response) => {
+        // Cache successful responses
+        if (response.ok && request.method === 'GET') {
+          const responseClone = response.clone();
+          caches.open(RUNTIME_CACHE).then((cache) => {
+            cache.put(request, responseClone);
           });
         }
-        
-        // For non-GET requests, return error
-        return new Response(
-          JSON.stringify({ error: 'Network request failed' }),
-          {
-            headers: { 'Content-Type': 'application/json' },
-            status: 503,
-          }
-        );
-      })
+        return response;
+      });
+    })
   );
 });
 
-// Message event - handle commands from client
-self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting();
-  }
+// Background sync for offline actions
+self.addEventListener('sync', (event) => {
+  console.log('[SW] Background sync:', event.tag);
   
-  if (event.data && event.data.type === 'CLEAR_CACHE') {
+  if (event.tag === 'sync-agent-executions') {
+    event.waitUntil(syncAgentExecutions());
+  }
+});
+
+async function syncAgentExecutions() {
+  // Implement sync logic for offline agent executions
+  console.log('[SW] Syncing agent executions');
+}
+
+// Push notifications
+self.addEventListener('push', (event) => {
+  console.log('[SW] Push notification received');
+  
+  const data = event.data ? event.data.json() : {};
+  const title = data.title || 'Agent Builder';
+  const options = {
+    body: data.body || 'New notification',
+    icon: '/icon-192.png',
+    badge: '/badge-72.png',
+    data: data.url,
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(title, options)
+  );
+});
+
+// Notification click
+self.addEventListener('notificationclick', (event) => {
+  console.log('[SW] Notification clicked');
+  
+  event.notification.close();
+  
+  if (event.notification.data) {
     event.waitUntil(
-      caches.keys().then((cacheNames) => {
-        return Promise.all(
-          cacheNames.map((name) => caches.delete(name))
-        );
-      })
+      clients.openWindow(event.notification.data)
     );
   }
 });

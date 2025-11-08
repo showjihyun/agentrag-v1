@@ -122,7 +122,15 @@ class WebSearchService:
         if not query or not query.strip():
             raise ValueError("Query cannot be empty")
         
-        logger.info(f"🔍 Web search: '{query[:50]}...' (max={max_results})")
+        logger.info(
+            "Web search started",
+            extra={
+                "query": query[:50],
+                "max_results": max_results,
+                "language": language,
+                "region": region
+            }
+        )
         
         # 우선순위에 따라 검색 시도
         for provider in self.provider_priority:
@@ -130,7 +138,10 @@ class WebSearchService:
                 continue
             
             try:
-                logger.info(f"   Trying {provider.value}...")
+                logger.info(
+                    "Trying search provider",
+                    extra={"provider": provider.value, "query": query[:50]}
+                )
                 
                 if provider == SearchProvider.GOOGLE:
                     results = await self._search_google(query, max_results, language, region)
@@ -142,17 +153,38 @@ class WebSearchService:
                     continue
                 
                 if results:
-                    logger.info(f"   ✅ {provider.value}: {len(results)} results")
+                    logger.info(
+                        "Search provider succeeded",
+                        extra={
+                            "provider": provider.value,
+                            "results_count": len(results),
+                            "query": query[:50]
+                        }
+                    )
                     return results
                 else:
-                    logger.warning(f"   ⚠️  {provider.value}: No results")
+                    logger.warning(
+                        "Search provider returned no results",
+                        extra={"provider": provider.value, "query": query[:50]}
+                    )
                     
             except Exception as e:
-                logger.warning(f"   ❌ {provider.value} failed: {e}")
+                logger.warning(
+                    "Search provider failed",
+                    extra={
+                        "provider": provider.value,
+                        "query": query[:50],
+                        "error_type": type(e).__name__,
+                        "error_message": str(e)
+                    }
+                )
                 continue
         
         # 모든 제공자 실패
-        logger.error("All search providers failed")
+        logger.error(
+            "All search providers failed",
+            extra={"query": query[:50], "providers_tried": len(self.provider_priority)}
+        )
         return []
     
     async def _search_google(
@@ -286,7 +318,14 @@ class WebSearchService:
             logger.warning("ddgs not installed, using HTML fallback")
             return await self._search_duckduckgo_html(query, max_results, region)
         except Exception as e:
-            logger.error(f"DuckDuckGo search failed: {e}")
+            logger.error(
+                "DuckDuckGo search failed",
+                extra={
+                    "query": query[:50],
+                    "error_type": type(e).__name__
+                },
+                exc_info=True
+            )
             return []
     
     async def _search_duckduckgo_html(
@@ -331,7 +370,14 @@ class WebSearchService:
                 return results
                 
         except Exception as e:
-            logger.error(f"DuckDuckGo HTML search failed: {e}")
+            logger.error(
+                "DuckDuckGo HTML search failed",
+                extra={
+                    "query": query[:50],
+                    "error_type": type(e).__name__
+                },
+                exc_info=True
+            )
             return []
     
     async def search_with_fallback(
@@ -375,7 +421,14 @@ class WebSearchService:
                     }
                     
             except Exception as e:
-                logger.warning(f"{provider.value} failed: {e}")
+                logger.warning(
+                    "Search provider failed in multi-provider search",
+                    extra={
+                        "provider": provider.value,
+                        "query": query[:50],
+                        "error_type": type(e).__name__
+                    }
+                )
                 continue
         
         # 모든 제공자 실패

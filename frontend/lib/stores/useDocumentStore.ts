@@ -1,112 +1,249 @@
 /**
  * Document Store using Zustand
  * 
- * Centralized state management for documents with persistence.
+ * Manages document state, uploads, and selections
  */
 
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import { Document } from '@/lib/types';
+import { devtools } from 'zustand/middleware';
+import { immer } from 'zustand/middleware/immer';
+import { SearchResult } from '@/lib/types';
 
-interface DocumentStore {
-  // State
+// Types
+interface Document {
+  id: string;
+  name: string;
+  size: number;
+  type: string;
+  uploadedAt: Date;
+  status: 'uploading' | 'processing' | 'completed' | 'failed';
+  progress?: number;
+  error?: string;
+}
+
+interface DocumentState {
   documents: Document[];
+  selectedDocumentId: string | null;
+  selectedChunkId: string | null;
+  sources: SearchResult[];
+  uploadQueue: File[];
+  isUploading: boolean;
   isLoading: boolean;
   error: string | null;
-  selectedDocument: Document | null;
-  
-  // Actions
-  setDocuments: (documents: Document[]) => void;
+}
+
+interface DocumentActions {
+  // Document actions
   addDocument: (document: Document) => void;
-  removeDocument: (documentId: string) => void;
-  updateDocument: (documentId: string, updates: Partial<Document>) => void;
-  setSelectedDocument: (document: Document | null) => void;
+  updateDocument: (id: string, updates: Partial<Document>) => void;
+  removeDocument: (id: string) => void;
+  setDocuments: (documents: Document[]) => void;
+  
+  // Selection actions
+  selectDocument: (id: string | null) => void;
+  selectChunk: (id: string | null) => void;
+  
+  // Sources actions
+  setSources: (sources: SearchResult[]) => void;
+  addSource: (source: SearchResult) => void;
+  clearSources: () => void;
+  
+  // Upload actions
+  addToUploadQueue: (files: File[]) => void;
+  removeFromUploadQueue: (index: number) => void;
+  clearUploadQueue: () => void;
+  setUploading: (isUploading: boolean) => void;
+  
+  // Loading and error
   setLoading: (isLoading: boolean) => void;
   setError: (error: string | null) => void;
-  clearError: () => void;
+  
+  // Computed
+  getDocumentById: (id: string) => Document | undefined;
+  getUploadingDocuments: () => Document[];
+  getCompletedDocuments: () => Document[];
+  getFailedDocuments: () => Document[];
+  
+  // Utility
   reset: () => void;
 }
 
-const initialState = {
+type DocumentStore = DocumentState & DocumentActions;
+
+// Initial state
+const initialState: DocumentState = {
   documents: [],
+  selectedDocumentId: null,
+  selectedChunkId: null,
+  sources: [],
+  uploadQueue: [],
+  isUploading: false,
   isLoading: false,
   error: null,
-  selectedDocument: null,
 };
 
+// Create store
 export const useDocumentStore = create<DocumentStore>()(
-  persist(
-    (set, get) => ({
+  devtools(
+    immer((set, get) => ({
       ...initialState,
       
-      setDocuments: (documents) => {
-        set({ documents, error: null });
-      },
-      
+      // Document actions
       addDocument: (document) => {
-        set((state) => ({
-          documents: [...state.documents, document],
-          error: null,
-        }));
+        set((state) => {
+          state.documents.push(document);
+        });
       },
       
-      removeDocument: (documentId) => {
-        set((state) => ({
-          documents: state.documents.filter(
-            (doc) => doc.document_id !== documentId
-          ),
-          selectedDocument:
-            state.selectedDocument?.document_id === documentId
-              ? null
-              : state.selectedDocument,
-        }));
+      updateDocument: (id, updates) => {
+        set((state) => {
+          const index = state.documents.findIndex((doc) => doc.id === id);
+          if (index !== -1) {
+            state.documents[index] = { ...state.documents[index], ...updates };
+          }
+        });
       },
       
-      updateDocument: (documentId, updates) => {
-        set((state) => ({
-          documents: state.documents.map((doc) =>
-            doc.document_id === documentId ? { ...doc, ...updates } : doc
-          ),
-          selectedDocument:
-            state.selectedDocument?.document_id === documentId
-              ? { ...state.selectedDocument, ...updates }
-              : state.selectedDocument,
-        }));
+      removeDocument: (id) => {
+        set((state) => {
+          state.documents = state.documents.filter((doc) => doc.id !== id);
+          if (state.selectedDocumentId === id) {
+            state.selectedDocumentId = null;
+          }
+        });
       },
       
-      setSelectedDocument: (document) => {
-        set({ selectedDocument: document });
+      setDocuments: (documents) => {
+        set((state) => {
+          state.documents = documents;
+        });
       },
       
+      // Selection actions
+      selectDocument: (id) => {
+        set((state) => {
+          state.selectedDocumentId = id;
+        });
+      },
+      
+      selectChunk: (id) => {
+        set((state) => {
+          state.selectedChunkId = id;
+        });
+      },
+      
+      // Sources actions
+      setSources: (sources) => {
+        set((state) => {
+          state.sources = sources;
+        });
+      },
+      
+      addSource: (source) => {
+        set((state) => {
+          // Avoid duplicates
+          if (!state.sources.find((s) => s.chunk_id === source.chunk_id)) {
+            state.sources.push(source);
+          }
+        });
+      },
+      
+      clearSources: () => {
+        set((state) => {
+          state.sources = [];
+        });
+      },
+      
+      // Upload actions
+      addToUploadQueue: (files) => {
+        set((state) => {
+          state.uploadQueue.push(...files);
+        });
+      },
+      
+      removeFromUploadQueue: (index) => {
+        set((state) => {
+          state.uploadQueue.splice(index, 1);
+        });
+      },
+      
+      clearUploadQueue: () => {
+        set((state) => {
+          state.uploadQueue = [];
+        });
+      },
+      
+      setUploading: (isUploading) => {
+        set((state) => {
+          state.isUploading = isUploading;
+        });
+      },
+      
+      // Loading and error
       setLoading: (isLoading) => {
-        set({ isLoading });
+        set((state) => {
+          state.isLoading = isLoading;
+        });
       },
       
       setError: (error) => {
-        set({ error, isLoading: false });
+        set((state) => {
+          state.error = error;
+        });
       },
       
-      clearError: () => {
-        set({ error: null });
+      // Computed
+      getDocumentById: (id) => {
+        return get().documents.find((doc) => doc.id === id);
       },
       
+      getUploadingDocuments: () => {
+        return get().documents.filter((doc) => doc.status === 'uploading' || doc.status === 'processing');
+      },
+      
+      getCompletedDocuments: () => {
+        return get().documents.filter((doc) => doc.status === 'completed');
+      },
+      
+      getFailedDocuments: () => {
+        return get().documents.filter((doc) => doc.status === 'failed');
+      },
+      
+      // Utility
       reset: () => {
         set(initialState);
       },
-    }),
-    {
-      name: 'document-storage',
-      storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({
-        // Only persist documents, not loading/error states
-        documents: state.documents,
-      }),
-    }
+    })),
+    { name: 'DocumentStore' }
   )
 );
 
-// Selectors for better performance
+// Selectors
 export const useDocuments = () => useDocumentStore((state) => state.documents);
-export const useDocumentsLoading = () => useDocumentStore((state) => state.isLoading);
-export const useDocumentsError = () => useDocumentStore((state) => state.error);
-export const useSelectedDocument = () => useDocumentStore((state) => state.selectedDocument);
+export const useSelectedDocumentId = () => useDocumentStore((state) => state.selectedDocumentId);
+export const useSelectedChunkId = () => useDocumentStore((state) => state.selectedChunkId);
+export const useSources = () => useDocumentStore((state) => state.sources);
+export const useUploadQueue = () => useDocumentStore((state) => state.uploadQueue);
+export const useIsUploading = () => useDocumentStore((state) => state.isUploading);
+
+// Computed selectors
+export const useDocumentCount = () => useDocumentStore((state) => state.documents.length);
+export const useSourceCount = () => useDocumentStore((state) => state.sources.length);
+export const useHasSources = () => useDocumentStore((state) => state.sources.length > 0);
+export const useUploadingCount = () => useDocumentStore((state) => 
+  state.documents.filter((doc) => doc.status === 'uploading' || doc.status === 'processing').length
+);
+
+// Action selectors
+export const useDocumentActions = () => useDocumentStore((state) => ({
+  addDocument: state.addDocument,
+  updateDocument: state.updateDocument,
+  removeDocument: state.removeDocument,
+  selectDocument: state.selectDocument,
+  selectChunk: state.selectChunk,
+  setSources: state.setSources,
+  addSource: state.addSource,
+  clearSources: state.clearSources,
+  addToUploadQueue: state.addToUploadQueue,
+  setUploading: state.setUploading,
+}));

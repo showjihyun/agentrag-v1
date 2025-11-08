@@ -1,10 +1,9 @@
 @echo off
 echo ========================================
-echo Complete Installation (grpcio already working)
+echo Complete Installation
 echo ========================================
 echo.
 echo Current status:
-echo - grpcio: 1.75.1 ✓
 echo - docling: OK ✓
 echo - numpy: 2.1.3 ✓
 echo - langchain: 0.3.19 ✓

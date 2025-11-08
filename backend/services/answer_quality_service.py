@@ -174,8 +174,14 @@ class AnswerQualityService:
 
             return 0.5
 
+        except ValueError as e:
+            # Expected errors (e.g., empty input)
+            logger.warning(f"Source relevance evaluation - invalid input: {e}")
+            return 0.5
         except Exception as e:
-            logger.debug(f"Source relevance evaluation failed: {e}")
+            # Unexpected errors
+            logger.error(f"Source relevance evaluation failed unexpectedly: {e}", exc_info=True)
+            # Return default score but log for investigation
             return 0.5
 
     def _evaluate_grounding(self, answer: str, sources: List[Dict[str, Any]]) -> float:
@@ -211,8 +217,13 @@ class AnswerQualityService:
 
             return 0.5
 
+        except ValueError as e:
+            # Expected errors (e.g., empty input)
+            logger.warning(f"Grounding evaluation - invalid input: {e}")
+            return 0.5
         except Exception as e:
-            logger.debug(f"Grounding evaluation failed: {e}")
+            # Unexpected errors
+            logger.error(f"Grounding evaluation failed unexpectedly: {e}", exc_info=True)
             return 0.5
 
     def _detect_hallucination(
@@ -285,8 +296,12 @@ class AnswerQualityService:
 
             return 0.1  # Low baseline risk
 
+        except ValueError as e:
+            # Expected errors
+            logger.warning(f"Hallucination detection - invalid input: {e}")
         except Exception as e:
-            logger.debug(f"Hallucination detection failed: {e}")
+            # Unexpected errors
+            logger.error(f"Hallucination detection failed unexpectedly: {e}", exc_info=True)
             return 0.3  # Medium risk on error
 
     def _evaluate_completeness(self, query: str, answer: str) -> float:
