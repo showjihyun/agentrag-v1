@@ -256,6 +256,63 @@ export default function WorkflowDesignerPage() {
     setIsPropertiesPanelOpen(true);
   }, []);
 
+  const handleNodeDragStop = useCallback(
+    (_event: React.MouseEvent, node: Node) => {
+      // Find nearby nodes within connection range
+      const connectionRange = 150; // pixels
+      const sourceNode = node;
+
+      nodes.forEach((targetNode) => {
+        if (targetNode.id === sourceNode.id) return;
+
+        // Calculate distance between nodes
+        const dx = targetNode.position.x - sourceNode.position.x;
+        const dy = targetNode.position.y - sourceNode.position.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance < connectionRange) {
+          // Check if connection already exists
+          const existingConnection = edges.find(
+            (edge) =>
+              (edge.source === sourceNode.id && edge.target === targetNode.id) ||
+              (edge.source === targetNode.id && edge.target === sourceNode.id)
+          );
+
+          if (!existingConnection) {
+            // Determine connection direction based on vertical position
+            let newConnection: Connection;
+            if (sourceNode.position.y < targetNode.position.y) {
+              // Source is above target - connect source output to target input
+              newConnection = {
+                source: sourceNode.id,
+                target: targetNode.id,
+                sourceHandle: 'output',
+                targetHandle: 'input',
+              };
+            } else {
+              // Source is below target - connect target output to source input
+              newConnection = {
+                source: targetNode.id,
+                target: sourceNode.id,
+                sourceHandle: 'output',
+                targetHandle: 'input',
+              };
+            }
+
+            // Add the connection
+            setEdges((eds) => addEdge(newConnection, eds));
+
+            toast({
+              title: 'Auto-Connected',
+              description: 'Nodes automatically connected',
+            });
+          }
+        }
+      });
+    },
+    [nodes, edges, setEdges, toast]
+  );
+
   const handleCloseProperties = () => {
     setIsPropertiesPanelOpen(false);
     setSelectedNode(null);
@@ -281,16 +338,37 @@ export default function WorkflowDesignerPage() {
 
     setIsSaving(true);
     try {
+      // Find the start node as entry point
+      const startNode = nodes.find(node => node.type === 'start' || node.type === 'trigger');
+      const entryPoint = startNode?.id || (nodes.length > 0 ? nodes[0].id : '');
+
       const response = await fetch(`/api/agent-builder/workflows/${workflowId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...workflow,
-          graph_definition: {
-            nodes,
-            edges,
-            entry_point: nodes[0]?.id || '',
-          },
+          name: workflow.name,
+          description: workflow.description,
+          nodes: nodes.map(node => {
+            const isControl = node.type === 'start' || node.type === 'end' || 
+                             node.type === 'condition' || node.type === 'trigger';
+            return {
+              id: node.id,
+              node_type: isControl ? 'control' : node.type,
+              node_ref_id: isControl ? null : (node.data?.agentId || node.data?.blockId || null),
+              position_x: node.position.x,
+              position_y: node.position.y,
+              configuration: node.data || {},
+            };
+          }),
+          edges: edges.map(edge => ({
+            id: edge.id,
+            source_node_id: edge.source,
+            target_node_id: edge.target,
+            edge_type: 'normal',
+            source_handle: edge.sourceHandle,
+            target_handle: edge.targetHandle,
+          })),
+          entry_point: entryPoint,
         }),
       });
 
@@ -444,10 +522,10 @@ export default function WorkflowDesignerPage() {
         {/* Node Palette */}
         <aside className="w-64 border-r bg-card overflow-auto">
           <ScrollArea className="h-full">
-            <div className="p-4 space-y-4">
+            <div className="p-3 space-y-3">
               <div>
-                <h3 className="text-sm font-semibold mb-2">Agents</h3>
-                <div className="space-y-2">
+                <h3 className="text-xs font-semibold mb-1.5">Agents</h3>
+                <div className="space-y-1.5">
                   {agents.map((agent) => (
                     <Card
                       key={agent.id}
@@ -455,10 +533,10 @@ export default function WorkflowDesignerPage() {
                       draggable
                       onDragStart={(e) => handleDragStart(e, 'agent', agent)}
                     >
-                      <CardContent className="p-3">
+                      <CardContent className="p-2">
                         <div className="flex items-center gap-2">
-                          <Bot className="h-4 w-4 text-primary" />
-                          <span className="text-sm font-medium">{agent.name}</span>
+                          <Bot className="h-3.5 w-3.5 text-primary" />
+                          <span className="text-xs font-medium">{agent.name}</span>
                         </div>
                       </CardContent>
                     </Card>
@@ -469,8 +547,8 @@ export default function WorkflowDesignerPage() {
               <Separator />
 
               <div>
-                <h3 className="text-sm font-semibold mb-2">Blocks</h3>
-                <div className="space-y-2">
+                <h3 className="text-xs font-semibold mb-1.5">Blocks</h3>
+                <div className="space-y-1.5">
                   {blocks.map((block) => (
                     <Card
                       key={block.id}
@@ -478,10 +556,10 @@ export default function WorkflowDesignerPage() {
                       draggable
                       onDragStart={(e) => handleDragStart(e, 'block', block)}
                     >
-                      <CardContent className="p-3">
+                      <CardContent className="p-2">
                         <div className="flex items-center gap-2">
-                          <Box className="h-4 w-4 text-secondary" />
-                          <span className="text-sm font-medium">{block.name}</span>
+                          <Box className="h-3.5 w-3.5 text-secondary" />
+                          <span className="text-xs font-medium">{block.name}</span>
                         </div>
                       </CardContent>
                     </Card>
@@ -492,8 +570,8 @@ export default function WorkflowDesignerPage() {
               <Separator />
 
               <div>
-                <h3 className="text-sm font-semibold mb-2">Control Flow</h3>
-                <div className="space-y-2">
+                <h3 className="text-xs font-semibold mb-1.5">Control Flow</h3>
+                <div className="space-y-1.5">
                   <Card
                     className="cursor-move hover:shadow-md transition-shadow"
                     draggable
@@ -504,10 +582,10 @@ export default function WorkflowDesignerPage() {
                       })
                     }
                   >
-                    <CardContent className="p-3">
+                    <CardContent className="p-2">
                       <div className="flex items-center gap-2">
-                        <GitBranch className="h-4 w-4 text-yellow-500" />
-                        <span className="text-sm font-medium">Conditional</span>
+                        <GitBranch className="h-3.5 w-3.5 text-yellow-500" />
+                        <span className="text-xs font-medium">Conditional</span>
                       </div>
                     </CardContent>
                   </Card>
@@ -521,10 +599,10 @@ export default function WorkflowDesignerPage() {
                       })
                     }
                   >
-                    <CardContent className="p-3">
+                    <CardContent className="p-2">
                       <div className="flex items-center gap-2">
-                        <Repeat className="h-4 w-4 text-green-500" />
-                        <span className="text-sm font-medium">Loop</span>
+                        <Repeat className="h-3.5 w-3.5 text-green-500" />
+                        <span className="text-xs font-medium">Loop</span>
                       </div>
                     </CardContent>
                   </Card>
@@ -538,10 +616,10 @@ export default function WorkflowDesignerPage() {
                       })
                     }
                   >
-                    <CardContent className="p-3">
+                    <CardContent className="p-2">
                       <div className="flex items-center gap-2">
-                        <Layers className="h-4 w-4 text-purple-500" />
-                        <span className="text-sm font-medium">Parallel</span>
+                        <Layers className="h-3.5 w-3.5 text-purple-500" />
+                        <span className="text-xs font-medium">Parallel</span>
                       </div>
                     </CardContent>
                   </Card>
@@ -564,8 +642,14 @@ export default function WorkflowDesignerPage() {
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
             onNodeClick={handleNodeClick}
+            onNodeDragStop={handleNodeDragStop}
             nodeTypes={nodeTypes}
             fitView
+            snapToGrid={true}
+            snapGrid={[15, 15]}
+            defaultEdgeOptions={{
+              animated: true,
+            }}
           >
             <Background variant={BackgroundVariant.Dots} />
             <Controls />

@@ -11,19 +11,61 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { agentBuilderAPI } from '@/lib/api/agent-builder';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, Save, AlertCircle, AlertTriangle } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { Node, Edge } from 'reactflow';
+import { validateWorkflow, getValidationSummary, type ValidationError } from '@/lib/workflow-validation';
+import { instantiateTemplate, getTemplate } from '@/lib/workflow-templates';
+import { useSearchParams } from 'next/navigation';
+
+// UUID v4 generator
+function generateUUID(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
+// Check if string is valid UUID
+function isValidUUID(str: string): boolean {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(str);
+}
 
 export default function NewWorkflowPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const [name, setName] = useState('');
+  const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
   const [description, setDescription] = useState('');
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [saving, setSaving] = useState(false);
   const [blocks, setBlocks] = useState<BlockConfig[]>([]);
   const [loadingBlocks, setLoadingBlocks] = useState(true);
+
+  // Load template if specified
+  useEffect(() => {
+    const templateId = searchParams.get('template');
+    if (templateId) {
+      const template = getTemplate(templateId);
+      if (template) {
+        const instantiated = instantiateTemplate(templateId);
+        if (instantiated) {
+          setName(template.name);
+          setDescription(template.description);
+          setNodes(instantiated.nodes);
+          setEdges(instantiated.edges);
+          toast({
+            title: 'Template Loaded',
+            description: `Loaded "${template.name}" template`,
+          });
+        }
+      }
+    }
+  }, [searchParams]);
 
   // Load blocks and tools
   useEffect(() => {
@@ -188,7 +230,6 @@ export default function NewWorkflowPage() {
       toast({
         title: 'Error',
         description: error.message || 'Failed to load blocks and tools',
-        variant: 'destructive',
       });
     } finally {
       setLoadingBlocks(false);
@@ -196,52 +237,140 @@ export default function NewWorkflowPage() {
   };
 
   const handleNodesChange = useCallback((updatedNodes: Node[]) => {
+    console.log('🔄 Nodes changed:', updatedNodes.length);
     setNodes(updatedNodes);
-  }, []);
+    // Validate on change
+    const errors = validateWorkflow(updatedNodes, edges);
+    setValidationErrors(errors);
+  }, [edges]);
 
   const handleEdgesChange = useCallback((updatedEdges: Edge[]) => {
+    console.log('🔗 Edges changed:', updatedEdges.length);
     setEdges(updatedEdges);
-  }, []);
+    // Validate on change
+    const errors = validateWorkflow(nodes, updatedEdges);
+    setValidationErrors(errors);
+  }, [nodes]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+S or Cmd+S to save
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        if (name.trim() && !saving) {
+          handleSave();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [name, saving]);
 
   const handleSave = async () => {
+    console.log('💾 Saving new workflow...');
+    console.log('📊 Current state:', {
+      nodes: nodes.length,
+      edges: edges.length,
+      name,
+      description,
+    });
+    console.log('🔗 Edges:', edges);
+
     if (!name.trim()) {
       toast({
         title: 'Validation Error',
         description: 'Workflow name is required',
-        variant: 'destructive',
       });
       return;
     }
 
-    if (nodes.length === 0) {
+    // Validate workflow
+    const errors = validateWorkflow(nodes, edges);
+    const summary = getValidationSummary(errors);
+    
+    if (summary.hasErrors) {
       toast({
-        title: 'Validation Error',
-        description: 'Add at least one node to the workflow',
-        variant: 'destructive',
+        title: 'Validation Failed',
+        description: `Please fix ${summary.errorCount} error(s) before saving`,
       });
       return;
+    }
+    
+    if (summary.hasWarnings) {
+      const confirmed = confirm(
+        `Workflow has ${summary.warningCount} warning(s). Do you want to save anyway?`
+      );
+      if (!confirmed) return;
     }
 
     setSaving(true);
     try {
+      // Create ID mapping for old IDs to new UUIDs
+      const idMapping = new Map<string, string>();
+      
+      // Convert node IDs to UUIDs if needed
+      const convertedNodes = nodes.map(node => {
+        let nodeId = node.id;
+        if (!isValidUUID(nodeId)) {
+          nodeId = generateUUID();
+          idMapping.set(node.id, nodeId);
+          console.log(`🔄 Converting node ID: ${node.id} → ${nodeId}`);
+        }
+        return { ...node, id: nodeId };
+      });
+      
+      // Convert edge IDs and references
+      const convertedEdges = edges.map(edge => {
+        let edgeId = edge.id;
+        if (!isValidUUID(edgeId)) {
+          edgeId = generateUUID();
+          console.log(`🔄 Converting edge ID: ${edge.id} → ${edgeId}`);
+        }
+        
+        return {
+          ...edge,
+          id: edgeId,
+          source: idMapping.get(edge.source) || edge.source,
+          target: idMapping.get(edge.target) || edge.target,
+        };
+      });
+      
+      // Find the start node as entry point
+      const startNode = convertedNodes.find(node => node.type === 'start' || node.type === 'trigger');
+      const entryPoint = startNode?.id || (convertedNodes.length > 0 ? convertedNodes[0].id : '');
+
+      console.log('💾 Saving with converted IDs:', {
+        nodes: convertedNodes.length,
+        edges: convertedEdges.length,
+        entryPoint,
+      });
+
       const workflow = await agentBuilderAPI.createWorkflow({
         name,
         description,
-        graph_definition: {
-          nodes: nodes.map(node => ({
+        nodes: convertedNodes.map(node => {
+          const isControl = node.type === 'start' || node.type === 'end' || 
+                           node.type === 'condition' || node.type === 'trigger';
+          return {
             id: node.id,
-            type: node.type,
-            position: node.position,
-            data: node.data,
-          })),
-          edges: edges.map(edge => ({
-            id: edge.id,
-            source: edge.source,
-            target: edge.target,
-            sourceHandle: edge.sourceHandle,
-            targetHandle: edge.targetHandle,
-          })),
-        },
+            node_type: isControl ? 'control' : node.type,
+            node_ref_id: isControl ? null : (node.data?.agentId || node.data?.blockId || null),
+            position_x: node.position.x,
+            position_y: node.position.y,
+            configuration: node.data || {},
+          };
+        }),
+        edges: convertedEdges.map(edge => ({
+          id: edge.id,
+          source_node_id: edge.source,
+          target_node_id: edge.target,
+          edge_type: 'normal',
+          source_handle: edge.sourceHandle,
+          target_handle: edge.targetHandle,
+        })),
+        entry_point: entryPoint,
       });
 
       toast({
@@ -254,7 +383,6 @@ export default function NewWorkflowPage() {
       toast({
         title: 'Error',
         description: error.message || 'Failed to create workflow',
-        variant: 'destructive',
       });
     } finally {
       setSaving(false);
@@ -281,9 +409,15 @@ export default function NewWorkflowPage() {
               </p>
             </div>
           </div>
-          <Button onClick={handleSave} disabled={saving}>
+          <Button 
+            onClick={handleSave} 
+            disabled={saving || !name.trim()}
+            className={!name.trim() ? 'opacity-50 cursor-not-allowed' : ''}
+          >
             <Save className="mr-2 h-4 w-4" />
-            {saving ? 'Saving...' : 'Save Workflow'}
+            {saving ? 'Saving...' : 
+             !name.trim() ? 'Enter Name First' : 
+             'Save Workflow'}
           </Button>
         </div>
       </div>
@@ -306,7 +440,15 @@ export default function NewWorkflowPage() {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="My Workflow"
+                    className={!name.trim() && saving ? 'border-red-500 focus-visible:ring-red-500' : ''}
+                    required
                   />
+                  {!name.trim() && saving && (
+                    <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                      <span>⚠️</span>
+                      <span>Workflow name is required</span>
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="description">Description</Label>
@@ -322,6 +464,47 @@ export default function NewWorkflowPage() {
             </Card>
 
             <BlockPalette blocks={blocks} />
+            
+            {/* Validation Errors */}
+            {validationErrors.length > 0 && (
+              <div className="mt-4">
+                {validationErrors.filter(e => e.type === 'error').length > 0 && (
+                  <Alert variant="destructive" className="mb-2">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Errors</AlertTitle>
+                    <AlertDescription>
+                      <ul className="list-disc list-inside text-sm mt-2">
+                        {validationErrors
+                          .filter(e => e.type === 'error')
+                          .map((error, i) => (
+                            <li key={i}>{error.message}</li>
+                          ))}
+                      </ul>
+                    </AlertDescription>
+                  </Alert>
+                )}
+                
+                {validationErrors.filter(e => e.type === 'warning').length > 0 && (
+                  <Alert className="border-yellow-500 bg-yellow-50">
+                    <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                    <AlertTitle className="text-yellow-800">Warnings</AlertTitle>
+                    <AlertDescription className="text-yellow-700">
+                      <ul className="list-disc list-inside text-sm mt-2">
+                        {validationErrors
+                          .filter(e => e.type === 'warning')
+                          .slice(0, 3)
+                          .map((error, i) => (
+                            <li key={i}>{error.message}</li>
+                          ))}
+                        {validationErrors.filter(e => e.type === 'warning').length > 3 && (
+                          <li>+{validationErrors.filter(e => e.type === 'warning').length - 3} more warnings</li>
+                        )}
+                      </ul>
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

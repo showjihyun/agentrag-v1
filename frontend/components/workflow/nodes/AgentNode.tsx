@@ -14,25 +14,52 @@ export interface AgentNodeData {
   config?: Record<string, any>;
   isValid?: boolean;
   validationErrors?: string[];
+  isExecuting?: boolean;
+  executionStatus?: 'success' | 'error' | 'running';
 }
 
 export const AgentNode = memo(({ data, selected }: NodeProps<AgentNodeData>) => {
   const hasErrors = data.validationErrors && data.validationErrors.length > 0;
+  const isExecuting = data.isExecuting || false;
+  const executionStatus = data.executionStatus; // 'success' | 'error' | 'running'
 
   return (
     <div
       className={cn(
-        'px-4 py-3 rounded-lg border-2 shadow-md min-w-[200px] transition-all bg-gradient-to-br from-purple-50 to-pink-50',
+        'px-4 py-3 rounded-lg border-2 shadow-md min-w-[200px] transition-all bg-gradient-to-br from-purple-50 to-pink-50 relative',
         selected ? 'border-purple-500 ring-2 ring-purple-500/20' : 'border-purple-300',
-        hasErrors && 'border-destructive ring-2 ring-destructive/20'
+        hasErrors && 'border-destructive ring-2 ring-destructive/20',
+        isExecuting && 'ring-2 ring-blue-500/50 animate-pulse'
       )}
     >
+      {/* Execution Status Indicator */}
+      {(isExecuting || executionStatus) && (
+        <div className="absolute -top-2 -right-2 z-10">
+          {isExecuting && (
+            <div className="w-5 h-5 bg-blue-500 rounded-full animate-pulse flex items-center justify-center">
+              <div className="w-3 h-3 bg-white rounded-full animate-ping"></div>
+            </div>
+          )}
+          {executionStatus === 'success' && (
+            <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center text-white text-xs">
+              ✓
+            </div>
+          )}
+          {executionStatus === 'error' && (
+            <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs">
+              ✕
+            </div>
+          )}
+        </div>
+      )}
       {/* Input Handle */}
       <Handle
         type="target"
         position={Position.Top}
-        className="w-3 h-3 !bg-purple-500"
-        style={{ top: -6 }}
+        id="input"
+        isConnectable={true}
+        className="!w-8 !h-8 !bg-purple-500 !border-4 !border-white hover:!w-10 hover:!h-10 hover:!border-purple-300 transition-all cursor-pointer shadow-lg"
+        style={{ top: -16 }}
       />
 
       {/* Node Content */}
@@ -69,8 +96,10 @@ export const AgentNode = memo(({ data, selected }: NodeProps<AgentNodeData>) => 
       <Handle
         type="source"
         position={Position.Bottom}
-        className="w-3 h-3 !bg-purple-500"
-        style={{ bottom: -6 }}
+        id="output"
+        isConnectable={true}
+        className="!w-8 !h-8 !bg-purple-500 !border-4 !border-white hover:!w-10 hover:!h-10 hover:!border-purple-300 transition-all cursor-pointer shadow-lg"
+        style={{ bottom: -16 }}
       />
     </div>
   );

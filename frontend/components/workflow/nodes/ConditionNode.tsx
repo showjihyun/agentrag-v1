@@ -8,26 +8,51 @@ import { GitBranch } from 'lucide-react';
 export interface ConditionNodeData {
   condition?: string;
   label?: string;
+  isExecuting?: boolean;
+  executionStatus?: 'success' | 'error' | 'running';
 }
 
 export const ConditionNode = memo(({ data, selected }: NodeProps<ConditionNodeData>) => {
+  const isExecuting = data.isExecuting || false;
+  const executionStatus = data.executionStatus;
+
   return (
     <div
       className={cn(
         'relative px-4 py-3 rounded-lg border-2 shadow-md min-w-[160px] transition-all',
         'bg-gradient-to-br from-amber-50 to-orange-50',
-        selected ? 'border-amber-500 ring-2 ring-amber-500/20' : 'border-amber-300'
+        selected ? 'border-amber-500 ring-2 ring-amber-500/20' : 'border-amber-300',
+        isExecuting && 'ring-2 ring-blue-500/50 animate-pulse'
       )}
-      style={{
-        clipPath: 'polygon(10% 0%, 90% 0%, 100% 50%, 90% 100%, 10% 100%, 0% 50%)',
-      }}
     >
+      {/* Execution Status Indicator */}
+      {(isExecuting || executionStatus) && (
+        <div className="absolute -top-2 -right-2 z-10">
+          {isExecuting && (
+            <div className="w-5 h-5 bg-blue-500 rounded-full animate-pulse flex items-center justify-center">
+              <div className="w-3 h-3 bg-white rounded-full animate-ping"></div>
+            </div>
+          )}
+          {executionStatus === 'success' && (
+            <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center text-white text-xs">
+              ✓
+            </div>
+          )}
+          {executionStatus === 'error' && (
+            <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs">
+              ✕
+            </div>
+          )}
+        </div>
+      )}
       {/* Input Handle */}
       <Handle
         type="target"
         position={Position.Top}
-        className="w-3 h-3 !bg-amber-500"
-        style={{ top: -6 }}
+        id="input"
+        isConnectable={true}
+        className="!w-8 !h-8 !bg-amber-500 !border-4 !border-white hover:!w-10 hover:!h-10 hover:!border-amber-300 transition-all cursor-pointer shadow-lg"
+        style={{ top: -16 }}
       />
 
       {/* Node Content */}
@@ -43,20 +68,30 @@ export const ConditionNode = memo(({ data, selected }: NodeProps<ConditionNodeDa
         )}
       </div>
 
-      {/* Output Handles - True and False */}
+      {/* Output Handles - True, Default, False */}
       <Handle
         type="source"
-        position={Position.Right}
+        position={Position.Bottom}
         id="true"
-        className="w-3 h-3 !bg-green-500"
-        style={{ right: -6, top: '30%' }}
+        isConnectable={true}
+        className="!w-7 !h-7 !bg-green-500 !border-3 !border-white hover:!w-9 hover:!h-9 hover:!border-green-300 transition-all cursor-pointer shadow-lg"
+        style={{ bottom: -14, left: '25%' }}
       />
       <Handle
         type="source"
-        position={Position.Right}
+        position={Position.Bottom}
+        id="default"
+        isConnectable={true}
+        className="!w-7 !h-7 !bg-amber-500 !border-3 !border-white hover:!w-9 hover:!h-9 hover:!border-amber-300 transition-all cursor-pointer shadow-lg"
+        style={{ bottom: -14, left: '50%' }}
+      />
+      <Handle
+        type="source"
+        position={Position.Bottom}
         id="false"
-        className="w-3 h-3 !bg-red-500"
-        style={{ right: -6, top: '70%' }}
+        isConnectable={true}
+        className="!w-7 !h-7 !bg-red-500 !border-3 !border-white hover:!w-9 hover:!h-9 hover:!border-red-300 transition-all cursor-pointer shadow-lg"
+        style={{ bottom: -14, left: '75%' }}
       />
     </div>
   );

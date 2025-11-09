@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Search, GitBranch, MoreVertical, Edit, Play, Copy, Trash, Eye, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { Plus, Search, GitBranch, MoreVertical, Edit, Play, Copy, Trash, Eye, CheckCircle, XCircle, Clock, Zap, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -31,17 +31,24 @@ import { useRouter } from 'next/navigation';
 
 interface Workflow {
   id: string;
+  user_id: string;
   name: string;
   description?: string;
   graph_definition: {
     nodes: any[];
     edges: any[];
   };
-  is_active: boolean;
+  is_public: boolean;
+  is_active?: boolean; // Optional for backward compatibility
   created_at: string;
   updated_at?: string;
   execution_count?: number;
-  last_execution_status?: 'success' | 'failed' | 'running';
+  last_execution_status?: 'success' | 'failed' | 'running' | 'completed';
+  triggers?: Array<{
+    id: string;
+    name: string;
+    type: string;
+  }>;
 }
 
 export default function WorkflowsPage() {
@@ -50,8 +57,46 @@ export default function WorkflowsPage() {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
+  const [sortBy, setSortBy] = useState<'name' | 'created' | 'updated' | 'executions'>('updated');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [workflowToDelete, setWorkflowToDelete] = useState<string | null>(null);
+  const [showTemplates, setShowTemplates] = useState(false);
+
+  const templates = [
+    {
+      id: 'template-1',
+      name: 'Customer Support Automation',
+      description: 'Classify and route customer inquiries automatically',
+      category: 'Support',
+      nodes: 8,
+      icon: '🎧',
+    },
+    {
+      id: 'template-2',
+      name: 'Content Generation Pipeline',
+      description: 'Generate, review, and publish content with AI',
+      category: 'Content',
+      nodes: 6,
+      icon: '✍️',
+    },
+    {
+      id: 'template-3',
+      name: 'Data Analysis Workflow',
+      description: 'Fetch, analyze, and visualize data automatically',
+      category: 'Analytics',
+      nodes: 7,
+      icon: '📊',
+    },
+    {
+      id: 'template-4',
+      name: 'Email Processing',
+      description: 'Process incoming emails and create tasks',
+      category: 'Automation',
+      nodes: 5,
+      icon: '📧',
+    },
+  ];
 
   useEffect(() => {
     loadWorkflows();
@@ -60,14 +105,33 @@ export default function WorkflowsPage() {
   const loadWorkflows = async () => {
     try {
       setLoading(true);
+      console.log('🔄 Loading workflows...');
+      console.log('🔑 Token:', localStorage.getItem('token') ? 'Present' : 'Missing');
+      
       const response = await agentBuilderAPI.getWorkflows();
+      console.log('✅ Workflows loaded:', response);
+      console.log('📊 Workflows count:', response.workflows?.length || 0);
+      
+      if (response.workflows && response.workflows.length > 0) {
+        console.log('📝 First workflow:', response.workflows[0]);
+      }
+      
       setWorkflows(response.workflows || []);
     } catch (error: any) {
+      console.error('❌ Failed to load workflows:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        status: error.status,
+        detail: error.detail,
+      });
+      
       toast({
         title: 'Error',
         description: error.message || 'Failed to load workflows',
         variant: 'error',
       });
+      // Set empty array on error to show empty state
+      setWorkflows([]);
     } finally {
       setLoading(false);
     }
@@ -103,19 +167,30 @@ export default function WorkflowsPage() {
         description: 'Workflow execution started...',
       });
       
-      await agentBuilderAPI.executeWorkflow(workflowId, {});
+      const result = await agentBuilderAPI.executeWorkflow(workflowId, {});
       
-      toast({
-        title: 'Success',
-        description: 'Workflow executed successfully',
-        variant: 'success',
-      });
+      // Check if execution failed
+      if (result.status === 'failed') {
+        toast({
+          title: 'Execution Failed',
+          description: result.message || result.error_message || 'Workflow execution failed',
+          variant: 'error',
+        });
+      } else {
+        toast({
+          title: 'Success',
+          description: result.message || 'Workflow executed successfully',
+          variant: 'success',
+        });
+      }
       
       loadWorkflows();
     } catch (error: any) {
+      // Handle API errors
+      const errorMessage = error.message || error.detail || 'Failed to execute workflow';
       toast({
         title: 'Error',
-        description: error.message || 'Failed to execute workflow',
+        description: errorMessage,
         variant: 'error',
       });
     }
@@ -158,10 +233,35 @@ export default function WorkflowsPage() {
     }
   };
 
-  const filteredWorkflows = workflows.filter((w) =>
-    w.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    w.description?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredWorkflows = workflows
+    .filter((w) => {
+      // Search filter
+      const matchesSearch = w.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        w.description?.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      // Status filter (use is_active if available, otherwise use is_public)
+      const isActive = w.is_active !== undefined ? w.is_active : w.is_public;
+      const matchesStatus = filterStatus === 'all' || 
+        (filterStatus === 'active' && isActive) ||
+        (filterStatus === 'inactive' && !isActive);
+      
+      return matchesSearch && matchesStatus;
+    })
+    .sort((a, b) => {
+      // Sort
+      switch (sortBy) {
+        case 'name':
+          return a.name.localeCompare(b.name);
+        case 'created':
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        case 'updated':
+          return new Date(b.updated_at || b.created_at).getTime() - new Date(a.updated_at || a.created_at).getTime();
+        case 'executions':
+          return (b.execution_count || 0) - (a.execution_count || 0);
+        default:
+          return 0;
+      }
+    });
 
   return (
     <div className="container mx-auto p-6 max-w-7xl">
@@ -175,14 +275,118 @@ export default function WorkflowsPage() {
             Create and manage multi-step agent workflows with visual builder
           </p>
         </div>
-        <Button onClick={() => router.push('/agent-builder/workflows/new')}>
-          <Plus className="mr-2 h-4 w-4" />
-          Create Workflow
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setShowTemplates(!showTemplates)}
+          >
+            <Sparkles className="mr-2 h-4 w-4" />
+            {showTemplates ? 'Hide Templates' : 'Browse Templates'}
+          </Button>
+          <Button onClick={() => router.push('/agent-builder/workflows/new')}>
+            <Plus className="mr-2 h-4 w-4" />
+            Create Workflow
+          </Button>
+        </div>
       </div>
 
-      <div className="mb-6">
-        <div className="relative">
+      {/* Statistics Dashboard */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium">Total Workflows</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{workflows.length}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium">Active</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">
+              {workflows.filter(w => w.is_active !== undefined ? w.is_active : w.is_public).length}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium">Total Executions</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {workflows.reduce((sum, w) => sum + (w.execution_count || 0), 0)}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium">Avg Nodes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">
+              {workflows.length > 0 
+                ? Math.round(workflows.reduce((sum, w) => sum + (w.graph_definition?.nodes?.length || 0), 0) / workflows.length)
+                : 0}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Templates Section */}
+      {showTemplates && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5" />
+              Workflow Templates
+            </CardTitle>
+            <CardDescription>
+              Start with a pre-built template and customize it to your needs
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {templates.map((template) => (
+                <Card
+                  key={template.id}
+                  className="cursor-pointer hover:shadow-lg transition-shadow border-2 hover:border-primary"
+                  onClick={() => {
+                    toast({
+                      title: 'Creating from template',
+                      description: `Creating "${template.name}"...`,
+                    });
+                    router.push(`/agent-builder/workflows/new?template=${template.id}`);
+                  }}
+                >
+                  <CardHeader>
+                    <div className="text-3xl mb-2">{template.icon}</div>
+                    <CardTitle className="text-base">{template.name}</CardTitle>
+                    <CardDescription className="text-xs">
+                      {template.description}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs">
+                        {template.nodes} nodes
+                      </Badge>
+                      <Badge variant="secondary" className="text-xs">
+                        {template.category}
+                      </Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Search, Filter, and Sort */}
+      <div className="flex flex-col md:flex-row gap-4 mb-6">
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search workflows by name or description..."
@@ -190,6 +394,29 @@ export default function WorkflowsPage() {
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
           />
+        </div>
+        
+        <div className="flex gap-2">
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value as any)}
+            className="px-3 py-2 border rounded-md bg-background text-sm"
+          >
+            <option value="all">All Status</option>
+            <option value="active">Active Only</option>
+            <option value="inactive">Inactive Only</option>
+          </select>
+          
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as any)}
+            className="px-3 py-2 border rounded-md bg-background text-sm"
+          >
+            <option value="updated">Last Updated</option>
+            <option value="created">Created Date</option>
+            <option value="name">Name (A-Z)</option>
+            <option value="executions">Most Executed</option>
+          </select>
         </div>
       </div>
 
@@ -287,24 +514,146 @@ export default function WorkflowsPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Badge variant="outline">
-                    {workflow.graph_definition?.nodes?.length || 0} nodes
-                  </Badge>
-                  <Badge variant="outline">
-                    {workflow.graph_definition?.edges?.length || 0} edges
-                  </Badge>
-                  {workflow.is_active && (
-                    <Badge variant="default">Active</Badge>
-                  )}
-                  {workflow.last_execution_status && (
-                    <div className="flex items-center gap-1">
-                      {getStatusIcon(workflow.last_execution_status)}
-                      <span className="text-xs text-muted-foreground">
-                        Last run
-                      </span>
-                    </div>
-                  )}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge variant="outline">
+                      {workflow.graph_definition?.nodes?.length || 0} nodes
+                    </Badge>
+                    <Badge variant="outline">
+                      {workflow.graph_definition?.edges?.length || 0} edges
+                    </Badge>
+                    {(workflow.is_active !== undefined ? workflow.is_active : workflow.is_public) && (
+                      <Badge variant="default">Active</Badge>
+                    )}
+                    {workflow.last_execution_status && (
+                      <div className="flex items-center gap-1">
+                        {getStatusIcon(workflow.last_execution_status)}
+                        <span className="text-xs text-muted-foreground">
+                          Last run
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Workflow Structure Info */}
+                  {(() => {
+                    const nodes = workflow.graph_definition?.nodes || [];
+                    const edges = workflow.graph_definition?.edges || [];
+                    
+                    // Count node types
+                    const nodeTypes = {
+                      start: nodes.filter((n: any) => 
+                        n.type === 'start' || n.configuration?.type === 'start'
+                      ).length,
+                      trigger: nodes.filter((n: any) => 
+                        n.type === 'trigger' || n.configuration?.type === 'trigger'
+                      ).length,
+                      agent: nodes.filter((n: any) => 
+                        n.node_type === 'agent' || n.type === 'agent'
+                      ).length,
+                      block: nodes.filter((n: any) => 
+                        n.node_type === 'block' || n.type === 'block'
+                      ).length,
+                      condition: nodes.filter((n: any) => 
+                        n.type === 'condition' || n.configuration?.type === 'condition'
+                      ).length,
+                      end: nodes.filter((n: any) => 
+                        n.type === 'end' || n.configuration?.type === 'end'
+                      ).length,
+                    };
+                    
+                    const triggerNodes = nodes.filter((n: any) => 
+                      n.type === 'trigger' || n.configuration?.type === 'trigger'
+                    );
+                    
+                    return (
+                      <div className="pt-2 border-t space-y-2">
+                        {/* Node Type Summary */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {nodeTypes.start > 0 && (
+                            <Badge variant="outline" className="text-xs">
+                              ▶️ {nodeTypes.start} Start
+                            </Badge>
+                          )}
+                          {nodeTypes.trigger > 0 && (
+                            <Badge variant="outline" className="text-xs">
+                              ⚡ {nodeTypes.trigger} Trigger
+                            </Badge>
+                          )}
+                          {nodeTypes.agent > 0 && (
+                            <Badge variant="outline" className="text-xs">
+                              🤖 {nodeTypes.agent} Agent
+                            </Badge>
+                          )}
+                          {nodeTypes.block > 0 && (
+                            <Badge variant="outline" className="text-xs">
+                              🧩 {nodeTypes.block} Block
+                            </Badge>
+                          )}
+                          {nodeTypes.condition > 0 && (
+                            <Badge variant="outline" className="text-xs">
+                              🔀 {nodeTypes.condition} Condition
+                            </Badge>
+                          )}
+                          {nodeTypes.end > 0 && (
+                            <Badge variant="outline" className="text-xs">
+                              🏁 {nodeTypes.end} End
+                            </Badge>
+                          )}
+                        </div>
+                        
+                        {/* Trigger Details */}
+                        {triggerNodes.length > 0 && (
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <Zap className="h-3 w-3 text-yellow-500" />
+                              <span className="text-xs font-medium text-muted-foreground">
+                                Triggers
+                              </span>
+                            </div>
+                            <div className="space-y-1">
+                              {triggerNodes.slice(0, 2).map((trigger: any) => {
+                                const triggerType = trigger.data?.triggerType || 
+                                                  trigger.configuration?.triggerType || 
+                                                  'manual';
+                                const triggerName = trigger.data?.name || 
+                                                  trigger.configuration?.name || 
+                                                  'Unnamed Trigger';
+                                return (
+                                  <div key={trigger.id} className="flex items-center gap-2 text-xs">
+                                    <Badge variant="secondary" className="text-xs">
+                                      {triggerType}
+                                    </Badge>
+                                    <span className="text-muted-foreground truncate">
+                                      {triggerName}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                              {triggerNodes.length > 2 && (
+                                <span className="text-xs text-muted-foreground">
+                                  +{triggerNodes.length - 2} more
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Workflow Complexity Indicator */}
+                        {nodes.length > 0 && (
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span>
+                              {edges.length} connection{edges.length !== 1 ? 's' : ''}
+                            </span>
+                            <span>•</span>
+                            <span>
+                              {nodes.length < 5 ? 'Simple' : nodes.length < 10 ? 'Medium' : 'Complex'} workflow
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               </CardContent>
               <CardFooter className="text-xs text-muted-foreground">

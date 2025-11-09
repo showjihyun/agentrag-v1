@@ -50,7 +50,18 @@ async def create_workflow(
         )
         
         logger.info(f"Workflow created successfully: {workflow.id}")
-        return workflow
+        
+        # Convert UUID fields to strings for response
+        return WorkflowResponse(
+            id=str(workflow.id),
+            user_id=str(workflow.user_id),
+            name=workflow.name,
+            description=workflow.description,
+            graph_definition=workflow.graph_definition,
+            is_public=workflow.is_public,
+            created_at=workflow.created_at,
+            updated_at=workflow.updated_at
+        )
         
     except ValueError as e:
         logger.warning(f"Invalid workflow data: {e}")
@@ -91,13 +102,23 @@ async def get_workflow(
             )
         
         # Check permissions (owner or public)
-        if workflow.user_id != str(current_user.id) and not workflow.is_public:
+        if str(workflow.user_id) != str(current_user.id) and not workflow.is_public:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You don't have permission to access this workflow"
             )
         
-        return workflow
+        # Convert UUID fields to strings for response
+        return WorkflowResponse(
+            id=str(workflow.id),
+            user_id=str(workflow.user_id),
+            name=workflow.name,
+            description=workflow.description,
+            graph_definition=workflow.graph_definition,
+            is_public=workflow.is_public,
+            created_at=workflow.created_at,
+            updated_at=workflow.updated_at
+        )
         
     except HTTPException:
         raise
@@ -135,7 +156,7 @@ async def update_workflow(
                 detail=f"Workflow {workflow_id} not found"
             )
         
-        if existing_workflow.user_id != str(current_user.id):
+        if str(existing_workflow.user_id) != str(current_user.id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You don't have permission to update this workflow"
@@ -145,7 +166,18 @@ async def update_workflow(
         updated_workflow = workflow_service.update_workflow(workflow_id, workflow_data)
         
         logger.info(f"Workflow updated successfully: {workflow_id}")
-        return updated_workflow
+        
+        # Convert UUID fields to strings for response
+        return WorkflowResponse(
+            id=str(updated_workflow.id),
+            user_id=str(updated_workflow.user_id),
+            name=updated_workflow.name,
+            description=updated_workflow.description,
+            graph_definition=updated_workflow.graph_definition,
+            is_public=updated_workflow.is_public,
+            created_at=updated_workflow.created_at,
+            updated_at=updated_workflow.updated_at
+        )
         
     except HTTPException:
         raise
@@ -188,7 +220,7 @@ async def delete_workflow(
                 detail=f"Workflow {workflow_id} not found"
             )
         
-        if existing_workflow.user_id != str(current_user.id):
+        if str(existing_workflow.user_id) != str(current_user.id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You don't have permission to delete this workflow"
@@ -238,7 +270,8 @@ async def list_workflows(
                 limit=limit,
                 offset=skip
             )
-            workflows = [w for w in workflows if w.user_id == str(current_user.id) or w.is_public]
+            # Convert UUID to string for comparison
+            workflows = [w for w in workflows if str(w.user_id) == str(current_user.id) or w.is_public]
         else:
             workflows = workflow_service.list_workflows(
                 user_id=str(current_user.id),
@@ -258,8 +291,23 @@ async def list_workflows(
         
         total = len(workflows)
         
+        # Convert UUID fields to strings for response
+        workflow_responses = [
+            WorkflowResponse(
+                id=str(w.id),
+                user_id=str(w.user_id),
+                name=w.name,
+                description=w.description,
+                graph_definition=w.graph_definition,
+                is_public=w.is_public,
+                created_at=w.created_at,
+                updated_at=w.updated_at
+            )
+            for w in workflows
+        ]
+        
         return WorkflowListResponse(
-            workflows=workflows,
+            workflows=workflow_responses,
             total=total,
             offset=skip,
             limit=limit
@@ -270,4 +318,222 @@ async def list_workflows(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to list workflows"
+        )
+
+
+@router.get(
+    "/{workflow_id}/executions",
+    summary="Get workflow execution history",
+    description="Retrieve execution history for a specific workflow.",
+)
+async def get_workflow_executions(
+    workflow_id: str,
+    limit: int = Query(50, ge=1, le=100, description="Maximum number of records to return"),
+    offset: int = Query(0, ge=0, description="Number of records to skip"),
+    status_filter: Optional[str] = Query(None, description="Filter by status (success, failed, running)"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get workflow execution history."""
+    try:
+        logger.info(f"Fetching executions for workflow {workflow_id}")
+        
+        workflow_service = WorkflowService(db)
+        workflow = workflow_service.get_workflow(workflow_id)
+        
+        if not workflow:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Workflow {workflow_id} not found"
+            )
+        
+        # Check permissions
+        if str(workflow.user_id) != str(current_user.id) and not workflow.is_public:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have permission to access this workflow"
+            )
+        
+        # Get executions from database
+        from backend.db.models.agent_builder import WorkflowExecution
+        
+        # Build base query
+        base_query = db.query(WorkflowExecution).filter(
+            WorkflowExecution.workflow_id == workflow_id
+        )
+        
+        # Apply status filter if provided
+        if status_filter:
+            base_query = base_query.filter(WorkflowExecution.status == status_filter)
+        
+        # Get total count before pagination
+        total_count = base_query.count()
+        
+        # Apply pagination and ordering
+        executions = base_query.order_by(
+            WorkflowExecution.started_at.desc()
+        ).limit(limit).offset(offset).all()
+        
+        # Format response
+        execution_list = []
+        for exec in executions:
+            duration = None
+            if exec.completed_at and exec.started_at:
+                duration = (exec.completed_at - exec.started_at).total_seconds()
+            
+            execution_list.append({
+                "id": exec.id,
+                "status": exec.status,
+                "duration": duration,
+                "started_at": exec.started_at.isoformat() if exec.started_at else None,
+                "completed_at": exec.completed_at.isoformat() if exec.completed_at else None,
+                "error_message": exec.error_message,
+                "input_data": exec.input_data,
+                "output_data": exec.output_data,
+            })
+        
+        return {
+            "executions": execution_list,
+            "total": total_count,
+            "offset": offset,
+            "limit": limit,
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get workflow executions: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve workflow executions"
+        )
+
+
+@router.post(
+    "/{workflow_id}/execute",
+    summary="Execute workflow",
+    description="Execute a workflow with optional input data.",
+)
+async def execute_workflow(
+    workflow_id: str,
+    input_data: Dict[str, Any] = {},
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Execute a workflow."""
+    try:
+        logger.info(f"Executing workflow {workflow_id} for user {current_user.id}")
+        
+        workflow_service = WorkflowService(db)
+        workflow = workflow_service.get_workflow(workflow_id)
+        
+        if not workflow:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Workflow {workflow_id} not found"
+            )
+        
+        # Check permissions (compare UUIDs properly)
+        if str(workflow.user_id) != str(current_user.id) and not workflow.is_public:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have permission to execute this workflow"
+            )
+        
+        # Create execution record
+        from backend.db.models.agent_builder import WorkflowExecution
+        from datetime import datetime
+        import uuid
+        
+        execution = WorkflowExecution(
+            id=uuid.uuid4(),
+            workflow_id=uuid.UUID(workflow_id),
+            user_id=uuid.UUID(str(current_user.id)),
+            input_data=input_data,
+            execution_context={},
+            status="running",
+            started_at=datetime.utcnow(),
+        )
+        
+        try:
+            db.add(execution)
+            db.commit()
+            db.refresh(execution)
+            
+            # Execute workflow using the execution engine
+            from backend.services.agent_builder.workflow_executor import execute_workflow
+            import asyncio
+            
+            try:
+                # Run async execution (use await since we're already in async context)
+                result = await execute_workflow(workflow, db, input_data)
+                
+                if result.get("success"):
+                    execution.status = "completed"
+                    execution.output_data = result.get("output", {})
+                    execution.execution_context = result.get("execution_context", {})
+                else:
+                    execution.status = "failed"
+                    execution.error_message = result.get("error", "Unknown error")
+                    execution.execution_context = result.get("execution_context", {})
+                
+                execution.completed_at = datetime.utcnow()
+                
+                try:
+                    db.commit()
+                except Exception as commit_error:
+                    # If commit fails, rollback and try again with fresh session
+                    logger.error(f"Commit failed: {commit_error}")
+                    db.rollback()
+                    
+                    # Refresh execution object and try again
+                    db.refresh(execution)
+                    execution.status = "failed"
+                    execution.error_message = f"Execution completed but failed to save: {str(commit_error)}"
+                    execution.completed_at = datetime.utcnow()
+                    db.commit()
+                
+                logger.info(f"Workflow executed: {execution.id} - Status: {execution.status}")
+                
+                return {
+                    "execution_id": str(execution.id),
+                    "status": execution.status,
+                    "message": "Workflow execution completed" if result.get("success") else f"Workflow execution failed: {result.get('error')}",
+                    "output": result.get("output"),
+                }
+                
+            except Exception as exec_error:
+                # Execution failed - rollback and update status
+                logger.error(f"Workflow execution error: {exec_error}")
+                db.rollback()
+                
+                # Refresh and update execution status
+                try:
+                    db.refresh(execution)
+                    execution.status = "failed"
+                    execution.completed_at = datetime.utcnow()
+                    execution.error_message = str(exec_error)
+                    db.commit()
+                except Exception as update_error:
+                    logger.error(f"Failed to update execution status: {update_error}")
+                
+                return {
+                    "execution_id": str(execution.id),
+                    "status": "failed",
+                    "message": f"Workflow execution failed: {str(exec_error)}",
+                }
+            
+        except Exception as exec_error:
+            # Rollback on error
+            logger.error(f"Failed to create execution record: {exec_error}")
+            db.rollback()
+            raise
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to execute workflow: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to execute workflow"
         )

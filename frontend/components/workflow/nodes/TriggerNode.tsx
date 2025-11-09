@@ -12,6 +12,8 @@ export interface TriggerNodeData {
   config?: Record<string, any>;
   isValid?: boolean;
   validationErrors?: string[];
+  isExecuting?: boolean;
+  executionStatus?: 'success' | 'error' | 'running';
 }
 
 const triggerIcons = {
@@ -36,16 +38,39 @@ export const TriggerNode = memo(({ data, selected }: NodeProps<TriggerNodeData>)
   const Icon = triggerIcons[data.triggerType] || Zap;
   const colorClass = triggerColors[data.triggerType] || 'from-yellow-400 to-orange-500';
   const hasErrors = data.validationErrors && data.validationErrors.length > 0;
+  const isExecuting = data.isExecuting || false;
+  const executionStatus = data.executionStatus;
 
   return (
     <div
       className={cn(
-        'px-4 py-3 rounded-lg border-2 shadow-lg min-w-[200px] transition-all',
+        'relative px-4 py-3 rounded-lg border-2 shadow-lg min-w-[200px] transition-all',
         `bg-gradient-to-r ${colorClass}`,
         selected ? 'ring-4 ring-yellow-500/30 scale-105' : '',
-        hasErrors && 'border-destructive ring-2 ring-destructive/20'
+        hasErrors && 'border-destructive ring-2 ring-destructive/20',
+        isExecuting && 'ring-4 ring-blue-500/50 animate-pulse'
       )}
     >
+      {/* Execution Status Indicator */}
+      {(isExecuting || executionStatus) && (
+        <div className="absolute -top-2 -right-2 z-10">
+          {isExecuting && (
+            <div className="w-5 h-5 bg-blue-500 rounded-full animate-pulse flex items-center justify-center">
+              <div className="w-3 h-3 bg-white rounded-full animate-ping"></div>
+            </div>
+          )}
+          {executionStatus === 'success' && (
+            <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center text-white text-xs">
+              ✓
+            </div>
+          )}
+          {executionStatus === 'error' && (
+            <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs">
+              ✕
+            </div>
+          )}
+        </div>
+      )}
       {/* Node Content */}
       <div className="flex items-start gap-3">
         <div className="w-10 h-10 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center text-white flex-shrink-0">
@@ -79,8 +104,10 @@ export const TriggerNode = memo(({ data, selected }: NodeProps<TriggerNodeData>)
       <Handle
         type="source"
         position={Position.Bottom}
-        className="w-3 h-3 !bg-yellow-500"
-        style={{ bottom: -6 }}
+        id="output"
+        isConnectable={true}
+        className="!w-8 !h-8 !bg-yellow-500 !border-4 !border-white hover:!w-10 hover:!h-10 hover:!border-yellow-300 transition-all cursor-pointer shadow-lg"
+        style={{ bottom: -16 }}
       />
     </div>
   );

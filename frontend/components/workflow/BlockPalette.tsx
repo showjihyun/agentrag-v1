@@ -51,6 +51,7 @@ const categoryColors = {
 export function BlockPalette({ blocks = [], onAddBlock, className }: BlockPaletteProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<'all' | 'blocks' | 'tools' | 'triggers' | 'agents' | 'control'>('all');
+  const searchInputRef = React.useRef<HTMLInputElement>(null);
 
   // Debug: Log blocks data
   React.useEffect(() => {
@@ -63,6 +64,20 @@ export function BlockPalette({ blocks = [], onAddBlock, className }: BlockPalett
       tools: blocks.filter(b => b.category === 'tools').length,
     });
   }, [blocks]);
+
+  // Keyboard shortcut: Ctrl+K to focus search
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Filter blocks
   const filteredBlocks = useMemo(() => {
@@ -118,7 +133,8 @@ export function BlockPalette({ blocks = [], onAddBlock, className }: BlockPalett
         <div className="relative mb-3">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search blocks..."
+            ref={searchInputRef}
+            placeholder="🔍 Search blocks... (Ctrl+K)"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
@@ -166,7 +182,7 @@ export function BlockPalette({ blocks = [], onAddBlock, className }: BlockPalett
 
       {/* Block List */}
       <ScrollArea className="flex-1">
-        <div className="p-4 space-y-4">
+        <div className="p-3 space-y-3">
           {selectedCategory === 'all' ? (
             // Show all categories
             Object.entries(groupedBlocks).map(([category, categoryBlocks]) => {
@@ -175,16 +191,16 @@ export function BlockPalette({ blocks = [], onAddBlock, className }: BlockPalett
               const emoji = categoryEmojis[category];
               return (
                 <div key={category}>
-                  <div className="flex items-center gap-2 mb-2">
+                  <div className="flex items-center gap-1.5 mb-1.5">
                     {emoji ? (
-                      <span className="text-base">{emoji}</span>
+                      <span className="text-sm">{emoji}</span>
                     ) : (
-                      <Icon className={cn('h-4 w-4', categoryColors[category as keyof typeof categoryColors])} />
+                      <Icon className={cn('h-3.5 w-3.5', categoryColors[category as keyof typeof categoryColors])} />
                     )}
-                    <h4 className="font-semibold text-sm capitalize">{category}</h4>
-                    <span className="text-xs text-muted-foreground">({categoryBlocks.length})</span>
+                    <h4 className="font-semibold text-xs capitalize">{category}</h4>
+                    <span className="text-[10px] text-muted-foreground">({categoryBlocks.length})</span>
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     {categoryBlocks.map((block) => (
                       <BlockItem
                         key={block.type}
@@ -199,7 +215,7 @@ export function BlockPalette({ blocks = [], onAddBlock, className }: BlockPalett
             })
           ) : (
             // Show selected category
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {filteredBlocks.map((block) => (
                 <BlockItem
                   key={block.type}
@@ -212,9 +228,9 @@ export function BlockPalette({ blocks = [], onAddBlock, className }: BlockPalett
           )}
 
           {filteredBlocks.length === 0 && (
-            <div className="text-center py-8 text-muted-foreground">
-              <Box className="h-12 w-12 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">No blocks found</p>
+            <div className="text-center py-6 text-muted-foreground">
+              <Box className="h-10 w-10 mx-auto mb-2 opacity-50" />
+              <p className="text-xs">No blocks found</p>
             </div>
           )}
         </div>
@@ -235,25 +251,22 @@ function BlockItem({ block, onDragStart, onClick }: BlockItemProps) {
       draggable
       onDragStart={(e) => onDragStart(e, block)}
       onClick={() => onClick(block)}
-      className="p-3 rounded-lg border bg-card hover:bg-accent cursor-move transition-colors group"
+      className="p-2 rounded-md border bg-card hover:bg-accent cursor-move transition-colors group"
       style={{
         borderLeftWidth: 3,
         borderLeftColor: block.bg_color,
       }}
     >
-      <div className="flex items-start gap-2">
+      <div className="flex items-center gap-2">
         <div
-          className="w-8 h-8 rounded flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+          className="w-6 h-6 rounded flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
           style={{ backgroundColor: block.bg_color }}
         >
           {block.icon}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="font-medium text-sm truncate" title={block.name}>
+          <div className="font-medium text-xs truncate" title={block.name}>
             {block.name}
-          </div>
-          <div className="text-xs text-muted-foreground line-clamp-2 mt-1">
-            {block.description}
           </div>
         </div>
       </div>

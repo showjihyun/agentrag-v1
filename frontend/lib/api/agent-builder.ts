@@ -644,8 +644,21 @@ class AgentBuilderAPI {
   async executeWorkflow(workflowId: string, input: any): Promise<any> {
     return this.request(`/api/agent-builder/workflows/${workflowId}/execute`, {
       method: 'POST',
-      body: JSON.stringify({ input }),
+      body: JSON.stringify(input),
     });
+  }
+
+  async getWorkflowExecutions(
+    workflowId: string, 
+    filters?: { limit?: number; offset?: number; status?: string }
+  ): Promise<any> {
+    const params = new URLSearchParams();
+    if (filters?.limit) params.append('limit', filters.limit.toString());
+    if (filters?.offset) params.append('offset', filters.offset.toString());
+    if (filters?.status) params.append('status_filter', filters.status);
+    
+    const query = params.toString();
+    return this.request(`/api/agent-builder/workflows/${workflowId}/executions${query ? `?${query}` : ''}`);
   }
 
   // Dashboard endpoints
