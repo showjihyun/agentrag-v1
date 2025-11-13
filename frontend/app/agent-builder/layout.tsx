@@ -17,6 +17,7 @@ import {
   Zap,
   Menu,
   X,
+  Settings,
 } from 'lucide-react';
 
 const navigation = [
@@ -27,6 +28,10 @@ const navigation = [
   { name: 'Knowledgebases', href: '/agent-builder/knowledgebases', icon: Database },
   { name: 'Variables', href: '/agent-builder/variables', icon: Variable },
   { name: 'Executions', href: '/agent-builder/executions', icon: Activity },
+];
+
+const settingsNavigation = [
+  { name: 'Settings', href: '/agent-builder/settings', icon: Settings },
 ];
 
 import { AgentBuilderErrorBoundary } from '@/components/agent-builder/AgentBuilderErrorBoundary';
@@ -74,6 +79,27 @@ export default function AgentBuilderLayout({
         <ScrollArea className="h-[calc(100vh-4rem)]">
           <nav className="space-y-2 p-4">
             {navigation.map((item) => {
+              const Icon = item.icon;
+              const isActive = pathname?.startsWith(item.href);
+              return (
+                <Link key={item.name} href={item.href}>
+                  <Button
+                    variant={isActive ? "secondary" : "ghost"}
+                    className="w-full justify-start"
+                    onClick={() => setSidebarOpen(false)}
+                  >
+                    <Icon className="mr-2 h-4 w-4" />
+                    {item.name}
+                  </Button>
+                </Link>
+              );
+            })}
+            
+            {/* Divider */}
+            <div className="my-4 border-t border-gray-200 dark:border-gray-700" />
+            
+            {/* Settings Section */}
+            {settingsNavigation.map((item) => {
               const Icon = item.icon;
               const isActive = pathname?.startsWith(item.href);
               return (

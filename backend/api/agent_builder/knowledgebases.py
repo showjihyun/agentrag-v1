@@ -71,7 +71,22 @@ async def create_knowledgebase(
         )
         
         logger.info(f"Knowledgebase created successfully: {kb.id}")
-        return kb
+        
+        # Convert UUID fields to strings for response
+        return KnowledgebaseResponse(
+            id=str(kb.id),
+            user_id=str(kb.user_id),
+            name=kb.name,
+            description=kb.description,
+            milvus_collection_name=kb.milvus_collection_name,
+            embedding_model=kb.embedding_model,
+            chunk_size=kb.chunk_size,
+            chunk_overlap=kb.chunk_overlap,
+            document_count=kb.document_count,
+            total_size=kb.total_size,
+            created_at=kb.created_at,
+            updated_at=kb.updated_at
+        )
         
     except ValueError as e:
         logger.warning(f"Invalid knowledgebase data: {e}")
@@ -134,7 +149,21 @@ async def get_knowledgebase(
                 detail="You don't have permission to access this knowledgebase"
             )
         
-        return kb
+        # Convert UUID fields to strings for response
+        return KnowledgebaseResponse(
+            id=str(kb.id),
+            user_id=str(kb.user_id),
+            name=kb.name,
+            description=kb.description,
+            milvus_collection_name=kb.milvus_collection_name,
+            embedding_model=kb.embedding_model,
+            chunk_size=kb.chunk_size,
+            chunk_overlap=kb.chunk_overlap,
+            document_count=kb.document_count,
+            total_size=kb.total_size,
+            created_at=kb.created_at,
+            updated_at=kb.updated_at
+        )
         
     except HTTPException:
         raise
@@ -202,7 +231,22 @@ async def update_knowledgebase(
         updated_kb = kb_service.update_knowledgebase(kb_id, kb_data)
         
         logger.info(f"Knowledgebase updated successfully: {kb_id}")
-        return updated_kb
+        
+        # Convert UUID fields to strings for response
+        return KnowledgebaseResponse(
+            id=str(updated_kb.id),
+            user_id=str(updated_kb.user_id),
+            name=updated_kb.name,
+            description=updated_kb.description,
+            milvus_collection_name=updated_kb.milvus_collection_name,
+            embedding_model=updated_kb.embedding_model,
+            chunk_size=updated_kb.chunk_size,
+            chunk_overlap=updated_kb.chunk_overlap,
+            document_count=updated_kb.document_count,
+            total_size=updated_kb.total_size,
+            created_at=updated_kb.created_at,
+            updated_at=updated_kb.updated_at
+        )
         
     except HTTPException:
         raise
@@ -330,10 +374,29 @@ async def list_knowledgebases(
             limit=limit
         )
         
+        # Convert UUID fields to strings for each knowledgebase
+        kb_responses = [
+            KnowledgebaseResponse(
+                id=str(kb.id),
+                user_id=str(kb.user_id),
+                name=kb.name,
+                description=kb.description,
+                milvus_collection_name=kb.milvus_collection_name,
+                embedding_model=kb.embedding_model,
+                chunk_size=kb.chunk_size,
+                chunk_overlap=kb.chunk_overlap,
+                document_count=kb.document_count,
+                total_size=kb.total_size,
+                created_at=kb.created_at,
+                updated_at=kb.updated_at
+            )
+            for kb in kbs
+        ]
+        
         return KnowledgebaseListResponse(
-            knowledgebases=kbs,
+            knowledgebases=kb_responses,
             total=total,
-            skip=skip,
+            offset=skip,
             limit=limit
         )
         

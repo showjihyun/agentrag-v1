@@ -770,6 +770,8 @@ from backend.api.agent_builder import (
     tools as agent_builder_tools,
     analytics as agent_builder_analytics,
     custom_tools as agent_builder_custom_tools,
+    api_keys as agent_builder_api_keys,
+    workflow_generator as agent_builder_workflow_generator,
 )
 
 # Circuit Breaker Status API (Phase 1 Architecture)
@@ -777,6 +779,10 @@ from backend.api import circuit_breaker_status
 
 # Knowledge Base API
 from backend.api import knowledge_base
+
+# LLM Settings API
+from backend.api import llm_settings
+
 app.include_router(agent_builder_dashboard.router)
 app.include_router(agent_builder_agents.router)
 app.include_router(agent_builder_blocks.router)
@@ -798,9 +804,12 @@ app.include_router(agent_builder_prompt_optimization.router)
 app.include_router(agent_builder_insights.router)
 app.include_router(agent_builder_marketplace.router)
 app.include_router(agent_builder_advanced_export.router)
+app.include_router(agent_builder_api_keys.router)
 app.include_router(agent_builder_tools.router)
 app.include_router(agent_builder_analytics.router)
 app.include_router(agent_builder_custom_tools.router)
+app.include_router(agent_builder_workflow_generator.router)
+app.include_router(llm_settings.router)
 
 # Knowledge Base API (for workflow integration)
 app.include_router(knowledge_base.router)

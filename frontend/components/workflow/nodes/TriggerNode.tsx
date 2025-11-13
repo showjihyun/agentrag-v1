@@ -1,12 +1,13 @@
 'use client';
 
-import React, { memo } from 'react';
+import React, { memo, useCallback } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { cn } from '@/lib/utils';
-import { Zap, Clock, Webhook, Mail, Calendar, Database } from 'lucide-react';
+import { Zap, Clock, Webhook, Mail, Calendar, Database, Play, Copy, Settings } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 export interface TriggerNodeData {
-  triggerType: 'manual' | 'schedule' | 'webhook' | 'email' | 'event' | 'database';
+  triggerType: 'manual' | 'schedule' | 'webhook' | 'email' | 'event' | 'database' | 'file' | 'api' | 'chat' | 'form';
   name: string;
   description?: string;
   config?: Record<string, any>;
@@ -14,6 +15,9 @@ export interface TriggerNodeData {
   validationErrors?: string[];
   isExecuting?: boolean;
   executionStatus?: 'success' | 'error' | 'running';
+  onTrigger?: () => void;
+  onConfigure?: () => void;
+  onCopyWebhook?: () => void;
 }
 
 const triggerIcons = {
@@ -23,6 +27,10 @@ const triggerIcons = {
   email: Mail,
   event: Calendar,
   database: Database,
+  file: Mail, // Using Mail as placeholder, will show emoji
+  api: Zap,
+  chat: Mail,
+  form: Mail,
 };
 
 const triggerColors = {
@@ -32,6 +40,10 @@ const triggerColors = {
   email: 'from-green-400 to-emerald-500',
   event: 'from-red-400 to-rose-500',
   database: 'from-indigo-400 to-violet-500',
+  file: 'from-orange-400 to-amber-500',
+  api: 'from-violet-400 to-purple-500',
+  chat: 'from-cyan-400 to-blue-500',
+  form: 'from-emerald-400 to-green-500',
 };
 
 export const TriggerNode = memo(({ data, selected }: NodeProps<TriggerNodeData>) => {
@@ -41,10 +53,35 @@ export const TriggerNode = memo(({ data, selected }: NodeProps<TriggerNodeData>)
   const isExecuting = data.isExecuting || false;
   const executionStatus = data.executionStatus;
 
+  // Handle button clicks - prevent event propagation to ReactFlow
+  const handleTrigger = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (data.onTrigger) {
+      data.onTrigger();
+    }
+  }, [data]);
+
+  const handleConfigure = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (data.onConfigure) {
+      data.onConfigure();
+    }
+  }, [data]);
+
+  const handleCopyWebhook = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (data.onCopyWebhook) {
+      data.onCopyWebhook();
+    }
+  }, [data]);
+
   return (
     <div
       className={cn(
-        'relative px-4 py-3 rounded-lg border-2 shadow-lg min-w-[200px] transition-all',
+        'relative px-4 py-3 rounded-lg border-2 shadow-lg min-w-[240px] transition-all',
         `bg-gradient-to-r ${colorClass}`,
         selected ? 'ring-4 ring-yellow-500/30 scale-105' : '',
         hasErrors && 'border-destructive ring-2 ring-destructive/20',
@@ -100,14 +137,59 @@ export const TriggerNode = memo(({ data, selected }: NodeProps<TriggerNodeData>)
         </div>
       )}
 
-      {/* Output Handle */}
+      {/* Action Buttons */}
+      <div className="mt-3 flex gap-2" onMouseDown={(e) => e.stopPropagation()}>
+        {/* Manual Trigger Button */}
+        {data.triggerType === 'manual' && (
+          <Button
+            size="sm"
+            variant="secondary"
+            className="flex-1 h-7 text-xs bg-white/90 hover:bg-white text-gray-900 font-medium"
+            onClick={handleTrigger}
+            disabled={isExecuting}
+          >
+            <Play className="h-3 w-3 mr-1" />
+            {isExecuting ? 'Running...' : 'Trigger'}
+          </Button>
+        )}
+
+        {/* Webhook Copy Button */}
+        {data.triggerType === 'webhook' && (
+          <Button
+            size="sm"
+            variant="secondary"
+            className="flex-1 h-7 text-xs bg-white/90 hover:bg-white text-gray-900 font-medium"
+            onClick={handleCopyWebhook}
+          >
+            <Copy className="h-3 w-3 mr-1" />
+            Copy URL
+          </Button>
+        )}
+
+        {/* Configure Button (for all types) */}
+        <Button
+          size="sm"
+          variant="secondary"
+          className="h-7 w-7 p-0 bg-white/90 hover:bg-white text-gray-900"
+          onClick={handleConfigure}
+          title="Configure trigger"
+        >
+          <Settings className="h-3 w-3" />
+        </Button>
+      </div>
+
+      {/* Output Handle - Trigger nodes only have output, no input */}
       <Handle
         type="source"
         position={Position.Bottom}
         id="output"
         isConnectable={true}
         className="!w-8 !h-8 !bg-yellow-500 !border-4 !border-white hover:!w-10 hover:!h-10 hover:!border-yellow-300 transition-all cursor-pointer shadow-lg"
-        style={{ bottom: -16 }}
+        style={{ 
+          bottom: -16,
+          left: '50%',
+          transform: 'translateX(-50%)'
+        }}
       />
     </div>
   );

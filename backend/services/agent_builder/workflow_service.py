@@ -48,21 +48,23 @@ class WorkflowService:
             ValueError: If workflow validation fails
         """
         try:
-            # Validate workflow BEFORE starting transaction
-            validation = self.validate_workflow_definition(
-                nodes=workflow_data.nodes,
-                edges=workflow_data.edges,
-                entry_point=workflow_data.entry_point
-            )
-            
-            if not validation.is_valid:
-                raise ValueError(f"Workflow validation failed: {', '.join(validation.errors)}")
+            # Allow empty workflows during creation (nodes can be added later)
+            # Only validate if nodes are provided
+            if workflow_data.nodes and len(workflow_data.nodes) > 0:
+                validation = self.validate_workflow_definition(
+                    nodes=workflow_data.nodes,
+                    edges=workflow_data.edges,
+                    entry_point=workflow_data.entry_point
+                )
+                
+                if not validation.is_valid:
+                    raise ValueError(f"Workflow validation failed: {', '.join(validation.errors)}")
             
             # Build graph definition
             graph_definition = {
-                "nodes": [node.model_dump() for node in workflow_data.nodes],
-                "edges": [edge.model_dump() for edge in workflow_data.edges],
-                "entry_point": workflow_data.entry_point
+                "nodes": [node.model_dump() for node in workflow_data.nodes] if workflow_data.nodes else [],
+                "edges": [edge.model_dump() for edge in workflow_data.edges] if workflow_data.edges else [],
+                "entry_point": workflow_data.entry_point if workflow_data.entry_point else None
             }
             
             # Create workflow
@@ -78,30 +80,32 @@ class WorkflowService:
             self.db.add(workflow)
             self.db.flush()
             
-            # Create nodes
-            for node_data in workflow_data.nodes:
-                node = WorkflowNode(
-                    id=node_data.id,
-                    workflow_id=workflow.id,
-                    node_type=node_data.node_type,
-                    node_ref_id=node_data.node_ref_id,
-                    position_x=node_data.position_x,
-                    position_y=node_data.position_y,
-                    configuration=node_data.configuration
-                )
-                self.db.add(node)
+            # Create nodes (if any)
+            if workflow_data.nodes:
+                for node_data in workflow_data.nodes:
+                    node = WorkflowNode(
+                        id=node_data.id,
+                        workflow_id=workflow.id,
+                        node_type=node_data.node_type,
+                        node_ref_id=node_data.node_ref_id,
+                        position_x=node_data.position_x,
+                        position_y=node_data.position_y,
+                        configuration=node_data.configuration
+                    )
+                    self.db.add(node)
             
-            # Create edges
-            for edge_data in workflow_data.edges:
-                edge = WorkflowEdge(
-                    id=edge_data.id,
-                    workflow_id=workflow.id,
-                    source_node_id=edge_data.source_node_id,
-                    target_node_id=edge_data.target_node_id,
-                    edge_type=edge_data.edge_type,
-                    condition=edge_data.condition
-                )
-                self.db.add(edge)
+            # Create edges (if any)
+            if workflow_data.edges:
+                for edge_data in workflow_data.edges:
+                    edge = WorkflowEdge(
+                        id=edge_data.id,
+                        workflow_id=workflow.id,
+                        source_node_id=edge_data.source_node_id,
+                        target_node_id=edge_data.target_node_id,
+                        edge_type=edge_data.edge_type,
+                        condition=edge_data.condition
+                    )
+                    self.db.add(edge)
             
             self.db.commit()
             self.db.refresh(workflow)

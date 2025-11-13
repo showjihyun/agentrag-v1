@@ -296,7 +296,7 @@ class WorkflowCreate(BaseModel):
     edges: List[WorkflowEdgeCreate] = Field(
         default_factory=list, description="Workflow edges"
     )
-    entry_point: str = Field(..., description="Entry node ID")
+    entry_point: Optional[str] = Field(None, description="Entry node ID (optional for empty workflows)")
     is_public: bool = Field(default=False, description="Whether workflow is public")
     
     model_config = ConfigDict(
@@ -1014,3 +1014,69 @@ class WorkflowCompileResult(BaseModel):
     compilation_time_ms: int = 0
     
     model_config = ConfigDict(from_attributes=True)
+
+
+
+# ============================================================================
+# API Key Management Schemas
+# ============================================================================
+
+class APIKeyCreate(BaseModel):
+    """Schema for creating a new API key."""
+    
+    service_name: str = Field(..., description="Service identifier (e.g., 'youtube', 'openai')")
+    service_display_name: str = Field(..., description="Service display name")
+    api_key: str = Field(..., description="API key value (will be encrypted)")
+    description: Optional[str] = Field(None, description="Optional description")
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "service_name": "youtube",
+                "service_display_name": "YouTube Data API",
+                "api_key": "AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+                "description": "API key for YouTube video search"
+            }
+        }
+    )
+
+
+class APIKeyUpdate(BaseModel):
+    """Schema for updating an API key."""
+    
+    api_key: Optional[str] = Field(None, description="New API key value")
+    description: Optional[str] = Field(None, description="Updated description")
+    is_active: Optional[bool] = Field(None, description="Active status")
+
+
+class APIKeyResponse(BaseModel):
+    """Schema for API key response (without exposing the actual key)."""
+    
+    id: str
+    service_name: str
+    service_display_name: str
+    description: Optional[str]
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+    last_used_at: Optional[datetime]
+    usage_count: int
+    # Note: encrypted_api_key is NOT included for security
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
+class APIKeyListResponse(BaseModel):
+    """Schema for API key list response."""
+    
+    api_keys: List[APIKeyResponse]
+    total: int
+
+
+class APIKeyTestResponse(BaseModel):
+    """Schema for API key test response."""
+    
+    success: bool
+    message: str
+    service_name: str
+    details: Optional[Dict[str, Any]] = None

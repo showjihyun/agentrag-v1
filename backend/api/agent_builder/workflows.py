@@ -466,7 +466,12 @@ async def execute_workflow(
             
             try:
                 # Run async execution (use await since we're already in async context)
-                result = await execute_workflow(workflow, db, input_data)
+                # Pass user_id for API key retrieval
+                input_data_with_user = {
+                    **input_data,
+                    "_user_id": str(current_user.id)  # Internal field for user context
+                }
+                result = await execute_workflow(workflow, db, input_data_with_user)
                 
                 if result.get("success"):
                     execution.status = "completed"

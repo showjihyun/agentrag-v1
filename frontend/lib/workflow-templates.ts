@@ -303,6 +303,74 @@ export const workflowTemplates: Record<string, WorkflowTemplate> = {
       { source: 'node-3', target: 'node-4', type: 'custom' },
     ],
   },
+  'template-5': {
+    id: 'template-5',
+    name: 'API Integration Workflow',
+    description: 'Fetch data from external API and process it',
+    category: 'Integration',
+    icon: '🌐',
+    nodes: [
+      {
+        type: 'start',
+        position: { x: 100, y: 100 },
+        data: {
+          name: 'Start',
+        },
+      },
+      {
+        type: 'http_request',
+        position: { x: 100, y: 250 },
+        data: {
+          label: 'Fetch User Data',
+          method: 'GET',
+          url: 'https://jsonplaceholder.typicode.com/users/1',
+          authType: 'none',
+          timeout: 30,
+          followRedirects: true,
+        },
+      },
+      {
+        type: 'condition',
+        position: { x: 100, y: 400 },
+        data: {
+          name: 'Check Response',
+          condition: 'data.status_code == 200',
+        },
+      },
+      {
+        type: 'agent',
+        position: { x: -150, y: 550 },
+        data: {
+          name: 'Process Data',
+          description: 'Process successful API response',
+          agentType: 'processor',
+        },
+      },
+      {
+        type: 'block',
+        position: { x: 350, y: 550 },
+        data: {
+          name: 'Handle Error',
+          description: 'Handle API error',
+        },
+      },
+      {
+        type: 'end',
+        position: { x: 100, y: 700 },
+        data: {
+          name: 'End',
+        },
+      },
+    ],
+    edges: [
+      { source: 'node-0', target: 'node-1', type: 'custom' },
+      { source: 'node-1', target: 'node-2', type: 'custom' },
+      { source: 'node-2', target: 'node-3', type: 'custom', sourceHandle: 'true' },
+      { source: 'node-2', target: 'node-4', type: 'custom', sourceHandle: 'false' },
+      { source: 'node-3', target: 'node-5', type: 'custom' },
+      { source: 'node-4', target: 'node-5', type: 'custom' },
+    ],
+  },
 };
 
 /**

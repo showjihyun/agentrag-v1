@@ -9,8 +9,12 @@ export interface ValidationError {
 export function validateWorkflow(nodes: Node[], edges: Edge[]): ValidationError[] {
   const errors: ValidationError[] = [];
 
-  // Check for Start nodes
-  const startNodes = nodes.filter(n => n.type === 'start' || n.type === 'trigger');
+  // Check for Start nodes - include all trigger types
+  const startNodes = nodes.filter(n => 
+    n.type === 'start' || 
+    n.type === 'trigger' ||
+    n.type?.startsWith('trigger_')
+  );
   if (startNodes.length === 0) {
     errors.push({ 
       type: 'error', 
@@ -41,7 +45,10 @@ export function validateWorkflow(nodes: Node[], edges: Edge[]): ValidationError[
     const hasIncoming = edges.some(e => e.target === node.id);
     const hasOutgoing = edges.some(e => e.source === node.id);
     
-    if (!hasIncoming && node.type !== 'start' && node.type !== 'trigger') {
+    // Start nodes and all trigger types don't need incoming connections
+    const isStartNode = node.type === 'start' || node.type === 'trigger' || node.type?.startsWith('trigger_');
+    
+    if (!hasIncoming && !isStartNode) {
       errors.push({ 
         type: 'warning', 
         message: `Node "${node.data?.name || node.id}" has no incoming connections`,

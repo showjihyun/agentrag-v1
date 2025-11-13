@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Database, MoreVertical, Edit, Trash, Upload, Search as SearchIcon, History, FileText } from 'lucide-react';
+import { Plus, Database, MoreVertical, Edit, Trash, Upload, Search as SearchIcon, History, FileText, Download, Copy, Grid, List, Filter, CheckSquare, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -31,21 +31,55 @@ export default function KnowledgebaseManagerPage() {
     chunk_overlap: 50,
   });
   const [saving, setSaving] = useState(false);
+  
+  // 1. Search functionality
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  // 2. Sort functionality
+  const [sortBy, setSortBy] = useState<'name' | 'created' | 'size' | 'documents'>('created');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  
+  // 3. Filter functionality
+  const [filterModel, setFilterModel] = useState<string>('all');
+  
+  // 4. Bulk operations
+  const [selectedKbs, setSelectedKbs] = useState<Set<string>>(new Set());
+  
+  // 5. View mode
+  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
 
   useEffect(() => {
     loadKnowledgebases();
   }, []);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+N or Cmd+N to create new KB
+      if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+        e.preventDefault();
+        handleCreate();
+      }
+      // Escape to close dialog
+      if (e.key === 'Escape' && createDialogOpen) {
+        setCreateDialogOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [createDialogOpen]);
 
   const loadKnowledgebases = async () => {
     try {
       setLoading(true);
       const data = await agentBuilderAPI.getKnowledgebases();
       setKnowledgebases(data);
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Failed to load knowledgebases:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to load knowledgebases',
-        variant: 'destructive',
+        title: 'Failed to Load Knowledgebases',
+        description: error.message || 'Please check your connection and try again',
       });
     } finally {
       setLoading(false);
@@ -74,6 +108,23 @@ export default function KnowledgebaseManagerPage() {
   };
 
   const handleSave = async () => {
+    // Validation
+    if (!formData.name.trim()) {
+      toast({
+        title: 'Validation Error',
+        description: 'Please enter a knowledgebase name',
+      });
+      return;
+    }
+
+    if (!editingKb && (formData.chunk_size || 0) < 100) {
+      toast({
+        title: 'Validation Error',
+        description: 'Chunk size must be at least 100 characters',
+      });
+      return;
+    }
+
     try {
       setSaving(true);
       
@@ -83,24 +134,25 @@ export default function KnowledgebaseManagerPage() {
           description: formData.description,
         });
         toast({
-          title: 'Success',
-          description: 'Knowledgebase updated successfully',
+          title: '✅ Updated Successfully',
+          description: `"${formData.name}" has been updated`,
         });
       } else {
         await agentBuilderAPI.createKnowledgebase(formData);
         toast({
-          title: 'Success',
-          description: 'Knowledgebase created successfully',
+          title: '✅ Created Successfully',
+          description: `"${formData.name}" is ready for documents`,
         });
       }
       
       setCreateDialogOpen(false);
       loadKnowledgebases();
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Save error:', error);
+      const action = editingKb ? 'update' : 'create';
       toast({
-        title: 'Error',
-        description: editingKb ? 'Failed to update knowledgebase' : 'Failed to create knowledgebase',
-        variant: 'destructive',
+        title: `Failed to ${action} knowledgebase`,
+        description: error.message || `Please try again or contact support if the issue persists`,
       });
     } finally {
       setSaving(false);
@@ -108,22 +160,30 @@ export default function KnowledgebaseManagerPage() {
   };
 
   const handleDelete = async (kbId: string) => {
-    if (!confirm('Are you sure you want to delete this knowledgebase? This action cannot be undone.')) {
+    const kb = knowledgebases.find(k => k.id === kbId);
+    const kbName = kb?.name || 'this knowledgebase';
+    const docCount = kb?.document_count || 0;
+    
+    const confirmMessage = docCount > 0
+      ? `Are you sure you want to delete "${kbName}"?\n\nThis will permanently delete ${docCount} document${docCount !== 1 ? 's' : ''} and cannot be undone.`
+      : `Are you sure you want to delete "${kbName}"?\n\nThis action cannot be undone.`;
+    
+    if (!confirm(confirmMessage)) {
       return;
     }
 
     try {
       await agentBuilderAPI.deleteKnowledgebase(kbId);
       toast({
-        title: 'Success',
-        description: 'Knowledgebase deleted successfully',
+        title: '🗑️ Deleted Successfully',
+        description: `"${kbName}" has been permanently deleted`,
       });
       loadKnowledgebases();
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Delete error:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to delete knowledgebase',
-        variant: 'destructive',
+        title: 'Failed to Delete',
+        description: error.message || 'The knowledgebase may be in use. Please try again later.',
       });
     }
   };
@@ -138,6 +198,92 @@ export default function KnowledgebaseManagerPage() {
 
   const handleViewVersions = (kbId: string) => {
     router.push(`/agent-builder/knowledgebases/${kbId}/versions`);
+  };
+
+  const handleSelectAll = () => {
+    if (selectedKbs.size === filteredAndSortedKbs.length) {
+      setSelectedKbs(new Set());
+    } else {
+      setSelectedKbs(new Set(filteredAndSortedKbs.map(kb => kb.id)));
+    }
+  };
+
+  const handleSelectKb = (kbId: string) => {
+    const newSelected = new Set(selectedKbs);
+    if (newSelected.has(kbId)) {
+      newSelected.delete(kbId);
+    } else {
+      newSelected.add(kbId);
+    }
+    setSelectedKbs(newSelected);
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedKbs.size === 0) return;
+    
+    const confirmMessage = `Are you sure you want to delete ${selectedKbs.size} knowledgebase${selectedKbs.size !== 1 ? 's' : ''}?\n\nThis action cannot be undone.`;
+    
+    if (!confirm(confirmMessage)) return;
+
+    try {
+      await Promise.all(
+        Array.from(selectedKbs).map(id => agentBuilderAPI.deleteKnowledgebase(id))
+      );
+      
+      toast({
+        title: '🗑️ Bulk Delete Successful',
+        description: `${selectedKbs.size} knowledgebase${selectedKbs.size !== 1 ? 's' : ''} deleted`,
+      });
+      
+      setSelectedKbs(new Set());
+      loadKnowledgebases();
+    } catch (error: any) {
+      toast({
+        title: 'Bulk Delete Failed',
+        description: 'Some knowledgebases could not be deleted',
+      });
+    }
+  };
+
+  const handleDuplicate = async (kbId: string) => {
+    const kb = knowledgebases.find(k => k.id === kbId);
+    if (!kb) return;
+
+    setFormData({
+      name: `${kb.name} (Copy)`,
+      description: kb.description || '',
+      embedding_model: kb.embedding_model,
+      chunk_size: kb.chunk_size,
+      chunk_overlap: kb.chunk_overlap,
+    });
+    setEditingKb(null);
+    setCreateDialogOpen(true);
+  };
+
+  const handleExport = () => {
+    const exportData = knowledgebases.map(kb => ({
+      name: kb.name,
+      description: kb.description,
+      embedding_model: kb.embedding_model,
+      document_count: kb.document_count,
+      total_size: kb.total_size,
+      created_at: kb.created_at,
+    }));
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `knowledgebases-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: '📥 Export Successful',
+      description: `${knowledgebases.length} knowledgebases exported`,
+    });
   };
 
   const formatBytes = (bytes: number = 0) => {
@@ -156,6 +302,58 @@ export default function KnowledgebaseManagerPage() {
     });
   };
 
+  // Get unique embedding models for filter
+  const embeddingModels = Array.from(new Set(knowledgebases.map(kb => kb.embedding_model)));
+
+  // Filter and sort knowledgebases
+  const filteredAndSortedKbs = knowledgebases
+    .filter(kb => {
+      // Search filter
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const matchesSearch = (
+          kb.name.toLowerCase().includes(query) ||
+          kb.description?.toLowerCase().includes(query) ||
+          kb.embedding_model.toLowerCase().includes(query)
+        );
+        if (!matchesSearch) return false;
+      }
+      
+      // Model filter
+      if (filterModel !== 'all' && kb.embedding_model !== filterModel) {
+        return false;
+      }
+      
+      return true;
+    })
+    .sort((a, b) => {
+      let comparison = 0;
+      
+      switch (sortBy) {
+        case 'name':
+          comparison = a.name.localeCompare(b.name);
+          break;
+        case 'created':
+          comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+          break;
+        case 'size':
+          comparison = (a.total_size || 0) - (b.total_size || 0);
+          break;
+        case 'documents':
+          comparison = (a.document_count || 0) - (b.document_count || 0);
+          break;
+      }
+      
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+
+  // Calculate statistics
+  const stats = {
+    total: knowledgebases.length,
+    totalDocuments: knowledgebases.reduce((sum, kb) => sum + (kb.document_count || 0), 0),
+    totalSize: knowledgebases.reduce((sum, kb) => sum + (kb.total_size || 0), 0),
+  };
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
@@ -164,21 +362,162 @@ export default function KnowledgebaseManagerPage() {
           <h1 className="text-3xl font-bold">Knowledgebases</h1>
           <p className="text-muted-foreground">
             Manage document collections for your agents
+            <kbd className="ml-2 px-2 py-0.5 text-xs bg-muted rounded border">Ctrl+N</kbd> to create
           </p>
         </div>
-        <Button onClick={handleCreate}>
-          <Plus className="mr-2 h-4 w-4" />
-          Create Knowledgebase
-        </Button>
+        <div className="flex items-center gap-2">
+          {knowledgebases.length > 0 && (
+            <>
+              <Button variant="outline" size="sm" onClick={handleExport}>
+                <Download className="mr-2 h-4 w-4" />
+                Export
+              </Button>
+              {selectedKbs.size > 0 && (
+                <Button variant="destructive" size="sm" onClick={handleBulkDelete}>
+                  <Trash className="mr-2 h-4 w-4" />
+                  Delete ({selectedKbs.size})
+                </Button>
+              )}
+            </>
+          )}
+          <Button onClick={handleCreate}>
+            <Plus className="mr-2 h-4 w-4" />
+            Create Knowledgebase
+          </Button>
+        </div>
       </div>
+
+      {/* Statistics Dashboard */}
+      {!loading && knowledgebases.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Total Knowledgebases
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.total}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Total Documents
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.totalDocuments.toLocaleString()}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Total Size
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatBytes(stats.totalSize)}</div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Knowledgebases Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Your Knowledgebases</CardTitle>
-          <CardDescription>
-            View and manage your document collections
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Your Knowledgebases</CardTitle>
+              <CardDescription>
+                View and manage your document collections
+              </CardDescription>
+            </div>
+            {!loading && knowledgebases.length > 0 && (
+              <div className="flex items-center gap-2">
+                {/* Search */}
+                <div className="relative w-64">
+                  <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search knowledgebases..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                
+                {/* Filter by Model */}
+                {embeddingModels.length > 1 && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <Filter className="mr-2 h-4 w-4" />
+                        {filterModel === 'all' ? 'All Models' : 'Filtered'}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => setFilterModel('all')}>
+                        All Models ({knowledgebases.length})
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      {embeddingModels.map(model => (
+                        <DropdownMenuItem key={model} onClick={() => setFilterModel(model)}>
+                          {model} ({knowledgebases.filter(kb => kb.embedding_model === model).length})
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+                
+                {/* Sort */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      Sort: {sortBy.charAt(0).toUpperCase() + sortBy.slice(1)}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => setSortBy('name')}>
+                      Name
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setSortBy('created')}>
+                      Created Date
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setSortBy('size')}>
+                      Size
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setSortBy('documents')}>
+                      Documents
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}>
+                      {sortOrder === 'asc' ? '↑ Ascending' : '↓ Descending'}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                
+                {/* View Mode Toggle */}
+                <div className="flex border rounded-md">
+                  <Button
+                    variant={viewMode === 'table' ? 'secondary' : 'ghost'}
+                    size="sm"
+                    onClick={() => setViewMode('table')}
+                    className="rounded-r-none"
+                  >
+                    <List className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+                    size="sm"
+                    onClick={() => setViewMode('grid')}
+                    className="rounded-l-none"
+                  >
+                    <Grid className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -187,22 +526,64 @@ export default function KnowledgebaseManagerPage() {
                 <Skeleton key={i} className="h-16 w-full" />
               ))}
             </div>
-          ) : knowledgebases.length === 0 ? (
+          ) : filteredAndSortedKbs.length === 0 && searchQuery ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Database className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No knowledgebases yet</h3>
+              <SearchIcon className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No results found</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                Create your first knowledgebase to get started
+                Try adjusting your search query
               </p>
-              <Button onClick={handleCreate}>
-                <Plus className="mr-2 h-4 w-4" />
-                Create Knowledgebase
+              <Button variant="outline" onClick={() => setSearchQuery('')}>
+                Clear Search
               </Button>
+            </div>
+          ) : knowledgebases.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                <Database className="h-8 w-8 text-primary" />
+              </div>
+              <h3 className="text-xl font-semibold mb-2">Create Your First Knowledgebase</h3>
+              <p className="text-sm text-muted-foreground mb-6 max-w-md">
+                Knowledgebases store your documents and make them searchable for AI agents. 
+                Upload PDFs, Word docs, or text files to get started.
+              </p>
+              <div className="flex flex-col gap-3 items-center">
+                <Button onClick={handleCreate} size="lg">
+                  <Plus className="mr-2 h-5 w-5" />
+                  Create Your First Knowledgebase
+                </Button>
+                <div className="flex items-center gap-4 text-xs text-muted-foreground mt-4">
+                  <div className="flex items-center gap-1">
+                    <FileText className="h-4 w-4" />
+                    <span>Multiple formats</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <SearchIcon className="h-4 w-4" />
+                    <span>AI-powered search</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Database className="h-4 w-4" />
+                    <span>Vector storage</span>
+                  </div>
+                </div>
+              </div>
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12">
+                    <button
+                      onClick={handleSelectAll}
+                      className="flex items-center justify-center w-full"
+                    >
+                      {selectedKbs.size === filteredAndSortedKbs.length && filteredAndSortedKbs.length > 0 ? (
+                        <CheckSquare className="h-4 w-4" />
+                      ) : (
+                        <Square className="h-4 w-4" />
+                      )}
+                    </button>
+                  </TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Documents</TableHead>
                   <TableHead>Size</TableHead>
@@ -212,8 +593,23 @@ export default function KnowledgebaseManagerPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {knowledgebases.map((kb) => (
-                  <TableRow key={kb.id}>
+                {filteredAndSortedKbs.map((kb) => (
+                  <TableRow 
+                    key={kb.id}
+                    className={selectedKbs.has(kb.id) ? 'bg-muted/50' : ''}
+                  >
+                    <TableCell>
+                      <button
+                        onClick={() => handleSelectKb(kb.id)}
+                        className="flex items-center justify-center w-full"
+                      >
+                        {selectedKbs.has(kb.id) ? (
+                          <CheckSquare className="h-4 w-4 text-primary" />
+                        ) : (
+                          <Square className="h-4 w-4" />
+                        )}
+                      </button>
+                    </TableCell>
                     <TableCell>
                       <div>
                         <div className="font-medium">{kb.name}</div>
@@ -264,6 +660,10 @@ export default function KnowledgebaseManagerPage() {
                             Version History
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => handleDuplicate(kb.id)}>
+                            <Copy className="mr-2 h-4 w-4" />
+                            Duplicate
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleEdit(kb)}>
                             <Edit className="mr-2 h-4 w-4" />
                             Edit
@@ -327,12 +727,28 @@ export default function KnowledgebaseManagerPage() {
               <>
                 <div className="space-y-2">
                   <Label htmlFor="embedding_model">Embedding Model</Label>
-                  <Input
+                  <select
                     id="embedding_model"
                     value={formData.embedding_model}
                     onChange={(e) => setFormData({ ...formData, embedding_model: e.target.value })}
-                    placeholder="text-embedding-3-small"
-                  />
+                    className="w-full px-3 py-2 border rounded-md bg-background"
+                  >
+                    <optgroup label="OpenAI">
+                      <option value="text-embedding-3-small">text-embedding-3-small (Recommended)</option>
+                      <option value="text-embedding-3-large">text-embedding-3-large (High Quality)</option>
+                      <option value="text-embedding-ada-002">text-embedding-ada-002 (Legacy)</option>
+                    </optgroup>
+                    <optgroup label="Korean Optimized">
+                      <option value="jhgan/ko-sroberta-multitask">ko-sroberta-multitask (Korean)</option>
+                    </optgroup>
+                    <optgroup label="Open Source">
+                      <option value="sentence-transformers/all-MiniLM-L6-v2">all-MiniLM-L6-v2 (Fast)</option>
+                      <option value="sentence-transformers/all-mpnet-base-v2">all-mpnet-base-v2 (Balanced)</option>
+                    </optgroup>
+                  </select>
+                  <p className="text-xs text-muted-foreground">
+                    Choose an embedding model based on your language and quality requirements
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">

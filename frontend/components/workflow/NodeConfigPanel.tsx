@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Node } from 'reactflow';
 import { X, Settings, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { RetryConfig } from './RetryConfig';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -74,6 +75,10 @@ export function NodeConfigPanel({ node, onClose, onUpdate, onDelete }: NodeConfi
                 rows={5}
               />
             </div>
+            <RetryConfig 
+              data={config} 
+              onChange={(field, value) => setConfig({ ...config, [field]: value })} 
+            />
           </div>
         );
 
@@ -250,6 +255,201 @@ export function NodeConfigPanel({ node, onClose, onUpdate, onDelete }: NodeConfi
           </div>
         );
 
+      case 'loop':
+        return (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="loop-label">Label</Label>
+              <Input
+                id="loop-label"
+                value={config.label || ''}
+                onChange={(e) => setConfig({ ...config, label: e.target.value })}
+                placeholder="Loop name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="loop-type">Loop Type</Label>
+              <select
+                id="loop-type"
+                value={config.loopType || 'forEach'}
+                onChange={(e) => setConfig({ ...config, loopType: e.target.value })}
+                className="w-full px-3 py-2 border rounded-md"
+              >
+                <option value="forEach">For Each (iterate over array)</option>
+                <option value="while">While (condition-based)</option>
+                <option value="count">Count (fixed iterations)</option>
+              </select>
+            </div>
+            {config.loopType === 'count' && (
+              <div className="space-y-2">
+                <Label htmlFor="iterations">Iterations</Label>
+                <Input
+                  id="iterations"
+                  type="number"
+                  value={config.iterations || 1}
+                  onChange={(e) => setConfig({ ...config, iterations: parseInt(e.target.value) })}
+                  min="1"
+                />
+              </div>
+            )}
+            {config.loopType === 'while' && (
+              <div className="space-y-2">
+                <Label htmlFor="loop-condition">Condition</Label>
+                <Textarea
+                  id="loop-condition"
+                  value={config.condition || ''}
+                  onChange={(e) => setConfig({ ...config, condition: e.target.value })}
+                  placeholder="e.g., index < items.length"
+                  rows={2}
+                />
+              </div>
+            )}
+          </div>
+        );
+
+      case 'parallel':
+        return (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="parallel-label">Label</Label>
+              <Input
+                id="parallel-label"
+                value={config.label || ''}
+                onChange={(e) => setConfig({ ...config, label: e.target.value })}
+                placeholder="Parallel execution"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="branches">Number of Branches</Label>
+              <Input
+                id="branches"
+                type="number"
+                value={config.branches || 2}
+                onChange={(e) => setConfig({ ...config, branches: parseInt(e.target.value) })}
+                min="2"
+                max="10"
+              />
+            </div>
+            <div className="text-xs text-muted-foreground">
+              Execute multiple branches simultaneously and wait for all to complete.
+            </div>
+          </div>
+        );
+
+      case 'delay':
+        return (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="delay-label">Label</Label>
+              <Input
+                id="delay-label"
+                value={config.label || ''}
+                onChange={(e) => setConfig({ ...config, label: e.target.value })}
+                placeholder="Delay"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="duration">Duration</Label>
+              <Input
+                id="duration"
+                type="number"
+                value={config.duration || 1}
+                onChange={(e) => setConfig({ ...config, duration: parseInt(e.target.value) })}
+                min="1"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="unit">Unit</Label>
+              <select
+                id="unit"
+                value={config.unit || 'seconds'}
+                onChange={(e) => setConfig({ ...config, unit: e.target.value })}
+                className="w-full px-3 py-2 border rounded-md"
+              >
+                <option value="seconds">Seconds</option>
+                <option value="minutes">Minutes</option>
+                <option value="hours">Hours</option>
+                <option value="days">Days</option>
+              </select>
+            </div>
+          </div>
+        );
+
+      case 'http_request':
+        // Import and use the dedicated config component
+        const { HttpRequestNodeConfig } = require('./NodeConfigPanels/HttpRequestNodeConfig');
+        return (
+          <HttpRequestNodeConfig
+            nodeId={node.id}
+            data={config}
+            onChange={(nodeId: string, data: any) => setConfig(data)}
+          />
+        );
+
+      case 'switch':
+        const { default: SwitchNodeConfig } = require('./NodeConfigPanels/SwitchNodeConfig');
+        return <SwitchNodeConfig data={config} onChange={setConfig} />;
+
+      case 'merge':
+        const { default: MergeNodeConfig } = require('./NodeConfigPanels/MergeNodeConfig');
+        return <MergeNodeConfig data={config} onChange={setConfig} />;
+
+      case 'code':
+        const { default: CodeNodeConfig } = require('./NodeConfigPanels/CodeNodeConfig');
+        return <CodeNodeConfig data={config} onChange={setConfig} />;
+
+      case 'schedule_trigger':
+        const { default: ScheduleTriggerConfig } = require('./NodeConfigPanels/ScheduleTriggerConfig');
+        return <ScheduleTriggerConfig data={config} onChange={setConfig} />;
+
+      case 'webhook_trigger':
+        const { default: WebhookTriggerConfig } = require('./NodeConfigPanels/WebhookTriggerConfig');
+        return <WebhookTriggerConfig data={config} onChange={setConfig} />;
+
+      case 'webhook_response':
+        const { default: WebhookResponseConfig } = require('./NodeConfigPanels/WebhookResponseConfig');
+        return <WebhookResponseConfig data={config} onChange={setConfig} />;
+
+      case 'slack':
+        const { default: SlackNodeConfig } = require('./NodeConfigPanels/SlackNodeConfig');
+        return <SlackNodeConfig data={config} onChange={setConfig} />;
+
+      case 'discord':
+        const { default: DiscordNodeConfig } = require('./NodeConfigPanels/DiscordNodeConfig');
+        return <DiscordNodeConfig data={config} onChange={setConfig} />;
+
+      case 'email':
+        const { default: EmailNodeConfig } = require('./NodeConfigPanels/EmailNodeConfig');
+        return <EmailNodeConfig data={config} onChange={setConfig} />;
+
+      case 'google_drive':
+        const { default: GoogleDriveNodeConfig } = require('./NodeConfigPanels/GoogleDriveNodeConfig');
+        return <GoogleDriveNodeConfig data={config} onChange={setConfig} />;
+
+      case 's3':
+        const { default: S3NodeConfig } = require('./NodeConfigPanels/S3NodeConfig');
+        return <S3NodeConfig data={config} onChange={setConfig} />;
+
+      case 'database':
+        const { default: DatabaseNodeConfig } = require('./NodeConfigPanels/DatabaseNodeConfig');
+        return <DatabaseNodeConfig data={config} onChange={setConfig} />;
+
+      case 'manager_agent':
+        const { default: ManagerAgentConfig } = require('./NodeConfigPanels/ManagerAgentConfig');
+        return <ManagerAgentConfig data={config} onChange={setConfig} />;
+
+      case 'memory':
+        const { default: MemoryNodeConfig } = require('./NodeConfigPanels/MemoryNodeConfig');
+        return <MemoryNodeConfig data={config} onChange={setConfig} />;
+
+      case 'consensus':
+        const { default: ConsensusNodeConfig } = require('./NodeConfigPanels/ConsensusNodeConfig');
+        return <ConsensusNodeConfig data={config} onChange={setConfig} />;
+
+      case 'human_approval':
+        const { default: HumanApprovalConfig } = require('./NodeConfigPanels/HumanApprovalConfig');
+        return <HumanApprovalConfig data={config} onChange={setConfig} />;
+
       case 'start':
       case 'end':
         return (
@@ -297,10 +497,31 @@ export function NodeConfigPanel({ node, onClose, onUpdate, onDelete }: NodeConfi
                 node.type === 'condition' && 'bg-amber-100 text-amber-700',
                 node.type === 'trigger' && 'bg-yellow-100 text-yellow-700',
                 node.type === 'start' && 'bg-green-100 text-green-700',
-                node.type === 'end' && 'bg-red-100 text-red-700'
+                node.type === 'end' && 'bg-red-100 text-red-700',
+                node.type === 'loop' && 'bg-purple-100 text-purple-700',
+                node.type === 'parallel' && 'bg-cyan-100 text-cyan-700',
+                node.type === 'delay' && 'bg-slate-100 text-slate-700',
+                node.type === 'try_catch' && 'bg-red-100 text-red-700',
+                node.type === 'switch' && 'bg-purple-100 text-purple-700',
+                node.type === 'merge' && 'bg-indigo-100 text-indigo-700',
+                node.type === 'code' && 'bg-green-100 text-green-700',
+                node.type === 'schedule_trigger' && 'bg-purple-100 text-purple-700',
+                node.type === 'webhook_trigger' && 'bg-blue-100 text-blue-700',
+                node.type === 'webhook_response' && 'bg-purple-100 text-purple-700',
+                node.type === 'http_request' && 'bg-orange-100 text-orange-700',
+                node.type === 'slack' && 'bg-purple-100 text-purple-700',
+                node.type === 'discord' && 'bg-indigo-100 text-indigo-700',
+                node.type === 'email' && 'bg-blue-100 text-blue-700',
+                node.type === 'google_drive' && 'bg-red-100 text-red-700',
+                node.type === 's3' && 'bg-orange-100 text-orange-700',
+                node.type === 'database' && 'bg-cyan-100 text-cyan-700',
+                node.type === 'manager_agent' && 'bg-yellow-100 text-yellow-700',
+                node.type === 'memory' && 'bg-pink-100 text-pink-700',
+                node.type === 'consensus' && 'bg-teal-100 text-teal-700',
+                node.type === 'human_approval' && 'bg-amber-100 text-amber-700'
               )}
             >
-              {node.type?.toUpperCase()}
+              {node.type?.toUpperCase().replace('_', '-')}
             </div>
             <span className="text-sm text-muted-foreground">ID: {node.id}</span>
           </div>

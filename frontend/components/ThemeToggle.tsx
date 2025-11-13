@@ -6,23 +6,11 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { useTheme } from '@/contexts/ThemeContext';
 
-export default function ThemeToggle() {
-  const [mounted, setMounted] = useState(false);
+function ThemeToggleInner() {
   const { theme, effectiveTheme, toggleTheme } = useTheme();
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) {
-    return (
-      <div className="p-2 w-9 h-9" aria-hidden="true">
-        {/* Placeholder to prevent layout shift */}
-      </div>
-    );
-  }
 
   return (
     <button
@@ -70,3 +58,13 @@ export default function ThemeToggle() {
     </button>
   );
 }
+
+// Export with dynamic import to ensure client-side only rendering
+export default dynamic(() => Promise.resolve(ThemeToggleInner), {
+  ssr: false,
+  loading: () => (
+    <div className="p-2 w-9 h-9" aria-hidden="true">
+      {/* Placeholder to prevent layout shift */}
+    </div>
+  ),
+});

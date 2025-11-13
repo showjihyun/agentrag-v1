@@ -110,6 +110,69 @@ export default function EditWorkflowPage() {
           icon: '◆',
           nodeType: 'condition',
         },
+        {
+          type: 'loop',
+          name: 'Loop',
+          description: 'Iterate over items or repeat actions',
+          category: 'control' as const,
+          bg_color: '#8b5cf6',
+          icon: '🔄',
+          nodeType: 'control',
+        },
+        {
+          type: 'parallel',
+          name: 'Parallel',
+          description: 'Execute multiple branches simultaneously',
+          category: 'control' as const,
+          bg_color: '#06b6d4',
+          icon: '⚡',
+          nodeType: 'control',
+        },
+        {
+          type: 'delay',
+          name: 'Delay',
+          description: 'Wait for specified duration',
+          category: 'control' as const,
+          bg_color: '#64748b',
+          icon: '⏱️',
+          nodeType: 'control',
+        },
+        {
+          type: 'try_catch',
+          name: 'Try-Catch',
+          description: 'Handle errors gracefully',
+          category: 'control' as const,
+          bg_color: '#dc2626',
+          icon: '🛡️',
+          nodeType: 'control',
+        },
+        {
+          type: 'switch',
+          name: 'Switch',
+          description: 'Multi-way branch (like switch-case)',
+          category: 'control' as const,
+          bg_color: '#f97316',
+          icon: '🔀',
+          nodeType: 'control',
+        },
+        {
+          type: 'merge',
+          name: 'Merge',
+          description: 'Combine multiple inputs into one',
+          category: 'control' as const,
+          bg_color: '#14b8a6',
+          icon: '🔗',
+          nodeType: 'control',
+        },
+        {
+          type: 'http_request',
+          name: 'HTTP Request',
+          description: 'Make HTTP API calls',
+          category: 'tools' as const,
+          bg_color: '#0ea5e9',
+          icon: '🌐',
+          nodeType: 'http_request',
+        },
         // Trigger nodes
         {
           type: 'trigger_manual',
@@ -171,6 +234,46 @@ export default function EditWorkflowPage() {
           nodeType: 'trigger',
           triggerType: 'database',
         },
+        {
+          type: 'trigger_file',
+          name: 'File Upload Trigger',
+          description: 'Trigger when file is uploaded',
+          category: 'triggers' as const,
+          bg_color: '#f59e0b',
+          icon: '📁',
+          nodeType: 'trigger',
+          triggerType: 'file',
+        },
+        {
+          type: 'trigger_api',
+          name: 'API Trigger',
+          description: 'Trigger via REST API call',
+          category: 'triggers' as const,
+          bg_color: '#8b5cf6',
+          icon: '🌐',
+          nodeType: 'trigger',
+          triggerType: 'api',
+        },
+        {
+          type: 'trigger_chat',
+          name: 'Chat Message Trigger',
+          description: 'Trigger on chat message received',
+          category: 'triggers' as const,
+          bg_color: '#06b6d4',
+          icon: '💬',
+          nodeType: 'trigger',
+          triggerType: 'chat',
+        },
+        {
+          type: 'trigger_form',
+          name: 'Form Submit Trigger',
+          description: 'Trigger when form is submitted',
+          category: 'triggers' as const,
+          bg_color: '#10b981',
+          icon: '📝',
+          nodeType: 'trigger',
+          triggerType: 'form',
+        },
         // Agents
         ...agentsData.map((agent: any) => ({
           type: `agent_${agent.id}`,
@@ -224,7 +327,6 @@ export default function EditWorkflowPage() {
       toast({
         title: 'Error',
         description: error.message || 'Failed to load blocks and tools',
-        variant: 'destructive',
       });
     } finally {
       setLoadingBlocks(false);
@@ -260,7 +362,6 @@ export default function EditWorkflowPage() {
       toast({
         title: 'Error',
         description: error.message || 'Failed to load workflow',
-        variant: 'destructive',
       });
     } finally {
       setLoading(false);
@@ -315,7 +416,6 @@ export default function EditWorkflowPage() {
       toast({
         title: 'Validation Error',
         description: 'Workflow name is required',
-        variant: 'destructive',
       });
       return;
     }
@@ -324,11 +424,18 @@ export default function EditWorkflowPage() {
     const errors = validateWorkflow(nodes, edges);
     const summary = getValidationSummary(errors);
     
+    console.log('🔍 Validation errors:', errors);
+    console.log('📋 Node types:', nodes.map(n => ({ id: n.id, type: n.type, name: n.data?.name })));
+    
     if (summary.hasErrors) {
+      const errorMessages = errors
+        .filter(e => e.type === 'error')
+        .map(e => e.message)
+        .join('; ');
+      
       toast({
         title: 'Validation Failed',
-        description: `Please fix ${summary.errorCount} error(s) before saving`,
-        variant: 'destructive',
+        description: errorMessages || `Please fix ${summary.errorCount} error(s) before saving`,
       });
       return;
     }
@@ -386,11 +493,23 @@ export default function EditWorkflowPage() {
         name,
         description,
         nodes: convertedNodes.map(node => {
-          const isControl = node.type === 'start' || node.type === 'end' || 
-                           node.type === 'condition' || node.type === 'trigger';
+          // Determine if this is a control node (start, end, condition, trigger, loop, parallel, etc.)
+          const controlTypes = ['start', 'end', 'condition', 'trigger', 'loop', 'parallel', 'delay', 'try_catch', 'switch', 'merge'];
+          const isControl = controlTypes.includes(node.type || '');
+          
+          // Determine node_type for backend
+          let nodeType = 'block'; // default
+          if (isControl) {
+            nodeType = 'control';
+          } else if (node.type === 'agent' || node.data?.agentId) {
+            nodeType = 'agent';
+          } else if (node.type === 'block' || node.data?.blockId) {
+            nodeType = 'block';
+          }
+          
           return {
             id: node.id,
-            node_type: isControl ? 'control' : node.type,
+            node_type: nodeType,
             node_ref_id: isControl ? null : (node.data?.agentId || node.data?.blockId || null),
             position_x: node.position.x,
             position_y: node.position.y,
@@ -421,7 +540,6 @@ export default function EditWorkflowPage() {
       toast({
         title: 'Error',
         description: error.message || 'Failed to update workflow',
-        variant: 'destructive',
       });
     } finally {
       setSaving(false);
@@ -553,17 +671,15 @@ export default function EditWorkflowPage() {
               </CardContent>
             </Card>
 
-            <BlockPalette blocks={blocks} />
-            
-            {/* Validation Errors */}
+            {/* Validation Errors - Between Workflow Details and Block Palette */}
             {validationErrors.length > 0 && (
-              <div className="mt-4">
+              <div className="space-y-2">
                 {validationErrors.filter(e => e.type === 'error').length > 0 && (
-                  <Alert variant="destructive" className="mb-2">
+                  <Alert variant="destructive">
                     <AlertCircle className="h-4 w-4" />
-                    <AlertTitle>Errors</AlertTitle>
+                    <AlertTitle>Errors ({validationErrors.filter(e => e.type === 'error').length})</AlertTitle>
                     <AlertDescription>
-                      <ul className="list-disc list-inside text-sm mt-2">
+                      <ul className="list-disc list-inside text-sm mt-2 space-y-1">
                         {validationErrors
                           .filter(e => e.type === 'error')
                           .map((error, i) => (
@@ -577,9 +693,11 @@ export default function EditWorkflowPage() {
                 {validationErrors.filter(e => e.type === 'warning').length > 0 && (
                   <Alert className="border-yellow-500 bg-yellow-50">
                     <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                    <AlertTitle className="text-yellow-800">Warnings</AlertTitle>
+                    <AlertTitle className="text-yellow-800">
+                      Warnings ({validationErrors.filter(e => e.type === 'warning').length})
+                    </AlertTitle>
                     <AlertDescription className="text-yellow-700">
-                      <ul className="list-disc list-inside text-sm mt-2">
+                      <ul className="list-disc list-inside text-sm mt-2 space-y-1">
                         {validationErrors
                           .filter(e => e.type === 'warning')
                           .slice(0, 3)
@@ -587,13 +705,26 @@ export default function EditWorkflowPage() {
                             <li key={i}>{error.message}</li>
                           ))}
                         {validationErrors.filter(e => e.type === 'warning').length > 3 && (
-                          <li>+{validationErrors.filter(e => e.type === 'warning').length - 3} more warnings</li>
+                          <li className="font-medium">
+                            +{validationErrors.filter(e => e.type === 'warning').length - 3} more warnings
+                          </li>
                         )}
                       </ul>
                     </AlertDescription>
                   </Alert>
                 )}
               </div>
+            )}
+
+            {/* Separator for visual clarity */}
+            {validationErrors.length > 0 && (
+              <div className="border-t pt-4">
+                <BlockPalette blocks={blocks} />
+              </div>
+            )}
+            
+            {validationErrors.length === 0 && (
+              <BlockPalette blocks={blocks} />
             )}
           </div>
         </div>

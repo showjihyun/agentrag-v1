@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Search, GitBranch, MoreVertical, Edit, Play, Copy, Trash, Eye, CheckCircle, XCircle, Clock, Zap, Sparkles } from 'lucide-react';
+import { Plus, Search, GitBranch, MoreVertical, Edit, Play, Copy, Trash, Eye, CheckCircle, XCircle, Clock, Zap, Sparkles, Wand2 } from 'lucide-react';
+import { WorkflowGeneratorModal } from '@/components/workflow/WorkflowGeneratorModal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -62,6 +63,7 @@ export default function WorkflowsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [workflowToDelete, setWorkflowToDelete] = useState<string | null>(null);
   const [showTemplates, setShowTemplates] = useState(false);
+  const [showGenerator, setShowGenerator] = useState(false);
 
   const templates = [
     {
@@ -282,6 +284,14 @@ export default function WorkflowsPage() {
           >
             <Sparkles className="mr-2 h-4 w-4" />
             {showTemplates ? 'Hide Templates' : 'Browse Templates'}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setShowGenerator(true)}
+            className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border-purple-200 dark:border-purple-800 hover:border-purple-400"
+          >
+            <Wand2 className="mr-2 h-4 w-4 text-purple-600 dark:text-purple-400" />
+            <span className="text-purple-600 dark:text-purple-400">AI 생성</span>
           </Button>
           <Button onClick={() => router.push('/agent-builder/workflows/new')}>
             <Plus className="mr-2 h-4 w-4" />
@@ -689,6 +699,48 @@ export default function WorkflowsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* AI Workflow Generator Modal */}
+      <WorkflowGeneratorModal
+        isOpen={showGenerator}
+        onClose={() => setShowGenerator(false)}
+        onGenerate={async (generatedWorkflow) => {
+          try {
+            // Find the start node as entry point
+            const startNode = generatedWorkflow.nodes.find((n: any) => n.type === 'start');
+            const entryPoint = startNode ? startNode.id : generatedWorkflow.nodes[0]?.id || 'start';
+            
+            // Create workflow from generated definition
+            const response = await agentBuilderAPI.createWorkflow({
+              name: generatedWorkflow.name,
+              description: generatedWorkflow.description,
+              entry_point: entryPoint,
+              graph_definition: {
+                nodes: generatedWorkflow.nodes,
+                edges: generatedWorkflow.edges,
+              },
+            });
+            
+            toast({
+              title: '✨ 워크플로우 생성 완료',
+              description: `"${generatedWorkflow.name}" 워크플로우가 생성되었습니다`,
+              variant: 'success',
+            });
+            
+            // Reload workflows
+            await loadWorkflows();
+            
+            // Navigate to the new workflow
+            router.push(`/agent-builder/workflows/${response.id}/designer`);
+          } catch (error: any) {
+            toast({
+              title: '❌ 생성 실패',
+              description: error.message || '워크플로우 생성 중 오류가 발생했습니다',
+              variant: 'error',
+            });
+          }
+        }}
+      />
     </div>
   );
 }

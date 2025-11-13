@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Search, Box, Wrench, Zap } from 'lucide-react';
+import { Search, Box, Wrench, Zap, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 export interface BlockConfig {
@@ -38,6 +39,7 @@ const categoryIcons: Record<string, any> = {
 const categoryEmojis: Record<string, string> = {
   agents: '🤖',
   control: '⚙️',
+  triggers: '⚡',
 };
 
 const categoryColors = {
@@ -51,7 +53,28 @@ const categoryColors = {
 export function BlockPalette({ blocks = [], onAddBlock, className }: BlockPaletteProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<'all' | 'blocks' | 'tools' | 'triggers' | 'agents' | 'control'>('all');
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['control', 'triggers', 'agents']));
   const searchInputRef = React.useRef<HTMLInputElement>(null);
+
+  const toggleCategory = (category: string) => {
+    setExpandedCategories(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(category)) {
+        newSet.delete(category);
+      } else {
+        newSet.add(category);
+      }
+      return newSet;
+    });
+  };
+
+  const expandAll = () => {
+    setExpandedCategories(new Set(['control', 'triggers', 'agents', 'blocks', 'tools']));
+  };
+
+  const collapseAll = () => {
+    setExpandedCategories(new Set());
+  };
 
   // Debug: Log blocks data
   React.useEffect(() => {
@@ -142,7 +165,7 @@ export function BlockPalette({ blocks = [], onAddBlock, className }: BlockPalett
         </div>
 
         {/* Category Tabs */}
-        <div className="flex gap-1">
+        <div className="flex gap-1 mb-2">
           <button
             onClick={() => setSelectedCategory('all')}
             className={cn(
@@ -178,20 +201,54 @@ export function BlockPalette({ blocks = [], onAddBlock, className }: BlockPalett
             );
           })}
         </div>
+
+        {/* Expand/Collapse Controls - Only show when 'all' is selected */}
+        {selectedCategory === 'all' && (
+          <div className="flex gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={expandAll}
+              className="flex-1 h-7 text-xs"
+            >
+              <ChevronsDownUp className="h-3 w-3 mr-1" />
+              Expand All
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={collapseAll}
+              className="flex-1 h-7 text-xs"
+            >
+              <ChevronsUpDown className="h-3 w-3 mr-1" />
+              Collapse All
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Block List */}
       <ScrollArea className="flex-1">
         <div className="p-3 space-y-3">
           {selectedCategory === 'all' ? (
-            // Show all categories
+            // Show all categories with expand/collapse
             Object.entries(groupedBlocks).map(([category, categoryBlocks]) => {
               if (categoryBlocks.length === 0) return null;
               const Icon = categoryIcons[category as keyof typeof categoryIcons];
               const emoji = categoryEmojis[category];
+              const isExpanded = expandedCategories.has(category);
+              
               return (
                 <div key={category}>
-                  <div className="flex items-center gap-1.5 mb-1.5">
+                  <button
+                    onClick={() => toggleCategory(category)}
+                    className="flex items-center gap-1.5 mb-1.5 w-full hover:bg-accent/50 rounded px-1 py-0.5 transition-colors"
+                  >
+                    {isExpanded ? (
+                      <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                    ) : (
+                      <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                    )}
                     {emoji ? (
                       <span className="text-sm">{emoji}</span>
                     ) : (
@@ -199,17 +256,19 @@ export function BlockPalette({ blocks = [], onAddBlock, className }: BlockPalett
                     )}
                     <h4 className="font-semibold text-xs capitalize">{category}</h4>
                     <span className="text-[10px] text-muted-foreground">({categoryBlocks.length})</span>
-                  </div>
-                  <div className="space-y-1.5">
-                    {categoryBlocks.map((block) => (
-                      <BlockItem
-                        key={block.type}
-                        block={block}
-                        onDragStart={onDragStart}
-                        onClick={handleBlockClick}
-                      />
-                    ))}
-                  </div>
+                  </button>
+                  {isExpanded && (
+                    <div className="space-y-1.5 ml-4">
+                      {categoryBlocks.map((block) => (
+                        <BlockItem
+                          key={block.type}
+                          block={block}
+                          onDragStart={onDragStart}
+                          onClick={handleBlockClick}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })

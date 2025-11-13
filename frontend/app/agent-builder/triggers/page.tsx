@@ -7,13 +7,14 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Search, Zap, Clock, Webhook, Mail, Calendar, Database, Play, Pause, Trash2 } from 'lucide-react';
+import { agentBuilderAPI } from '@/lib/api/agent-builder';
+import { Plus, Search, Zap, Clock, Webhook, Mail, Calendar, Database, Play, Pause, Trash2, Power, PowerOff } from 'lucide-react';
 
 interface Trigger {
   id: string;
   name: string;
   description: string;
-  type: 'manual' | 'schedule' | 'webhook' | 'email' | 'event' | 'database';
+  type: 'manual' | 'schedule' | 'webhook' | 'email' | 'event' | 'database' | 'file' | 'api' | 'chat' | 'form';
   workflowId: string;
   workflowName: string;
   isActive: boolean;
@@ -30,6 +31,10 @@ const triggerIcons = {
   email: Mail,
   event: Calendar,
   database: Database,
+  file: Mail,
+  api: Zap,
+  chat: Mail,
+  form: Mail,
 };
 
 const triggerColors = {
@@ -39,6 +44,10 @@ const triggerColors = {
   email: 'bg-green-100 text-green-700',
   event: 'bg-red-100 text-red-700',
   database: 'bg-indigo-100 text-indigo-700',
+  file: 'bg-orange-100 text-orange-700',
+  api: 'bg-violet-100 text-violet-700',
+  chat: 'bg-cyan-100 text-cyan-700',
+  form: 'bg-emerald-100 text-emerald-700',
 };
 
 export default function TriggersPage() {
@@ -55,54 +64,44 @@ export default function TriggersPage() {
   const loadTriggers = async () => {
     try {
       setLoading(true);
-      // TODO: API 호출
-      // const data = await agentBuilderAPI.getTriggers();
       
-      // Mock data for now
-      const mockTriggers: Trigger[] = [
-        {
-          id: '1',
-          name: 'Daily Report Generator',
-          description: 'Generate daily sales report',
-          type: 'schedule',
-          workflowId: 'wf1',
-          workflowName: 'Sales Report Workflow',
-          isActive: true,
-          config: { cronExpression: '0 9 * * *' },
-          lastRun: '2025-11-09T09:00:00Z',
-          nextRun: '2025-11-10T09:00:00Z',
-          runCount: 45,
-        },
-        {
-          id: '2',
-          name: 'GitHub PR Webhook',
-          description: 'Trigger on pull request events',
-          type: 'webhook',
-          workflowId: 'wf2',
-          workflowName: 'Code Review Workflow',
-          isActive: true,
-          config: { webhookUrl: '/api/webhooks/github-pr' },
-          runCount: 128,
-        },
-        {
-          id: '3',
-          name: 'Support Email Handler',
-          description: 'Process support emails',
-          type: 'email',
-          workflowId: 'wf3',
-          workflowName: 'Support Ticket Workflow',
-          isActive: false,
-          config: { emailAddress: 'support@company.com' },
-          runCount: 0,
-        },
-      ];
+      // Load workflows and extract triggers from them
+      const workflowsData = await agentBuilderAPI.getWorkflows();
+      const workflows = workflowsData.workflows || [];
       
-      setTriggers(mockTriggers);
+      // Extract triggers from workflows
+      const extractedTriggers: Trigger[] = [];
+      
+      workflows.forEach((workflow: any) => {
+        const nodes = workflow.graph_definition?.nodes || [];
+        const triggerNodes = nodes.filter((node: any) => 
+          node.node_type === 'trigger' || 
+          node.configuration?.type === 'trigger' ||
+          node.type === 'trigger'
+        );
+        
+        triggerNodes.forEach((node: any) => {
+          const config = node.configuration || node.data || {};
+          extractedTriggers.push({
+            id: node.id,
+            name: config.name || 'Unnamed Trigger',
+            description: config.description || '',
+            type: config.triggerType || 'manual',
+            workflowId: workflow.id,
+            workflowName: workflow.name,
+            isActive: workflow.is_active || false,
+            config: config.config || {},
+            runCount: 0, // TODO: Get from execution history
+          });
+        });
+      });
+      
+      setTriggers(extractedTriggers);
     } catch (error: any) {
+      console.error('Failed to load triggers:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to load triggers',
-        variant: 'destructive',
       });
     } finally {
       setLoading(false);
@@ -116,15 +115,61 @@ export default function TriggersPage() {
         t.id === triggerId ? { ...t, isActive: !t.isActive } : t
       ));
       
+      const trigger = triggers.find(t => t.id === triggerId);
       toast({
         title: 'Success',
-        description: 'Trigger status updated',
+        description: `Trigger ${trigger?.isActive ? 'deactivated' : 'activated'}`,
       });
     } catch (error: any) {
       toast({
         title: 'Error',
         description: error.message || 'Failed to update trigger',
-        variant: 'destructive',
+      });
+    }
+  };
+
+  const runTrigger = async (triggerId: string) => {
+    const trigger = triggers.find(t => t.id === triggerId);
+    if (!trigger) return;
+
+    try {
+      toast({
+        title: '⚡ Trigger Executing',
+        description: `Running workflow: ${trigger.workflowName}`,
+      });
+
+      // Execute the workflow
+      const result = await agentBuilderAPI.executeWorkflow(trigger.workflowId, {
+        trigger_id: triggerId,
+        trigger_type: trigger.type,
+      });
+
+      // Update trigger stats
+      setTriggers(triggers.map(t => 
+        t.id === triggerId ? { 
+          ...t, 
+          runCount: t.runCount + 1,
+          lastRun: new Date().toISOString()
+        } : t
+      ));
+
+      toast({
+        title: '✅ Execution Started',
+        description: `Workflow "${trigger.workflowName}" is now running`,
+      });
+
+      // Optionally navigate to execution details
+      if (result.execution_id) {
+        setTimeout(() => {
+          router.push(`/agent-builder/workflows/${trigger.workflowId}?tab=executions`);
+        }, 1000);
+      }
+
+    } catch (error: any) {
+      console.error('Failed to execute trigger:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to execute trigger',
       });
     }
   };
@@ -144,7 +189,6 @@ export default function TriggersPage() {
       toast({
         title: 'Error',
         description: error.message || 'Failed to delete trigger',
-        variant: 'destructive',
       });
     }
   };
@@ -278,22 +322,46 @@ export default function TriggersPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
+                      {/* Run Trigger Button (Manual execution) */}
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          runTrigger(trigger.id);
+                        }}
+                        title="Run workflow now"
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        <Play className="h-4 w-4 mr-1" />
+                        Run
+                      </Button>
+                      
+                      {/* Toggle Active/Inactive */}
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => toggleTrigger(trigger.id)}
-                        title={trigger.isActive ? 'Pause' : 'Activate'}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleTrigger(trigger.id);
+                        }}
+                        title={trigger.isActive ? 'Deactivate' : 'Activate'}
                       >
                         {trigger.isActive ? (
-                          <Pause className="h-4 w-4" />
+                          <Power className="h-4 w-4 text-green-600" />
                         ) : (
-                          <Play className="h-4 w-4" />
+                          <PowerOff className="h-4 w-4 text-gray-400" />
                         )}
                       </Button>
+                      
+                      {/* Delete Button */}
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => deleteTrigger(trigger.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteTrigger(trigger.id);
+                        }}
                         title="Delete"
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />

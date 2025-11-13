@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Plus, X, Sparkles } from 'lucide-react';
 import { agentBuilderAPI } from '@/lib/api/agent-builder';
+import { RetryConfig } from '../RetryConfig';
 
 interface AgentNodeConfigProps {
   data: any;
@@ -290,6 +291,15 @@ export function AgentNodeConfig({ data, onChange }: AgentNodeConfigProps) {
           </Button>
         </CardContent>
       </Card>
+
+      {/* Retry Configuration */}
+      <RetryConfig 
+        data={data} 
+        onChange={(field, value) => {
+          const newData = { ...data, [field]: value };
+          onChange(newData);
+        }} 
+      />
     </div>
   );
 }

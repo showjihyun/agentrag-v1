@@ -282,6 +282,11 @@ class AgentBuilderAPI {
         }
       }
 
+      // Handle 204 No Content responses (e.g., DELETE requests)
+      if (response.status === 204 || response.headers.get('content-length') === '0') {
+        return undefined as T;
+      }
+
       return response.json();
     } catch (error) {
       // Re-throw API errors
@@ -445,7 +450,8 @@ class AgentBuilderAPI {
 
   // Knowledgebase endpoints
   async getKnowledgebases(): Promise<Knowledgebase[]> {
-    return this.request('/api/agent-builder/knowledgebases');
+    const response = await this.request<{ knowledgebases: Knowledgebase[]; total: number; limit: number; offset: number }>('/api/agent-builder/knowledgebases');
+    return response.knowledgebases || [];
   }
 
   async getKnowledgebase(kbId: string): Promise<Knowledgebase> {

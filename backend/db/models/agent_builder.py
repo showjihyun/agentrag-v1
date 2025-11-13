@@ -1898,3 +1898,55 @@ class ResourceLock(Base):
 
     def __repr__(self):
         return f"<ResourceLock(resource={self.resource_type}:{self.resource_id}, user={self.user_id})>"
+
+
+# ============================================================================
+# API KEY MANAGEMENT
+# ============================================================================
+
+
+class UserAPIKey(Base):
+    """User API key storage for external services."""
+    __tablename__ = "user_api_keys"
+
+    # Primary Key
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    # Foreign Keys
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    # Service Information
+    service_name = Column(String(100), nullable=False)  # e.g., "youtube", "openai", "google"
+    service_display_name = Column(String(200), nullable=False)  # e.g., "YouTube Data API"
+    
+    # API Key (encrypted)
+    encrypted_api_key = Column(Text, nullable=False)
+    
+    # Metadata
+    description = Column(Text)
+    is_active = Column(Boolean, default=True, nullable=False)
+    
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+    last_used_at = Column(DateTime)
+    
+    # Usage Statistics
+    usage_count = Column(Integer, default=0, nullable=False)
+    
+    # Constraints
+    __table_args__ = (
+        UniqueConstraint("user_id", "service_name", name="uq_user_service_api_key"),
+        Index("ix_user_api_keys_user_service", "user_id", "service_name"),
+        Index("ix_user_api_keys_active", "is_active"),
+    )
+
+    def __repr__(self):
+        return f"<UserAPIKey(user={self.user_id}, service={self.service_name})>"

@@ -124,12 +124,14 @@ export default function WorkflowDesignerPage() {
 
         if (agentsRes.ok) {
           const agentsData = await agentsRes.json();
-          setAgents(agentsData);
+          // Handle both array and object with agents property
+          setAgents(Array.isArray(agentsData) ? agentsData : (agentsData.agents || []));
         }
 
         if (blocksRes.ok) {
           const blocksData = await blocksRes.json();
-          setBlocks(blocksData);
+          // Handle both array and object with blocks property
+          setBlocks(Array.isArray(blocksData) ? blocksData : (blocksData.blocks || []));
         }
       } catch (error) {
         console.error('Failed to load resources:', error);
