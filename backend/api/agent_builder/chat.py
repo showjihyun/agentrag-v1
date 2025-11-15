@@ -10,6 +10,7 @@ from backend.db.database import get_db
 from backend.core.auth_dependencies import get_current_user
 from backend.db.models.user import User
 from backend.db.models.agent_builder import Workflow
+from backend.db.query_helpers import get_workflow_with_relations
 from backend.core.triggers.manager import TriggerManager
 from backend.core.triggers.chat import ChatTrigger
 
@@ -61,10 +62,8 @@ async def send_chat_message(
     )
     
     try:
-        # Get workflow
-        workflow = db.query(Workflow).filter(
-            Workflow.id == workflow_id
-        ).first()
+        # Get workflow with all relations (prevents N+1 queries)
+        workflow = get_workflow_with_relations(db, workflow_id)
         
         if not workflow:
             logger.warning(f"Workflow not found: {workflow_id}")
@@ -200,10 +199,8 @@ async def get_chat_history(
     )
     
     try:
-        # Get workflow
-        workflow = db.query(Workflow).filter(
-            Workflow.id == workflow_id
-        ).first()
+        # Get workflow with all relations (prevents N+1 queries)
+        workflow = get_workflow_with_relations(db, workflow_id)
         
         if not workflow:
             raise HTTPException(status_code=404, detail="Workflow not found")
@@ -259,10 +256,8 @@ async def chat_websocket(
     logger.info(f"WebSocket connection established for workflow {workflow_id}")
     
     try:
-        # Get workflow
-        workflow = db.query(Workflow).filter(
-            Workflow.id == workflow_id
-        ).first()
+        # Get workflow with all relations (prevents N+1 queries)
+        workflow = get_workflow_with_relations(db, workflow_id)
         
         if not workflow:
             await websocket.send_json({

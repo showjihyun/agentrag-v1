@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, desc, case, text
 
 from backend.db.database import get_db
+from backend.db.query_helpers import get_dashboard_executions_optimized
 from backend.core.auth_dependencies import get_current_user
 from backend.db.models.user import User
 from backend.db.models.agent_builder import (
@@ -135,19 +136,16 @@ async def get_recent_activity(
     try:
         user_id = current_user.id
 
-        # Get recent executions
-        recent_executions = db.query(AgentExecution).filter(
-            AgentExecution.user_id == user_id
-        ).order_by(desc(AgentExecution.started_at)).limit(limit).all()
+        # Get recent executions with agent info preloaded (prevents N+1 queries)
+        recent_executions = get_dashboard_executions_optimized(db, str(user_id), limit)
 
         activities = []
         for execution in recent_executions:
-            agent = db.query(Agent).filter(Agent.id == execution.agent_id).first()
-            
+            # Agent is already loaded via joinedload
             activities.append({
                 "id": execution.id,
                 "type": "execution",
-                "agent_name": agent.name if agent else "Unknown",
+                "agent_name": execution.agent.name if execution.agent else "Unknown",
                 "agent_id": execution.agent_id,
                 "status": execution.status,
                 "started_at": execution.started_at.isoformat(),

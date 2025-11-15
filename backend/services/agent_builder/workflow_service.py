@@ -125,7 +125,7 @@ class WorkflowService:
     
     def get_workflow(self, workflow_id: str) -> Optional[Workflow]:
         """
-        Get workflow by ID.
+        Get workflow by ID with all relations (prevents N+1 queries).
         
         Args:
             workflow_id: Workflow ID
@@ -133,7 +133,8 @@ class WorkflowService:
         Returns:
             Workflow model or None if not found
         """
-        return self.db.query(Workflow).filter(Workflow.id == workflow_id).first()
+        from backend.db.query_helpers import get_workflow_with_relations
+        return get_workflow_with_relations(self.db, workflow_id)
     
     def update_workflow(
         self,
