@@ -8,10 +8,9 @@ from sqlalchemy import (
     DateTime,
     Text,
     ForeignKey,
-    JSON,
     Index,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import uuid
@@ -74,8 +73,8 @@ class AnswerFeedback(Base):
     )  # excellent, good, acceptable, poor, very_poor
 
     # Metadata
-    suggestions = Column(JSON, default=list)
-    extra_metadata = Column(JSON, default=dict)
+    suggestions = Column(JSONB, default=list)
+    extra_metadata = Column(JSONB, default=dict)
 
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)

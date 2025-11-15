@@ -7,10 +7,9 @@ from sqlalchemy import (
     Integer,
     BigInteger,
     DateTime,
-    JSON,
     CheckConstraint,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import uuid
@@ -50,7 +49,7 @@ class User(Base):
     storage_used_bytes = Column(BigInteger, default=0)
 
     # Preferences
-    preferences = Column(JSON, default=dict)
+    preferences = Column(JSONB, default=dict)
 
     # Relationships
     sessions = relationship(

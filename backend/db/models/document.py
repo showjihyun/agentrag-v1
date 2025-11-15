@@ -8,11 +8,10 @@ from sqlalchemy import (
     DateTime,
     Text,
     ForeignKey,
-    JSON,
     Index,
     CheckConstraint,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import uuid
@@ -76,7 +75,7 @@ class Document(Base):
     document_modification_date = Column(DateTime, nullable=True)
 
     # Metadata
-    extra_metadata = Column(JSON, default=dict)
+    extra_metadata = Column(JSONB, default=dict)
 
     # Relationships
     user = relationship("User", back_populates="documents")
@@ -137,7 +136,7 @@ class BatchUpload(Base):
     completed_at = Column(DateTime)
 
     # Metadata
-    extra_metadata = Column(JSON, default=dict)
+    extra_metadata = Column(JSONB, default=dict)
 
     # Relationships
     user = relationship("User", back_populates="batch_uploads")

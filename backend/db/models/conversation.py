@@ -9,11 +9,10 @@ from sqlalchemy import (
     DateTime,
     Text,
     ForeignKey,
-    JSON,
     Index,
     CheckConstraint,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import uuid
@@ -115,7 +114,7 @@ class Message(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
 
     # Additional Metadata
-    extra_metadata = Column(JSON, default=dict)
+    extra_metadata = Column(JSONB, default=dict)
 
     # Relationships
     session = relationship("Session", back_populates="messages")
@@ -176,7 +175,7 @@ class MessageSource(Base):
     text = Column(Text)
 
     # Metadata
-    extra_metadata = Column(JSON, default=dict)
+    extra_metadata = Column(JSONB, default=dict)
 
     # Relationships
     message = relationship("Message", back_populates="sources")

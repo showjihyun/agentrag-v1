@@ -10,13 +10,12 @@ from sqlalchemy import (
     Text,
     Float,
     ForeignKey,
-    JSON,
     LargeBinary,
     Index,
     CheckConstraint,
     UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import uuid
@@ -63,7 +62,7 @@ class Agent(Base):
     agent_type = Column(String(50), nullable=False, index=True)  # custom, template_based
     llm_provider = Column(String(100), nullable=False)  # ollama, openai, claude
     llm_model = Column(String(100), nullable=False)
-    configuration = Column(JSON, default=dict)  # Agent-specific config
+    configuration = Column(JSONB, default=dict)  # Agent-specific config
 
     # Visibility
     is_public = Column(Boolean, default=False, index=True)
@@ -118,7 +117,7 @@ class AgentVersion(Base):
 
     # Version Information
     version_number = Column(String(50), nullable=False)  # Semantic versioning (e.g., 1.0.0)
-    configuration = Column(JSON, nullable=False)  # Snapshot of agent config
+    configuration = Column(JSONB, nullable=False)  # Snapshot of agent config
     change_description = Column(Text)
 
     # Timestamp
@@ -150,8 +149,8 @@ class Tool(Base):
     category = Column(String(100), index=True)  # search, database, file, api, etc.
 
     # Schema
-    input_schema = Column(JSON, nullable=False)  # JSON Schema for inputs
-    output_schema = Column(JSON)  # JSON Schema for outputs
+    input_schema = Column(JSONB, nullable=False)  # JSON Schema for inputs
+    output_schema = Column(JSONB)  # JSON Schema for outputs
 
     # Implementation
     implementation_type = Column(String(50), nullable=False)  # langchain, custom, builtin
@@ -205,7 +204,7 @@ class AgentTool(Base):
     )
 
     # Configuration
-    configuration = Column(JSON, default=dict)  # Tool-specific config for this agent
+    configuration = Column(JSONB, default=dict)  # Tool-specific config for this agent
     order = Column(Integer, default=0)  # Execution order
 
     # Relationships
@@ -236,11 +235,11 @@ class AgentTemplate(Base):
     category = Column(String(100), index=True)  # rag, research, analysis, etc.
 
     # Template Configuration
-    configuration = Column(JSON, nullable=False)  # Default agent configuration
-    required_tools = Column(JSON, default=list)  # List of required tool IDs
+    configuration = Column(JSONB, nullable=False)  # Default agent configuration
+    required_tools = Column(JSONB, default=list)  # List of required tool IDs
 
     # Metadata
-    use_case_examples = Column(JSON, default=list)  # List of example use cases
+    use_case_examples = Column(JSONB, default=list)  # List of example use cases
     is_published = Column(Boolean, default=False, index=True)
     rating = Column(Float, default=0.0)
     usage_count = Column(Integer, default=0)
@@ -282,7 +281,7 @@ class PromptTemplate(Base):
     template_text = Column(Text, nullable=False)
 
     # Metadata
-    variables = Column(JSON, default=list)  # List of variable names
+    variables = Column(JSONB, default=list)  # List of variable names
     is_system = Column(Boolean, default=False, index=True)
     category = Column(String(100), index=True)  # react, chain_of_thought, rag, etc.
 
@@ -358,9 +357,9 @@ class Block(Base):
 
     # Block Configuration
     block_type = Column(String(50), nullable=False, index=True)  # llm, tool, logic, composite
-    input_schema = Column(JSON, nullable=False)  # JSON Schema for inputs
-    output_schema = Column(JSON, nullable=False)  # JSON Schema for outputs
-    configuration = Column(JSON, default=dict)  # Block-specific config
+    input_schema = Column(JSONB, nullable=False)  # JSON Schema for inputs
+    output_schema = Column(JSONB, nullable=False)  # JSON Schema for outputs
+    configuration = Column(JSONB, default=dict)  # Block-specific config
     implementation = Column(Text)  # Code or config (for logic blocks)
 
     # Visibility
@@ -421,7 +420,7 @@ class BlockVersion(Base):
 
     # Version Information
     version_number = Column(String(50), nullable=False)  # Semantic versioning
-    configuration = Column(JSON, nullable=False)  # Snapshot of block config
+    configuration = Column(JSONB, nullable=False)  # Snapshot of block config
     implementation = Column(Text)  # Snapshot of implementation
     is_breaking_change = Column(Boolean, default=False)
     change_description = Column(Text)
@@ -506,9 +505,9 @@ class BlockTestCase(Base):
     # Test Information
     name = Column(String(255), nullable=False)
     description = Column(Text)
-    input_data = Column(JSON, nullable=False)
-    expected_output = Column(JSON, nullable=False)
-    assertions = Column(JSON, default=list)  # List of assertion rules
+    input_data = Column(JSONB, nullable=False)
+    expected_output = Column(JSONB, nullable=False)
+    assertions = Column(JSONB, default=list)  # List of assertion rules
 
     # Test Results
     last_run_at = Column(DateTime)
@@ -563,7 +562,7 @@ class Workflow(Base):
     description = Column(Text)
 
     # Workflow Configuration
-    graph_definition = Column(JSON, nullable=False)  # LangGraph StateGraph definition
+    graph_definition = Column(JSONB, nullable=False)  # LangGraph StateGraph definition
     compiled_graph = Column(LargeBinary)  # Pickled compiled graph (cached)
 
     # Visibility
@@ -619,7 +618,7 @@ class WorkflowNode(Base):
     position_y = Column(Float, default=0.0)
 
     # Configuration
-    configuration = Column(JSON, default=dict)
+    configuration = Column(JSONB, default=dict)
 
     # Relationships
     workflow = relationship("Workflow", back_populates="nodes")
@@ -729,9 +728,9 @@ class WorkflowExecution(Base):
 
     # Execution Information
     session_id = Column(String(255), index=True)
-    input_data = Column(JSON)
-    output_data = Column(JSON)
-    execution_context = Column(JSON)
+    input_data = Column(JSONB)
+    output_data = Column(JSONB)
+    execution_context = Column(JSONB)
 
     # Status
     status = Column(String(50), nullable=False, index=True)  # running, completed, failed, timeout
@@ -785,10 +784,10 @@ class AgentBlock(Base):
     position_y = Column(Float, nullable=False)
 
     # Configuration
-    config = Column(JSON, nullable=False, default=dict)  # Block-specific configuration
-    sub_blocks = Column(JSON, nullable=False, default=dict)  # SubBlock values (inputs, dropdowns, etc.)
-    inputs = Column(JSON, nullable=False, default=dict)  # Input schema
-    outputs = Column(JSON, nullable=False, default=dict)  # Output schema
+    config = Column(JSONB, nullable=False, default=dict)  # Block-specific configuration
+    sub_blocks = Column(JSONB, nullable=False, default=dict)  # SubBlock values (inputs, dropdowns, etc.)
+    inputs = Column(JSONB, nullable=False, default=dict)  # Input schema
+    outputs = Column(JSONB, nullable=False, default=dict)  # Output schema
 
     # Status
     enabled = Column(Boolean, default=True, nullable=False)
@@ -902,7 +901,7 @@ class WorkflowSchedule(Base):
     # Schedule Configuration
     cron_expression = Column(String(100), nullable=False)
     timezone = Column(String(50), default="UTC", nullable=False)
-    input_data = Column(JSON, default=dict)  # Default input for scheduled executions
+    input_data = Column(JSONB, default=dict)  # Default input for scheduled executions
 
     # Status
     is_active = Column(Boolean, default=True, nullable=False, index=True)
@@ -1005,7 +1004,7 @@ class WorkflowSubflow(Base):
 
     # Subflow Configuration
     subflow_type = Column(String(50), nullable=False, index=True)  # loop, parallel
-    configuration = Column(JSON, nullable=False, default=dict)  # Type-specific config
+    configuration = Column(JSONB, nullable=False, default=dict)  # Type-specific config
 
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
@@ -1141,7 +1140,7 @@ class KnowledgebaseVersion(Base):
 
     # Version Information
     version_number = Column(Integer, nullable=False)
-    document_snapshot = Column(JSON, nullable=False)  # List of document IDs
+    document_snapshot = Column(JSONB, nullable=False)  # List of document IDs
 
     # Timestamp
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
@@ -1315,9 +1314,9 @@ class AgentExecution(Base):
 
     # Execution Information
     session_id = Column(String(255), index=True)
-    input_data = Column(JSON)
-    output_data = Column(JSON)
-    execution_context = Column(JSON)
+    input_data = Column(JSONB)
+    output_data = Column(JSONB)
+    execution_context = Column(JSONB)
 
     # Status
     status = Column(String(50), nullable=False, index=True)  # running, completed, failed, timeout, cancelled
@@ -1369,7 +1368,7 @@ class ExecutionStep(Base):
     step_number = Column(Integer, nullable=False)
     step_type = Column(String(50), nullable=False)  # thought, action, observation, response, error
     content = Column(Text)
-    step_metadata = Column(JSON, default=dict)
+    step_metadata = Column(JSONB, default=dict)
 
     # Timestamp
     timestamp = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
@@ -1461,7 +1460,7 @@ class ExecutionSchedule(Base):
     # Schedule Configuration
     cron_expression = Column(String(100), nullable=False)
     timezone = Column(String(50), default="UTC")
-    input_data = Column(JSON)
+    input_data = Column(JSONB)
 
     # Status
     is_active = Column(Boolean, default=True, index=True)
@@ -1559,7 +1558,7 @@ class ResourceShare(Base):
 
     # Share Configuration
     share_token = Column(String(255), unique=True, nullable=False, index=True)
-    permissions = Column(JSON, nullable=False)  # List of allowed actions
+    permissions = Column(JSONB, nullable=False)  # List of allowed actions
 
     # Expiration
     expires_at = Column(DateTime, index=True)
@@ -1602,7 +1601,7 @@ class AuditLog(Base):
     resource_id = Column(UUID(as_uuid=True), index=True)
 
     # Details
-    details = Column(JSON, default=dict)
+    details = Column(JSONB, default=dict)
 
     # Request Information
     ip_address = Column(String(45))  # IPv6 max length
@@ -1642,7 +1641,7 @@ class AgentMemory(Base):
 
     # Content
     content = Column(Text, nullable=False)
-    meta_data = Column(JSON, default=dict)
+    meta_data = Column(JSONB, default=dict)
 
     # Importance and Access
     importance = Column(String(10), default="medium")  # low, medium, high
@@ -1724,7 +1723,7 @@ class CostRecord(Base):
     cost = Column(Float, nullable=False)  # Using Float for simplicity
 
     # Metadata
-    meta_data = Column(JSON, default=dict)
+    meta_data = Column(JSONB, default=dict)
 
     # Timestamp
     timestamp = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
@@ -1818,7 +1817,7 @@ class BranchCommit(Base):
 
     # Commit Details
     message = Column(Text, nullable=False)
-    snapshot = Column(JSON, nullable=False)  # Full workflow state
+    snapshot = Column(JSONB, nullable=False)  # Full workflow state
     changes_count = Column(Integer, default=0)
 
     # Timestamp
@@ -1854,8 +1853,8 @@ class CollaborationSession(Base):
 
     # Session Details
     color = Column(String(7))  # Hex color for user cursor
-    cursor_position = Column(JSON)
-    selection = Column(JSON)
+    cursor_position = Column(JSONB)
+    selection = Column(JSONB)
 
     # Timestamps
     joined_at = Column(DateTime, default=datetime.utcnow, nullable=False)
