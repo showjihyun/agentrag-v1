@@ -234,6 +234,14 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.warning(f"Failed to initialize tool integrations: {e}")
 
+        # Start background scheduler for periodic tasks
+        try:
+            from backend.core.scheduler import start_scheduler
+            start_scheduler()
+            logger.info("Background scheduler started (memory cleanup at 3 AM daily)")
+        except Exception as e:
+            logger.warning(f"Failed to start background scheduler: {e}")
+
         logger.info(
             "Startup complete!", system_version="1.0.0", debug_mode=settings.DEBUG
         )
@@ -246,6 +254,14 @@ async def lifespan(app: FastAPI):
 
     # Shutdown
     logger.info("Shutting down...")
+    
+    # Stop background scheduler
+    try:
+        from backend.core.scheduler import stop_scheduler
+        stop_scheduler()
+        logger.info("Background scheduler stopped")
+    except Exception as e:
+        logger.warning(f"Failed to stop scheduler: {e}")
 
     # Cleanup connection pools
     from backend.core.connection_pool import cleanup_redis_pool
@@ -810,6 +826,14 @@ app.include_router(agent_builder_analytics.router)
 app.include_router(agent_builder_custom_tools.router)
 app.include_router(agent_builder_workflow_generator.router)
 app.include_router(llm_settings.router)
+
+# Workflow Execution Streaming API (SSE)
+from backend.api.agent_builder import workflow_execution_stream
+app.include_router(workflow_execution_stream.router, prefix="/api/agent-builder", tags=["workflow-execution-stream"])
+
+# Memory Management API (Priority 4)
+from backend.api.agent_builder import memory_management
+app.include_router(memory_management.router)
 
 # Knowledge Base API (for workflow integration)
 app.include_router(knowledge_base.router)

@@ -1949,3 +1949,82 @@ class UserAPIKey(Base):
 
     def __repr__(self):
         return f"<UserAPIKey(user={self.user_id}, service={self.service_name})>"
+
+
+
+# ============================================================================
+# STATISTICS AGGREGATION MODELS (Priority 5)
+# ============================================================================
+
+
+class AgentExecutionStats(Base):
+    """일별 에이전트 실행 통계 (집계 테이블)"""
+    __tablename__ = "agent_execution_stats"
+    
+    # Primary Key
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # Foreign Keys
+    agent_id = Column(UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"), index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    
+    # 날짜
+    date = Column(DateTime, nullable=False, index=True)
+    
+    # 집계 데이터
+    execution_count = Column(Integer, default=0)
+    success_count = Column(Integer, default=0)
+    failed_count = Column(Integer, default=0)
+    cancelled_count = Column(Integer, default=0)
+    
+    # 성능 메트릭
+    avg_duration_ms = Column(Integer)
+    min_duration_ms = Column(Integer)
+    max_duration_ms = Column(Integer)
+    
+    # LLM 메트릭
+    total_tokens = Column(BigInteger, default=0)
+    total_llm_calls = Column(Integer, default=0)
+    
+    # 비용
+    total_cost = Column(Float, default=0.0)
+    
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    __table_args__ = (
+        UniqueConstraint("agent_id", "user_id", "date", name="uq_agent_stats_date"),
+        Index("ix_agent_stats_user_date", "user_id", "date"),
+        Index("ix_agent_stats_agent_date", "agent_id", "date"),
+    )
+    
+    def __repr__(self):
+        return f"<AgentExecutionStats(agent={self.agent_id}, date={self.date})>"
+
+
+class WorkflowExecutionStats(Base):
+    """일별 워크플로우 실행 통계"""
+    __tablename__ = "workflow_execution_stats"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workflow_id = Column(UUID(as_uuid=True), ForeignKey("workflows.id", ondelete="CASCADE"), index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    date = Column(DateTime, nullable=False, index=True)
+    
+    # 집계 데이터
+    execution_count = Column(Integer, default=0)
+    success_count = Column(Integer, default=0)
+    failed_count = Column(Integer, default=0)
+    avg_duration_ms = Column(Integer)
+    
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    __table_args__ = (
+        UniqueConstraint("workflow_id", "user_id", "date", name="uq_workflow_stats_date"),
+        Index("ix_workflow_stats_user_date", "user_id", "date"),
+    )
+    
+    def __repr__(self):
+        return f"<WorkflowExecutionStats(workflow={self.workflow_id}, date={self.date})>"
