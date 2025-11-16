@@ -73,6 +73,7 @@ async def create_knowledgebase(
         logger.info(f"Knowledgebase created successfully: {kb.id}")
         
         # Convert UUID fields to strings for response
+        # Use getattr with defaults for optional fields
         return KnowledgebaseResponse(
             id=str(kb.id),
             user_id=str(kb.user_id),
@@ -82,8 +83,8 @@ async def create_knowledgebase(
             embedding_model=kb.embedding_model,
             chunk_size=kb.chunk_size,
             chunk_overlap=kb.chunk_overlap,
-            document_count=kb.document_count,
-            total_size=kb.total_size,
+            document_count=getattr(kb, 'document_count', 0),
+            total_size=getattr(kb, 'total_size', 0),
             created_at=kb.created_at,
             updated_at=kb.updated_at
         )
@@ -143,7 +144,7 @@ async def get_knowledgebase(
             )
         
         # Check permissions (owner only for now)
-        if kb.user_id != str(current_user.id):
+        if str(kb.user_id) != str(current_user.id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You don't have permission to access this knowledgebase"
@@ -221,7 +222,8 @@ async def update_knowledgebase(
                 detail=f"Knowledgebase {kb_id} not found"
             )
         
-        if existing_kb.user_id != str(current_user.id):
+        # Compare as strings to handle both UUID and string types
+        if str(existing_kb.user_id) != str(current_user.id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You don't have permission to update this knowledgebase"
@@ -305,7 +307,15 @@ async def delete_knowledgebase(
                 detail=f"Knowledgebase {kb_id} not found"
             )
         
-        if existing_kb.user_id != str(current_user.id):
+        # Compare as strings to handle both UUID and string types
+        kb_user_id = str(existing_kb.user_id) if existing_kb.user_id else None
+        current_user_id = str(current_user.id)
+        
+        if kb_user_id != current_user_id:
+            logger.warning(
+                f"Permission denied: KB user_id={kb_user_id}, "
+                f"current_user_id={current_user_id}"
+            )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You don't have permission to delete this knowledgebase"
@@ -375,23 +385,38 @@ async def list_knowledgebases(
         )
         
         # Convert UUID fields to strings for each knowledgebase
-        kb_responses = [
-            KnowledgebaseResponse(
-                id=str(kb.id),
-                user_id=str(kb.user_id),
-                name=kb.name,
-                description=kb.description,
-                milvus_collection_name=kb.milvus_collection_name,
-                embedding_model=kb.embedding_model,
-                chunk_size=kb.chunk_size,
-                chunk_overlap=kb.chunk_overlap,
-                document_count=kb.document_count,
-                total_size=kb.total_size,
-                created_at=kb.created_at,
-                updated_at=kb.updated_at
+        from backend.db.models.document import Document
+        
+        kb_responses = []
+        for kb in kbs:
+            # Calculate document count and total size
+            # kb.documents are KnowledgebaseDocument objects (association table)
+            # We need to get the actual Document objects
+            document_count = len(kb.documents) if kb.documents else 0
+            
+            # Get actual Document objects through the association
+            total_size = 0
+            if kb.documents:
+                document_ids = [kb_doc.document_id for kb_doc in kb.documents]
+                documents = db.query(Document).filter(Document.id.in_(document_ids)).all()
+                total_size = sum(doc.file_size_bytes for doc in documents if doc.file_size_bytes)
+            
+            kb_responses.append(
+                KnowledgebaseResponse(
+                    id=str(kb.id),
+                    user_id=str(kb.user_id),
+                    name=kb.name,
+                    description=kb.description,
+                    milvus_collection_name=kb.milvus_collection_name,
+                    embedding_model=kb.embedding_model,
+                    chunk_size=kb.chunk_size,
+                    chunk_overlap=kb.chunk_overlap,
+                    document_count=document_count,
+                    total_size=total_size,
+                    created_at=kb.created_at,
+                    updated_at=kb.updated_at
+                )
             )
-            for kb in kbs
-        ]
         
         return KnowledgebaseListResponse(
             knowledgebases=kb_responses,
@@ -455,17 +480,31 @@ async def upload_documents(
                 detail=f"Knowledgebase {kb_id} not found"
             )
         
-        if kb.user_id != str(current_user.id):
+        if str(kb.user_id) != str(current_user.id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You don't have permission to upload to this knowledgebase"
             )
         
         # Upload documents
-        documents = kb_service.add_documents(kb_id, files)
+        documents = await kb_service.add_documents(kb_id, files)
+        
+        # Convert to response models
+        response_documents = []
+        for doc in documents:
+            response_documents.append(
+                KnowledgebaseDocumentResponse(
+                    id=str(doc.id),
+                    knowledgebase_id=kb_id,  # Use the kb_id from path parameter
+                    filename=doc.filename,
+                    file_size=doc.file_size_bytes,  # Document model uses file_size_bytes
+                    chunk_count=doc.chunk_count,
+                    created_at=doc.uploaded_at  # Document model uses uploaded_at
+                )
+            )
         
         logger.info(f"Uploaded {len(documents)} documents to knowledgebase {kb_id}")
-        return documents
+        return response_documents
         
     except HTTPException:
         raise
@@ -531,14 +570,14 @@ async def search_knowledgebase(
             )
         
         # Check permissions (owner only for now)
-        if kb.user_id != str(current_user.id):
+        if str(kb.user_id) != str(current_user.id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You don't have permission to search this knowledgebase"
             )
         
         # Search knowledgebase
-        results = kb_service.search_knowledgebase(kb_id, query, top_k)
+        results = await kb_service.search_knowledgebase(kb_id, query, top_k)
         
         logger.info(f"Found {len(results)} results in knowledgebase {kb_id}")
         return KnowledgebaseSearchResponse(
@@ -599,7 +638,7 @@ async def get_knowledgebase_versions(
             )
         
         # Check permissions (owner only for now)
-        if kb.user_id != str(current_user.id):
+        if str(kb.user_id) != str(current_user.id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You don't have permission to access this knowledgebase"
@@ -666,7 +705,7 @@ async def rollback_knowledgebase(
                 detail=f"Knowledgebase {kb_id} not found"
             )
         
-        if kb.user_id != str(current_user.id):
+        if str(kb.user_id) != str(current_user.id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You don't have permission to rollback this knowledgebase"
@@ -691,4 +730,79 @@ async def rollback_knowledgebase(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to rollback knowledgebase"
+        )
+
+
+@router.get(
+    "/{kb_id}/documents/{document_id}/status",
+    summary="Get document processing status",
+    description="Check the processing status of an uploaded document.",
+)
+async def get_document_status(
+    kb_id: str,
+    document_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Get document processing status.
+    
+    Returns the current processing status of a document including:
+    - status: pending, processing, completed, failed
+    - progress: 0-100
+    - error: error message if failed
+    
+    **Path Parameters:**
+    - kb_id: Knowledgebase UUID
+    - document_id: Document UUID
+    
+    **Returns:**
+    - Document status information
+    
+    **Errors:**
+    - 404: Document or knowledgebase not found
+    - 403: No permission
+    """
+    try:
+        # Validate document_id format
+        if not document_id or document_id == 'undefined':
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid document ID"
+            )
+        
+        kb_service = KnowledgebaseService(db)
+        
+        # Check ownership
+        kb = kb_service.get_knowledgebase(kb_id)
+        if not kb:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Knowledgebase {kb_id} not found"
+            )
+        
+        if str(kb.user_id) != str(current_user.id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have permission to access this knowledgebase"
+            )
+        
+        # Get document status
+        status_info = kb_service.get_document_status(kb_id, document_id)
+        
+        if not status_info:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Document {document_id} not found"
+            )
+        
+        return status_info
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get document status: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get document status"
         )

@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Search, Box, Wrench, Zap, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown } from 'lucide-react';
+import { logger } from '@/lib/logger';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
@@ -78,8 +79,8 @@ export function BlockPalette({ blocks = [], onAddBlock, className }: BlockPalett
 
   // Debug: Log blocks data
   React.useEffect(() => {
-    console.log('BlockPalette - Total blocks:', blocks.length);
-    console.log('BlockPalette - Blocks by category:', {
+    logger.log('BlockPalette - Total blocks:', blocks.length);
+    logger.log('BlockPalette - Blocks by category:', {
       control: blocks.filter(b => b.category === 'control').length,
       triggers: blocks.filter(b => b.category === 'triggers').length,
       agents: blocks.filter(b => b.category === 'agents').length,

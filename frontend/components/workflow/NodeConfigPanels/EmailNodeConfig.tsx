@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Plus, Trash2 } from 'lucide-react';
+import { ExpressionEditor } from '../ExpressionEditor';
 
 interface EmailNodeConfigProps {
   data: {
@@ -222,11 +223,17 @@ export default function EmailNodeConfig({ data, onChange }: EmailNodeConfigProps
 
       <div>
         <Label>Email Body</Label>
-        <textarea
+        <ExpressionEditor
           value={body}
-          onChange={(e) => handleBodyChange(e.target.value)}
-          className="w-full h-48 p-3 border rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+          onChange={handleBodyChange}
           placeholder={bodyType === 'html' ? '<p>HTML content...</p>' : 'Plain text content...'}
+          multiline={true}
+          availableVariables={{
+            user_name: 'John Doe',
+            user_email: 'john@example.com',
+            status: 'completed',
+            result: 'Success',
+          }}
         />
         <div className="flex gap-1 mt-2 flex-wrap">
           {BODY_TEMPLATES[bodyType].map((template, idx) => (

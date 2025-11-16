@@ -164,7 +164,23 @@ async def stream_workflow_execution(
     """
     
     # Verify workflow exists and user has access
-    # TODO: Add workflow ownership/permission check
+    from backend.db.models.agent_builder import Workflow
+    
+    workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
+    if not workflow:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Workflow {workflow_id} not found"
+        )
+    
+    # Check permissions (owner or public)
+    if str(workflow.user_id) != str(current_user.id) and not workflow.is_public:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to access this workflow execution stream"
+        )
+    
+    logger.info(f"User {current_user.id} accessing execution stream for workflow {workflow_id}")
     
     return StreamingResponse(
         execution_event_generator(workflow_id, execution_id, db, current_user),

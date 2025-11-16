@@ -74,6 +74,15 @@ class SpeculativeProcessor:
         self.cache_prefix = cache_prefix
         self.max_cache_size = max_cache_size
 
+        # KB Search Optimizer
+        try:
+            from backend.services.kb_search_optimizer import get_kb_search_optimizer
+            self.kb_optimizer = get_kb_search_optimizer(redis_client)
+            logger.info("KB Search Optimizer enabled")
+        except Exception as e:
+            logger.warning(f"KB Search Optimizer not available: {e}")
+            self.kb_optimizer = None
+
         # Smart Hybrid Search components
         try:
             from backend.services.bm25_search import get_bm25_service
@@ -1048,4 +1057,478 @@ class SpeculativeProcessor:
                 cache_hit=False,
                 processing_time=processing_time,
                 metadata={"error": str(e)},
+            )
+
+
+    # ==================== Knowledgebase Integration ====================
+
+    async def _search_knowledgebases(
+        self,
+        query: str,
+        kb_ids: List[str],
+        top_k: int = 3,
+        timeout: float = 1.0
+    ) -> Tuple[List[SearchResult], float]:
+        """
+        Search multiple knowledgebases in parallel with optimization.
+        
+        Uses KB Search Optimizer for:
+        - Adaptive timeouts based on KB size
+        - Result caching
+        - Performance tracking
+        
+        Args:
+            query: Query text
+            kb_ids: List of knowledgebase IDs to search
+            top_k: Number of results per KB
+            timeout: Search timeout in seconds (base timeout)
+            
+        Returns:
+            Tuple of (search results, search time)
+        """
+        start_time = time.time()
+        
+        try:
+            # Generate query embedding once
+            query_embedding = await self.embedding_service.embed_text(query)
+            
+            # Generate query hash for caching
+            query_hash = hashlib.md5(query.encode()).hexdigest()[:8]
+            
+            # Use optimizer if available
+            if self.kb_optimizer:
+                # Adaptive timeout
+                adaptive_timeout = self.kb_optimizer.calculate_adaptive_timeout(
+                    kb_ids, timeout
+                )
+                
+                logger.debug(
+                    f"Using adaptive timeout: {adaptive_timeout:.2f}s "
+                    f"(base: {timeout:.2f}s)"
+                )
+                
+                # Search with optimization
+                all_results, metrics = await self.kb_optimizer.search_kbs_optimized(
+                    kb_ids=kb_ids,
+                    search_func=self._search_single_kb,
+                    query_hash=query_hash,
+                    query_embedding=query_embedding,
+                    top_k=top_k
+                )
+                
+                # Add KB source and boost score
+                for result in all_results:
+                    result.metadata = result.metadata or {}
+                    if 'kb_id' in result.metadata:
+                        result.metadata['source'] = f"kb:{result.metadata['kb_id']}"
+                    # Boost KB results by 20%
+                    result.score = min(result.score * 1.2, 1.0)
+                
+            else:
+                # Fallback: original implementation
+                tasks = [
+                    self._search_single_kb(kb_id, query_embedding, top_k)
+                    for kb_id in kb_ids
+                ]
+                
+                results_list = await asyncio.wait_for(
+                    asyncio.gather(*tasks, return_exceptions=True),
+                    timeout=timeout
+                )
+                
+                all_results = []
+                for kb_id, results in zip(kb_ids, results_list):
+                    if isinstance(results, Exception):
+                        logger.warning(f"KB search failed for {kb_id}: {results}")
+                        continue
+                    
+                    for result in results:
+                        result.metadata = result.metadata or {}
+                        result.metadata['source'] = f'kb:{kb_id}'
+                        result.metadata['kb_id'] = kb_id
+                        result.score = min(result.score * 1.2, 1.0)
+                        all_results.append(result)
+            
+            # Sort by score
+            all_results.sort(key=lambda x: x.score, reverse=True)
+            
+            search_time = time.time() - start_time
+            
+            # Enhanced logging with detailed metrics
+            kb_results_count = len(all_results)
+            cache_hit = metrics.get('cache_hit', False) if self.kb_optimizer else False
+            
+            logger.info(
+                f"KB search completed: "
+                f"query='{query[:50]}...', "
+                f"kb_count={len(kb_ids)}, "
+                f"results={kb_results_count}, "
+                f"time={search_time:.3f}s, "
+                f"cache_hit={cache_hit}, "
+                f"avg_score={sum(r.score for r in all_results) / kb_results_count if kb_results_count > 0 else 0:.3f}"
+            )
+            
+            return all_results[:top_k * len(kb_ids)], search_time
+            
+        except asyncio.TimeoutError:
+            search_time = time.time() - start_time
+            logger.warning(f"KB search timeout after {search_time:.3f}s")
+            return [], search_time
+        except Exception as e:
+            search_time = time.time() - start_time
+            logger.error(f"KB search failed: {e}")
+            return [], search_time
+    
+    async def _search_single_kb(
+        self,
+        kb_id: str,
+        query_embedding: List[float],
+        top_k: int
+    ) -> List[SearchResult]:
+        """
+        Search a single knowledgebase.
+        
+        Args:
+            kb_id: Knowledgebase ID
+            query_embedding: Pre-computed query embedding
+            top_k: Number of results
+            
+        Returns:
+            List of search results
+        """
+        try:
+            # Import here to avoid circular dependency
+            from backend.db.models.agent_builder import Knowledgebase
+            from sqlalchemy.orm import Session
+            from backend.db.database import SessionLocal
+            
+            # Get KB info
+            db: Session = SessionLocal()
+            try:
+                kb = db.query(Knowledgebase).filter(
+                    Knowledgebase.id == kb_id
+                ).first()
+                
+                if not kb:
+                    logger.warning(f"Knowledgebase {kb_id} not found")
+                    return []
+                
+                collection_name = kb.milvus_collection_name
+            finally:
+                db.close()
+            
+            # Search in Milvus
+            # Note: MilvusManager uses a single collection
+            # For KB-specific collections, we need to use Collection directly
+            try:
+                from pymilvus import Collection
+                
+                # Get collection
+                collection = Collection(collection_name)
+                
+                # Perform search
+                search_params = {
+                    "metric_type": "L2",
+                    "params": {"nprobe": 10}
+                }
+                
+                milvus_results = collection.search(
+                    data=[query_embedding],
+                    anns_field="embedding",
+                    param=search_params,
+                    limit=top_k,
+                    output_fields=["document_id", "text", "document_name", "chunk_index"]
+                )
+                
+                # Convert to SearchResult objects
+                results = []
+                if milvus_results and len(milvus_results) > 0:
+                    for hit in milvus_results[0]:
+                        result = SearchResult(
+                            id=str(hit.id),
+                            document_id=hit.entity.get('document_id', ''),
+                            text=hit.entity.get('text', ''),
+                            score=1.0 - hit.distance,  # Convert L2 distance to similarity
+                            document_name=hit.entity.get('document_name', ''),
+                            chunk_index=hit.entity.get('chunk_index', 0),
+                            metadata={'kb_id': kb_id}
+                        )
+                        results.append(result)
+                
+                return results
+                
+            except Exception as milvus_error:
+                logger.error(f"Milvus search failed for collection {collection_name}: {milvus_error}")
+                # Fallback: try using MilvusManager's default search
+                # This will only work if the collection is the default one
+                try:
+                    results = await self.milvus_manager.search(
+                        query_embedding=query_embedding,
+                        top_k=top_k
+                    )
+                    # Add KB metadata
+                    for result in results:
+                        result.metadata['kb_id'] = kb_id
+                    return results
+                except:
+                    return []
+            
+        except Exception as e:
+            logger.error(f"Single KB search failed for {kb_id}: {e}")
+            return []
+    
+    def _merge_kb_and_general_results(
+        self,
+        kb_results: List[SearchResult],
+        general_results: List[SearchResult],
+        top_k: int = 5,
+        query: Optional[str] = None
+    ) -> List[SearchResult]:
+        """
+        Merge KB and general search results with advanced reranking.
+        
+        Strategy:
+        1. Take top KB results (up to 3)
+        2. Fill remaining slots with general results
+        3. Remove duplicates
+        4. Apply advanced reranking (if available)
+        5. Sort by final score
+        
+        Args:
+            kb_results: Results from knowledgebases
+            general_results: Results from general search
+            top_k: Total number of results to return
+            query: Optional query for relevance scoring
+            
+        Returns:
+            Merged and reranked results
+        """
+        # Start with KB results (max 3)
+        merged = kb_results[:3]
+        
+        # Track seen document IDs
+        seen_ids = {r.id for r in merged if hasattr(r, 'id')}
+        
+        # Add general results (avoid duplicates)
+        for result in general_results:
+            result_id = getattr(result, 'id', None)
+            
+            if result_id and result_id in seen_ids:
+                continue
+            
+            merged.append(result)
+            if result_id:
+                seen_ids.add(result_id)
+            
+            if len(merged) >= top_k * 2:  # Get more for reranking
+                break
+        
+        # Apply advanced reranking if available and query provided
+        if query:
+            try:
+                from backend.services.kb_reranker import get_kb_reranker
+                reranker = get_kb_reranker()
+                merged = reranker.rerank(merged, query, top_k)
+                logger.debug("Applied advanced reranking")
+            except Exception as e:
+                logger.warning(f"Reranking failed, using score-based sorting: {e}")
+                # Fallback to score-based sorting
+                merged.sort(key=lambda x: x.score, reverse=True)
+                merged = merged[:top_k]
+        else:
+            # No query - just sort by score
+            merged.sort(key=lambda x: x.score, reverse=True)
+            merged = merged[:top_k]
+        
+        return merged
+    
+    def _generate_kb_cache_key(
+        self,
+        query: str,
+        kb_ids: Optional[List[str]],
+        top_k: int
+    ) -> str:
+        """
+        Generate cache key that includes KB information.
+        
+        Args:
+            query: Query text
+            kb_ids: List of KB IDs (None for general search)
+            top_k: Number of results
+            
+        Returns:
+            Cache key string
+        """
+        if kb_ids:
+            # Sort KB IDs for consistent cache keys
+            kb_hash = hashlib.md5(
+                ",".join(sorted(kb_ids)).encode()
+            ).hexdigest()[:8]
+            key_data = f"{query}:{kb_hash}:{top_k}"
+        else:
+            key_data = f"{query}:general:{top_k}"
+        
+        key_hash = hashlib.sha256(key_data.encode()).hexdigest()[:16]
+        return f"{self.cache_prefix}{key_hash}"
+    
+    async def process_with_knowledgebase(
+        self,
+        query: str,
+        knowledgebase_ids: Optional[List[str]] = None,
+        session_id: Optional[str] = None,
+        top_k: int = 5,
+        enable_cache: bool = True,
+    ) -> SpeculativeResponse:
+        """
+        Process query with knowledgebase integration.
+        
+        This is the main entry point for KB-aware speculative processing.
+        
+        Workflow:
+        1. Check cache (KB-specific if KB IDs provided)
+        2. Search knowledgebases (if provided) in parallel
+        3. Search general collection
+        4. Merge results with KB priority
+        5. Generate response
+        6. Cache result
+        
+        Args:
+            query: User query text
+            knowledgebase_ids: Optional list of KB IDs to search
+            session_id: Optional session ID for conversation context
+            top_k: Number of documents to retrieve
+            enable_cache: Whether to use caching
+            
+        Returns:
+            SpeculativeResponse with KB attribution
+        """
+        overall_start = time.time()
+        
+        try:
+            # Generate KB-aware cache key
+            cache_key = self._generate_kb_cache_key(query, knowledgebase_ids, top_k)
+            
+            # Check cache
+            if enable_cache:
+                cached_response = await self._check_cache(cache_key)
+                if cached_response:
+                    cached_response.cache_hit = True
+                    cached_response.metadata['knowledgebase_ids'] = knowledgebase_ids or []
+                    
+                    logger.info(
+                        f"Cache hit for query with KBs: {knowledgebase_ids}"
+                    )
+                    
+                    return cached_response
+            
+            # Parallel search: KB + General
+            kb_results = []
+            general_results = []
+            kb_search_time = 0
+            general_search_time = 0
+            
+            if knowledgebase_ids:
+                # Search KBs
+                kb_task = self._search_knowledgebases(
+                    query, knowledgebase_ids, top_k=3
+                )
+                general_task = self._fast_vector_search(query, top_k=5)
+                
+                # Run in parallel
+                (kb_results, kb_search_time), (general_results, general_search_time) = \
+                    await asyncio.gather(kb_task, general_task)
+                
+                # Merge results with reranking
+                search_results = self._merge_kb_and_general_results(
+                    kb_results, general_results, top_k, query
+                )
+            else:
+                # No KB - just general search
+                search_results, general_search_time = await self._fast_vector_search(
+                    query, top_k
+                )
+            
+            # Generate response
+            response_text, llm_time = await self._fast_llm_generation(
+                query, search_results
+            )
+            
+            # Calculate confidence
+            confidence = self._calculate_confidence(search_results)
+            
+            # Boost confidence if KB results are present
+            kb_count = sum(
+                1 for r in search_results
+                if r.metadata and r.metadata.get('source', '').startswith('kb:')
+            )
+            if kb_count > 0:
+                confidence = min(confidence * 1.1, 1.0)  # 10% boost
+            
+            # Build response
+            processing_time = time.time() - overall_start
+            
+            response = SpeculativeResponse(
+                response=response_text,
+                confidence_score=confidence,
+                sources=[
+                    {
+                        'content': r.content if hasattr(r, 'content') else str(r),
+                        'score': r.score,
+                        'metadata': r.metadata or {}
+                    }
+                    for r in search_results
+                ],
+                cache_hit=False,
+                processing_time=processing_time,
+                metadata={
+                    'knowledgebase_ids': knowledgebase_ids or [],
+                    'kb_results_count': kb_count,
+                    'total_results': len(search_results),
+                    'kb_search_time': kb_search_time,
+                    'general_search_time': general_search_time,
+                    'llm_time': llm_time,
+                    'search_method': 'kb_hybrid' if knowledgebase_ids else 'general'
+                }
+            )
+            
+            # Cache the response
+            if enable_cache:
+                await self._store_in_cache(cache_key, response)
+            
+            # Save to STM
+            if session_id:
+                await self._save_to_stm(
+                    session_id=session_id,
+                    query=query,
+                    response=response_text,
+                    metadata={
+                        'confidence_score': confidence,
+                        'processing_time': processing_time,
+                        'kb_count': kb_count,
+                        'knowledgebase_ids': knowledgebase_ids or []
+                    }
+                )
+            
+            logger.info(
+                f"KB-aware speculative processing completed in {processing_time:.3f}s, "
+                f"confidence={confidence:.3f}, kb_results={kb_count}/{len(search_results)}"
+            )
+            
+            return response
+            
+        except Exception as e:
+            logger.error(f"KB-aware speculative processing failed: {e}", exc_info=True)
+            
+            # Fallback response
+            processing_time = time.time() - overall_start
+            return SpeculativeResponse(
+                response="Processing your query. Please wait for detailed results...",
+                confidence_score=0.1,
+                sources=[],
+                cache_hit=False,
+                processing_time=processing_time,
+                metadata={
+                    'error': str(e),
+                    'knowledgebase_ids': knowledgebase_ids or []
+                }
             )

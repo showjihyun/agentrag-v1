@@ -196,7 +196,11 @@ class KnowledgebaseService:
         Returns:
             Tuple of (knowledgebases, total_count)
         """
-        query = self.db.query(Knowledgebase)
+        from sqlalchemy.orm import joinedload
+        
+        query = self.db.query(Knowledgebase).options(
+            joinedload(Knowledgebase.documents)
+        )
         
         if "user_id" in filters:
             query = query.filter(Knowledgebase.user_id == filters["user_id"])
@@ -311,34 +315,32 @@ class KnowledgebaseService:
             
             # 2. Create document record
             doc = Document(
-                id=str(uuid.uuid4()),
+                id=uuid.uuid4(),
                 user_id=kb.user_id,
                 filename=file.filename,
+                original_filename=file.filename,
                 file_path=file_path,
-                file_size=len(content),
-                file_type=file.content_type or "application/octet-stream"
+                file_size_bytes=len(content),
+                mime_type=file.content_type or "application/octet-stream",
+                status="processing"
             )
             self.db.add(doc)
             self.db.flush()
             
             # 3. Extract and chunk text (in thread pool)
             doc_processor = DocumentProcessor()
-            chunks = await asyncio.to_thread(
-                doc_processor.process_document,
-                file_path=file_path,
-                chunk_size=kb.chunk_size,
-                chunk_overlap=kb.chunk_overlap
+            processed_doc, chunks = await doc_processor.process_document(
+                file_content=content,
+                filename=file.filename,
+                file_size=len(content)
             )
             
             # 4. Generate embeddings in batches
             embedding_service = EmbeddingService()
             texts = [chunk.text for chunk in chunks]
             
-            # Batch embeddings for efficiency
-            embeddings = await asyncio.to_thread(
-                embedding_service.embed_batch,
-                texts
-            )
+            # Batch embeddings for efficiency (embed_batch is already async)
+            embeddings = await embedding_service.embed_batch(texts)
             
             # 5. Store in Milvus in batches
             milvus_manager = MilvusManager(
@@ -355,35 +357,37 @@ class KnowledgebaseService:
                     "metadata": {
                         "document_id": str(doc.id),
                         "knowledgebase_id": kb_id,
-                        "chunk_index": chunk.index,
+                        "chunk_index": chunk.chunk_index,
                         "filename": file.filename
                     }
                 })
             
-            # Batch insert to Milvus
-            await asyncio.to_thread(
-                self._batch_insert_to_milvus,
+            # Batch insert to Milvus (already async)
+            await self._batch_insert_to_milvus(
                 milvus_manager,
                 insert_data
             )
             
-            # 6. Create KnowledgebaseDocument record
+            # 6. Create KnowledgebaseDocument record (association table)
             kb_doc = KnowledgebaseDocument(
-                id=str(uuid.uuid4()),
+                id=uuid.uuid4(),
                 knowledgebase_id=kb_id,
-                filename=file.filename,
-                file_path=file_path,
-                file_size=len(content),
-                chunk_count=len(chunks)
+                document_id=doc.id
             )
             self.db.add(kb_doc)
+            
+            # Update document with chunk count
+            doc.chunk_count = len(chunks)
+            doc.status = "completed"
+            doc.processing_completed_at = datetime.utcnow()
             
             logger.info(
                 f"Processed document {file.filename} for knowledgebase {kb_id} "
                 f"({len(chunks)} chunks)"
             )
             
-            return kb_doc
+            # Return the Document object (not KnowledgebaseDocument)
+            return doc
             
         except Exception as e:
             logger.error(
@@ -392,7 +396,7 @@ class KnowledgebaseService:
             )
             return None
     
-    def _batch_insert_to_milvus(
+    async def _batch_insert_to_milvus(
         self,
         milvus_manager,
         insert_data: List[Dict[str, Any]]
@@ -404,20 +408,36 @@ class KnowledgebaseService:
             milvus_manager: Milvus manager instance
             insert_data: List of data to insert
         """
+        # Prepare embeddings and metadata for batch insert
+        embeddings = [item["embedding"] for item in insert_data]
+        metadata_list = []
+        
+        for i, item in enumerate(insert_data):
+            # Milvus expects specific metadata fields
+            meta = {
+                "id": str(uuid.uuid4()),
+                "text": item["text"],
+                "document_id": item["metadata"]["document_id"],
+                "chunk_index": item["metadata"]["chunk_index"],
+                "document_name": item["metadata"]["filename"],
+                "knowledgebase_id": item["metadata"]["knowledgebase_id"],
+                "file_type": "pdf",  # TODO: get from actual file type
+                "upload_date": datetime.utcnow().isoformat()
+            }
+            metadata_list.append(meta)
+        
         # Insert in batches of 100
         batch_size = 100
-        
-        for i in range(0, len(insert_data), batch_size):
-            batch = insert_data[i:i + batch_size]
+        for i in range(0, len(embeddings), batch_size):
+            batch_embeddings = embeddings[i:i + batch_size]
+            batch_metadata = metadata_list[i:i + batch_size]
             
-            for item in batch:
-                milvus_manager.insert(
-                    text=item["text"],
-                    embedding=item["embedding"],
-                    metadata=item["metadata"]
-                )
+            await milvus_manager.insert_embeddings(
+                embeddings=batch_embeddings,
+                metadata=batch_metadata
+            )
     
-    def search_knowledgebase(
+    async def search_knowledgebase(
         self,
         kb_id: str,
         query: str,
@@ -440,7 +460,6 @@ class KnowledgebaseService:
                 raise ValueError(f"Knowledgebase {kb_id} not found")
             
             # Import required services
-            from backend.services.hybrid_search import HybridSearchService
             from backend.services.embedding import EmbeddingService
             from backend.services.milvus import MilvusManager
             
@@ -450,16 +469,14 @@ class KnowledgebaseService:
                 embedding_dim=embedding_service.dimension
             )
             
-            hybrid_search = HybridSearchService(
-                embedding_service=embedding_service,
-                milvus_manager=milvus_manager
-            )
+            # Generate query embedding
+            query_embedding = await embedding_service.embed_text(query)
             
-            # Perform hybrid search with knowledgebase filter
-            results = hybrid_search.search(
-                query=query,
+            # Perform vector search with knowledgebase filter
+            results = await milvus_manager.search(
+                query_embedding=query_embedding,
                 top_k=top_k,
-                filters={"knowledgebase_id": kb_id}
+                filters=f'knowledgebase_id == "{kb_id}"'
             )
             
             # Convert to KnowledgebaseSearchResult
@@ -467,8 +484,8 @@ class KnowledgebaseService:
             for result in results:
                 search_results.append(
                     KnowledgebaseSearchResult(
-                        chunk_id=result.id,
-                        document_id=result.metadata.get("document_id"),
+                        chunk_id=str(result.id),
+                        document_id=result.document_id,
                         text=result.text,
                         score=result.score,
                         metadata=result.metadata
@@ -581,3 +598,59 @@ class KnowledgebaseService:
             raise
         
         return kb
+    
+    def get_document_status(
+        self,
+        kb_id: str,
+        document_id: str
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Get document processing status.
+        
+        Args:
+            kb_id: Knowledgebase ID
+            document_id: Document ID
+            
+        Returns:
+            Dictionary with status information or None if not found
+        """
+        try:
+            from backend.db.models.document import Document
+            
+            # Query the Document (not KnowledgebaseDocument)
+            doc = self.db.query(Document).filter(
+                Document.id == document_id
+            ).first()
+            
+            if not doc:
+                return None
+            
+            # Verify it belongs to the knowledgebase
+            kb_doc = self.db.query(KnowledgebaseDocument).filter(
+                KnowledgebaseDocument.document_id == document_id,
+                KnowledgebaseDocument.knowledgebase_id == kb_id
+            ).first()
+            
+            if not kb_doc:
+                return None
+            
+            # Get status from Document model
+            status = doc.status or "completed"
+            progress = 100 if status == "completed" else 50
+            error = doc.error_message
+            
+            return {
+                "document_id": str(doc.id),
+                "filename": doc.filename,
+                "status": status,
+                "progress": progress,
+                "error": error,
+                "chunk_count": doc.chunk_count or 0,
+                "file_size": doc.file_size_bytes,
+                "created_at": doc.uploaded_at.isoformat() if doc.uploaded_at else None,
+                "updated_at": doc.processing_completed_at.isoformat() if doc.processing_completed_at else None
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to get document status: {e}", exc_info=True)
+            return None

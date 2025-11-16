@@ -258,7 +258,14 @@ class WorkflowNodeCreate(BaseModel):
     """Schema for workflow node."""
     
     id: str = Field(..., description="Unique node ID")
-    node_type: Literal["agent", "block", "control"] = Field(
+    node_type: Literal[
+        "start", "end", "agent", "block", "condition", "switch", 
+        "loop", "parallel", "delay", "merge", "http_request", "code",
+        "slack", "discord", "email", "google_drive", "s3", "database",
+        "memory", "human_approval", "consensus", "manager_agent",
+        "webhook_trigger", "schedule_trigger", "webhook_response",
+        "trigger", "try_catch", "control"
+    ] = Field(
         ..., description="Type of node"
     )
     node_ref_id: Optional[str] = Field(
@@ -277,7 +284,7 @@ class WorkflowEdgeCreate(BaseModel):
     id: str = Field(..., description="Unique edge ID")
     source_node_id: str = Field(..., description="Source node ID")
     target_node_id: str = Field(..., description="Target node ID")
-    edge_type: Literal["normal", "conditional"] = Field(
+    edge_type: Literal["normal", "conditional", "true", "false", "custom"] = Field(
         default="normal", description="Type of edge"
     )
     condition: Optional[str] = Field(
@@ -398,6 +405,7 @@ class KnowledgebaseUpdate(BaseModel):
     
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     description: Optional[str] = None
+    embedding_model: Optional[str] = None
     chunk_size: Optional[int] = Field(None, ge=100, le=2000)
     chunk_overlap: Optional[int] = Field(None, ge=0, le=500)
 

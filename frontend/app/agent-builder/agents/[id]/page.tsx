@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, Edit, Play } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { CacheWarmingSection } from '@/components/agent/CacheWarmingSection';
 
 export default function AgentDetailPage() {
   const params = useParams();
@@ -182,6 +183,11 @@ export default function AgentDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Cache Warming */}
+      {agent.knowledgebases && agent.knowledgebases.length > 0 && (
+        <CacheWarmingSection agentId={agentId} />
+      )}
 
       {/* Metadata */}
       <Card>

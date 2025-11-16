@@ -6,14 +6,156 @@ Handles approval requests for human-in-the-loop workflows.
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
 from datetime import datetime
+import logging
 
 from backend.db.session import get_db
 from backend.models.approval import ApprovalRequest
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/approvals", tags=["approvals"])
+
+
+async def _resume_workflow_execution(
+    db: Session,
+    workflow_id: str,
+    execution_id: Optional[str],
+    approval_result: str,
+    approval_data: Dict[str, Any]
+):
+    """
+    Resume workflow execution after approval/rejection.
+    
+    Args:
+        db: Database session
+        workflow_id: Workflow ID
+        execution_id: Workflow execution ID
+        approval_result: "approved" or "rejected"
+        approval_data: Approval metadata
+    """
+    if not execution_id:
+        logger.warning(f"No execution_id for workflow {workflow_id}, cannot resume")
+        return
+    
+    try:
+        from backend.db.models.agent_builder import WorkflowExecution, Workflow
+        from backend.services.agent_builder.workflow_executor import WorkflowExecutor
+        import asyncio
+        
+        # Get execution record
+        execution = db.query(WorkflowExecution).filter(
+            WorkflowExecution.id == execution_id
+        ).first()
+        
+        if not execution:
+            logger.error(f"Execution {execution_id} not found")
+            return
+        
+        # Get workflow
+        workflow = db.query(Workflow).filter(
+            Workflow.id == workflow_id
+        ).first()
+        
+        if not workflow:
+            logger.error(f"Workflow {workflow_id} not found")
+            return
+        
+        logger.info(f"Resuming workflow execution {execution_id} with result: {approval_result}")
+        
+        # Update execution status
+        execution.status = "running"
+        execution.execution_context = execution.execution_context or {}
+        execution.execution_context["approval_result"] = approval_result
+        execution.execution_context["approval_data"] = approval_data
+        execution.execution_context["resumed_at"] = datetime.utcnow().isoformat()
+        db.commit()
+        
+        # Create executor and resume from approval node
+        executor = WorkflowExecutor(workflow, db, execution_id)
+        
+        # Get the node that was waiting for approval
+        graph = workflow.graph_definition
+        nodes = graph.get("nodes", [])
+        edges = graph.get("edges", [])
+        
+        # Find the approval node and its next node
+        approval_node_id = execution.execution_context.get("waiting_for_node_id")
+        if not approval_node_id:
+            logger.warning("No waiting_for_node_id in execution context")
+            # Try to find from approval data
+            approval_node = next(
+                (n for n in nodes if n.get("node_type") == "human_approval"),
+                None
+            )
+            if approval_node:
+                approval_node_id = approval_node.get("id")
+        
+        if not approval_node_id:
+            logger.error("Cannot find approval node to resume from")
+            execution.status = "failed"
+            execution.error_message = "Cannot find approval node to resume from"
+            execution.completed_at = datetime.utcnow()
+            db.commit()
+            return
+        
+        # Find next node based on approval result
+        next_edges = [e for e in edges if e.get("source") == approval_node_id]
+        
+        # Look for edge with matching sourceHandle (approved/rejected)
+        next_edge = next(
+            (e for e in next_edges if e.get("sourceHandle") == approval_result),
+            next_edges[0] if next_edges else None
+        )
+        
+        if not next_edge:
+            logger.info(f"No next node after approval, workflow complete")
+            execution.status = "completed"
+            execution.output_data = {
+                "approval_result": approval_result,
+                **approval_data
+            }
+            execution.completed_at = datetime.utcnow()
+            db.commit()
+            return
+        
+        # Get next node
+        next_node = next((n for n in nodes if n["id"] == next_edge["target"]), None)
+        
+        if not next_node:
+            logger.error(f"Next node {next_edge['target']} not found")
+            execution.status = "failed"
+            execution.error_message = f"Next node {next_edge['target']} not found"
+            execution.completed_at = datetime.utcnow()
+            db.commit()
+            return
+        
+        # Resume execution from next node
+        input_data = execution.input_data or {}
+        input_data["_approval_result"] = approval_result
+        input_data["_approval_data"] = approval_data
+        input_data["_user_id"] = str(execution.user_id)
+        
+        # Execute remaining workflow
+        result = await executor._execute_from_node(next_node, nodes, edges, input_data)
+        
+        # Update execution with result
+        execution.status = "completed"
+        execution.output_data = result
+        execution.completed_at = datetime.utcnow()
+        db.commit()
+        
+        logger.info(f"Workflow execution {execution_id} resumed and completed")
+        
+    except Exception as e:
+        logger.error(f"Failed to resume workflow execution: {e}", exc_info=True)
+        if execution:
+            execution.status = "failed"
+            execution.error_message = f"Resume failed: {str(e)}"
+            execution.completed_at = datetime.utcnow()
+            db.commit()
 
 
 class ApprovalResponse(BaseModel):
@@ -147,8 +289,17 @@ async def approve_request(
         approval.resolved_at = datetime.utcnow()
         approval.resolution_comment = response.comment
         
-        # TODO: Resume workflow execution
-        # This would trigger the workflow to continue from the approval node
+        # Resume workflow execution
+        await _resume_workflow_execution(
+            db=db,
+            workflow_id=approval.workflow_id,
+            execution_id=approval.workflow_execution_id,
+            approval_result="approved",
+            approval_data={
+                "approved_by": approval.approved_by,
+                "comment": response.comment,
+            }
+        )
     
     db.commit()
     
@@ -205,8 +356,17 @@ async def reject_request(
     approval.resolved_at = datetime.utcnow()
     approval.resolution_comment = response.comment
     
-    # TODO: Resume workflow execution with rejection
-    # This would trigger the workflow to continue via the "rejected" path
+    # Resume workflow execution with rejection
+    await _resume_workflow_execution(
+        db=db,
+        workflow_id=approval.workflow_id,
+        execution_id=approval.workflow_execution_id,
+        approval_result="rejected",
+        approval_data={
+            "rejected_by": approval.rejected_by,
+            "comment": response.comment,
+        }
+    )
     
     db.commit()
     

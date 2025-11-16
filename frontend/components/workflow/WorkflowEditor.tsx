@@ -18,6 +18,7 @@ import ReactFlow, {
   Panel,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
+import '@/styles/workflow-execution.css';
 import { BlockNode } from './nodes/BlockNode';
 import { AgentNode } from './nodes/AgentNode';
 import { StartNode } from './nodes/StartNode';
@@ -45,11 +46,18 @@ import HumanApprovalNode from './nodes/HumanApprovalNode';
 import { CustomEdge } from './edges/CustomEdge';
 import { NodeConfigPanel } from './NodeConfigPanel';
 import { ExecutionDetailsPanel } from './ExecutionDetailsPanel';
+import { ExecutionControlPanel } from './ExecutionControlPanel';
+import { ExecutionStatusBadge } from './ExecutionStatusBadge';
+import { NodeExecutionDetailsPanel } from './NodeExecutionDetailsPanel';
+import { NodeDebugPanel } from './NodeDebugPanel';
+import { NodeSearch } from './NodeSearch';
+import { useWorkflowExecutionStream } from '@/hooks/useWorkflowExecutionStream';
 import { Button } from '@/components/ui/button';
 import { Undo, Redo, ZoomIn, ZoomOut, Maximize } from 'lucide-react';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { logger } from '@/lib/logger';
 
 // UUID v4 generator
 function generateUUID(): string {
@@ -68,6 +76,13 @@ interface WorkflowEditorProps {
   onEdgesChange?: (edges: Edge[]) => void;
   onSave?: (nodes: Node[], edges: Edge[]) => void;
   readOnly?: boolean;
+  highlightedNodeId?: string | null;
+  onHighlightNode?: (nodeId: string | null) => void;
+  // Execution visualization props
+  executionMode?: boolean;
+  executionId?: string;
+  onExecutionStart?: () => void;
+  onExecutionStop?: () => void;
 }
 
 const nodeTypes: NodeTypes = {
@@ -112,39 +127,253 @@ function WorkflowEditorInner({
   onEdgesChange: onEdgesChangeProp,
   onSave,
   readOnly = false,
+  highlightedNodeId,
+  onHighlightNode,
+  executionMode = false,
+  executionId,
+  onExecutionStart,
+  onExecutionStop,
 }: WorkflowEditorProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
   
-  // Initialize nodes with trigger callbacks
-  const [initializedNodes] = useState(() => 
-    initialNodes.map(node => {
+  // Execution visualization
+  const {
+    nodeStatuses,
+    isConnected: isExecutionConnected,
+    isComplete: isExecutionComplete,
+    executionStatus,
+    retryCount,
+    maxRetries,
+    connect: connectExecution,
+    disconnect: disconnectExecution,
+    reset: resetExecution,
+  } = useWorkflowExecutionStream({
+    workflowId: workflowId || '',
+    executionId,
+    enabled: executionMode && !!workflowId,
+    onComplete: (status) => {
+      logger.log('✅ Execution completed:', status);
+      toast({
+        title: status === 'completed' ? '✅ Execution Completed' : '❌ Execution Failed',
+        description: status === 'completed' 
+          ? 'Workflow executed successfully' 
+          : 'Workflow execution failed',
+        duration: 3000,
+      });
+    },
+    onError: (error) => {
+      logger.error('❌ Execution error:', error);
+      toast({
+        title: '❌ Execution Error',
+        description: error,
+        duration: 4000,
+      });
+    },
+  });
+  
+  // Refs for callbacks to avoid circular dependencies
+  const handleTriggerActionRef = useRef<(nodeId: string) => void>(() => {});
+  const handleConfigureTriggerRef = useRef<(nodeId: string) => void>(() => {});
+  const handleCopyWebhookURLRef = useRef<(nodeId: string) => void>(() => {});
+  
+  // Initialize nodes with trigger callbacks and disabled styling
+  const initializeNodes = useCallback((nodesToInit: Node[]) => {
+    return nodesToInit.map(node => {
+      const baseNode = {
+        ...node,
+        // Apply disabled styling
+        className: node.data?.disabled 
+          ? 'opacity-50 grayscale pointer-events-auto' 
+          : node.className,
+      };
+
       if (node.type === 'trigger') {
         return {
-          ...node,
+          ...baseNode,
           data: {
-            ...node.data,
+            ...baseNode.data,
             onTrigger: () => handleTriggerActionRef.current(node.id),
             onConfigure: () => handleConfigureTriggerRef.current(node.id),
             onCopyWebhook: () => handleCopyWebhookURLRef.current(node.id),
           },
         };
       }
-      return node;
-    })
-  );
+      return baseNode;
+    });
+  }, []);
   
-  const [nodes, setNodes, onNodesChange] = useNodesState(initializedNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
-  const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
+  const [nodes, setNodes, onNodesChange] = useNodesState([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  
+  // Track if we've initialized to prevent re-initialization loops
+  const initializedRef = useRef(false);
+  
+  // Update node styles based on execution status
+  useEffect(() => {
+    if (!executionMode || Object.keys(nodeStatuses).length === 0) return;
+    
+    setNodes((nds) =>
+      nds.map((node) => {
+        const status = nodeStatuses[node.id];
+        if (!status) return node;
+        
+        // Apply status-based styling
+        let className = 'node-idle';
+        switch (status.status) {
+          case 'pending':
+            className = 'node-pending';
+            break;
+          case 'running':
+            className = 'node-running';
+            break;
+          case 'success':
+            className = 'node-success';
+            break;
+          case 'failed':
+            className = 'node-error';
+            break;
+          case 'skipped':
+            className = 'node-skipped';
+            break;
+        }
+        
+        return {
+          ...node,
+          className,
+          data: {
+            ...node.data,
+            executionStatus: status.status,
+            executionError: status.error,
+            executionOutput: status.output,
+            startTime: status.startTime,
+            endTime: status.endTime,
+          },
+        };
+      })
+    );
+  }, [nodeStatuses, executionMode, setNodes]);
+  
+  // Update edge styles based on execution status
+  useEffect(() => {
+    if (!executionMode || Object.keys(nodeStatuses).length === 0) return;
+    
+    setEdges((eds) =>
+      eds.map((edge) => {
+        const sourceStatus = nodeStatuses[edge.source];
+        const targetStatus = nodeStatuses[edge.target];
+        
+        // Determine edge execution state
+        let isExecuting = false;
+        let executionStatus: string | undefined;
+        
+        if (sourceStatus?.status === 'running' || targetStatus?.status === 'running') {
+          isExecuting = true;
+        } else if (sourceStatus?.status === 'success' && targetStatus?.status === 'success') {
+          executionStatus = 'success';
+        } else if (sourceStatus?.status === 'failed' || targetStatus?.status === 'failed') {
+          executionStatus = 'error';
+        }
+        
+        return {
+          ...edge,
+          data: {
+            ...edge.data,
+            isExecuting,
+            executionStatus,
+          },
+          animated: isExecuting, // Built-in ReactFlow animation
+        };
+      })
+    );
+  }, [nodeStatuses, executionMode, setEdges]);
+  
+  // Update nodes and edges when initialNodes/initialEdges change
+  useEffect(() => {
+    // Only initialize once or when explicitly changed from parent
+    if (initializedRef.current && initialNodes.length === nodes.length) {
+      return;
+    }
+    
+    logger.log('🔄 WorkflowEditor: Updating nodes from initialNodes', {
+      initialNodesCount: initialNodes.length,
+      initialEdgesCount: initialEdges.length,
+      currentNodesCount: nodes.length,
+    });
+    
+    if (initialNodes.length > 0) {
+      const initialized = initializeNodes(initialNodes);
+      setNodes(initialized);
+      initializedRef.current = true;
+    }
+    
+    if (initialEdges.length > 0) {
+      setEdges(initialEdges);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialNodes, initialEdges]);
+  
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
+  const [selectedExecutionNode, setSelectedExecutionNode] = useState<Node | null>(null);
+  const [debugNodeId, setDebugNodeId] = useState<string | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  
+  // Handle node highlighting
+  useEffect(() => {
+    if (!highlightedNodeId || !reactFlowInstance) return;
+    
+    // Find the node
+    const node = nodes.find(n => n.id === highlightedNodeId);
+    if (!node) return;
+    
+    // Zoom to the node
+    reactFlowInstance.fitView({
+      nodes: [{ id: highlightedNodeId }],
+      duration: 500,
+      padding: 0.5,
+    });
+    
+    // Update node style to highlight
+    setNodes((nds) =>
+      nds.map((n) =>
+        n.id === highlightedNodeId
+          ? {
+              ...n,
+              style: {
+                ...n.style,
+                border: '3px solid #ef4444',
+                boxShadow: '0 0 20px rgba(239, 68, 68, 0.5)',
+              },
+            }
+          : n
+      )
+    );
+    
+    // Remove highlight after 3 seconds
+    const timeout = setTimeout(() => {
+      setNodes((nds) =>
+        nds.map((n) =>
+          n.id === highlightedNodeId
+            ? {
+                ...n,
+                style: {
+                  ...n.style,
+                  border: undefined,
+                  boxShadow: undefined,
+                },
+              }
+            : n
+        )
+      );
+      onHighlightNode?.(null);
+    }, 3000);
+    
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlightedNodeId, reactFlowInstance]);
   const [showExecutionDetails, setShowExecutionDetails] = useState(false);
   const [executionData, setExecutionData] = useState<any>(null);
-  
-  // Refs for callbacks to avoid circular dependencies
-  const handleTriggerActionRef = useRef<(nodeId: string) => void>(() => {});
-  const handleConfigureTriggerRef = useRef<(nodeId: string) => void>(() => {});
-  const handleCopyWebhookURLRef = useRef<(nodeId: string) => void>(() => {});
 
   // Undo/Redo functionality
   const {
@@ -156,8 +385,8 @@ function WorkflowEditorInner({
     canRedo,
     reset: resetHistory,
   } = useUndoRedo<{ nodes: Node[]; edges: Edge[] }>({
-    nodes: initialNodes,
-    edges: initialEdges,
+    nodes: [],
+    edges: [],
   });
 
   // Sync history state with nodes and edges
@@ -165,21 +394,56 @@ function WorkflowEditorInner({
     if (!readOnly) {
       setHistoryState({ nodes, edges });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes, edges, readOnly]);
 
-  // Sync nodes changes to parent
+  // Sync nodes changes to parent (debounced to prevent loops)
+  const nodesChangeTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   useEffect(() => {
-    if (onNodesChangeProp && !readOnly) {
-      onNodesChangeProp(nodes);
+    if (onNodesChangeProp && !readOnly && initializedRef.current) {
+      // Clear previous timeout
+      if (nodesChangeTimeoutRef.current) {
+        clearTimeout(nodesChangeTimeoutRef.current);
+      }
+      
+      // Debounce the callback to prevent rapid updates
+      nodesChangeTimeoutRef.current = setTimeout(() => {
+        logger.log('🔄 Nodes changed:', nodes.length);
+        onNodesChangeProp(nodes);
+      }, 100);
     }
-  }, [nodes, onNodesChangeProp, readOnly]);
+    
+    return () => {
+      if (nodesChangeTimeoutRef.current) {
+        clearTimeout(nodesChangeTimeoutRef.current);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodes, readOnly]);
 
-  // Sync edges changes to parent
+  // Sync edges changes to parent (debounced to prevent loops)
+  const edgesChangeTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   useEffect(() => {
-    if (onEdgesChangeProp && !readOnly) {
-      onEdgesChangeProp(edges);
+    if (onEdgesChangeProp && !readOnly && initializedRef.current) {
+      // Clear previous timeout
+      if (edgesChangeTimeoutRef.current) {
+        clearTimeout(edgesChangeTimeoutRef.current);
+      }
+      
+      // Debounce the callback to prevent rapid updates
+      edgesChangeTimeoutRef.current = setTimeout(() => {
+        logger.log('🔗 Edges changed:', edges.length);
+        onEdgesChangeProp(edges);
+      }, 100);
     }
-  }, [edges, onEdgesChangeProp, readOnly]);
+    
+    return () => {
+      if (edgesChangeTimeoutRef.current) {
+        clearTimeout(edgesChangeTimeoutRef.current);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [edges, readOnly]);
 
   // Apply undo/redo
   const handleUndo = useCallback(() => {
@@ -202,6 +466,13 @@ function WorkflowEditorInner({
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Search (Ctrl+F)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        setSearchOpen(true);
+        return;
+      }
+
       if (readOnly) return;
 
       // Undo
@@ -328,6 +599,33 @@ function WorkflowEditorInner({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [readOnly, handleUndo, handleRedo, nodes, edges, copiedNodes, setNodes, setEdges, toast]);
 
+  // Handle node selection from search
+  const handleSelectNode = useCallback((nodeId: string) => {
+    const node = nodes.find(n => n.id === nodeId);
+    if (node && reactFlowInstance) {
+      // Zoom to node
+      reactFlowInstance.fitView({
+        nodes: [{ id: nodeId }],
+        duration: 500,
+        padding: 0.5,
+      });
+      
+      // Select node
+      setNodes(nds => nds.map(n => ({
+        ...n,
+        selected: n.id === nodeId
+      })));
+      
+      // Highlight node temporarily
+      setTimeout(() => {
+        setNodes(nds => nds.map(n => ({
+          ...n,
+          selected: false
+        })));
+      }, 2000);
+    }
+  }, [nodes, reactFlowInstance, setNodes]);
+
   // Handle node changes
   const handleNodesChange = useCallback(
     (changes: any) => {
@@ -403,7 +701,7 @@ function WorkflowEditorInner({
     (connection: Connection) => {
       if (readOnly) return;
       
-      console.log('🔗 Manual connection created:', connection);
+      logger.log('🔗 Manual connection created:', connection);
       
       const newEdge = {
         ...connection,
@@ -413,7 +711,7 @@ function WorkflowEditorInner({
       
       setEdges((eds) => {
         const updatedEdges = addEdge(newEdge, eds);
-        console.log('📊 Total edges after manual connection:', updatedEdges.length);
+        logger.log('📊 Total edges after manual connection:', updatedEdges.length);
         return updatedEdges;
       });
     },
@@ -490,8 +788,14 @@ function WorkflowEditorInner({
 
   // Handle node click
   const onNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
-    setSelectedNode(node);
-  }, []);
+    if (executionMode && nodeStatuses[node.id]) {
+      // In execution mode, show debug panel
+      setDebugNodeId(node.id);
+    } else if (!readOnly) {
+      // In edit mode, show config panel
+      setSelectedNode(node);
+    }
+  }, [executionMode, nodeStatuses, readOnly]);
 
   // Handle trigger actions
   const handleTriggerAction = useCallback((nodeId: string) => {
@@ -683,11 +987,11 @@ function WorkflowEditorInner({
 
       // Update edges if any new connections were created
       if (newEdgesCreated.length > 0) {
-        console.log('✨ Auto-connection created:', newEdgesCreated.length, 'new edge(s)');
+        logger.log('✨ Auto-connection created:', newEdgesCreated.length, 'new edge(s)');
         
         setEdges((eds) => {
           const updatedEdges = [...eds, ...newEdgesCreated];
-          console.log('📊 Total edges after auto-connection:', updatedEdges.length);
+          logger.log('📊 Total edges after auto-connection:', updatedEdges.length);
           
           // Show toast notification
           toast({
@@ -700,7 +1004,7 @@ function WorkflowEditorInner({
           if (onEdgesChangeProp) {
             // Use setTimeout to ensure state is updated before callback
             setTimeout(() => {
-              console.log('📤 Notifying parent of edge changes');
+              logger.log('📤 Notifying parent of edge changes');
               onEdgesChangeProp(updatedEdges);
             }, 0);
           }
@@ -892,6 +1196,82 @@ function WorkflowEditorInner({
           onClose={() => setShowExecutionDetails(false)}
         />
       )}
+      
+      {/* Execution Control Panel */}
+      {executionMode && workflowId && (
+        <ExecutionControlPanel
+          nodeStatuses={nodeStatuses}
+          isConnected={isExecutionConnected}
+          isComplete={isExecutionComplete}
+          executionStatus={executionStatus}
+          retryCount={retryCount}
+          maxRetries={maxRetries}
+          onStart={onExecutionStart}
+          onStop={onExecutionStop}
+          onReset={() => {
+            resetExecution();
+            setSelectedExecutionNode(null);
+            // Reset node styles
+            setNodes((nds) =>
+              nds.map((node) => ({
+                ...node,
+                className: 'node-idle',
+                data: {
+                  ...node.data,
+                  executionStatus: undefined,
+                  executionError: undefined,
+                  executionOutput: undefined,
+                },
+              }))
+            );
+          }}
+        />
+      )}
+      
+      {/* Node Execution Details Panel */}
+      {selectedExecutionNode && nodeStatuses[selectedExecutionNode.id] && (
+        <NodeExecutionDetailsPanel
+          nodeId={selectedExecutionNode.id}
+          nodeName={selectedExecutionNode.data?.label || selectedExecutionNode.data?.name || 'Node'}
+          status={nodeStatuses[selectedExecutionNode.id].status}
+          startTime={nodeStatuses[selectedExecutionNode.id].startTime}
+          endTime={nodeStatuses[selectedExecutionNode.id].endTime}
+          error={nodeStatuses[selectedExecutionNode.id].error}
+          input={selectedExecutionNode.data?.input}
+          output={nodeStatuses[selectedExecutionNode.id].output}
+          logs={selectedExecutionNode.data?.logs || []}
+          onClose={() => setSelectedExecutionNode(null)}
+        />
+      )}
+
+      {/* Node Debug Panel (Floating) */}
+      {debugNodeId && nodeStatuses[debugNodeId] && (
+        <div className="absolute top-4 right-4 z-50">
+          <NodeDebugPanel
+            nodeId={debugNodeId}
+            nodeName={nodes.find(n => n.id === debugNodeId)?.data?.name || 'Node'}
+            executionData={{
+              input: nodeStatuses[debugNodeId].input || {},
+              output: nodeStatuses[debugNodeId].output,
+              error: nodeStatuses[debugNodeId].error,
+              duration: nodeStatuses[debugNodeId].endTime && nodeStatuses[debugNodeId].startTime
+                ? nodeStatuses[debugNodeId].endTime! - nodeStatuses[debugNodeId].startTime!
+                : 0,
+              timestamp: new Date(nodeStatuses[debugNodeId].startTime || Date.now()).toISOString(),
+              status: nodeStatuses[debugNodeId].status
+            }}
+            onClose={() => setDebugNodeId(null)}
+          />
+        </div>
+      )}
+
+      {/* Node Search Dialog */}
+      <NodeSearch
+        nodes={nodes}
+        open={searchOpen}
+        onOpenChange={setSearchOpen}
+        onSelectNode={handleSelectNode}
+      />
     </div>
   );
 }

@@ -28,6 +28,12 @@ def get_document_collection_schema(embedding_dim: int = 384) -> CollectionSchema
             description="Parent document identifier",
         ),
         FieldSchema(
+            name="knowledgebase_id",
+            dtype=DataType.VARCHAR,
+            max_length=100,
+            description="Knowledgebase identifier for filtering",
+        ),
+        FieldSchema(
             name="text",
             dtype=DataType.VARCHAR,
             max_length=65535,

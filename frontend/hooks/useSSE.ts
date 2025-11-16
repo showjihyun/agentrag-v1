@@ -106,8 +106,8 @@ export function useSSE<T = any>(
         onError?.(event);
         cleanup();
 
-        // Attempt reconnection
-        if (reconnect && reconnectCountRef.current < maxReconnectAttempts) {
+        // Attempt reconnection only if enabled and not manually disconnected
+        if (reconnect && reconnectCountRef.current < maxReconnectAttempts && url) {
           reconnectCountRef.current++;
           
           setState(prev => ({
@@ -115,14 +115,20 @@ export function useSSE<T = any>(
             reconnectCount: reconnectCountRef.current,
           }));
 
-          const delay = reconnectInterval * Math.pow(2, reconnectCountRef.current - 1);
+          // Exponential backoff with jitter to prevent thundering herd
+          const baseDelay = reconnectInterval * Math.pow(2, reconnectCountRef.current - 1);
+          const jitter = Math.random() * 1000; // Add up to 1s random jitter
+          const delay = Math.min(baseDelay + jitter, 30000); // Cap at 30s
+          
+          console.log(`🔄 Reconnecting SSE in ${Math.round(delay)}ms (attempt ${reconnectCountRef.current}/${maxReconnectAttempts})...`);
           
           reconnectTimeoutRef.current = setTimeout(() => {
-            console.log(`Reconnecting SSE (attempt ${reconnectCountRef.current})...`);
-            connect();
+            if (url) { // Double-check URL still exists
+              connect();
+            }
           }, delay);
         } else if (reconnectCountRef.current >= maxReconnectAttempts) {
-          console.error('Max reconnection attempts reached');
+          console.error('❌ Max reconnection attempts reached. Giving up.');
           onClose?.();
         }
       };

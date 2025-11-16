@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { logger } from '@/lib/logger';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -107,21 +108,21 @@ export default function WorkflowsPage() {
   const loadWorkflows = async () => {
     try {
       setLoading(true);
-      console.log('🔄 Loading workflows...');
-      console.log('🔑 Token:', localStorage.getItem('token') ? 'Present' : 'Missing');
+      logger.log('🔄 Loading workflows...');
+      logger.log('🔑 Token:', localStorage.getItem('token') ? 'Present' : 'Missing');
       
       const response = await agentBuilderAPI.getWorkflows();
-      console.log('✅ Workflows loaded:', response);
-      console.log('📊 Workflows count:', response.workflows?.length || 0);
+      logger.log('✅ Workflows loaded:', response);
+      logger.log('📊 Workflows count:', response.workflows?.length || 0);
       
       if (response.workflows && response.workflows.length > 0) {
-        console.log('📝 First workflow:', response.workflows[0]);
+        logger.log('📝 First workflow:', response.workflows[0]);
       }
       
       setWorkflows(response.workflows || []);
     } catch (error: any) {
-      console.error('❌ Failed to load workflows:', error);
-      console.error('❌ Error details:', {
+      logger.error('❌ Failed to load workflows:', error);
+      logger.error('❌ Error details:', {
         message: error.message,
         status: error.status,
         detail: error.detail,

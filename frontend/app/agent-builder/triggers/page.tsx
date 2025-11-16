@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { agentBuilderAPI } from '@/lib/api/agent-builder';
+import { triggersAPI } from '@/lib/api/triggers';
 import { Plus, Search, Zap, Clock, Webhook, Mail, Calendar, Database, Play, Pause, Trash2, Power, PowerOff } from 'lucide-react';
 
 interface Trigger {
@@ -65,38 +66,24 @@ export default function TriggersPage() {
     try {
       setLoading(true);
       
-      // Load workflows and extract triggers from them
-      const workflowsData = await agentBuilderAPI.getWorkflows();
-      const workflows = workflowsData.workflows || [];
+      // Load triggers from API
+      const apiTriggers = await triggersAPI.listTriggers();
       
-      // Extract triggers from workflows
-      const extractedTriggers: Trigger[] = [];
+      // Convert API format to component format
+      const convertedTriggers: Trigger[] = apiTriggers.map((t: any) => ({
+        id: t.id,
+        name: t.name,
+        description: t.description || '',
+        type: t.trigger_type as any,
+        workflowId: t.workflow_id,
+        workflowName: t.workflow_name,
+        isActive: t.is_active,
+        config: t.config || {},
+        lastRun: t.last_triggered_at,
+        runCount: t.trigger_count || 0,
+      }));
       
-      workflows.forEach((workflow: any) => {
-        const nodes = workflow.graph_definition?.nodes || [];
-        const triggerNodes = nodes.filter((node: any) => 
-          node.node_type === 'trigger' || 
-          node.configuration?.type === 'trigger' ||
-          node.type === 'trigger'
-        );
-        
-        triggerNodes.forEach((node: any) => {
-          const config = node.configuration || node.data || {};
-          extractedTriggers.push({
-            id: node.id,
-            name: config.name || 'Unnamed Trigger',
-            description: config.description || '',
-            type: config.triggerType || 'manual',
-            workflowId: workflow.id,
-            workflowName: workflow.name,
-            isActive: workflow.is_active || false,
-            config: config.config || {},
-            runCount: 0, // TODO: Get from execution history
-          });
-        });
-      });
-      
-      setTriggers(extractedTriggers);
+      setTriggers(convertedTriggers);
     } catch (error: any) {
       console.error('Failed to load triggers:', error);
       toast({
@@ -109,16 +96,24 @@ export default function TriggersPage() {
   };
 
   const toggleTrigger = async (triggerId: string) => {
+    const trigger = triggers.find(t => t.id === triggerId);
+    if (!trigger) return;
+
     try {
-      // TODO: API 호출
+      if (trigger.isActive) {
+        await triggersAPI.deactivateTrigger(triggerId, trigger.type);
+      } else {
+        await triggersAPI.activateTrigger(triggerId, trigger.type);
+      }
+      
+      // Update local state
       setTriggers(triggers.map(t => 
         t.id === triggerId ? { ...t, isActive: !t.isActive } : t
       ));
       
-      const trigger = triggers.find(t => t.id === triggerId);
       toast({
         title: 'Success',
-        description: `Trigger ${trigger?.isActive ? 'deactivated' : 'activated'}`,
+        description: `Trigger ${trigger.isActive ? 'deactivated' : 'activated'}`,
       });
     } catch (error: any) {
       toast({
@@ -138,31 +133,34 @@ export default function TriggersPage() {
         description: `Running workflow: ${trigger.workflowName}`,
       });
 
-      // Execute the workflow
-      const result = await agentBuilderAPI.executeWorkflow(trigger.workflowId, {
-        trigger_id: triggerId,
-        trigger_type: trigger.type,
+      // Execute the trigger
+      const result = await triggersAPI.executeTrigger(triggerId, trigger.type, {
+        input_data: {},
       });
 
-      // Update trigger stats
-      setTriggers(triggers.map(t => 
-        t.id === triggerId ? { 
-          ...t, 
-          runCount: t.runCount + 1,
-          lastRun: new Date().toISOString()
-        } : t
-      ));
+      if (result.success) {
+        // Update trigger stats
+        setTriggers(triggers.map(t => 
+          t.id === triggerId ? { 
+            ...t, 
+            runCount: t.runCount + 1,
+            lastRun: new Date().toISOString()
+          } : t
+        ));
 
-      toast({
-        title: '✅ Execution Started',
-        description: `Workflow "${trigger.workflowName}" is now running`,
-      });
+        toast({
+          title: '✅ Execution Started',
+          description: `Workflow "${trigger.workflowName}" is now running`,
+        });
 
-      // Optionally navigate to execution details
-      if (result.execution_id) {
-        setTimeout(() => {
-          router.push(`/agent-builder/workflows/${trigger.workflowId}?tab=executions`);
-        }, 1000);
+        // Optionally navigate to execution details
+        if (result.execution_id) {
+          setTimeout(() => {
+            router.push(`/agent-builder/workflows/${trigger.workflowId}?tab=executions`);
+          }, 1000);
+        }
+      } else {
+        throw new Error(result.error || 'Execution failed');
       }
 
     } catch (error: any) {
@@ -175,10 +173,13 @@ export default function TriggersPage() {
   };
 
   const deleteTrigger = async (triggerId: string) => {
+    const trigger = triggers.find(t => t.id === triggerId);
+    if (!trigger) return;
+    
     if (!confirm('Are you sure you want to delete this trigger?')) return;
     
     try {
-      // TODO: API 호출
+      await triggersAPI.deleteTrigger(triggerId, trigger.type);
       setTriggers(triggers.filter(t => t.id !== triggerId));
       
       toast({

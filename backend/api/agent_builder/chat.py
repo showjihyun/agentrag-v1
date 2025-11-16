@@ -70,7 +70,7 @@ async def send_chat_message(
             raise HTTPException(status_code=404, detail="Workflow not found")
         
         # Check permissions
-        if workflow.user_id != current_user.id and not workflow.is_public:
+        if str(workflow.user_id) != str(current_user.id) and not workflow.is_public:
             logger.warning(
                 f"User {current_user.id} does not have permission "
                 f"to access workflow {workflow_id}"
@@ -206,7 +206,7 @@ async def get_chat_history(
             raise HTTPException(status_code=404, detail="Workflow not found")
         
         # Check permissions
-        if workflow.user_id != current_user.id and not workflow.is_public:
+        if str(workflow.user_id) != str(current_user.id) and not workflow.is_public:
             raise HTTPException(
                 status_code=403,
                 detail="You don't have permission to access this workflow"

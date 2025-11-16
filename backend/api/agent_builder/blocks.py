@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from backend.core.auth_dependencies import get_current_user
 from backend.db.database import get_db
 from backend.db.models.user import User
+from backend.db.transaction import transactional
 from backend.services.agent_builder.block_service import BlockService
 from backend.models.agent_builder import (
     BlockCreate,
@@ -312,7 +313,7 @@ async def delete_block(
                 detail=f"Block {block_id} not found"
             )
         
-        if existing_block.user_id != str(current_user.id):
+        if existing_str(block.user_id) != str(current_user.id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You don't have permission to delete this block"
@@ -494,7 +495,7 @@ async def test_block(
             )
         
         # Check permissions (owner or public)
-        if block.user_id != str(current_user.id) and not block.is_public:
+        if str(block.user_id) != str(current_user.id) and not block.is_public:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You don't have permission to test this block"
@@ -570,7 +571,7 @@ async def get_block_versions(
             )
         
         # Check permissions (owner or public)
-        if block.user_id != str(current_user.id) and not block.is_public:
+        if str(block.user_id) != str(current_user.id) and not block.is_public:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You don't have permission to access this block"

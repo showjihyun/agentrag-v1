@@ -131,13 +131,45 @@ export interface KnowledgebaseCreate {
 export interface KnowledgebaseUpdate {
   name?: string;
   description?: string;
+  embedding_model?: string;
+}
+
+export interface EmbeddingModel {
+  model_id: string;
+  name: string;
+  provider: string;
+  dimension: number;
+  max_tokens: number;
+  installed: boolean;
+  size_mb: number;
+  description: string;
+  requires_api_key?: boolean;
+}
+
+export interface ModelInstallResult {
+  model_id: string;
+  success: boolean;
+  message: string;
+  download_size_mb: number;
+  install_time_seconds: number;
 }
 
 export interface KnowledgebaseSearchResult {
+  chunk_id: string;
   document_id: string;
-  content: string;
+  text: string;
+  content?: string; // Alias for text (backward compatibility)
   score: number;
-  metadata?: Record<string, any>;
+  metadata?: {
+    filename?: string;
+    document_name?: string;
+    chunk_index?: number;
+    file_type?: string;
+    upload_date?: number;
+    page_number?: number;
+    line_number?: number;
+    [key: string]: any;
+  };
 }
 
 export interface DocumentUploadProgress {
@@ -364,6 +396,31 @@ class AgentBuilderAPI {
     });
   }
 
+  async executeAgent(agentId: string, data: { input: string; context?: any }): Promise<{
+    success: boolean;
+    execution_id?: string;
+    output?: any;
+    result?: any;
+    error?: string;
+  }> {
+    return this.request(`/api/agent-builder/agents/${agentId}/execute`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getAgentStats(agentId: string): Promise<{
+    agent_id: string;
+    total_runs: number;
+    successful_runs: number;
+    failed_runs: number;
+    success_rate: number;
+    avg_duration_ms: number | null;
+    last_run_at: string | null;
+  }> {
+    return this.request(`/api/agent-builder/agents/${agentId}/stats`);
+  }
+
   // Tool endpoints
   async getTools(): Promise<Tool[]> {
     const response = await this.request<{ tools: Tool[]; total: number; categories: string[] }>(
@@ -512,7 +569,12 @@ class AgentBuilderAPI {
       top_k: topK.toString(),
     });
 
-    return this.request(`/api/agent-builder/knowledgebases/${kbId}/search?${params.toString()}`);
+    const response = await this.request<{ results: KnowledgebaseSearchResult[]; query: string; total: number }>(
+      `/api/agent-builder/knowledgebases/${kbId}/search?${params.toString()}`
+    );
+    
+    // Extract results array from response object
+    return response.results || [];
   }
 
   async getKnowledgebaseVersions(kbId: string): Promise<any[]> {
@@ -899,6 +961,43 @@ class AgentBuilderAPI {
       method: 'DELETE',
     });
     if (!response.ok) throw new Error('Failed to release lock');
+    return response.json();
+  }
+
+  // Embedding Models APIs
+  async getAvailableModels(): Promise<EmbeddingModel[]> {
+    const response = await fetch(`${API_BASE_URL}/api/agent-builder/embedding-models/available`);
+    if (!response.ok) throw new Error('Failed to get available models');
+    return response.json();
+  }
+
+  async getInstalledModels(): Promise<string[]> {
+    const response = await fetch(`${API_BASE_URL}/api/agent-builder/embedding-models/installed`);
+    if (!response.ok) throw new Error('Failed to get installed models');
+    return response.json();
+  }
+
+  async installModel(modelId: string): Promise<ModelInstallResult> {
+    const response = await fetch(`${API_BASE_URL}/api/agent-builder/embedding-models/install`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model_id: modelId }),
+    });
+    if (!response.ok) throw new Error('Failed to install model');
+    return response.json();
+  }
+
+  async checkModelInstalled(modelId: string): Promise<{ model_id: string; installed: boolean }> {
+    const response = await fetch(`${API_BASE_URL}/api/agent-builder/embedding-models/check/${encodeURIComponent(modelId)}`);
+    if (!response.ok) throw new Error('Failed to check model');
+    return response.json();
+  }
+
+  async uninstallModel(modelId: string): Promise<{ success: boolean; message: string }> {
+    const response = await fetch(`${API_BASE_URL}/api/agent-builder/embedding-models/${encodeURIComponent(modelId)}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) throw new Error('Failed to uninstall model');
     return response.json();
   }
 }

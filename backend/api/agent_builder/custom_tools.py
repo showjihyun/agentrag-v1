@@ -193,7 +193,7 @@ async def get_custom_tool(
             )
         
         # Check access
-        if not tool.is_public and tool.user_id != current_user.id:
+        if not tool.is_public and str(tool.user_id) != str(current_user.id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access denied"
@@ -253,7 +253,7 @@ async def update_custom_tool(
                 detail="Tool not found"
             )
         
-        if tool.user_id != current_user.id:
+        if str(tool.user_id) != str(current_user.id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only owner can update tool"
@@ -298,7 +298,7 @@ async def delete_custom_tool(
                 detail="Tool not found"
             )
         
-        if tool.user_id != current_user.id:
+        if str(tool.user_id) != str(current_user.id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only owner can delete tool"
@@ -339,7 +339,7 @@ async def test_custom_tool(
             )
         
         # Check access
-        if not tool.is_public and tool.user_id != current_user.id:
+        if not tool.is_public and str(tool.user_id) != str(current_user.id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access denied"
@@ -526,7 +526,7 @@ async def get_tool_usage(
                 detail="Tool not found"
             )
         
-        if tool.user_id != current_user.id:
+        if str(tool.user_id) != str(current_user.id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access denied"

@@ -11,7 +11,7 @@ import ThemeToggle from '@/components/ThemeToggle';
 import Breadcrumb from '@/components/Breadcrumb';
 import SystemStatusBadge from '@/components/SystemStatusBadge';
 import AdminActions from '@/components/AdminActions';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Drawer } from '@/components/ui/Drawer';
 import WelcomeModal from '@/components/WelcomeModal';
 import OnboardingTour from '@/components/OnboardingTour';

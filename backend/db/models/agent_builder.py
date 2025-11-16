@@ -980,6 +980,59 @@ class WorkflowWebhook(Base):
         return f"<WorkflowWebhook(id={self.id}, path={self.webhook_path}, active={self.is_active})>"
 
 
+class TriggerExecution(Base):
+    """Trigger execution history model."""
+
+    __tablename__ = "trigger_executions"
+
+    # Primary Key
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    # Foreign Keys
+    workflow_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("workflows.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    execution_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("workflow_executions.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+    # Trigger Information
+    trigger_type = Column(String(50), nullable=False, index=True)  # webhook, schedule, chat, api, manual
+    trigger_id = Column(String(255), index=True)  # ID of specific trigger (webhook_id, schedule_id, etc.)
+    trigger_name = Column(String(255))  # Human-readable trigger name
+
+    # Execution Details
+    status = Column(String(50), nullable=False, index=True)  # success, failed, running, cancelled
+    trigger_data = Column(JSONB)  # Data that triggered the execution
+    error_message = Column(Text)
+    
+    # Performance Metrics
+    duration_ms = Column(Integer)  # Execution duration in milliseconds
+
+    # Timestamps
+    triggered_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    completed_at = Column(DateTime)
+
+    # Relationships
+    workflow = relationship("Workflow")
+    execution = relationship("WorkflowExecution")
+
+    # Indexes
+    __table_args__ = (
+        Index("ix_trigger_executions_workflow_time", "workflow_id", "triggered_at"),
+        Index("ix_trigger_executions_trigger", "trigger_type", "trigger_id"),
+        Index("ix_trigger_executions_status_time", "status", "triggered_at"),
+    )
+
+    def __repr__(self):
+        return f"<TriggerExecution(id={self.id}, type={self.trigger_type}, status={self.status})>"
+
+
 class WorkflowSubflow(Base):
     """Workflow subflow model for loops and parallel execution structures."""
 

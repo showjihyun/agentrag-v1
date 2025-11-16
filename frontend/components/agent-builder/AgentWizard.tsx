@@ -83,7 +83,13 @@ const STEPS = [
   },
 ];
 
-export function AgentWizard() {
+interface AgentWizardProps {
+  agentId?: string;
+  initialData?: any;
+  mode?: 'create' | 'edit';
+}
+
+export function AgentWizard({ agentId, initialData, mode = 'create' }: AgentWizardProps = {}) {
   const router = useRouter();
   const { toast } = useToast();
   const [currentStep, setCurrentStep] = React.useState(1);
@@ -95,13 +101,13 @@ export function AgentWizard() {
   const form = useForm<AgentFormValues>({
     resolver: zodResolver(agentFormSchema),
     defaultValues: {
-      name: '',
-      description: '',
-      agent_type: 'custom',
-      llm_provider: 'ollama',
-      llm_model: 'llama3.1',
-      prompt_template: '',
-      tool_ids: [],
+      name: initialData?.name || '',
+      description: initialData?.description || '',
+      agent_type: initialData?.agent_type || 'custom',
+      llm_provider: initialData?.llm_provider || 'ollama',
+      llm_model: initialData?.llm_model || 'llama3.1',
+      prompt_template: initialData?.prompt_template || '',
+      tool_ids: initialData?.tools?.map((t: any) => t.id || t.tool_id) || [],
     },
   });
 
@@ -226,24 +232,36 @@ export function AgentWizard() {
         tool_ids: data.tool_ids && data.tool_ids.length > 0 ? data.tool_ids : undefined,
       };
 
-      console.log('Creating agent with data:', agentData);
-      const createdAgent = await agentBuilderAPI.createAgent(agentData);
-      console.log('Agent created successfully:', createdAgent);
-      
-      // Clear draft
-      localStorage.removeItem('agent_draft');
-      
-      toast({
-        title: 'Agent created',
-        description: 'Your agent has been created successfully.',
-      });
+      if (mode === 'edit' && agentId) {
+        console.log('Updating agent with data:', agentData);
+        await agentBuilderAPI.updateAgent(agentId, agentData);
+        console.log('Agent updated successfully');
+        
+        toast({
+          title: 'Agent updated',
+          description: 'Your agent has been updated successfully.',
+        });
 
-      router.push('/agent-builder/agents');
+        router.push(`/agent-builder/agents/${agentId}`);
+      } else {
+        console.log('Creating agent with data:', agentData);
+        const createdAgent = await agentBuilderAPI.createAgent(agentData);
+        console.log('Agent created successfully:', createdAgent);
+        
+        // Clear draft
+        localStorage.removeItem('agent_draft');
+        
+        toast({
+          title: 'Agent created',
+          description: 'Your agent has been created successfully.',
+        });
+
+        router.push('/agent-builder/agents');
+      }
     } catch (error) {
       toast({
-        variant: 'destructive',
         title: 'Error',
-        description: 'Failed to create agent.',
+        description: mode === 'edit' ? 'Failed to update agent.' : 'Failed to create agent.',
       });
     } finally {
       setIsSubmitting(false);
@@ -795,13 +813,13 @@ export function AgentWizard() {
                 type="submit" 
                 disabled={isSubmitting}
                 onClick={(e) => {
-                  console.log('Create Agent button clicked');
+                  console.log(`${mode === 'edit' ? 'Update' : 'Create'} Agent button clicked`);
                   console.log('Form errors:', form.formState.errors);
                   console.log('Form values:', form.getValues());
                 }}
               >
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Create Agent
+                {mode === 'edit' ? 'Update Agent' : 'Create Agent'}
               </Button>
             )}
           </div>

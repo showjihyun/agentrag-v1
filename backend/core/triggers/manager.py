@@ -1,6 +1,7 @@
 """Trigger Manager for managing workflow triggers."""
 
 import logging
+import uuid
 from typing import Dict, Any, Optional, List
 from sqlalchemy.orm import Session
 from datetime import datetime
@@ -15,6 +16,7 @@ from backend.db.models.agent_builder import (
     Workflow,
     WorkflowWebhook,
     WorkflowSchedule,
+    TriggerExecution,
 )
 
 logger = logging.getLogger(__name__)
@@ -121,7 +123,9 @@ class TriggerManager:
         workflow_id: str,
         trigger_type: str,
         trigger_data: Dict[str, Any],
-        user_id: str
+        user_id: str,
+        trigger_id: Optional[str] = None,
+        trigger_name: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Execute workflow in response to trigger.
@@ -131,6 +135,8 @@ class TriggerManager:
             trigger_type: Type of trigger
             trigger_data: Data from trigger event
             user_id: User identifier
+            trigger_id: Optional trigger identifier
+            trigger_name: Optional trigger name
             
         Returns:
             Execution result
@@ -140,7 +146,24 @@ class TriggerManager:
             f"type={trigger_type}, user_id={user_id}"
         )
         
+        start_time = datetime.utcnow()
+        trigger_execution_id = None
+        
         try:
+            # Create trigger execution record
+            trigger_execution = TriggerExecution(
+                workflow_id=uuid.UUID(workflow_id),
+                trigger_type=trigger_type,
+                trigger_id=trigger_id,
+                trigger_name=trigger_name,
+                status="running",
+                trigger_data=trigger_data,
+                triggered_at=start_time,
+            )
+            self.db.add(trigger_execution)
+            self.db.commit()
+            trigger_execution_id = str(trigger_execution.id)
+            
             # Execute workflow
             context = await self.executor.execute(
                 workflow_id=workflow_id,
@@ -148,6 +171,17 @@ class TriggerManager:
                 trigger=trigger_type,
                 input_data=trigger_data
             )
+            
+            # Calculate duration
+            end_time = datetime.utcnow()
+            duration_ms = int((end_time - start_time).total_seconds() * 1000)
+            
+            # Update trigger execution record
+            trigger_execution.status = "success"
+            trigger_execution.execution_id = uuid.UUID(context.execution_id) if context.execution_id else None
+            trigger_execution.completed_at = end_time
+            trigger_execution.duration_ms = duration_ms
+            self.db.commit()
             
             # Log successful trigger
             self._log_trigger_execution(
@@ -161,8 +195,10 @@ class TriggerManager:
             return {
                 "success": True,
                 "execution_id": context.execution_id,
+                "trigger_execution_id": trigger_execution_id,
                 "status": context.status,
                 "outputs": context.get_final_outputs(),
+                "duration_ms": duration_ms,
             }
             
         except Exception as e:
@@ -171,6 +207,24 @@ class TriggerManager:
                 f"type={trigger_type}, error={str(e)}",
                 exc_info=True
             )
+            
+            # Update trigger execution record if created
+            if trigger_execution_id:
+                try:
+                    trigger_execution = self.db.query(TriggerExecution).filter(
+                        TriggerExecution.id == trigger_execution_id
+                    ).first()
+                    if trigger_execution:
+                        end_time = datetime.utcnow()
+                        duration_ms = int((end_time - start_time).total_seconds() * 1000)
+                        trigger_execution.status = "failed"
+                        trigger_execution.error_message = str(e)
+                        trigger_execution.completed_at = end_time
+                        trigger_execution.duration_ms = duration_ms
+                        self.db.commit()
+                except Exception as db_error:
+                    logger.error(f"Failed to update trigger execution record: {str(db_error)}")
+                    self.db.rollback()
             
             # Log failed trigger
             self._log_trigger_execution(
@@ -184,6 +238,7 @@ class TriggerManager:
             return {
                 "success": False,
                 "error": str(e),
+                "trigger_execution_id": trigger_execution_id,
             }
     
     async def get_trigger_status(

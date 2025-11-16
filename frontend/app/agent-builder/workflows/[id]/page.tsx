@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { logger } from '@/lib/logger';
 import { WorkflowEditor } from '@/components/workflow/WorkflowEditor';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +12,8 @@ import { useToast } from '@/hooks/use-toast';
 import { agentBuilderAPI } from '@/lib/api/agent-builder';
 import { ArrowLeft, Edit, Play, Copy, Trash, GitBranch, Clock, CheckCircle, XCircle, Eye } from 'lucide-react';
 import type { Node, Edge } from 'reactflow';
+import { useWorkflowExecutionStream } from '@/hooks/useWorkflowExecutionStream';
+import { ExecutionProgress } from '@/components/workflow/ExecutionProgress';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -65,11 +68,53 @@ export default function WorkflowViewPage() {
   const [loading, setLoading] = useState(true);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [executing, setExecuting] = useState(false);
+  const [executionId, setExecutionId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('canvas');
   const [executions, setExecutions] = useState<ExecutionRecord[]>([]);
   const [loadingExecutions, setLoadingExecutions] = useState(false);
   const [selectedExecution, setSelectedExecution] = useState<ExecutionRecord | null>(null);
   const [executionDetailsOpen, setExecutionDetailsOpen] = useState(false);
+
+  // SSE for real-time execution status
+  const {
+    nodeStatuses,
+    isConnected,
+    isComplete,
+  } = useWorkflowExecutionStream({
+    workflowId,
+    executionId: executionId || undefined,
+    enabled: executing,
+    onComplete: (status) => {
+      logger.log('✅ Workflow execution completed:', status);
+      setExecuting(false);
+      loadExecutions();
+      toast({
+        title: 'Execution Complete',
+        description: `Workflow execution ${status}`,
+      });
+    },
+    onError: (error) => {
+      logger.error('❌ Workflow execution error:', error);
+      setExecuting(false);
+      toast({
+        title: 'Execution Error',
+        description: error,
+        variant: 'error',
+      });
+    },
+  });
+
+  // Debug: Log SSE connection status and node statuses
+  useEffect(() => {
+    logger.log('🔍 SSE Debug:', {
+      executing,
+      executionId,
+      isConnected,
+      isComplete,
+      nodeStatusesCount: Object.keys(nodeStatuses).length,
+      nodeStatuses,
+    });
+  }, [executing, executionId, isConnected, isComplete, nodeStatuses]);
 
   useEffect(() => {
     loadWorkflow();
@@ -121,8 +166,17 @@ export default function WorkflowViewPage() {
     try {
       setLoading(true);
       const data = await agentBuilderAPI.getWorkflow(workflowId);
+      logger.log('📊 Workflow loaded:', {
+        id: data.id,
+        name: data.name,
+        nodesCount: data.graph_definition?.nodes?.length || 0,
+        edgesCount: data.graph_definition?.edges?.length || 0,
+        nodes: data.graph_definition?.nodes,
+        edges: data.graph_definition?.edges,
+      });
       setWorkflow(data);
     } catch (error: any) {
+      console.error('❌ Failed to load workflow:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to load workflow',
@@ -133,111 +187,56 @@ export default function WorkflowViewPage() {
   };
 
   const handleExecute = async () => {
+    logger.log('🚀 Starting workflow execution:', workflowId);
+    
+    // Generate execution ID
+    const execId = `exec-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    setExecutionId(execId);
     setExecuting(true);
-    try {
-      toast({
-        title: 'Executing',
-        description: 'Workflow execution started...',
-      });
-
-      const result = await agentBuilderAPI.executeWorkflow(workflowId, {});
-      
-      // Check if execution failed immediately
-      if (result.status === 'failed') {
-        toast({
-          title: 'Execution Failed',
-          description: result.message || result.error_message || 'Workflow execution failed',
-          variant: 'error',
-        });
-        setExecuting(false);
-        setActiveTab('executions');
-        loadExecutions();
-        return;
-      }
-      
-      const executionId = result.execution_id;
-
-      // Switch to executions tab immediately
-      setActiveTab('executions');
-
-      // Poll for execution status
-      let attempts = 0;
-      const maxAttempts = 20; // 10 seconds max
-      const pollInterval = setInterval(async () => {
-        attempts++;
-        
-        try {
-          const execData = await agentBuilderAPI.getWorkflowExecutions(workflowId, {
-            limit: 1,
-            offset: 0,
-          });
-          
-          const latestExec = execData.executions?.[0];
-          
-          if (latestExec && latestExec.id === executionId) {
-            if (latestExec.status !== 'running') {
-              // Execution completed
-              clearInterval(pollInterval);
-              loadExecutions();
-              
-              if (latestExec.status === 'completed' || latestExec.status === 'success') {
-                toast({
-                  title: 'Success',
-                  description: result.message || 'Workflow executed successfully',
-                  variant: 'success',
-                });
-              } else {
-                toast({
-                  title: 'Execution Failed',
-                  description: latestExec.error_message || result.message || 'Workflow execution failed',
-                  variant: 'error',
-                });
-              }
-              setExecuting(false);
-            }
-          }
-          
-          if (attempts >= maxAttempts) {
-            clearInterval(pollInterval);
-            loadExecutions();
-            setExecuting(false);
-          }
-        } catch (error) {
-          console.error('Error polling execution status:', error);
-        }
-      }, 500);
-
-    } catch (error: any) {
-      const errorMessage = error.message || error.detail || 'Failed to execute workflow';
-      toast({
-        title: 'Error',
-        description: errorMessage,
-        variant: 'error',
-      });
-      setExecuting(false);
-    }
+    
+    // Switch to executions tab to show progress
+    setActiveTab('executions');
+    
+    toast({
+      title: 'Executing',
+      description: 'Workflow execution started...',
+    });
+    
+    // SSE will handle the execution and status updates
+    // The useWorkflowExecutionStream hook will automatically connect
+    // and receive real-time updates
   };
 
   const handleDuplicate = async () => {
     if (!workflow) return;
 
     try {
-      await agentBuilderAPI.createWorkflow({
-        name: `${workflow.name} (Copy)`,
-        description: workflow.description,
-        graph_definition: workflow.graph_definition,
+      // Use the new duplicate endpoint
+      const response = await fetch(`/api/agent-builder/workflows/${workflowId}/duplicate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       });
+
+      if (!response.ok) {
+        throw new Error('Failed to duplicate workflow');
+      }
+
+      const newWorkflow = await response.json();
 
       toast({
-        title: 'Success',
-        description: 'Workflow duplicated successfully',
+        title: '✅ Workflow Duplicated',
+        description: 'Successfully created a copy of the workflow',
       });
 
-      router.push('/agent-builder/workflows');
+      // Navigate to the new workflow
+      router.push(`/agent-builder/workflows/${newWorkflow.id}`);
     } catch (error: any) {
       toast({
-        title: 'Error',
+        title: '❌ Error',
         description: error.message || 'Failed to duplicate workflow',
+        variant: 'destructive',
       });
     }
   };
@@ -285,12 +284,35 @@ export default function WorkflowViewPage() {
     );
   }
 
-  const nodes: Node[] = workflow.graph_definition.nodes.map((node: any) => ({
-    id: node.id,
-    type: node.node_type === 'control' ? (node.configuration?.type || 'block') : node.node_type,
-    position: node.position || { x: node.position_x || 0, y: node.position_y || 0 },
-    data: node.configuration || node.data || {},
-  }));
+  const nodes: Node[] = workflow.graph_definition.nodes.map((node: any) => {
+    // Determine node type
+    let nodeType = node.node_type || node.type;
+    
+    // Handle control nodes - they should have a specific type in configuration
+    if (nodeType === 'control') {
+      nodeType = node.configuration?.type || node.configuration?.nodeType || node.data?.type || 'start';
+      logger.log('🎛️ Control node detected:', {
+        originalType: node.node_type,
+        configType: node.configuration?.type,
+        finalType: nodeType,
+        configuration: node.configuration,
+      });
+    }
+    
+    const transformedNode = {
+      id: node.id,
+      type: nodeType,
+      position: node.position || { x: node.position_x || 0, y: node.position_y || 0 },
+      data: node.configuration || node.data || {},
+    };
+    
+    logger.log('🔄 Node transformation:', {
+      original: { id: node.id, type: node.node_type, config: node.configuration },
+      transformed: { id: transformedNode.id, type: transformedNode.type, data: transformedNode.data },
+    });
+    
+    return transformedNode;
+  });
 
   const edges: Edge[] = workflow.graph_definition.edges.map((edge: any) => ({
     id: edge.id,
@@ -400,21 +422,20 @@ export default function WorkflowViewPage() {
 
           <TabsContent value="executions" className="flex-1 m-0 overflow-auto">
             <div className="container mx-auto p-6">
-              {/* Running Executions Alert */}
+              {/* Real-time Execution Progress */}
               {executing && (
-                <Card className="mb-4 border-blue-500 bg-blue-50">
-                  <CardContent className="pt-6">
-                    <div className="flex items-center gap-3">
-                      <Clock className="h-5 w-5 text-blue-500 animate-spin" />
-                      <div className="flex-1">
-                        <div className="font-medium text-blue-900">Workflow Executing</div>
-                        <div className="text-sm text-blue-700">
-                          Your workflow is currently running. Results will appear below when complete.
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                <div className="mb-4">
+                  <ExecutionProgress
+                    workflowId={workflowId}
+                    executionId={executionId || undefined}
+                    isExecuting={executing}
+                    nodeStatuses={nodeStatuses}
+                    onNodeClick={(nodeId) => {
+                      logger.log('Node clicked:', nodeId);
+                      // Could highlight node in canvas
+                    }}
+                  />
+                </div>
               )}
               
               <Card>
@@ -453,7 +474,7 @@ export default function WorkflowViewPage() {
                             <TableCell>
                               <div className="flex flex-col gap-1">
                                 <div className="flex items-center gap-2">
-                                  {exec.status === 'success' || exec.status === 'completed' ? (
+                                  {exec.status === 'success' ? (
                                     <CheckCircle className="h-4 w-4 text-green-500" />
                                   ) : null}
                                   {exec.status === 'failed' && (
@@ -464,7 +485,7 @@ export default function WorkflowViewPage() {
                                   )}
                                   <Badge
                                     variant={
-                                      exec.status === 'success' || exec.status === 'completed'
+                                      exec.status === 'success'
                                         ? 'default'
                                         : exec.status === 'failed'
                                         ? 'destructive'

@@ -1,352 +1,361 @@
 """
-PostgreSQL Read Replica Manager
+Read replica support for database load balancing.
 
-Implements read/write splitting for improved performance and scalability.
+This module provides utilities for routing read queries to read replicas
+and write queries to the primary database.
 """
 
-import logging
-from typing import Generator, Optional
 from contextlib import contextmanager
+from typing import Optional, Generator
 from sqlalchemy import create_engine, event
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import QueuePool
-import time
+import logging
+import random
 
 from backend.config import settings
 
 logger = logging.getLogger(__name__)
 
 
-class ReadReplicaManager:
-    """
-    Manages read/write splitting between primary and replica databases.
-
-    Features:
-    - Automatic routing (read → replica, write → primary)
-    - Health checking and failover
-    - Connection pooling for both databases
-    - Replication lag monitoring
-    """
-
+class DatabaseRouter:
+    """Database router for read/write splitting"""
+    
     def __init__(
         self,
         primary_url: str,
-        replica_url: Optional[str] = None,
-        pool_size: int = 10,
-        max_overflow: int = 20,
-        health_check_interval: int = 30,
+        replica_urls: Optional[list[str]] = None,
+        pool_size: int = 20,
+        max_overflow: int = 30
     ):
         """
-        Initialize Read Replica Manager.
-
+        Initialize database router with primary and replica connections.
+        
         Args:
-            primary_url: Primary database URL
-            replica_url: Replica database URL (optional)
+            primary_url: Primary database URL (for writes)
+            replica_urls: List of read replica URLs (for reads)
             pool_size: Connection pool size
             max_overflow: Maximum overflow connections
-            health_check_interval: Health check interval in seconds
         """
         self.primary_url = primary_url
-        self.replica_url = replica_url or primary_url  # Fallback to primary
-        self.health_check_interval = health_check_interval
-
-        # Create engines
-        self.primary_engine = self._create_engine(
-            self.primary_url,
-            pool_size=pool_size,
-            max_overflow=max_overflow,
-            pool_name="primary",
-        )
-
-        if replica_url:
-            self.replica_engine = self._create_engine(
-                self.replica_url,
-                pool_size=pool_size * 2,  # More connections for reads
-                max_overflow=max_overflow * 2,
-                pool_name="replica",
-            )
-        else:
-            self.replica_engine = self.primary_engine
-            logger.warning("No replica URL provided, using primary for reads")
-
-        # Session factories
-        self.PrimarySession = sessionmaker(
-            autocommit=False, autoflush=False, bind=self.primary_engine
-        )
-
-        self.ReplicaSession = sessionmaker(
-            autocommit=False, autoflush=False, bind=self.replica_engine
-        )
-
-        # Health status
-        self._replica_healthy = True
-        self._last_health_check = 0
-
-        # Statistics
-        self.stats = {"read_queries": 0, "write_queries": 0, "replica_failovers": 0}
-
-        logger.info(
-            f"ReadReplicaManager initialized: "
-            f"primary={primary_url}, replica={replica_url}"
-        )
-
-    def _create_engine(
-        self, url: str, pool_size: int, max_overflow: int, pool_name: str
-    ):
-        """Create SQLAlchemy engine with optimized settings."""
-        engine = create_engine(
-            url,
+        self.replica_urls = replica_urls or []
+        
+        # Create primary engine
+        self.primary_engine = create_engine(
+            primary_url,
             poolclass=QueuePool,
             pool_size=pool_size,
             max_overflow=max_overflow,
+            pool_timeout=30,
+            pool_recycle=3600,
             pool_pre_ping=True,
-            pool_recycle=1800,  # 30 minutes
-            pool_timeout=10,
-            echo=settings.DEBUG,
-            connect_args={"options": f"-c statement_timeout=30000"},
+            echo_pool=False,
         )
-
-        # Add event listeners for monitoring
-        @event.listens_for(engine, "connect")
-        def receive_connect(dbapi_conn, connection_record):
-            logger.debug(f"New {pool_name} connection established")
-
-        return engine
-
-    def _check_replica_health(self) -> bool:
+        
+        # Create replica engines
+        self.replica_engines = []
+        for replica_url in self.replica_urls:
+            engine = create_engine(
+                replica_url,
+                poolclass=QueuePool,
+                pool_size=pool_size,
+                max_overflow=max_overflow,
+                pool_timeout=30,
+                pool_recycle=3600,
+                pool_pre_ping=True,
+                echo_pool=False,
+            )
+            self.replica_engines.append(engine)
+        
+        # Create session factories
+        self.PrimarySession = sessionmaker(
+            bind=self.primary_engine,
+            autocommit=False,
+            autoflush=False
+        )
+        
+        self.ReplicaSessions = [
+            sessionmaker(
+                bind=engine,
+                autocommit=False,
+                autoflush=False
+            )
+            for engine in self.replica_engines
+        ]
+        
+        logger.info(
+            f"Database router initialized: "
+            f"1 primary, {len(self.replica_engines)} replicas"
+        )
+    
+    def get_primary_session(self) -> Session:
+        """Get a session connected to the primary database (for writes)"""
+        return self.PrimarySession()
+    
+    def get_replica_session(self) -> Session:
         """
-        Check replica health.
-
-        Returns:
-            True if replica is healthy, False otherwise
+        Get a session connected to a read replica (for reads).
+        Falls back to primary if no replicas available.
         """
-        current_time = time.time()
-
-        # Skip if checked recently
-        if current_time - self._last_health_check < self.health_check_interval:
-            return self._replica_healthy
-
-        self._last_health_check = current_time
-
-        try:
-            # Simple health check query
-            with self.replica_engine.connect() as conn:
-                result = conn.execute("SELECT 1").scalar()
-                self._replica_healthy = result == 1
-
-            if not self._replica_healthy:
-                logger.warning("Replica health check failed")
-
-            return self._replica_healthy
-
-        except Exception as e:
-            logger.error(f"Replica health check error: {e}")
-            self._replica_healthy = False
-            return False
-
+        if not self.ReplicaSessions:
+            logger.debug("No replicas available, using primary")
+            return self.PrimarySession()
+        
+        # Random load balancing across replicas
+        session_factory = random.choice(self.ReplicaSessions)
+        return session_factory()
+    
     @contextmanager
-    def get_read_session(self) -> Generator[Session, None, None]:
-        """
-        Get session for read operations.
-
-        Uses replica if healthy, otherwise falls back to primary.
-
-        Yields:
-            Database session for read operations
-        """
-        self.stats["read_queries"] += 1
-
-        # Check replica health
-        if self._check_replica_health():
-            session = self.ReplicaSession()
-            logger.debug("Using replica for read")
-        else:
-            session = self.PrimarySession()
-            self.stats["replica_failovers"] += 1
-            logger.warning("Replica unhealthy, using primary for read")
-
+    def primary_session(self) -> Generator[Session, None, None]:
+        """Context manager for primary database session"""
+        session = self.get_primary_session()
+        try:
+            yield session
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
+    
+    @contextmanager
+    def replica_session(self) -> Generator[Session, None, None]:
+        """Context manager for read replica session"""
+        session = self.get_replica_session()
         try:
             yield session
         finally:
             session.close()
-
-    @contextmanager
-    def get_write_session(self) -> Generator[Session, None, None]:
-        """
-        Get session for write operations.
-
-        Always uses primary database.
-
-        Yields:
-            Database session for write operations
-        """
-        self.stats["write_queries"] += 1
-        session = self.PrimarySession()
-        logger.debug("Using primary for write")
-
-        try:
-            yield session
-        finally:
-            session.close()
-
-    def get_replication_lag(self) -> Optional[dict]:
-        """
-        Get replication lag information.
-
-        Returns:
-            Dictionary with lag information or None if not available
-        """
-        try:
-            with self.primary_engine.connect() as conn:
-                result = conn.execute(
-                    """
-                    SELECT
-                        client_addr,
-                        state,
-                        pg_wal_lsn_diff(sent_lsn, replay_lsn) AS lag_bytes,
-                        EXTRACT(EPOCH FROM (now() - replay_lag)) AS lag_seconds
-                    FROM pg_stat_replication
-                    WHERE application_name = 'walreceiver'
-                    LIMIT 1
-                """
-                ).fetchone()
-
-                if result:
-                    return {
-                        "client_addr": str(result[0]),
-                        "state": result[1],
-                        "lag_bytes": int(result[2]) if result[2] else 0,
-                        "lag_seconds": float(result[3]) if result[3] else 0,
-                    }
-                else:
-                    return None
-
-        except Exception as e:
-            logger.error(f"Failed to get replication lag: {e}")
-            return None
-
-    def get_stats(self) -> dict:
-        """
-        Get read/write statistics.
-
-        Returns:
-            Dictionary with statistics
-        """
-        total_queries = self.stats["read_queries"] + self.stats["write_queries"]
-        read_ratio = (
-            (self.stats["read_queries"] / total_queries * 100)
-            if total_queries > 0
-            else 0
-        )
-
-        return {
-            "read_queries": self.stats["read_queries"],
-            "write_queries": self.stats["write_queries"],
-            "total_queries": total_queries,
-            "read_ratio": round(read_ratio, 2),
-            "replica_failovers": self.stats["replica_failovers"],
-            "replica_healthy": self._replica_healthy,
-        }
-
-    def close(self):
-        """Close all connections."""
+    
+    def close_all(self):
+        """Close all database connections"""
         self.primary_engine.dispose()
-        if self.replica_engine != self.primary_engine:
-            self.replica_engine.dispose()
-        logger.info("ReadReplicaManager closed")
+        for engine in self.replica_engines:
+            engine.dispose()
+        logger.info("All database connections closed")
 
 
-# Global instance
-_replica_manager: Optional[ReadReplicaManager] = None
+# Global router instance
+_router: Optional[DatabaseRouter] = None
 
 
-def initialize_read_replica(
-    primary_url: str = None, replica_url: str = None
-) -> ReadReplicaManager:
+def init_database_router(
+    primary_url: Optional[str] = None,
+    replica_urls: Optional[list[str]] = None
+):
     """
-    Initialize global read replica manager.
-
+    Initialize the global database router.
+    
     Args:
-        primary_url: Primary database URL (default: from settings)
-        replica_url: Replica database URL (default: from settings)
-
-    Returns:
-        ReadReplicaManager instance
+        primary_url: Primary database URL (defaults to settings.DATABASE_URL)
+        replica_urls: List of replica URLs (defaults to settings.READ_REPLICA_URLS)
     """
-    global _replica_manager
+    global _router
+    
+    if _router is not None:
+        logger.warning("Database router already initialized")
+        return _router
+    
+    primary_url = primary_url or settings.DATABASE_URL
+    replica_urls = replica_urls or getattr(settings, 'READ_REPLICA_URLS', [])
+    
+    _router = DatabaseRouter(
+        primary_url=primary_url,
+        replica_urls=replica_urls
+    )
+    
+    return _router
 
-    if _replica_manager is None:
-        primary_url = primary_url or settings.DATABASE_URL
-        replica_url = replica_url or getattr(settings, "DATABASE_REPLICA_URL", None)
 
-        _replica_manager = ReadReplicaManager(
-            primary_url=primary_url,
-            replica_url=replica_url,
-            pool_size=settings.DB_POOL_SIZE,
-            max_overflow=settings.DB_MAX_OVERFLOW,
-        )
-
-        logger.info("Global read replica manager initialized")
-
-    return _replica_manager
-
-
-def get_replica_manager() -> ReadReplicaManager:
-    """
-    Get global read replica manager.
-
-    Returns:
-        ReadReplicaManager instance
-
-    Raises:
-        RuntimeError: If not initialized
-    """
-    if _replica_manager is None:
+def get_router() -> DatabaseRouter:
+    """Get the global database router instance"""
+    global _router
+    
+    if _router is None:
         raise RuntimeError(
-            "Read replica manager not initialized. "
-            "Call initialize_read_replica() first."
+            "Database router not initialized. "
+            "Call init_database_router() first."
         )
-    return _replica_manager
+    
+    return _router
 
 
-def get_db_read() -> Generator[Session, None, None]:
-    """
-    Get database session for read operations.
+# Convenience functions
 
-    Usage:
-        db = get_db_read()
-        documents = db.query(Document).all()
+def get_write_db() -> Session:
+    """Get a database session for write operations"""
+    return get_router().get_primary_session()
 
-    Yields:
-        Database session for read operations
-    """
-    manager = get_replica_manager()
-    with manager.get_read_session() as session:
+
+def get_read_db() -> Session:
+    """Get a database session for read operations"""
+    return get_router().get_replica_session()
+
+
+@contextmanager
+def write_session() -> Generator[Session, None, None]:
+    """Context manager for write operations"""
+    with get_router().primary_session() as session:
         yield session
 
 
-def get_db_write() -> Generator[Session, None, None]:
-    """
-    Get database session for write operations.
+@contextmanager
+def read_session() -> Generator[Session, None, None]:
+    """Context manager for read operations"""
+    with get_router().replica_session() as session:
+        yield session
 
-    Usage:
-        db = get_db_write()
-        db.add(document)
+
+# FastAPI dependency functions
+
+def get_write_db_dependency():
+    """FastAPI dependency for write database session"""
+    db = get_write_db()
+    try:
+        yield db
         db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
 
-    Yields:
-        Database session for write operations
+
+def get_read_db_dependency():
+    """FastAPI dependency for read database session"""
+    db = get_read_db()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+# Session routing decorator
+
+def use_replica(func):
     """
-    manager = get_replica_manager()
-    with manager.get_write_session() as session:
-        yield session
+    Decorator to force a function to use read replica.
+    
+    Usage:
+        @use_replica
+        def get_user(db: Session, user_id: str):
+            return db.query(User).filter(User.id == user_id).first()
+    """
+    def wrapper(*args, **kwargs):
+        # Check if 'db' is in kwargs
+        if 'db' in kwargs:
+            # Replace with replica session
+            original_db = kwargs['db']
+            kwargs['db'] = get_read_db()
+            try:
+                return func(*args, **kwargs)
+            finally:
+                kwargs['db'].close()
+                kwargs['db'] = original_db
+        else:
+            return func(*args, **kwargs)
+    
+    return wrapper
 
 
-def cleanup_read_replica():
-    """Cleanup global read replica manager."""
-    global _replica_manager
+# Health check functions
 
-    if _replica_manager:
-        _replica_manager.close()
-        _replica_manager = None
-        logger.info("Global read replica manager cleaned up")
+def check_primary_health() -> bool:
+    """Check if primary database is healthy"""
+    try:
+        with write_session() as db:
+            db.execute("SELECT 1")
+        return True
+    except Exception as e:
+        logger.error(f"Primary database health check failed: {e}")
+        return False
+
+
+def check_replica_health() -> dict:
+    """Check health of all read replicas"""
+    router = get_router()
+    results = {}
+    
+    for i, session_factory in enumerate(router.ReplicaSessions):
+        try:
+            session = session_factory()
+            session.execute("SELECT 1")
+            session.close()
+            results[f"replica_{i}"] = "healthy"
+        except Exception as e:
+            logger.error(f"Replica {i} health check failed: {e}")
+            results[f"replica_{i}"] = "unhealthy"
+    
+    return results
+
+
+# Example usage
+
+def example_read_query():
+    """Example: Read from replica"""
+    with read_session() as db:
+        from backend.db.models.user import User
+        users = db.query(User).limit(10).all()
+        return users
+
+
+def example_write_query():
+    """Example: Write to primary"""
+    with write_session() as db:
+        from backend.db.models.user import User
+        user = User(username="test", email="test@example.com")
+        db.add(user)
+        # Automatically committed by context manager
+
+
+def example_fastapi_endpoint():
+    """Example: FastAPI endpoint with read replica"""
+    from fastapi import Depends
+    
+    # Read endpoint - use replica
+    # @router.get("/users")
+    # async def list_users(db: Session = Depends(get_read_db_dependency)):
+    #     return db.query(User).all()
+    
+    # Write endpoint - use primary
+    # @router.post("/users")
+    # async def create_user(
+    #     user_data: UserCreate,
+    #     db: Session = Depends(get_write_db_dependency)
+    # ):
+    #     user = User(**user_data.dict())
+    #     db.add(user)
+    #     return user
+    
+    pass
+
+
+# Configuration example for settings.py
+
+"""
+# Add to backend/config.py:
+
+class Settings(BaseSettings):
+    # ... existing settings ...
+    
+    # Read replica URLs (comma-separated)
+    READ_REPLICA_URLS: Optional[str] = None
+    
+    @property
+    def read_replica_urls_list(self) -> list[str]:
+        if not self.READ_REPLICA_URLS:
+            return []
+        return [url.strip() for url in self.READ_REPLICA_URLS.split(',')]
+
+# Usage in main.py:
+
+from backend.db.read_replica import init_database_router
+
+@app.on_event("startup")
+async def startup_event():
+    # Initialize database router
+    init_database_router(
+        primary_url=settings.DATABASE_URL,
+        replica_urls=settings.read_replica_urls_list
+    )
+"""

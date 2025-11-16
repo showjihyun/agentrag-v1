@@ -174,7 +174,7 @@ async def get_schedule(
             )
         
         # Check ownership
-        if schedule.user_id != str(current_user.id):
+        if str(schedule.user_id) != str(current_user.id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access denied"
@@ -215,7 +215,7 @@ async def update_schedule(
                 detail="Schedule not found"
             )
         
-        if schedule.user_id != str(current_user.id):
+        if str(schedule.user_id) != str(current_user.id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access denied"
@@ -271,7 +271,7 @@ async def delete_schedule(
                 detail="Schedule not found"
             )
         
-        if schedule.user_id != str(current_user.id):
+        if str(schedule.user_id) != str(current_user.id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access denied"
@@ -314,7 +314,7 @@ async def pause_schedule(
                 detail="Schedule not found"
             )
         
-        if schedule.user_id != str(current_user.id):
+        if str(schedule.user_id) != str(current_user.id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access denied"
@@ -359,7 +359,7 @@ async def resume_schedule(
                 detail="Schedule not found"
             )
         
-        if schedule.user_id != str(current_user.id):
+        if str(schedule.user_id) != str(current_user.id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access denied"
@@ -446,7 +446,7 @@ async def get_execution(
             )
         
         # Check ownership
-        if execution.user_id != str(current_user.id):
+        if str(execution.user_id) != str(current_user.id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access denied"

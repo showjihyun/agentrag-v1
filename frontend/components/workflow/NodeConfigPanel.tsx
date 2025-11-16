@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Node } from 'reactflow';
-import { X, Settings, Trash2 } from 'lucide-react';
+import { X, Settings, Trash2, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RetryConfig } from './RetryConfig';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 
 interface NodeConfigPanelProps {
@@ -525,6 +526,40 @@ export function NodeConfigPanel({ node, onClose, onUpdate, onDelete }: NodeConfi
             </div>
             <span className="text-sm text-muted-foreground">ID: {node.id}</span>
           </div>
+
+          <Separator />
+
+          {/* Node Enable/Disable Toggle */}
+          {node.type !== 'start' && node.type !== 'end' && (
+            <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+              <div className="flex items-center gap-2">
+                {config.disabled ? (
+                  <EyeOff className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <Eye className="h-4 w-4 text-primary" />
+                )}
+                <div>
+                  <Label htmlFor="node-enabled" className="cursor-pointer">
+                    {config.disabled ? 'Node Disabled' : 'Node Enabled'}
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    {config.disabled 
+                      ? 'This node will be skipped during execution' 
+                      : 'This node will execute normally'}
+                  </p>
+                </div>
+              </div>
+              <Switch
+                id="node-enabled"
+                checked={!config.disabled}
+                onCheckedChange={(checked) => {
+                  const newConfig = { ...config, disabled: !checked };
+                  setConfig(newConfig);
+                  onUpdate(node.id, newConfig);
+                }}
+              />
+            </div>
+          )}
 
           <Separator />
 

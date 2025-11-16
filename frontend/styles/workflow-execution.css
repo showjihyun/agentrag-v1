@@ -1,0 +1,315 @@
+/* Workflow Execution Visualization Styles */
+
+/* Node Status Colors */
+.node-idle {
+  border: 2px solid #d1d5db;
+  background-color: #ffffff;
+}
+
+.node-pending {
+  border: 2px solid #fbbf24;
+  background-color: #fef3c7;
+  box-shadow: 0 0 10px rgba(251, 191, 36, 0.3);
+}
+
+.node-running {
+  border: 3px solid #3b82f6;
+  background-color: #dbeafe;
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+  animation: pulse-blue 2s infinite;
+}
+
+.node-success {
+  border: 2px solid #10b981;
+  background-color: #d1fae5;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+}
+
+.node-error {
+  border: 2px solid #ef4444;
+  background-color: #fee2e2;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.3);
+  animation: shake 0.5s;
+}
+
+.node-skipped {
+  border: 2px dashed #9ca3af;
+  background-color: #f3f4f6;
+  opacity: 0.6;
+}
+
+/* Pulse Animation for Running Nodes */
+@keyframes pulse-blue {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(59, 130, 246, 0.8);
+    transform: scale(1.02);
+  }
+}
+
+/* Shake Animation for Error Nodes */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+  20%, 40%, 60%, 80% { transform: translateX(5px); }
+}
+
+/* Success Fade In Animation */
+@keyframes fade-in-success {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.node-success {
+  animation: fade-in-success 0.3s ease-out;
+}
+
+/* Status Badge */
+.node-status-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+  z-index: 10;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.status-badge-pending {
+  background-color: #fbbf24;
+  color: #78350f;
+}
+
+.status-badge-running {
+  background-color: #3b82f6;
+  color: white;
+  animation: spin 1s linear infinite;
+}
+
+.status-badge-success {
+  background-color: #10b981;
+  color: white;
+}
+
+.status-badge-error {
+  background-color: #ef4444;
+  color: white;
+}
+
+.status-badge-skipped {
+  background-color: #9ca3af;
+  color: white;
+}
+
+/* Spin Animation for Running Badge */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Progress Bar Inside Node */
+.node-progress-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background-color: rgba(59, 130, 246, 0.2);
+  overflow: hidden;
+}
+
+.node-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #60a5fa);
+  animation: progress-slide 1.5s ease-in-out infinite;
+}
+
+@keyframes progress-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Execution Timer */
+.node-timer {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-family: monospace;
+  z-index: 5;
+}
+
+/* Edge Animation for Data Flow */
+.edge-animated {
+  stroke-dasharray: 5, 5;
+  animation: edge-flow 1s linear infinite;
+}
+
+@keyframes edge-flow {
+  to {
+    stroke-dashoffset: -10;
+  }
+}
+
+.edge-success {
+  stroke: #10b981;
+  stroke-width: 2;
+}
+
+.edge-error {
+  stroke: #ef4444;
+  stroke-width: 2;
+}
+
+.edge-active {
+  stroke: #3b82f6;
+  stroke-width: 3;
+  filter: drop-shadow(0 0 4px rgba(59, 130, 246, 0.6));
+}
+
+/* Execution Control Panel */
+.execution-control-panel {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 16px;
+  z-index: 1000;
+  min-width: 300px;
+}
+
+.execution-control-panel.dark {
+  background: #1f2937;
+  color: white;
+}
+
+/* Status Indicator */
+.status-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.status-indicator-running {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+.status-indicator-success {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.status-indicator-error {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.status-indicator-idle {
+  background-color: #f3f4f6;
+  color: #4b5563;
+}
+
+/* Execution Stats */
+.execution-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.stat-item {
+  text-align: center;
+  padding: 8px;
+  background-color: #f9fafb;
+  border-radius: 8px;
+}
+
+.stat-item.dark {
+  background-color: #374151;
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: bold;
+  color: #1f2937;
+}
+
+.stat-value.dark {
+  color: #f9fafb;
+}
+
+.stat-label {
+  font-size: 11px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
+.stat-label.dark {
+  color: #9ca3af;
+}
+
+/* Node Output Preview */
+.node-output-preview {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 8px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+  max-width: 300px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 100;
+  font-size: 12px;
+}
+
+.node-output-preview.dark {
+  background: #1f2937;
+  border-color: #374151;
+  color: white;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .execution-control-panel {
+    bottom: 10px;
+    right: 10px;
+    left: 10px;
+    min-width: auto;
+  }
+  
+  .execution-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

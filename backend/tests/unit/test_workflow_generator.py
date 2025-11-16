@@ -75,6 +75,7 @@ class TestWorkflowGenerator:
     async def test_generate_workflow_simple(self, generator, mock_llm_response):
         """Test simple workflow generation"""
         with patch.object(generator.llm_manager, 'generate_completion', 
+                         new_callable=AsyncMock,
                          return_value=mock_llm_response):
             result = await generator.generate_workflow(
                 description="Send a Slack notification",
@@ -93,6 +94,7 @@ class TestWorkflowGenerator:
     async def test_generate_workflow_with_context(self, generator, mock_llm_response):
         """Test workflow generation with additional context"""
         with patch.object(generator.llm_manager, 'generate_completion',
+                         new_callable=AsyncMock,
                          return_value=mock_llm_response):
             result = await generator.generate_workflow(
                 description="Send email notification",
@@ -151,6 +153,9 @@ class TestWorkflowGenerator:
         assert "description" in result
         assert result["description"] == "Test description"
         assert "id" in result["nodes"][0]
+        # Should convert to backend format
+        assert "node_type" in result["nodes"][0]
+        assert "configuration" in result["nodes"][0]
     
     def test_validate_and_enhance_adds_edge_ids(self, generator):
         """Test validation adds IDs to edges"""
@@ -168,8 +173,10 @@ class TestWorkflowGenerator:
         result = generator._validate_and_enhance(workflow_def, "Test")
         
         assert "id" in result["edges"][0]
-        assert "type" in result["edges"][0]
-        assert result["edges"][0]["type"] == "custom"
+        # Should convert to backend format
+        assert "source_node_id" in result["edges"][0]
+        assert "target_node_id" in result["edges"][0]
+        assert "edge_type" in result["edges"][0]
     
     def test_validate_and_enhance_invalid_node_types(self, generator):
         """Test validation fixes invalid node types"""
@@ -183,54 +190,54 @@ class TestWorkflowGenerator:
         
         result = generator._validate_and_enhance(workflow_def, "Test")
         
-        assert result["nodes"][0]["type"] == "block"  # Should default to block
+        # Should default to block and convert to backend format
+        assert result["nodes"][0]["node_type"] == "block"
     
     def test_auto_layout_simple_chain(self, generator):
         """Test auto-layout for simple chain workflow"""
         workflow_def = {
             "name": "Test",
             "nodes": [
-                {"id": "start", "type": "start"},
-                {"id": "middle", "type": "agent"},
-                {"id": "end", "type": "end"}
+                {"id": "start", "node_type": "start"},
+                {"id": "middle", "node_type": "agent"},
+                {"id": "end", "node_type": "end"}
             ],
             "edges": [
-                {"source": "start", "target": "middle"},
-                {"source": "middle", "target": "end"}
+                {"source_node_id": "start", "target_node_id": "middle"},
+                {"source_node_id": "middle", "target_node_id": "end"}
             ]
         }
         
         result = generator._auto_layout_nodes(workflow_def)
         
-        # Check that positions are assigned
+        # Check that positions are assigned (backend format)
         for node in result["nodes"]:
-            assert "position" in node
-            assert "x" in node["position"]
-            assert "y" in node["position"]
+            assert "position_x" in node
+            assert "position_y" in node
         
         # Check vertical ordering (Y coordinates should increase)
         start_node = next(n for n in result["nodes"] if n["id"] == "start")
         middle_node = next(n for n in result["nodes"] if n["id"] == "middle")
         end_node = next(n for n in result["nodes"] if n["id"] == "end")
         
-        assert start_node["position"]["y"] < middle_node["position"]["y"]
-        assert middle_node["position"]["y"] < end_node["position"]["y"]
+        assert start_node["position_y"] < middle_node["position_y"]
+        assert middle_node["position_y"] < end_node["position_y"]
     
     def test_auto_layout_parallel_branches(self, generator):
         """Test auto-layout for parallel branches"""
         workflow_def = {
             "name": "Test",
             "nodes": [
-                {"id": "start", "type": "start"},
-                {"id": "branch1", "type": "agent"},
-                {"id": "branch2", "type": "agent"},
-                {"id": "end", "type": "end"}
+                {"id": "start", "node_type": "start"},
+                {"id": "branch1", "node_type": "agent"},
+                {"id": "branch2", "node_type": "agent"},
+                {"id": "end", "node_type": "end"}
             ],
             "edges": [
-                {"source": "start", "target": "branch1"},
-                {"source": "start", "target": "branch2"},
-                {"source": "branch1", "target": "end"},
-                {"source": "branch2", "target": "end"}
+                {"source_node_id": "start", "target_node_id": "branch1"},
+                {"source_node_id": "start", "target_node_id": "branch2"},
+                {"source_node_id": "branch1", "target_node_id": "end"},
+                {"source_node_id": "branch2", "target_node_id": "end"}
             ]
         }
         
@@ -240,7 +247,7 @@ class TestWorkflowGenerator:
         branch1 = next(n for n in result["nodes"] if n["id"] == "branch1")
         branch2 = next(n for n in result["nodes"] if n["id"] == "branch2")
         
-        assert branch1["position"]["x"] != branch2["position"]["x"]
+        assert branch1["position_x"] != branch2["position_x"]
     
     @pytest.mark.asyncio
     async def test_suggest_improvements_no_error_handling(self, generator):

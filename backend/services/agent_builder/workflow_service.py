@@ -314,7 +314,7 @@ class WorkflowService:
         entry_point: str
     ) -> WorkflowValidationResult:
         """
-        Validate workflow definition.
+        Validate workflow definition with enhanced checks.
         
         Args:
             nodes: List of workflow nodes
@@ -332,8 +332,9 @@ class WorkflowService:
             errors.append("Workflow must have at least one node")
             return WorkflowValidationResult(is_valid=False, errors=errors)
         
-        # Build node ID set
+        # Build node ID set and type map
         node_ids = {node.id for node in nodes}
+        node_types = {node.id: node.node_type for node in nodes}
         
         # Validate entry point
         if entry_point not in node_ids:
@@ -350,16 +351,57 @@ class WorkflowService:
             # Validate conditional edges have conditions
             if edge.edge_type == "conditional" and not edge.condition:
                 errors.append(f"Conditional edge '{edge.id}' missing condition")
+            
+            # Validate self-loops
+            if edge.source_node_id == edge.target_node_id:
+                warnings.append(f"Self-loop detected on node '{edge.source_node_id}'")
         
-        # Check for cycles
+        # Check for cycles (excluding intentional loops)
         has_cycle, cycle_path = self._detect_cycle(nodes, edges)
         if has_cycle:
-            errors.append(f"Workflow contains cycle: {' -> '.join(cycle_path)}")
+            # Check if cycle is intentional (loop node)
+            is_intentional_loop = any(
+                node_types.get(node_id) == "loop" for node_id in cycle_path
+            )
+            if not is_intentional_loop:
+                errors.append(f"Workflow contains unintentional cycle: {' -> '.join(cycle_path)}")
+            else:
+                warnings.append(f"Loop detected (intentional): {' -> '.join(cycle_path)}")
         
         # Check for disconnected nodes
         disconnected = self._find_disconnected_nodes(nodes, edges, entry_point)
         if disconnected:
             warnings.append(f"Disconnected nodes found: {', '.join(disconnected)}")
+        
+        # Validate node configurations
+        config_errors, config_warnings = self._validate_node_configurations(nodes)
+        errors.extend(config_errors)
+        warnings.extend(config_warnings)
+        
+        # Check for missing end nodes
+        end_nodes = [n for n in nodes if n.node_type == "end"]
+        if not end_nodes:
+            warnings.append("No end node found. Workflow may not have a clear termination point.")
+        
+        # Check for unreachable end nodes
+        for end_node in end_nodes:
+            if end_node.id in disconnected:
+                errors.append(f"End node '{end_node.id}' is unreachable from entry point")
+        
+        # Validate loop nodes have max iterations
+        for node in nodes:
+            if node.node_type == "loop":
+                config = node.configuration or {}
+                if not config.get("maxIterations"):
+                    warnings.append(f"Loop node '{node.id}' has no maxIterations limit")
+        
+        # Validate parallel nodes have branches
+        for node in nodes:
+            if node.node_type == "parallel":
+                config = node.configuration or {}
+                branches = config.get("branches", [])
+                if not branches:
+                    errors.append(f"Parallel node '{node.id}' has no branches defined")
         
         is_valid = len(errors) == 0
         
@@ -368,6 +410,100 @@ class WorkflowService:
             errors=errors,
             warnings=warnings
         )
+    
+    def _validate_node_configurations(
+        self,
+        nodes: List[Any]
+    ) -> tuple[List[str], List[str]]:
+        """
+        Validate node configurations.
+        
+        Args:
+            nodes: List of workflow nodes
+            
+        Returns:
+            Tuple of (errors, warnings)
+        """
+        errors = []
+        warnings = []
+        
+        for node in nodes:
+            node_type = node.node_type
+            config = node.configuration or {}
+            
+            # Validate agent nodes
+            if node_type == "agent":
+                if not config.get("agentId") and not config.get("agent_id"):
+                    errors.append(f"Agent node '{node.id}' missing agentId")
+            
+            # Validate block nodes
+            elif node_type == "block":
+                if not config.get("blockId") and not config.get("block_id"):
+                    errors.append(f"Block node '{node.id}' missing blockId")
+            
+            # Validate tool nodes
+            elif node_type == "tool":
+                if not config.get("toolId") and not config.get("tool_id"):
+                    errors.append(f"Tool node '{node.id}' missing toolId")
+            
+            # Validate condition nodes
+            elif node_type == "condition":
+                if not config.get("condition"):
+                    warnings.append(f"Condition node '{node.id}' has no condition expression")
+            
+            # Validate HTTP request nodes
+            elif node_type == "http_request":
+                if not config.get("url"):
+                    errors.append(f"HTTP request node '{node.id}' missing URL")
+                
+                method = config.get("method", "GET")
+                if method not in ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"]:
+                    errors.append(f"HTTP request node '{node.id}' has invalid method: {method}")
+            
+            # Validate code nodes
+            elif node_type == "code":
+                if not config.get("code"):
+                    warnings.append(f"Code node '{node.id}' has no code")
+                
+                language = config.get("language", "javascript")
+                if language not in ["python", "javascript"]:
+                    errors.append(f"Code node '{node.id}' has unsupported language: {language}")
+            
+            # Validate database nodes
+            elif node_type == "database":
+                if not config.get("query") and not config.get("operation"):
+                    warnings.append(f"Database node '{node.id}' has no query or operation")
+            
+            # Validate S3 nodes
+            elif node_type == "s3":
+                if not config.get("bucket"):
+                    errors.append(f"S3 node '{node.id}' missing bucket name")
+                
+                action = config.get("action", "upload")
+                if action in ["upload", "download", "delete"] and not config.get("key"):
+                    errors.append(f"S3 node '{node.id}' missing key for {action} action")
+            
+            # Validate human approval nodes
+            elif node_type == "human_approval":
+                approvers = config.get("approvers", [])
+                if not approvers:
+                    errors.append(f"Human approval node '{node.id}' has no approvers")
+            
+            # Validate manager agent nodes
+            elif node_type == "manager_agent":
+                sub_agents = config.get("subAgents", [])
+                if not sub_agents:
+                    errors.append(f"Manager agent node '{node.id}' has no sub-agents")
+            
+            # Validate consensus nodes
+            elif node_type == "consensus":
+                agents = config.get("agents", [])
+                if not agents:
+                    errors.append(f"Consensus node '{node.id}' has no agents")
+                elif len(agents) < 2:
+                    warnings.append(f"Consensus node '{node.id}' has only {len(agents)} agent(s)")
+        
+        return errors, warnings
     
     def export_workflow(self, workflow_id: str) -> Optional[Dict[str, Any]]:
         """

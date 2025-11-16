@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { agentBuilderAPI, Knowledgebase, KnowledgebaseCreate } from '@/lib/api/agent-builder';
 import { useRouter } from 'next/navigation';
@@ -103,6 +104,7 @@ export default function KnowledgebaseManagerPage() {
     setFormData({
       name: kb.name,
       description: kb.description || '',
+      embedding_model: kb.embedding_model,
     });
     setCreateDialogOpen(true);
   };
@@ -132,10 +134,15 @@ export default function KnowledgebaseManagerPage() {
         await agentBuilderAPI.updateKnowledgebase(editingKb.id, {
           name: formData.name,
           description: formData.description,
+          embedding_model: formData.embedding_model,
         });
+        
+        const modelChanged = editingKb.embedding_model !== formData.embedding_model;
         toast({
           title: '✅ Updated Successfully',
-          description: `"${formData.name}" has been updated`,
+          description: modelChanged 
+            ? `"${formData.name}" has been updated. Documents will be re-embedded with the new model.`
+            : `"${formData.name}" has been updated`,
         });
       } else {
         await agentBuilderAPI.createKnowledgebase(formData);
@@ -196,8 +203,21 @@ export default function KnowledgebaseManagerPage() {
     router.push(`/agent-builder/knowledgebases/${kbId}/search`);
   };
 
-  const handleViewVersions = (kbId: string) => {
-    router.push(`/agent-builder/knowledgebases/${kbId}/versions`);
+  const handleViewVersions = async (kbId: string) => {
+    try {
+      const versions = await agentBuilderAPI.getKnowledgebaseVersions(kbId);
+      // TODO: Show versions in a modal or dialog
+      console.log('Versions:', versions);
+      toast({
+        title: 'Versions',
+        description: `Found ${versions.length} version(s)`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to load versions',
+      });
+    }
   };
 
   const handleSelectAll = () => {
@@ -391,33 +411,33 @@ export default function KnowledgebaseManagerPage() {
       {!loading && knowledgebases.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
-            <CardHeader className="pb-3">
+            <CardHeader className="pb-4">
               <CardTitle className="text-sm font-medium text-muted-foreground">
                 Total Knowledgebases
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.total}</div>
+            <CardContent className="pt-0">
+              <div className="text-3xl font-bold">{stats.total}</div>
             </CardContent>
           </Card>
           <Card>
-            <CardHeader className="pb-3">
+            <CardHeader className="pb-4">
               <CardTitle className="text-sm font-medium text-muted-foreground">
                 Total Documents
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.totalDocuments.toLocaleString()}</div>
+            <CardContent className="pt-0">
+              <div className="text-3xl font-bold">{stats.totalDocuments.toLocaleString()}</div>
             </CardContent>
           </Card>
           <Card>
-            <CardHeader className="pb-3">
+            <CardHeader className="pb-4">
               <CardTitle className="text-sm font-medium text-muted-foreground">
                 Total Size
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{formatBytes(stats.totalSize)}</div>
+            <CardContent className="pt-0">
+              <div className="text-3xl font-bold">{formatBytes(stats.totalSize)}</div>
             </CardContent>
           </Card>
         </div>
@@ -519,7 +539,7 @@ export default function KnowledgebaseManagerPage() {
             )}
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="overflow-visible">
           {loading ? (
             <div className="space-y-2">
               {[...Array(3)].map((_, i) => (
@@ -569,8 +589,9 @@ export default function KnowledgebaseManagerPage() {
               </div>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
+            <div className="relative overflow-visible">
+              <Table>
+                <TableHeader>
                 <TableRow>
                   <TableHead className="w-12">
                     <button
@@ -596,23 +617,23 @@ export default function KnowledgebaseManagerPage() {
                 {filteredAndSortedKbs.map((kb) => (
                   <TableRow 
                     key={kb.id}
-                    className={selectedKbs.has(kb.id) ? 'bg-muted/50' : ''}
+                    className={`h-20 ${selectedKbs.has(kb.id) ? 'bg-muted/50' : ''}`}
                   >
-                    <TableCell>
+                    <TableCell className="py-4">
                       <button
                         onClick={() => handleSelectKb(kb.id)}
-                        className="flex items-center justify-center w-full"
+                        className="flex items-center justify-center w-full hover:opacity-70 transition-opacity"
                       >
                         {selectedKbs.has(kb.id) ? (
-                          <CheckSquare className="h-4 w-4 text-primary" />
+                          <CheckSquare className="h-5 w-5 text-primary" />
                         ) : (
-                          <Square className="h-4 w-4" />
+                          <Square className="h-5 w-5" />
                         )}
                       </button>
                     </TableCell>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{kb.name}</div>
+                    <TableCell className="py-4">
+                      <div className="space-y-1">
+                        <div className="font-medium text-base">{kb.name}</div>
                         {kb.description && (
                           <div className="text-sm text-muted-foreground line-clamp-1">
                             {kb.description}
@@ -620,57 +641,75 @@ export default function KnowledgebaseManagerPage() {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="py-4">
                       <div className="flex items-center gap-2">
                         <FileText className="h-4 w-4 text-muted-foreground" />
-                        <span>{kb.document_count || 0}</span>
+                        <span className="font-medium">{kb.document_count || 0}</span>
                       </div>
                     </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">
+                    <TableCell className="py-4">
+                      <Badge variant="outline" className="font-medium">
                         {formatBytes(kb.total_size)}
                       </Badge>
                     </TableCell>
-                    <TableCell>
-                      <code className="text-xs bg-muted px-2 py-1 rounded">
+                    <TableCell className="py-4">
+                      <code className="text-xs bg-muted px-2.5 py-1.5 rounded font-mono">
                         {kb.embedding_model}
                       </code>
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
+                    <TableCell className="text-sm text-muted-foreground py-4">
                       {formatDate(kb.created_at)}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right py-4">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon">
                             <MoreVertical className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleUploadDocuments(kb.id)}>
+                        <DropdownMenuContent 
+                          align="end" 
+                          className="w-56 max-h-[400px] overflow-y-auto z-50"
+                        >
+                          <DropdownMenuItem 
+                            onClick={() => handleUploadDocuments(kb.id)}
+                            className="cursor-pointer"
+                          >
                             <Upload className="mr-2 h-4 w-4" />
                             Upload Documents
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleSearch(kb.id)}>
+                          <DropdownMenuItem 
+                            onClick={() => handleSearch(kb.id)}
+                            className="cursor-pointer"
+                          >
                             <SearchIcon className="mr-2 h-4 w-4" />
                             Search
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleViewVersions(kb.id)}>
+                          <DropdownMenuItem 
+                            onClick={() => handleViewVersions(kb.id)}
+                            className="cursor-pointer"
+                          >
                             <History className="mr-2 h-4 w-4" />
                             Version History
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => handleDuplicate(kb.id)}>
+                          <DropdownMenuItem 
+                            onClick={() => handleDuplicate(kb.id)}
+                            className="cursor-pointer"
+                          >
                             <Copy className="mr-2 h-4 w-4" />
                             Duplicate
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleEdit(kb)}>
+                          <DropdownMenuItem 
+                            onClick={() => handleEdit(kb)}
+                            className="cursor-pointer"
+                          >
                             <Edit className="mr-2 h-4 w-4" />
                             Edit
                           </DropdownMenuItem>
                           <DropdownMenuItem 
                             onClick={() => handleDelete(kb.id)}
-                            className="text-destructive"
+                            className="text-destructive cursor-pointer"
                           >
                             <Trash className="mr-2 h-4 w-4" />
                             Delete
@@ -682,18 +721,19 @@ export default function KnowledgebaseManagerPage() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>
 
       {/* Create/Edit Dialog */}
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="space-y-3">
+            <DialogTitle className="text-2xl">
               {editingKb ? 'Edit Knowledgebase' : 'Create New Knowledgebase'}
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-base">
               {editingKb 
                 ? 'Update the knowledgebase details' 
                 : 'Configure your new document collection'
@@ -701,86 +741,129 @@ export default function KnowledgebaseManagerPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
+          <div className="space-y-5 py-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
+              <Label htmlFor="name" className="text-sm font-medium">
+                Name <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="name"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder="My Knowledgebase"
+                className="h-11"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="description" className="text-sm font-medium">
+                Description
+              </Label>
               <Textarea
                 id="description"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 placeholder="Describe what this knowledgebase contains..."
-                rows={3}
+                rows={4}
+                className="resize-none"
               />
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="embedding_model" className="text-sm font-medium">
+                Embedding Model
+                {editingKb && (
+                  <span className="ml-2 text-xs text-muted-foreground">(Changing will re-embed all documents)</span>
+                )}
+              </Label>
+              <Select
+                value={formData.embedding_model}
+                onValueChange={(value) => setFormData({ ...formData, embedding_model: value })}
+              >
+                <SelectTrigger className="h-11">
+                  <SelectValue placeholder="Select an embedding model" />
+                </SelectTrigger>
+                <SelectContent>
+                  <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">OpenAI</div>
+                  <SelectItem value="text-embedding-3-small">
+                    text-embedding-3-small (Recommended)
+                      </SelectItem>
+                      <SelectItem value="text-embedding-3-large">
+                        text-embedding-3-large (High Quality)
+                      </SelectItem>
+                      <SelectItem value="text-embedding-ada-002">
+                        text-embedding-ada-002 (Legacy)
+                      </SelectItem>
+                      
+                      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground mt-2">Korean Optimized</div>
+                      <SelectItem value="jhgan/ko-sroberta-multitask">
+                        ko-sroberta-multitask (Korean)
+                      </SelectItem>
+                      
+                      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground mt-2">Open Source</div>
+                      <SelectItem value="sentence-transformers/all-MiniLM-L6-v2">
+                        all-MiniLM-L6-v2 (Fast)
+                      </SelectItem>
+                      <SelectItem value="sentence-transformers/all-mpnet-base-v2">
+                        all-mpnet-base-v2 (Balanced)
+                      </SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-2">
+                Choose an embedding model based on your language and quality requirements
+              </p>
+            </div>
+
             {!editingKb && (
-              <>
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="embedding_model">Embedding Model</Label>
-                  <select
-                    id="embedding_model"
-                    value={formData.embedding_model}
-                    onChange={(e) => setFormData({ ...formData, embedding_model: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-md bg-background"
-                  >
-                    <optgroup label="OpenAI">
-                      <option value="text-embedding-3-small">text-embedding-3-small (Recommended)</option>
-                      <option value="text-embedding-3-large">text-embedding-3-large (High Quality)</option>
-                      <option value="text-embedding-ada-002">text-embedding-ada-002 (Legacy)</option>
-                    </optgroup>
-                    <optgroup label="Korean Optimized">
-                      <option value="jhgan/ko-sroberta-multitask">ko-sroberta-multitask (Korean)</option>
-                    </optgroup>
-                    <optgroup label="Open Source">
-                      <option value="sentence-transformers/all-MiniLM-L6-v2">all-MiniLM-L6-v2 (Fast)</option>
-                      <option value="sentence-transformers/all-mpnet-base-v2">all-mpnet-base-v2 (Balanced)</option>
-                    </optgroup>
-                  </select>
+                  <Label htmlFor="chunk_size" className="text-sm font-medium">
+                    Chunk Size
+                  </Label>
+                  <Input
+                    id="chunk_size"
+                    type="number"
+                    value={formData.chunk_size}
+                    onChange={(e) => setFormData({ ...formData, chunk_size: parseInt(e.target.value) })}
+                    className="h-11"
+                  />
                   <p className="text-xs text-muted-foreground">
-                    Choose an embedding model based on your language and quality requirements
+                    Characters per chunk
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="chunk_size">Chunk Size</Label>
-                    <Input
-                      id="chunk_size"
-                      type="number"
-                      value={formData.chunk_size}
-                      onChange={(e) => setFormData({ ...formData, chunk_size: parseInt(e.target.value) })}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="chunk_overlap">Chunk Overlap</Label>
-                    <Input
-                      id="chunk_overlap"
-                      type="number"
-                      value={formData.chunk_overlap}
-                      onChange={(e) => setFormData({ ...formData, chunk_overlap: parseInt(e.target.value) })}
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="chunk_overlap" className="text-sm font-medium">
+                    Chunk Overlap
+                  </Label>
+                  <Input
+                    id="chunk_overlap"
+                    type="number"
+                    value={formData.chunk_overlap}
+                    onChange={(e) => setFormData({ ...formData, chunk_overlap: parseInt(e.target.value) })}
+                    className="h-11"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Overlapping characters
+                  </p>
                 </div>
-              </>
+              </div>
             )}
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button 
+              variant="outline" 
+              onClick={() => setCreateDialogOpen(false)}
+              className="h-11"
+            >
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={saving || !formData.name}>
+            <Button 
+              onClick={handleSave} 
+              disabled={saving || !formData.name}
+              className="h-11"
+            >
               {saving ? 'Saving...' : editingKb ? 'Update' : 'Create'}
             </Button>
           </DialogFooter>

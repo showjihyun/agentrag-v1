@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from backend.core.auth_dependencies import get_current_user
 from backend.db.database import get_db
 from backend.db.models.user import User
+from backend.db.transaction import transactional
 from backend.services.agent_builder.workflow_service import WorkflowService
 from backend.models.agent_builder import (
     WorkflowCreate,
@@ -40,7 +41,8 @@ async def create_workflow(
     db: Session = Depends(get_db),
 ):
     """Create a new workflow."""
-    try:
+    @transactional(db)
+    def _create_workflow():
         logger.info(f"Creating workflow for user {current_user.id}: {workflow_data.name}")
         
         workflow_service = WorkflowService(db)
@@ -62,6 +64,9 @@ async def create_workflow(
             created_at=workflow.created_at,
             updated_at=workflow.updated_at
         )
+    
+    try:
+        return _create_workflow()
         
     except ValueError as e:
         logger.warning(f"Invalid workflow data: {e}")
@@ -143,7 +148,8 @@ async def update_workflow(
     db: Session = Depends(get_db),
 ):
     """Update workflow."""
-    try:
+    @transactional(db)
+    def _update_workflow():
         logger.info(f"Updating workflow {workflow_id} for user {current_user.id}")
         
         workflow_service = WorkflowService(db)
@@ -178,6 +184,9 @@ async def update_workflow(
             created_at=updated_workflow.created_at,
             updated_at=updated_workflow.updated_at
         )
+    
+    try:
+        return _update_workflow()
         
     except HTTPException:
         raise
@@ -207,7 +216,8 @@ async def delete_workflow(
     db: Session = Depends(get_db),
 ):
     """Delete workflow."""
-    try:
+    @transactional(db)
+    def _delete_workflow():
         logger.info(f"Deleting workflow {workflow_id} for user {current_user.id}")
         
         workflow_service = WorkflowService(db)
@@ -231,6 +241,9 @@ async def delete_workflow(
         
         logger.info(f"Workflow deleted successfully: {workflow_id}")
         return None
+    
+    try:
+        return _delete_workflow()
         
     except HTTPException:
         raise
@@ -473,7 +486,27 @@ async def execute_workflow(
                 }
                 result = await execute_workflow(workflow, db, input_data_with_user)
                 
-                if result.get("success"):
+                # Check if workflow was paused for approval
+                if result.get("paused"):
+                    execution.status = "waiting_approval"
+                    execution.execution_context = result.get("execution_context", {})
+                    execution.execution_context["waiting_for_approval_id"] = result.get("approval_id")
+                    execution.execution_context["waiting_for_node_id"] = result.get("node_id")
+                    # Don't set completed_at for paused workflows
+                    
+                    db.commit()
+                    
+                    logger.info(f"Workflow paused for approval: {execution.id}")
+                    
+                    return {
+                        "execution_id": str(execution.id),
+                        "status": "waiting_approval",
+                        "message": result.get("message", "Workflow paused for approval"),
+                        "approval_id": result.get("approval_id"),
+                        "approval_url": f"/agent-builder/approvals/{result.get('approval_id')}",
+                    }
+                
+                elif result.get("success"):
                     execution.status = "completed"
                     execution.output_data = result.get("output", {})
                     execution.execution_context = result.get("execution_context", {})
@@ -541,4 +574,114 @@ async def execute_workflow(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to execute workflow"
+        )
+
+
+@router.post(
+    "/{workflow_id}/duplicate",
+    response_model=WorkflowResponse,
+    summary="Duplicate workflow",
+    description="Create a copy of an existing workflow.",
+)
+async def duplicate_workflow(
+    workflow_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Duplicate a workflow."""
+    try:
+        logger.info(f"Duplicating workflow {workflow_id} for user {current_user.id}")
+        
+        workflow_service = WorkflowService(db)
+        
+        # Get original workflow
+        original = workflow_service.get_workflow(workflow_id)
+        if not original:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Workflow {workflow_id} not found"
+            )
+        
+        # Check permission (can duplicate own workflows or public workflows)
+        if str(original.user_id) != str(current_user.id) and not original.is_public:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have permission to duplicate this workflow"
+            )
+        
+        # Create duplicate
+        from backend.models.agent_builder import WorkflowNodeCreate, WorkflowEdgeCreate
+        import uuid
+        
+        # Create ID mapping for nodes
+        old_to_new_id = {}
+        nodes = []
+        
+        for node in original.nodes:
+            new_id = str(uuid.uuid4())
+            old_to_new_id[node.id] = new_id
+            
+            nodes.append(WorkflowNodeCreate(
+                id=new_id,
+                node_type=node.node_type,
+                node_ref_id=node.node_ref_id,
+                position_x=node.position_x,
+                position_y=node.position_y,
+                configuration=node.configuration
+            ))
+        
+        # Convert edges with new node IDs
+        edges = []
+        for edge in original.edges:
+            edges.append(WorkflowEdgeCreate(
+                id=str(uuid.uuid4()),
+                source_node_id=old_to_new_id.get(edge.source_node_id, edge.source_node_id),
+                target_node_id=old_to_new_id.get(edge.target_node_id, edge.target_node_id),
+                edge_type=edge.edge_type,
+                condition=edge.condition
+            ))
+        
+        # Get entry point with new ID
+        entry_point = None
+        if original.graph_definition and "entry_point" in original.graph_definition:
+            old_entry = original.graph_definition["entry_point"]
+            entry_point = old_to_new_id.get(old_entry, nodes[0].id if nodes else None)
+        elif nodes:
+            entry_point = nodes[0].id
+        
+        # Create new workflow
+        workflow_data = WorkflowCreate(
+            name=f"{original.name} (Copy)",
+            description=original.description,
+            nodes=nodes,
+            edges=edges,
+            entry_point=entry_point,
+            is_public=False  # Duplicates are private by default
+        )
+        
+        new_workflow = workflow_service.create_workflow(
+            user_id=str(current_user.id),
+            workflow_data=workflow_data
+        )
+        
+        logger.info(f"Workflow duplicated successfully: {new_workflow.id}")
+        
+        return WorkflowResponse(
+            id=str(new_workflow.id),
+            user_id=str(new_workflow.user_id),
+            name=new_workflow.name,
+            description=new_workflow.description,
+            graph_definition=new_workflow.graph_definition,
+            is_public=new_workflow.is_public,
+            created_at=new_workflow.created_at,
+            updated_at=new_workflow.updated_at
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to duplicate workflow: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to duplicate workflow"
         )

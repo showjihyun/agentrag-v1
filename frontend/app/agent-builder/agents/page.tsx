@@ -28,6 +28,7 @@ import {
   Play,
   Search,
   Inbox,
+  X,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -57,16 +58,59 @@ export default function AgentsPage() {
       }),
   });
 
+  // Fetch stats for each agent
+  const [agentStats, setAgentStats] = React.useState<Record<string, any>>({});
+  const [loadingStats, setLoadingStats] = React.useState(false);
+
+  React.useEffect(() => {
+    const fetchStats = async () => {
+      if (data?.agents) {
+        setLoadingStats(true);
+        const stats: Record<string, any> = {};
+        await Promise.all(
+          data.agents.map(async (agent: Agent) => {
+            try {
+              const agentStat = await agentBuilderAPI.getAgentStats(agent.id);
+              stats[agent.id] = agentStat;
+            } catch (error) {
+              // Ignore errors for individual agents
+              stats[agent.id] = {
+                total_runs: 0,
+                success_rate: 0,
+                avg_duration_ms: 0,
+              };
+            }
+          })
+        );
+        setAgentStats(stats);
+        setLoadingStats(false);
+      }
+    };
+    fetchStats();
+  }, [data?.agents]);
+
   // Client-side filtering and sorting
   const filteredAndSortedAgents = React.useMemo(() => {
     let result = [...(data?.agents || [])];
 
-    // Filter by status
+    // Filter by status (based on statistics)
     if (filterStatus !== 'all') {
       result = result.filter((agent: Agent) => {
-        // You can add status field to Agent model
-        // For now, we'll use a simple logic
-        return true; // Placeholder
+        const stats = agentStats[agent.id];
+        if (!stats) return filterStatus === 'draft'; // No stats = draft
+        
+        // Determine status based on statistics
+        if (filterStatus === 'active') {
+          // Active: has runs and good success rate
+          return stats.total_runs > 0 && stats.success_rate >= 50;
+        } else if (filterStatus === 'draft') {
+          // Draft: no runs yet
+          return stats.total_runs === 0;
+        } else if (filterStatus === 'archived') {
+          // Archived: has runs but low success rate or not used recently
+          return stats.total_runs > 0 && stats.success_rate < 50;
+        }
+        return true;
       });
     }
 
@@ -90,7 +134,7 @@ export default function AgentsPage() {
     });
 
     return result;
-  }, [data?.agents, filterStatus, sortBy]);
+  }, [data?.agents, filterStatus, sortBy, agentStats]);
 
   const agents = filteredAndSortedAgents;
 
@@ -104,15 +148,18 @@ export default function AgentsPage() {
 
   const handleClone = async (agentId: string) => {
     try {
-      await agentBuilderAPI.cloneAgent(agentId);
+      const clonedAgent = await agentBuilderAPI.cloneAgent(agentId);
       toast({
         title: 'Agent cloned',
-        description: 'The agent has been cloned successfully.',
+        description: 'The agent has been cloned successfully. Redirecting to edit...',
       });
-      refetch();
+      
+      // Redirect to edit page after a short delay
+      setTimeout(() => {
+        router.push(`/agent-builder/agents/${clonedAgent.id}/edit`);
+      }, 1000);
     } catch (error) {
       toast({
-        variant: 'destructive',
         title: 'Error',
         description: 'Failed to clone agent.',
       });
@@ -343,11 +390,21 @@ export default function AgentsPage() {
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <CardTitle className="text-base truncate">{agent.name}</CardTitle>
                         <Badge variant="outline" className="text-xs">
                           {agent.agent_type}
                         </Badge>
+                        {(() => {
+                          const stats = agentStats[agent.id];
+                          if (!stats || stats.total_runs === 0) {
+                            return <Badge variant="secondary" className="text-xs">Draft</Badge>;
+                          } else if (stats.success_rate >= 50) {
+                            return <Badge variant="default" className="text-xs bg-green-600">Active</Badge>;
+                          } else {
+                            return <Badge variant="destructive" className="text-xs">Issues</Badge>;
+                          }
+                        })()}
                       </div>
                       <CardDescription className="text-xs mt-1">
                         {agent.llm_provider} • {agent.llm_model}
@@ -406,20 +463,47 @@ export default function AgentsPage() {
                   </div>
                 )}
 
-                {/* Stats - Placeholder for now */}
+                {/* Stats */}
                 <div className="grid grid-cols-3 gap-2 pt-2 border-t">
-                  <div className="text-center">
-                    <div className="text-lg font-semibold text-primary">0</div>
-                    <div className="text-xs text-muted-foreground">Runs</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-lg font-semibold text-green-600">0%</div>
-                    <div className="text-xs text-muted-foreground">Success</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-lg font-semibold text-blue-600">0s</div>
-                    <div className="text-xs text-muted-foreground">Avg Time</div>
-                  </div>
+                  {loadingStats ? (
+                    <>
+                      <div className="text-center">
+                        <Skeleton className="h-6 w-12 mx-auto mb-1" />
+                        <div className="text-xs text-muted-foreground">Runs</div>
+                      </div>
+                      <div className="text-center">
+                        <Skeleton className="h-6 w-12 mx-auto mb-1" />
+                        <div className="text-xs text-muted-foreground">Success</div>
+                      </div>
+                      <div className="text-center">
+                        <Skeleton className="h-6 w-12 mx-auto mb-1" />
+                        <div className="text-xs text-muted-foreground">Avg Time</div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-center">
+                        <div className="text-lg font-semibold text-primary">
+                          {agentStats[agent.id]?.total_runs ?? 0}
+                        </div>
+                        <div className="text-xs text-muted-foreground">Runs</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-lg font-semibold text-green-600">
+                          {agentStats[agent.id]?.success_rate ?? 0}%
+                        </div>
+                        <div className="text-xs text-muted-foreground">Success</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-lg font-semibold text-blue-600">
+                          {agentStats[agent.id]?.avg_duration_ms 
+                            ? `${(agentStats[agent.id].avg_duration_ms / 1000).toFixed(1)}s`
+                            : '0s'}
+                        </div>
+                        <div className="text-xs text-muted-foreground">Avg Time</div>
+                      </div>
+                    </>
+                  )}
                 </div>
               </CardContent>
               <CardFooter className="flex justify-between items-center pt-4 border-t">

@@ -8,8 +8,10 @@ import logging
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 import asyncio
+import time
 
 from sqlalchemy.orm import Session
+from backend.core.workflow_metrics import WorkflowMetrics
 
 logger = logging.getLogger(__name__)
 
@@ -17,12 +19,19 @@ logger = logging.getLogger(__name__)
 class WorkflowExecutor:
     """Executes a workflow by processing its nodes."""
     
-    def __init__(self, workflow: Any, db: Session):
+    def __init__(self, workflow: Any, db: Session, execution_id: Optional[str] = None):
         self.workflow = workflow
         self.db = db
+        self.execution_id = execution_id  # For SSE status updates
         self.execution_context: Dict[str, Any] = {}
         self.node_results: Dict[str, Any] = {}
         self.retry_counts: Dict[str, int] = {}  # Track retry attempts per node
+        self.node_statuses: Dict[str, Dict[str, Any]] = {}  # Track node execution statuses for SSE
+        
+        # Node result caching
+        self.node_cache: Dict[str, tuple[Any, float]] = {}  # {cache_key: (result, timestamp)}
+        self.cache_ttl: int = 300  # 5 minutes cache TTL
+        self.cache_enabled: bool = True  # Can be disabled for debugging
         
     async def execute(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -34,8 +43,17 @@ class WorkflowExecutor:
         Returns:
             Execution result with output data
         """
+        start_time = time.time()
+        user_id = None
+        
         try:
             logger.info(f"Starting workflow execution: {self.workflow.id}")
+            
+            # Record execution start
+            WorkflowMetrics.record_execution_start(
+                workflow_id=str(self.workflow.id),
+                user_id=None
+            )
             
             # Initialize execution context
             # Extract user_id from input_data if present
@@ -58,17 +76,40 @@ class WorkflowExecutor:
                 logger.info(f"Node types: {[n.get('type') or n.get('configuration', {}).get('type') for n in nodes]}")
                 logger.info(f"Node structures: {[{'id': n.get('id'), 'type': n.get('type'), 'node_type': n.get('node_type'), 'config_type': n.get('configuration', {}).get('type')} for n in nodes]}")
             
-            # Find start node - check multiple possible fields
-            start_nodes = [
-                n for n in nodes 
-                if n.get("type") in ["start", "trigger"] or 
-                   n.get("node_type") in ["start", "trigger"] or
-                   n.get("configuration", {}).get("type") in ["start", "trigger"]
-            ]
+            # Find start node - improved detection
+            start_nodes = []
+            for n in nodes:
+                # Get node type from multiple possible fields
+                node_type = n.get("type") or n.get("node_type")
+                config_type = n.get("configuration", {}).get("type")
+                
+                # For control nodes, check configuration.type
+                if node_type == "control" and config_type:
+                    effective_type = config_type
+                else:
+                    effective_type = node_type or config_type
+                
+                # Check if it's a start or trigger node
+                if effective_type == "start" or (effective_type and effective_type.startswith("trigger")):
+                    start_nodes.append(n)
+                    logger.info(f"Found start/trigger node: {n.get('id')} (node_type: {node_type}, config_type: {config_type}, effective: {effective_type})")
+            
             if not start_nodes:
-                logger.error(f"No start/trigger node found.")
-                logger.error(f"Available node structures: {[{'id': n.get('id'), 'type': n.get('type'), 'node_type': n.get('node_type'), 'config': n.get('configuration')} for n in nodes]}")
-                raise ValueError("No start node found in workflow. Please add a Start or Trigger node to your workflow.")
+                # Provide detailed error message
+                available_types = [
+                    {
+                        'id': n.get('id'), 
+                        'node_type': n.get('node_type'),
+                        'type': n.get('type'),
+                        'config_type': n.get('configuration', {}).get('type')
+                    } 
+                    for n in nodes
+                ]
+                logger.error(f"No start/trigger node found. Available nodes: {available_types}")
+                raise ValueError(
+                    f"No start node found in workflow. Please add a Start or Trigger node. "
+                    f"Available node types: {[n.get('node_type') or n.get('type') for n in nodes]}"
+                )
             
             start_node = start_nodes[0]
             
@@ -77,6 +118,15 @@ class WorkflowExecutor:
             
             logger.info(f"Workflow execution completed: {self.workflow.id}")
             
+            # Record successful execution
+            duration = time.time() - start_time
+            WorkflowMetrics.record_execution_complete(
+                workflow_id=str(self.workflow.id),
+                user_id=user_id,
+                status="success",
+                duration=duration
+            )
+            
             return {
                 "success": True,
                 "output": result,
@@ -84,9 +134,43 @@ class WorkflowExecutor:
                 "node_results": self.node_results,
                 "retry_counts": self.retry_counts,
             }
-            
+        
         except Exception as e:
+            from backend.exceptions import WorkflowPausedException
+            
+            # Check if workflow was paused for approval
+            if isinstance(e, WorkflowPausedException):
+                logger.info(f"Workflow paused for approval: {e.approval_id}")
+                
+                # Record approval request
+                WorkflowMetrics.record_approval_request(str(self.workflow.id))
+                
+                return {
+                    "success": False,
+                    "paused": True,
+                    "approval_id": e.approval_id,
+                    "node_id": e.node_id,
+                    "message": str(e),
+                    "execution_context": self.execution_context,
+                    "node_results": self.node_results,
+                    "data": e.data,
+                }
+            
             logger.error(f"Workflow execution failed: {e}", exc_info=True)
+            
+            # Record failed execution
+            duration = time.time() - start_time
+            WorkflowMetrics.record_execution_complete(
+                workflow_id=str(self.workflow.id),
+                user_id=user_id,
+                status="failed",
+                duration=duration
+            )
+            
+            # Record error
+            error_type = type(e).__name__
+            WorkflowMetrics.record_error(str(self.workflow.id), error_type)
+            
             return {
                 "success": False,
                 "error": str(e),
@@ -116,35 +200,98 @@ class WorkflowExecutor:
         """
         node_id = current_node["id"]
         # Check multiple possible fields for node type
-        node_type = (
-            current_node.get("type") or 
-            current_node.get("node_type") or 
-            current_node.get("configuration", {}).get("type", "block")
-        )
+        raw_node_type = current_node.get("type") or current_node.get("node_type")
+        config_type = current_node.get("configuration", {}).get("type")
+        
+        # For control nodes, use configuration.type as the effective type
+        if raw_node_type == "control" and config_type:
+            node_type = config_type
+        else:
+            node_type = raw_node_type or config_type or "block"
+        
         node_data = current_node.get("data") or current_node.get("configuration", {})
         
         logger.info(f"Executing node: {node_id} (type: {node_type})")
+        
+        node_start_time = time.time()
+        
+        # Update node status: running
+        if self.execution_id:
+            await self.update_node_status(
+                self.execution_id,
+                node_id,
+                {
+                    "node_name": node_data.get("name", node_type),
+                    "status": "running",
+                    "start_time": datetime.utcnow().timestamp(),
+                }
+            )
         
         # Get retry configuration from node data
         max_retries = node_data.get("maxRetries", 3)
         retry_delay = node_data.get("retryDelay", 1)  # seconds
         retry_backoff = node_data.get("retryBackoff", "exponential")  # exponential or linear
         
-        # Execute node with retry logic
-        result = await self._execute_node_with_retry(
-            node_id=node_id,
-            node_type=node_type,
-            node_data=node_data,
-            data=data,
-            nodes=nodes,
-            edges=edges,
-            max_retries=max_retries,
-            retry_delay=retry_delay,
-            retry_backoff=retry_backoff,
-        )
-        
-        # Store node result
-        self.node_results[node_id] = result
+        try:
+            # Execute node with caching and retry logic
+            result = await self._execute_node_with_cache(
+                node_id=node_id,
+                node_type=node_type,
+                node_data=node_data,
+                data=data,
+                nodes=nodes,
+                edges=edges,
+                max_retries=max_retries,
+                retry_delay=retry_delay,
+                retry_backoff=retry_backoff,
+            )
+            
+            # Record successful node execution
+            node_duration = time.time() - node_start_time
+            WorkflowMetrics.record_node_execution(
+                workflow_id=str(self.workflow.id),
+                node_type=node_type,
+                status="success",
+                duration=node_duration
+            )
+            
+            # Update node status: success
+            if self.execution_id:
+                await self.update_node_status(
+                    self.execution_id,
+                    node_id,
+                    {
+                        "status": "success",
+                        "end_time": datetime.utcnow().timestamp(),
+                        "output": str(result)[:500] if result else None,  # Limit output size
+                    }
+                )
+            
+            # Store node result
+            self.node_results[node_id] = result
+            
+        except Exception as e:
+            # Record failed node execution
+            node_duration = time.time() - node_start_time
+            WorkflowMetrics.record_node_execution(
+                workflow_id=str(self.workflow.id),
+                node_type=node_type,
+                status="failed",
+                duration=node_duration
+            )
+            
+            # Update node status: failed
+            if self.execution_id:
+                await self.update_node_status(
+                    self.execution_id,
+                    node_id,
+                    {
+                        "status": "failed",
+                        "end_time": datetime.utcnow().timestamp(),
+                        "error": str(e),
+                    }
+                )
+            raise
         
         # Find next nodes
         next_edges = [e for e in edges if e.get("source") == node_id]
@@ -172,6 +319,143 @@ class WorkflowExecutor:
                 next_node = next((n for n in nodes if n["id"] == next_edge["target"]), None)
                 if next_node:
                     return await self._execute_from_node(next_node, nodes, edges, result)
+        
+        return result
+    
+    def _generate_cache_key(self, node_id: str, node_type: str, data: Any) -> str:
+        """
+        Generate cache key for node execution.
+        
+        Args:
+            node_id: Node ID
+            node_type: Node type
+            data: Input data
+            
+        Returns:
+            Cache key string
+        """
+        import hashlib
+        import json
+        
+        try:
+            # Create deterministic hash of input data
+            data_str = json.dumps(data, sort_keys=True, default=str)
+            data_hash = hashlib.md5(data_str.encode()).hexdigest()
+            
+            # Combine node_id and data hash
+            cache_key = f"{node_id}:{node_type}:{data_hash}"
+            return cache_key
+        except Exception as e:
+            logger.warning(f"Failed to generate cache key: {e}")
+            # Return unique key that won't match anything
+            return f"{node_id}:{node_type}:{id(data)}"
+    
+    def _is_cacheable_node(self, node_type: str) -> bool:
+        """
+        Check if node type is cacheable.
+        
+        Args:
+            node_type: Node type
+            
+        Returns:
+            True if cacheable, False otherwise
+        """
+        # Cacheable node types (deterministic, no side effects)
+        cacheable_types = {
+            "agent",
+            "block", 
+            "tool",
+            "code",
+            "condition",
+        }
+        
+        # Non-cacheable node types (side effects or time-sensitive)
+        non_cacheable_types = {
+            "http_request",  # External API calls may change
+            "database",      # Database state may change
+            "s3",           # Storage state may change
+            "google_drive", # Storage state may change
+            "email",        # Side effect
+            "slack",        # Side effect
+            "discord",      # Side effect
+            "human_approval",  # Interactive
+            "webhook_trigger", # External trigger
+            "schedule_trigger", # Time-based
+        }
+        
+        return node_type in cacheable_types
+    
+    async def _execute_node_with_cache(
+        self,
+        node_id: str,
+        node_type: str,
+        node_data: Dict[str, Any],
+        data: Any,
+        nodes: List[Dict[str, Any]],
+        edges: List[Dict[str, Any]],
+        max_retries: int = 3,
+        retry_delay: float = 1.0,
+        retry_backoff: str = "exponential",
+    ) -> Any:
+        """
+        Execute node with caching support.
+        
+        Args:
+            node_id: Node ID
+            node_type: Node type
+            node_data: Node configuration
+            data: Input data
+            nodes: All workflow nodes
+            edges: All workflow edges
+            max_retries: Maximum retry attempts
+            retry_delay: Initial retry delay
+            retry_backoff: Backoff strategy
+            
+        Returns:
+            Node execution result
+        """
+        import time
+        
+        # Check if caching is enabled and node is cacheable
+        if self.cache_enabled and self._is_cacheable_node(node_type):
+            # Generate cache key
+            cache_key = self._generate_cache_key(node_id, node_type, data)
+            
+            # Check cache
+            if cache_key in self.node_cache:
+                cached_result, timestamp = self.node_cache[cache_key]
+                
+                # Check if cache is still valid
+                if time.time() - timestamp < self.cache_ttl:
+                    logger.info(f"Cache hit for node {node_id} (type: {node_type})")
+                    WorkflowMetrics.record_cache_hit(node_type)
+                    return cached_result
+                else:
+                    logger.debug(f"Cache expired for node {node_id}")
+                    del self.node_cache[cache_key]
+        
+        # Record cache miss
+        if self.cache_enabled and self._is_cacheable_node(node_type):
+            WorkflowMetrics.record_cache_miss(node_type)
+        
+        # Execute node (cache miss or not cacheable)
+        result = await self._execute_node_with_retry(
+            node_id=node_id,
+            node_type=node_type,
+            node_data=node_data,
+            data=data,
+            nodes=nodes,
+            edges=edges,
+            max_retries=max_retries,
+            retry_delay=retry_delay,
+            retry_backoff=retry_backoff,
+        )
+        
+        # Cache result if applicable
+        if self.cache_enabled and self._is_cacheable_node(node_type):
+            cache_key = self._generate_cache_key(node_id, node_type, data)
+            self.node_cache[cache_key] = (result, time.time())
+            logger.debug(f"Cached result for node {node_id}")
         
         return result
     
@@ -204,6 +488,20 @@ class WorkflowExecutor:
         Returns:
             Node execution result
         """
+        # Check if node is disabled
+        if node_data.get("disabled", False):
+            logger.info(f"Node {node_id} is disabled, skipping execution")
+            # Update node status for SSE
+            if self.execution_id:
+                self.node_statuses[node_id] = {
+                    "status": "skipped",
+                    "message": "Node is disabled",
+                    "startTime": datetime.utcnow().timestamp() * 1000,
+                    "endTime": datetime.utcnow().timestamp() * 1000,
+                }
+            # Return input data unchanged
+            return data
+        
         last_error = None
         
         for attempt in range(max_retries + 1):  # +1 for initial attempt
@@ -281,6 +579,10 @@ class WorkflowExecutor:
             except Exception as e:
                 last_error = e
                 logger.warning(f"Node {node_id} failed (attempt {attempt + 1}/{max_retries + 1}): {e}")
+                
+                # Record retry
+                if attempt > 0:
+                    WorkflowMetrics.record_retry(node_type, attempt)
                 
                 # If this was the last attempt, raise the error
                 if attempt >= max_retries:
@@ -492,23 +794,19 @@ class WorkflowExecutor:
                 try:
                     api_key_service = APIKeyService(self.db)
                     
-                    # Map tool_id to service_name
-                    service_name_map = {
-                        "youtube_search": "youtube",
-                        "google_search": "google",
-                        "openai": "openai",
-                        "anthropic": "anthropic",
-                        # Add more mappings as needed
-                    }
+                    # Get service name from tool metadata (improved approach)
+                    service_name = self._get_tool_service_name(tool_id)
                     
-                    service_name = service_name_map.get(tool_id, tool_id)
-                    api_key = api_key_service.get_decrypted_api_key(user_id, service_name)
-                    
-                    if api_key:
-                        credentials = {"api_key": api_key}
-                        logger.info(f"Using user's API key for service: {service_name}")
+                    if service_name:
+                        api_key = api_key_service.get_decrypted_api_key(user_id, service_name)
+                        
+                        if api_key:
+                            credentials = {"api_key": api_key}
+                            logger.info(f"Using user's API key for service: {service_name}")
+                        else:
+                            logger.info(f"No user API key found for service: {service_name}, using environment variable")
                     else:
-                        logger.info(f"No user API key found for service: {service_name}, using environment variable")
+                        logger.info(f"No service name mapping for tool: {tool_id}")
                 except Exception as e:
                     logger.warning(f"Failed to get user API key: {e}")
             
@@ -540,6 +838,46 @@ class WorkflowExecutor:
                 "input": data,
                 "timestamp": datetime.utcnow().isoformat(),
             }
+    
+    def _get_tool_service_name(self, tool_id: str) -> Optional[str]:
+        """
+        Get service name for a tool from ToolRegistry metadata.
+        
+        Args:
+            tool_id: Tool identifier
+            
+        Returns:
+            Service name for API key lookup, or None if not found
+        """
+        from backend.core.tools.registry import ToolRegistry
+        
+        try:
+            # Get tool configuration from registry
+            tool_config = ToolRegistry.get_tool_config(tool_id)
+            
+            if not tool_config:
+                logger.warning(f"Tool config not found for: {tool_id}")
+                return None
+            
+            # Check if tool has api_key_env configured
+            if tool_config.api_key_env:
+                # Extract service name from environment variable name
+                # e.g., "YOUTUBE_API_KEY" -> "youtube"
+                # e.g., "OPENAI_API_KEY" -> "openai"
+                env_var = tool_config.api_key_env
+                service_name = env_var.replace("_API_KEY", "").replace("_KEY", "").lower()
+                logger.info(f"Extracted service name '{service_name}' from env var '{env_var}'")
+                return service_name
+            
+            # Fallback: use tool_id as service name
+            # This works for tools like "openai", "anthropic", etc.
+            logger.info(f"No api_key_env found, using tool_id as service name: {tool_id}")
+            return tool_id
+            
+        except Exception as e:
+            logger.error(f"Failed to get service name for tool {tool_id}: {e}")
+            # Fallback to tool_id
+            return tool_id
     
     async def _execute_http_request_node(self, node_data: Dict[str, Any], data: Any) -> Any:
         """
@@ -682,31 +1020,150 @@ class WorkflowExecutor:
         loop_type = node_data.get("loopType", "forEach")
         items = node_data.get("items", [])
         max_iterations = node_data.get("maxIterations", 100)
+        condition = node_data.get("condition", "")
+        count = node_data.get("count", 1)
+        loop_body_nodes = node_data.get("loopBodyNodes", [])
         
-        logger.info(f"Executing loop: {loop_type} with {len(items)} items")
+        logger.info(f"Executing loop: {loop_type}")
         
         results = []
+        iteration = 0
         
-        if loop_type == "forEach":
-            # Iterate over items
-            for i, item in enumerate(items[:max_iterations]):
-                logger.info(f"Loop iteration {i + 1}/{len(items)}")
-                results.append(item)
-        elif loop_type == "while":
-            # While loop (simplified - just pass through for now)
-            results = data
-        elif loop_type == "count":
-            # Count loop
-            count = node_data.get("count", 1)
-            for i in range(min(count, max_iterations)):
-                results.append({"iteration": i + 1, "data": data})
+        try:
+            if loop_type == "forEach":
+                # Iterate over items
+                if isinstance(data, list):
+                    items = data
+                elif isinstance(data, dict):
+                    items = list(data.values())
+                else:
+                    items = node_data.get("items", [])
+                
+                for i, item in enumerate(items[:max_iterations]):
+                    logger.info(f"Loop iteration {i + 1}/{len(items)}")
+                    
+                    # Execute loop body if defined
+                    if loop_body_nodes:
+                        result = await self._execute_loop_body(loop_body_nodes, item, i)
+                        results.append(result)
+                    else:
+                        results.append(item)
+                    
+                    iteration = i + 1
+                    
+            elif loop_type == "while":
+                # While loop with condition evaluation
+                if not condition:
+                    logger.warning("While loop has no condition, executing once")
+                    results = data
+                else:
+                    loop_data = data
+                    
+                    while iteration < max_iterations:
+                        # Evaluate condition
+                        context = {
+                            "data": loop_data,
+                            "iteration": iteration,
+                            "results": results,
+                            "workflow_vars": self.execution_context,
+                        }
+                        
+                        try:
+                            should_continue = self._safe_eval(condition, context)
+                            
+                            if not should_continue:
+                                logger.info(f"While loop condition false at iteration {iteration}")
+                                break
+                        except Exception as e:
+                            logger.error(f"While loop condition evaluation failed: {e}")
+                            break
+                        
+                        # Execute loop body
+                        if loop_body_nodes:
+                            loop_data = await self._execute_loop_body(loop_body_nodes, loop_data, iteration)
+                            results.append(loop_data)
+                        else:
+                            results.append(loop_data)
+                        
+                        iteration += 1
+                    
+                    if iteration >= max_iterations:
+                        logger.warning(f"While loop reached max iterations: {max_iterations}")
+                        
+            elif loop_type == "count":
+                # Count loop
+                for i in range(min(count, max_iterations)):
+                    logger.info(f"Count loop iteration {i + 1}/{count}")
+                    
+                    # Execute loop body if defined
+                    if loop_body_nodes:
+                        result = await self._execute_loop_body(loop_body_nodes, data, i)
+                        results.append(result)
+                    else:
+                        results.append({"iteration": i + 1, "data": data})
+                    
+                    iteration = i + 1
+            
+            return {
+                "loop_results": results,
+                "iterations": iteration,
+                "loop_type": loop_type,
+                "success": True,
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+            
+        except Exception as e:
+            logger.error(f"Loop execution failed: {e}", exc_info=True)
+            return {
+                "loop_results": results,
+                "iterations": iteration,
+                "loop_type": loop_type,
+                "success": False,
+                "error": str(e),
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+    
+    async def _execute_loop_body(
+        self,
+        loop_body_nodes: List[Dict[str, Any]],
+        data: Any,
+        iteration: int
+    ) -> Any:
+        """
+        Execute loop body nodes.
         
-        return {
-            "loop_results": results,
-            "iterations": len(results),
-            "loop_type": loop_type,
-            "timestamp": datetime.utcnow().isoformat(),
-        }
+        Args:
+            loop_body_nodes: Nodes to execute in loop body
+            data: Input data for this iteration
+            iteration: Current iteration number
+            
+        Returns:
+            Loop body execution result
+        """
+        result = data
+        
+        for node_config in loop_body_nodes:
+            node_type = node_config.get("type") or node_config.get("node_type")
+            node_data = node_config.get("data") or node_config.get("configuration", {})
+            
+            # Add iteration context
+            node_data["_iteration"] = iteration
+            
+            # Execute node
+            if node_type == "agent":
+                result = await self._execute_agent_node(node_data, result)
+            elif node_type == "block":
+                result = await self._execute_block_node(node_data, result)
+            elif node_type == "tool":
+                result = await self._execute_tool_node(node_data, result)
+            elif node_type == "http_request":
+                result = await self._execute_http_request_node(node_data, result)
+            elif node_type == "code":
+                result = await self._execute_code_node(node_data, result)
+            else:
+                logger.warning(f"Unknown node type in loop body: {node_type}")
+        
+        return result
     
     async def _execute_parallel_node(self, node_data: Dict[str, Any], data: Any) -> Any:
         """
@@ -742,14 +1199,68 @@ class WorkflowExecutor:
         data: Any, 
         index: int
     ) -> Any:
-        """Execute a single parallel branch."""
-        logger.info(f"Executing parallel branch {index + 1}")
-        await asyncio.sleep(0.1)  # Simulate processing
-        return {
-            "branch_index": index,
-            "branch_name": branch.get("name", f"Branch {index + 1}"),
-            "data": data,
-        }
+        """
+        Execute a single parallel branch.
+        
+        Args:
+            branch: Branch configuration with nodes to execute
+            data: Input data for the branch
+            index: Branch index
+            
+        Returns:
+            Branch execution result
+        """
+        branch_name = branch.get("name", f"Branch {index + 1}")
+        branch_nodes = branch.get("nodes", [])
+        
+        logger.info(f"Executing parallel branch {index + 1}: {branch_name} with {len(branch_nodes)} nodes")
+        
+        try:
+            # Execute nodes in the branch sequentially
+            result = data
+            
+            for node_config in branch_nodes:
+                node_id = node_config.get("id")
+                node_type = node_config.get("type") or node_config.get("node_type")
+                node_data = node_config.get("data") or node_config.get("configuration", {})
+                
+                logger.info(f"Branch {branch_name}: Executing node {node_id} ({node_type})")
+                
+                # Execute node based on type
+                if node_type == "agent":
+                    result = await self._execute_agent_node(node_data, result)
+                elif node_type == "block":
+                    result = await self._execute_block_node(node_data, result)
+                elif node_type == "tool":
+                    result = await self._execute_tool_node(node_data, result)
+                elif node_type == "http_request":
+                    result = await self._execute_http_request_node(node_data, result)
+                elif node_type == "code":
+                    result = await self._execute_code_node(node_data, result)
+                elif node_type == "condition":
+                    result = await self._execute_condition_node(node_data, result)
+                else:
+                    logger.warning(f"Unknown node type in branch: {node_type}")
+                    # Pass through data
+                    pass
+            
+            return {
+                "branch_index": index,
+                "branch_name": branch_name,
+                "success": True,
+                "output": result,
+                "nodes_executed": len(branch_nodes),
+            }
+            
+        except Exception as e:
+            logger.error(f"Branch {branch_name} execution failed: {e}", exc_info=True)
+            return {
+                "branch_index": index,
+                "branch_name": branch_name,
+                "success": False,
+                "error": str(e),
+                "nodes_executed": 0,
+            }
     
     async def _execute_delay_node(self, node_data: Dict[str, Any], data: Any) -> Any:
         """
@@ -857,6 +1368,7 @@ class WorkflowExecutor:
         """
         language = node_data.get("language", "javascript")
         code = node_data.get("code", "")
+        timeout = node_data.get("timeout", 5)  # seconds
         
         if not code:
             logger.warning("Code node has no code, passing through data")
@@ -892,27 +1404,178 @@ class WorkflowExecutor:
                     "max": max,
                     "abs": abs,
                     "round": round,
+                    "sorted": sorted,
+                    "reversed": reversed,
+                    "any": any,
+                    "all": all,
                 }
                 
-                exec(code, {"__builtins__": safe_builtins}, context)
+                # Execute with timeout
+                import signal
+                
+                def timeout_handler(signum, frame):
+                    raise TimeoutError("Code execution timeout")
+                
+                # Set timeout (Unix only)
+                try:
+                    signal.signal(signal.SIGALRM, timeout_handler)
+                    signal.alarm(timeout)
+                    
+                    exec(code, {"__builtins__": safe_builtins}, context)
+                    
+                    signal.alarm(0)  # Cancel alarm
+                except AttributeError:
+                    # Windows doesn't support SIGALRM, execute without timeout
+                    exec(code, {"__builtins__": safe_builtins}, context)
                 
                 result = context.get("output", data)
                 return result
                 
             elif language == "javascript":
-                # For JavaScript, we would need a JS runtime (e.g., PyMiniRacer)
-                # For now, return a placeholder
-                logger.warning("JavaScript execution not yet implemented, passing through data")
-                return {
-                    "message": "JavaScript execution not yet implemented",
-                    "original_data": data,
-                }
+                # Execute JavaScript using PyMiniRacer
+                try:
+                    from py_mini_racer import MiniRacer
+                    
+                    # Create JavaScript context
+                    ctx = MiniRacer()
+                    
+                    # Prepare input data
+                    import json
+                    input_json = json.dumps(data) if not isinstance(data, str) else f'"{data}"'
+                    
+                    # Set up context
+                    ctx.eval(f"var input_data = {input_json};")
+                    ctx.eval(f"var workflow_vars = {json.dumps(self.execution_context)};")
+                    ctx.eval("var output = null;")
+                    
+                    # Execute user code
+                    ctx.eval(code)
+                    
+                    # Get output
+                    output = ctx.eval("output")
+                    
+                    # If output is null, return input data
+                    if output is None:
+                        return data
+                    
+                    return output
+                    
+                except ImportError:
+                    logger.warning("PyMiniRacer not installed, falling back to Node.js subprocess")
+                    # Fallback to Node.js subprocess
+                    return await self._execute_javascript_subprocess(code, data, timeout)
+                    
             else:
                 raise ValueError(f"Unsupported language: {language}")
                 
+        except TimeoutError as e:
+            logger.error(f"Code execution timeout: {e}")
+            return {
+                "error": "Code execution timeout",
+                "timeout": timeout,
+                "language": language,
+            }
         except Exception as e:
             logger.error(f"Code execution failed: {e}")
             raise ValueError(f"Code execution error: {str(e)}")
+    
+    async def _execute_javascript_subprocess(
+        self,
+        code: str,
+        data: Any,
+        timeout: int
+    ) -> Any:
+        """
+        Execute JavaScript using Node.js subprocess (fallback).
+        
+        Args:
+            code: JavaScript code
+            data: Input data
+            timeout: Timeout in seconds
+            
+        Returns:
+            Execution result
+        """
+        import asyncio
+        import json
+        import tempfile
+        import os
+        
+        try:
+            # Create temporary file with JavaScript code
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.js', delete=False) as f:
+                # Wrap code with input/output handling
+                input_json = json.dumps(data)
+                wrapped_code = f"""
+                const input_data = {input_json};
+                const workflow_vars = {json.dumps(self.execution_context)};
+                let output = null;
+                
+                {code}
+                
+                // Output result
+                if (output !== null) {{
+                    console.log(JSON.stringify(output));
+                }} else {{
+                    console.log(JSON.stringify(input_data));
+                }}
+                """
+                f.write(wrapped_code)
+                temp_file = f.name
+            
+            try:
+                # Execute Node.js
+                process = await asyncio.create_subprocess_exec(
+                    'node',
+                    temp_file,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE
+                )
+                
+                # Wait with timeout
+                stdout, stderr = await asyncio.wait_for(
+                    process.communicate(),
+                    timeout=timeout
+                )
+                
+                # Parse output
+                if process.returncode == 0:
+                    output_str = stdout.decode('utf-8').strip()
+                    result = json.loads(output_str)
+                    return result
+                else:
+                    error_msg = stderr.decode('utf-8')
+                    logger.error(f"Node.js execution error: {error_msg}")
+                    return {
+                        "error": "JavaScript execution failed",
+                        "details": error_msg,
+                    }
+                    
+            finally:
+                # Clean up temp file
+                try:
+                    os.unlink(temp_file)
+                except:
+                    pass
+                    
+        except asyncio.TimeoutError:
+            logger.error("Node.js execution timeout")
+            return {
+                "error": "JavaScript execution timeout",
+                "timeout": timeout,
+            }
+        except FileNotFoundError:
+            logger.error("Node.js not found in PATH")
+            return {
+                "error": "Node.js not installed or not in PATH",
+                "message": "Please install Node.js to execute JavaScript code",
+            }
+        except Exception as e:
+            logger.error(f"JavaScript subprocess execution failed: {e}")
+            return {
+                "error": str(e),
+                "language": "javascript",
+            }
     
     async def _execute_schedule_trigger_node(self, node_data: Dict[str, Any], data: Any) -> Any:
         """
@@ -977,6 +1640,78 @@ class WorkflowExecutor:
             "headers": headers,
             "body": response_data,
         }
+
+
+    async def update_node_status(
+        self,
+        execution_id: str,
+        node_id: str,
+        status_update: Dict[str, Any]
+    ) -> None:
+        """
+        Update node execution status for SSE streaming.
+        
+        Args:
+            execution_id: Execution ID
+            node_id: Node ID
+            status_update: Status update data
+        """
+        if node_id not in self.node_statuses:
+            self.node_statuses[node_id] = {}
+        
+        self.node_statuses[node_id].update(status_update)
+        logger.debug(f"Updated node status: {node_id} -> {status_update.get('status')}")
+    
+    async def get_execution_status(self, execution_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get current execution status for SSE streaming.
+        
+        Args:
+            execution_id: Execution ID
+            
+        Returns:
+            Execution status with node statuses
+        """
+        # Determine overall status
+        if not self.node_statuses:
+            status = "pending"
+        elif any(s.get("status") == "failed" for s in self.node_statuses.values()):
+            status = "failed"
+        elif any(s.get("status") == "running" for s in self.node_statuses.values()):
+            status = "running"
+        elif all(s.get("status") in ["success", "skipped"] for s in self.node_statuses.values()):
+            status = "completed"
+        else:
+            status = "running"
+        
+        return {
+            "id": execution_id,
+            "status": status,
+            "node_statuses": self.node_statuses,
+            "execution_context": self.execution_context,
+        }
+    
+    async def get_latest_execution(self, workflow_id: str, user_id: int) -> Optional[Dict[str, Any]]:
+        """
+        Get the latest execution for a workflow.
+        
+        Args:
+            workflow_id: Workflow ID
+            user_id: User ID
+            
+        Returns:
+            Latest execution data or None
+        """
+        # For now, return current execution if it exists
+        if self.execution_id:
+            return {
+                "id": self.execution_id,
+                "workflow_id": workflow_id,
+                "user_id": user_id,
+                "status": "running",
+                "created_at": datetime.utcnow().isoformat(),
+            }
+        return None
 
 
 async def execute_workflow(workflow: Any, db: Session, input_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -1181,27 +1916,112 @@ async def execute_workflow(workflow: Any, db: Session, input_data: Dict[str, Any
         folder_id = node_data.get("folderId", "root")
         file_name = node_data.get("fileName", "")
         file_content = node_data.get("fileContent", "")
+        file_id = node_data.get("fileId", "")
+        mime_type = node_data.get("mimeType", "text/plain")
+        
+        # Template replacement
+        file_name_text = self._replace_templates(file_name, data)
+        file_content_text = self._replace_templates(file_content, data)
         
         logger.info(f"Google Drive {action} operation")
         
-        # TODO: Implement actual Google Drive API calls
-        if action == "upload":
+        try:
+            # Get Google Drive credentials from API key service
+            user_id = self.execution_context.get("user_id")
+            if not user_id:
+                return {
+                    "success": False,
+                    "error": "User ID not found in execution context",
+                    "action": action,
+                }
+            
+            from backend.services.api_key_service import APIKeyService
+            api_key_service = APIKeyService(self.db)
+            
+            # Get Google Drive credentials
+            google_creds = api_key_service.get_decrypted_api_key(user_id, "google_drive")
+            if not google_creds:
+                return {
+                    "success": False,
+                    "error": "Google Drive credentials not configured",
+                    "action": action,
+                }
+            
+            # Parse credentials
+            import json
+            creds_dict = json.loads(google_creds) if isinstance(google_creds, str) else google_creds
+            
+            from backend.services.integrations.google_drive_service import GoogleDriveService
+            drive_service = GoogleDriveService(creds_dict)
+            
+            # Execute operation
+            if action == "upload":
+                result = await drive_service.upload_file(
+                    file_name=file_name_text,
+                    content=file_content_text,
+                    mime_type=mime_type,
+                    folder_id=folder_id if folder_id != "root" else None,
+                )
+                return result
+            
+            elif action == "download":
+                if not file_id:
+                    return {
+                        "success": False,
+                        "error": "file_id is required for download",
+                        "action": action,
+                    }
+                result = await drive_service.download_file(file_id=file_id)
+                return result
+            
+            elif action == "list":
+                result = await drive_service.list_files(
+                    folder_id=folder_id if folder_id != "root" else None,
+                )
+                return result
+            
+            elif action == "delete":
+                if not file_id:
+                    return {
+                        "success": False,
+                        "error": "file_id is required for delete",
+                        "action": action,
+                    }
+                result = await drive_service.delete_file(file_id=file_id)
+                return result
+            
+            elif action == "share":
+                email = node_data.get("email", "")
+                role = node_data.get("role", "reader")
+                
+                if not file_id or not email:
+                    return {
+                        "success": False,
+                        "error": "file_id and email are required for share",
+                        "action": action,
+                    }
+                
+                result = await drive_service.share_file(
+                    file_id=file_id,
+                    email=email,
+                    role=role,
+                )
+                return result
+            
+            else:
+                return {
+                    "success": False,
+                    "error": f"Unsupported action: {action}",
+                    "action": action,
+                }
+            
+        except Exception as e:
+            logger.error(f"Google Drive node execution failed: {e}", exc_info=True)
             return {
-                "success": True,
+                "success": False,
                 "action": action,
-                "fileId": f"file_{datetime.utcnow().timestamp()}",
-                "fileName": file_name,
-            }
-        elif action == "list":
-            return {
-                "success": True,
-                "action": action,
-                "files": [],
-            }
-        else:
-            return {
-                "success": True,
-                "action": action,
+                "error": str(e),
+                "file_name": file_name_text,
             }
     
     async def _execute_s3_node(self, node_data: Dict[str, Any], data: Any) -> Dict[str, Any]:
@@ -1211,34 +2031,100 @@ async def execute_workflow(workflow: Any, db: Session, input_data: Dict[str, Any
         key = node_data.get("key", "")
         content = node_data.get("content", "")
         region = node_data.get("region", "us-east-1")
+        aws_access_key_id = node_data.get("awsAccessKeyId", "")
+        aws_secret_access_key = node_data.get("awsSecretAccessKey", "")
+        prefix = node_data.get("prefix", "")
+        
+        # Template replacement
+        key_text = self._replace_templates(key, data)
+        content_text = self._replace_templates(content, data)
         
         logger.info(f"S3 {action} operation on bucket {bucket}")
         
-        # TODO: Implement actual S3 operations using boto3
-        if action == "upload":
+        try:
+            from backend.services.integrations.s3_service import S3Service
+            
+            # Get AWS credentials from API key service if not provided
+            if not aws_access_key_id or not aws_secret_access_key:
+                user_id = self.execution_context.get("user_id")
+                if user_id:
+                    try:
+                        from backend.services.api_key_service import APIKeyService
+                        api_key_service = APIKeyService(self.db)
+                        
+                        # Try to get AWS credentials
+                        aws_creds = api_key_service.get_decrypted_api_key(user_id, "aws")
+                        if aws_creds:
+                            import json
+                            creds = json.loads(aws_creds) if isinstance(aws_creds, str) else aws_creds
+                            aws_access_key_id = creds.get("access_key_id", "")
+                            aws_secret_access_key = creds.get("secret_access_key", "")
+                    except Exception as e:
+                        logger.warning(f"Failed to get AWS credentials: {e}")
+            
+            # Create S3 service
+            s3_service = S3Service(
+                aws_access_key_id=aws_access_key_id if aws_access_key_id else None,
+                aws_secret_access_key=aws_secret_access_key if aws_secret_access_key else None,
+                region_name=region,
+            )
+            
+            # Execute operation
+            if action == "upload":
+                # Convert content to bytes
+                content_bytes = content_text.encode('utf-8') if isinstance(content_text, str) else content_text
+                result = await s3_service.upload_file(
+                    bucket=bucket,
+                    key=key_text,
+                    file_content=content_bytes,
+                )
+                return result
+            
+            elif action == "download":
+                result = await s3_service.download_file(
+                    bucket=bucket,
+                    key=key_text,
+                )
+                return result
+            
+            elif action == "list":
+                result = await s3_service.list_objects(
+                    bucket=bucket,
+                    prefix=prefix if prefix else None,
+                )
+                return result
+            
+            elif action == "delete":
+                result = await s3_service.delete_object(
+                    bucket=bucket,
+                    key=key_text,
+                )
+                return result
+            
+            elif action == "presigned_url":
+                expiration = node_data.get("expiration", 3600)
+                result = await s3_service.get_presigned_url(
+                    bucket=bucket,
+                    key=key_text,
+                    expiration=expiration,
+                )
+                return result
+            
+            else:
+                return {
+                    "success": False,
+                    "error": f"Unsupported action: {action}",
+                    "action": action,
+                }
+            
+        except Exception as e:
+            logger.error(f"S3 node execution failed: {e}", exc_info=True)
             return {
-                "success": True,
+                "success": False,
                 "action": action,
+                "error": str(e),
                 "bucket": bucket,
-                "key": key,
-                "etag": f"etag_{datetime.utcnow().timestamp()}",
-            }
-        elif action == "download":
-            return {
-                "success": True,
-                "action": action,
-                "content": "",
-            }
-        elif action == "list":
-            return {
-                "success": True,
-                "action": action,
-                "objects": [],
-            }
-        else:
-            return {
-                "success": True,
-                "action": action,
+                "key": key_text,
             }
     
     async def _execute_database_node(self, node_data: Dict[str, Any], data: Any) -> Dict[str, Any]:
@@ -1246,26 +2132,57 @@ async def execute_workflow(workflow: Any, db: Session, input_data: Dict[str, Any
         db_type = node_data.get("dbType", "postgresql")
         operation = node_data.get("operation", "query")
         query = node_data.get("query", "")
-        collection = node_data.get("collection", "")
+        connection_string = node_data.get("connectionString", "")
+        host = node_data.get("host", "")
+        port = node_data.get("port")
+        database = node_data.get("database", "")
+        username = node_data.get("username", "")
+        password = node_data.get("password", "")
         
         # Template replacement
         query_text = self._replace_templates(query, data)
         
         logger.info(f"Database {operation} on {db_type}")
         
-        # TODO: Implement actual database operations
-        if operation == "query":
+        try:
+            from backend.services.integrations.database_service import DatabaseService
+            
+            # Create database service
+            db_service = DatabaseService(
+                db_type=db_type,
+                connection_string=connection_string if connection_string else None,
+                host=host if host else None,
+                port=port if port else None,
+                database=database if database else None,
+                username=username if username else None,
+                password=password if password else None,
+            )
+            
+            # Execute operation
+            if operation == "query":
+                result = await db_service.execute_query(query_text)
+                return result
+            
+            elif operation == "test_connection":
+                result = await db_service.test_connection()
+                return result
+            
+            elif operation == "list_tables":
+                result = await db_service.list_tables()
+                return result
+            
+            else:
+                # Generic query execution
+                result = await db_service.execute_query(query_text)
+                return result
+            
+        except Exception as e:
+            logger.error(f"Database node execution failed: {e}", exc_info=True)
             return {
-                "success": True,
+                "success": False,
                 "operation": operation,
-                "rows": [],
-                "rowCount": 0,
-            }
-        else:
-            return {
-                "success": True,
-                "operation": operation,
-                "affected": 0,
+                "error": str(e),
+                "db_type": db_type,
             }
     
     def _replace_templates(self, template: str, data: Any) -> str:
@@ -1322,50 +2239,207 @@ async def execute_workflow(workflow: Any, db: Session, input_data: Dict[str, Any
         logger.info(f"Manager Agent ({role}) delegating to {len(sub_agents)} sub-agents")
         
         results = []
+        user_id = self.execution_context.get("user_id")
         
-        if delegation_strategy == "sequential":
-            # Execute sub-agents one by one
-            for agent in sub_agents:
-                logger.info(f"Delegating to {agent.get('name')} ({agent.get('role')})")
-                # TODO: Execute actual sub-agent
-                result = {
-                    "agent": agent.get("name"),
-                    "role": agent.get("role"),
-                    "output": f"Result from {agent.get('name')}",
-                }
-                results.append(result)
+        try:
+            from backend.db.models.agent_builder import Agent
+            from backend.services.agent_builder.agent_executor import AgentExecutor
+            
+            if delegation_strategy == "sequential":
+                # Execute sub-agents one by one
+                for agent_config in sub_agents:
+                    agent_id = agent_config.get("agent_id") or agent_config.get("agentId")
+                    if not agent_id:
+                        logger.warning(f"No agent_id for sub-agent: {agent_config.get('name')}")
+                        continue
+                    
+                    logger.info(f"Delegating to {agent_config.get('name')} ({agent_config.get('role')})")
+                    
+                    # Get agent from database
+                    agent = self.db.query(Agent).filter(Agent.id == agent_id).first()
+                    if not agent:
+                        logger.error(f"Agent {agent_id} not found")
+                        results.append({
+                            "agent": agent_config.get("name"),
+                            "role": agent_config.get("role"),
+                            "error": f"Agent {agent_id} not found",
+                            "success": False
+                        })
+                        continue
+                    
+                    # Execute agent
+                    try:
+                        agent_executor = AgentExecutor(self.db)
+                        execution = await agent_executor.execute_agent(
+                            agent_id=agent_id,
+                            user_id=user_id,
+                            input_data={"query": str(data), "context": self.execution_context},
+                            session_id=self.execution_id
+                        )
+                        
+                        results.append({
+                            "agent": agent_config.get("name"),
+                            "agent_id": agent_id,
+                            "role": agent_config.get("role"),
+                            "output": execution.output_data,
+                            "success": execution.status == "completed",
+                            "execution_id": execution.id
+                        })
+                    except Exception as e:
+                        logger.error(f"Failed to execute agent {agent_id}: {e}")
+                        results.append({
+                            "agent": agent_config.get("name"),
+                            "role": agent_config.get("role"),
+                            "error": str(e),
+                            "success": False
+                        })
+                    
+            elif delegation_strategy == "parallel":
+                # Execute sub-agents in parallel (limited by max_concurrent)
+                logger.info(f"Executing up to {max_concurrent} agents in parallel")
                 
-        elif delegation_strategy == "parallel":
-            # Execute sub-agents in parallel (limited by max_concurrent)
-            logger.info(f"Executing up to {max_concurrent} agents in parallel")
-            # TODO: Implement actual parallel execution with asyncio.gather
-            for agent in sub_agents[:max_concurrent]:
-                result = {
-                    "agent": agent.get("name"),
-                    "role": agent.get("role"),
-                    "output": f"Result from {agent.get('name')}",
-                }
-                results.append(result)
+                # Create tasks for parallel execution
+                tasks = []
+                for agent_config in sub_agents[:max_concurrent]:
+                    agent_id = agent_config.get("agent_id") or agent_config.get("agentId")
+                    if not agent_id:
+                        continue
+                    
+                    task = self._execute_sub_agent(
+                        agent_id=agent_id,
+                        agent_config=agent_config,
+                        data=data,
+                        user_id=user_id
+                    )
+                    tasks.append(task)
                 
-        elif delegation_strategy == "priority":
-            # Execute sub-agents by priority
-            sorted_agents = sorted(sub_agents, key=lambda x: x.get("priority", 999))
-            for agent in sorted_agents:
-                logger.info(f"Delegating to {agent.get('name')} (priority: {agent.get('priority')})")
-                result = {
-                    "agent": agent.get("name"),
-                    "role": agent.get("role"),
-                    "priority": agent.get("priority"),
-                    "output": f"Result from {agent.get('name')}",
+                # Execute in parallel
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                
+                # Handle exceptions
+                results = [
+                    r if not isinstance(r, Exception) else {
+                        "error": str(r),
+                        "success": False
+                    }
+                    for r in results
+                ]
+                    
+            elif delegation_strategy == "priority":
+                # Execute sub-agents by priority
+                sorted_agents = sorted(sub_agents, key=lambda x: x.get("priority", 999))
+                for agent_config in sorted_agents:
+                    agent_id = agent_config.get("agent_id") or agent_config.get("agentId")
+                    if not agent_id:
+                        continue
+                    
+                    logger.info(f"Delegating to {agent_config.get('name')} (priority: {agent_config.get('priority')})")
+                    
+                    # Get agent from database
+                    agent = self.db.query(Agent).filter(Agent.id == agent_id).first()
+                    if not agent:
+                        results.append({
+                            "agent": agent_config.get("name"),
+                            "priority": agent_config.get("priority"),
+                            "error": f"Agent {agent_id} not found",
+                            "success": False
+                        })
+                        continue
+                    
+                    # Execute agent
+                    try:
+                        agent_executor = AgentExecutor(self.db)
+                        execution = await agent_executor.execute_agent(
+                            agent_id=agent_id,
+                            user_id=user_id,
+                            input_data={"query": str(data), "context": self.execution_context},
+                            session_id=self.execution_id
+                        )
+                        
+                        results.append({
+                            "agent": agent_config.get("name"),
+                            "agent_id": agent_id,
+                            "role": agent_config.get("role"),
+                            "priority": agent_config.get("priority"),
+                            "output": execution.output_data,
+                            "success": execution.status == "completed",
+                            "execution_id": execution.id
+                        })
+                    except Exception as e:
+                        logger.error(f"Failed to execute agent {agent_id}: {e}")
+                        results.append({
+                            "agent": agent_config.get("name"),
+                            "priority": agent_config.get("priority"),
+                            "error": str(e),
+                            "success": False
+                        })
+            
+            return {
+                "manager_role": role,
+                "goal": goal,
+                "delegation_strategy": delegation_strategy,
+                "sub_agent_count": len(sub_agents),
+                "sub_agent_results": results,
+                "aggregated_output": self._aggregate_results(results),
+                "success": all(r.get("success", False) for r in results)
+            }
+            
+        except Exception as e:
+            logger.error(f"Manager agent node execution failed: {e}", exc_info=True)
+            return {
+                "manager_role": role,
+                "delegation_strategy": delegation_strategy,
+                "error": str(e),
+                "success": False
+            }
+    
+    async def _execute_sub_agent(
+        self,
+        agent_id: str,
+        agent_config: Dict[str, Any],
+        data: Any,
+        user_id: str
+    ) -> Dict[str, Any]:
+        """Execute a single sub-agent (helper for parallel execution)."""
+        try:
+            from backend.db.models.agent_builder import Agent
+            from backend.services.agent_builder.agent_executor import AgentExecutor
+            
+            # Get agent from database
+            agent = self.db.query(Agent).filter(Agent.id == agent_id).first()
+            if not agent:
+                return {
+                    "agent": agent_config.get("name"),
+                    "role": agent_config.get("role"),
+                    "error": f"Agent {agent_id} not found",
+                    "success": False
                 }
-                results.append(result)
-        
-        return {
-            "manager_role": role,
-            "delegation_strategy": delegation_strategy,
-            "sub_agent_results": results,
-            "aggregated_output": self._aggregate_results(results),
-        }
+            
+            # Execute agent
+            agent_executor = AgentExecutor(self.db)
+            execution = await agent_executor.execute_agent(
+                agent_id=agent_id,
+                user_id=user_id,
+                input_data={"query": str(data), "context": self.execution_context},
+                session_id=self.execution_id
+            )
+            
+            return {
+                "agent": agent_config.get("name"),
+                "agent_id": agent_id,
+                "role": agent_config.get("role"),
+                "output": execution.output_data,
+                "success": execution.status == "completed",
+                "execution_id": execution.id
+            }
+        except Exception as e:
+            logger.error(f"Failed to execute sub-agent {agent_id}: {e}")
+            return {
+                "agent": agent_config.get("name"),
+                "role": agent_config.get("role"),
+                "error": str(e),
+                "success": False
+            }
     
     async def _execute_memory_node(self, node_data: Dict[str, Any], data: Any) -> Dict[str, Any]:
         """Execute memory operation node."""
@@ -1505,40 +2579,153 @@ async def execute_workflow(workflow: Any, db: Session, input_data: Dict[str, Any
         
         logger.info(f"Consensus ({consensus_type}) with {len(agents)} agents")
         
-        # TODO: Execute all agents in parallel and collect results
-        agent_results = []
-        for agent in agents:
-            result = {
-                "agent": agent.get("name"),
-                "weight": agent.get("weight", 1),
-                "output": f"Result from {agent.get('name')}",
-                "confidence": 0.8,
+        user_id = self.execution_context.get("user_id")
+        
+        try:
+            from backend.db.models.agent_builder import Agent
+            from backend.services.agent_builder.agent_executor import AgentExecutor
+            
+            # Execute all agents in parallel
+            tasks = []
+            for agent_config in agents:
+                agent_id = agent_config.get("agent_id") or agent_config.get("agentId")
+                if not agent_id:
+                    logger.warning(f"No agent_id for agent: {agent_config.get('name')}")
+                    continue
+                
+                task = self._execute_consensus_agent(
+                    agent_id=agent_id,
+                    agent_config=agent_config,
+                    data=data,
+                    user_id=user_id
+                )
+                tasks.append(task)
+            
+            # Execute all agents in parallel
+            agent_results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            # Handle exceptions
+            agent_results = [
+                r if not isinstance(r, Exception) else {
+                    "error": str(r),
+                    "success": False,
+                    "output": None,
+                    "confidence": 0.0
+                }
+                for r in agent_results
+            ]
+            
+            # Filter out failed agents
+            successful_results = [r for r in agent_results if r.get("success", False)]
+            
+            if not successful_results:
+                return {
+                    "consensus_type": consensus_type,
+                    "agent_count": len(agents),
+                    "agent_results": agent_results,
+                    "error": "All agents failed to execute",
+                    "success": False
+                }
+            
+            # Apply consensus mechanism
+            if consensus_type == "majority":
+                # Find most common result
+                final_result = self._majority_consensus(successful_results, threshold)
+            elif consensus_type == "unanimous":
+                # All must agree
+                final_result = self._unanimous_consensus(successful_results)
+            elif consensus_type == "weighted":
+                # Weighted average
+                final_result = self._weighted_consensus(successful_results)
+            elif consensus_type == "best":
+                # Select best based on criteria
+                final_result = self._best_result_consensus(successful_results, evaluation_criteria)
+            else:
+                final_result = successful_results[0] if successful_results else {}
+            
+            return {
+                "consensus_type": consensus_type,
+                "agent_count": len(agents),
+                "successful_count": len(successful_results),
+                "agent_results": agent_results,
+                "final_result": final_result,
+                "agreement_level": self._calculate_agreement(successful_results),
+                "success": True
             }
-            agent_results.append(result)
-        
-        # Apply consensus mechanism
-        if consensus_type == "majority":
-            # Find most common result
-            final_result = self._majority_consensus(agent_results, threshold)
-        elif consensus_type == "unanimous":
-            # All must agree
-            final_result = self._unanimous_consensus(agent_results)
-        elif consensus_type == "weighted":
-            # Weighted average
-            final_result = self._weighted_consensus(agent_results)
-        elif consensus_type == "best":
-            # Select best based on criteria
-            final_result = self._best_result_consensus(agent_results, evaluation_criteria)
-        else:
-            final_result = agent_results[0] if agent_results else {}
-        
-        return {
-            "consensus_type": consensus_type,
-            "agent_count": len(agents),
-            "agent_results": agent_results,
-            "final_result": final_result,
-            "agreement_level": self._calculate_agreement(agent_results),
-        }
+            
+        except Exception as e:
+            logger.error(f"Consensus node execution failed: {e}", exc_info=True)
+            return {
+                "consensus_type": consensus_type,
+                "agent_count": len(agents),
+                "error": str(e),
+                "success": False
+            }
+    
+    async def _execute_consensus_agent(
+        self,
+        agent_id: str,
+        agent_config: Dict[str, Any],
+        data: Any,
+        user_id: str
+    ) -> Dict[str, Any]:
+        """Execute a single agent for consensus (helper for parallel execution)."""
+        try:
+            from backend.db.models.agent_builder import Agent
+            from backend.services.agent_builder.agent_executor import AgentExecutor
+            
+            # Get agent from database
+            agent = self.db.query(Agent).filter(Agent.id == agent_id).first()
+            if not agent:
+                return {
+                    "agent": agent_config.get("name"),
+                    "weight": agent_config.get("weight", 1),
+                    "error": f"Agent {agent_id} not found",
+                    "success": False,
+                    "output": None,
+                    "confidence": 0.0
+                }
+            
+            # Execute agent
+            agent_executor = AgentExecutor(self.db)
+            execution = await agent_executor.execute_agent(
+                agent_id=agent_id,
+                user_id=user_id,
+                input_data={"query": str(data), "context": self.execution_context},
+                session_id=self.execution_id
+            )
+            
+            # Extract confidence from output if available
+            output = execution.output_data
+            confidence = 0.8  # Default confidence
+            
+            if isinstance(output, dict):
+                confidence = output.get("confidence", 0.8)
+                # Get the actual output text
+                output_text = output.get("output") or output.get("response") or str(output)
+            else:
+                output_text = str(output)
+            
+            return {
+                "agent": agent_config.get("name"),
+                "agent_id": agent_id,
+                "weight": agent_config.get("weight", 1),
+                "output": output_text,
+                "full_output": output,
+                "confidence": confidence,
+                "success": execution.status == "completed",
+                "execution_id": execution.id
+            }
+        except Exception as e:
+            logger.error(f"Failed to execute consensus agent {agent_id}: {e}")
+            return {
+                "agent": agent_config.get("name"),
+                "weight": agent_config.get("weight", 1),
+                "error": str(e),
+                "success": False,
+                "output": None,
+                "confidence": 0.0
+            }
     
     async def _execute_human_approval_node(self, node_data: Dict[str, Any], data: Any) -> Dict[str, Any]:
         """Execute human approval node (pauses workflow)."""
@@ -1556,12 +2743,13 @@ async def execute_workflow(workflow: Any, db: Session, input_data: Dict[str, Any
         
         try:
             from backend.models.approval import ApprovalRequest
+            from backend.exceptions import WorkflowPausedException
             from datetime import timedelta
             
             # Create approval request in database
             approval = ApprovalRequest(
                 workflow_id=str(self.workflow.id),
-                workflow_execution_id=self.execution_context.get("execution_id"),
+                workflow_execution_id=self.execution_id,
                 node_id=node_data.get("node_id", "unknown"),
                 approvers=approvers,
                 require_all=require_all,
@@ -1585,21 +2773,18 @@ async def execute_workflow(workflow: Any, db: Session, input_data: Dict[str, Any
                 notification_method=notification_method,
             )
             
-            # Return approval info
-            # Note: In a full implementation, the workflow would pause here
-            # and resume when approval is received
-            return {
-                "status": "pending",
-                "approval_id": approval.id,
-                "approvers": approvers,
-                "require_all": require_all,
-                "timeout_hours": timeout,
-                "message": message_text,
-                "notification_method": notification_method,
-                "approval_url": f"/agent-builder/approvals",
-                "data_for_review": data,
-            }
+            # Pause workflow execution by raising exception
+            # This will be caught by the executor and workflow will be marked as waiting_approval
+            raise WorkflowPausedException(
+                approval_id=approval.id,
+                message=f"Workflow paused for approval from {len(approvers)} approvers",
+                node_id=node_data.get("node_id"),
+                data=data
+            )
             
+        except WorkflowPausedException:
+            # Re-raise to pause workflow
+            raise
         except Exception as e:
             logger.error(f"Human approval node execution failed: {e}")
             return {
@@ -1761,3 +2946,132 @@ Approval ID: {approval_id}
         most_common_count = counter.most_common(1)[0][1]
         
         return most_common_count / len(results)
+
+
+    # SSE Support Methods
+    
+    async def get_execution_status(self, execution_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get execution status with node statuses for SSE streaming.
+        
+        Args:
+            execution_id: Execution ID
+            
+        Returns:
+            Execution status dict or None if not found
+        """
+        try:
+            from backend.db.models.agent_builder import WorkflowExecution
+            
+            execution = self.db.query(WorkflowExecution).filter(
+                WorkflowExecution.id == execution_id
+            ).first()
+            
+            if not execution:
+                return None
+            
+            return {
+                "id": str(execution.id),
+                "workflow_id": str(execution.workflow_id),
+                "status": execution.status,
+                "node_statuses": execution.node_statuses or {},
+                "created_at": execution.created_at.timestamp() if execution.created_at else None,
+                "updated_at": execution.updated_at.timestamp() if execution.updated_at else None,
+                "completed_at": execution.completed_at.timestamp() if execution.completed_at else None,
+            }
+        except Exception as e:
+            logger.error(f"Error getting execution status: {e}")
+            return None
+    
+    async def get_latest_execution(
+        self,
+        workflow_id: str,
+        user_id: int
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Get the most recent execution for a workflow.
+        
+        Args:
+            workflow_id: Workflow ID
+            user_id: User ID
+            
+        Returns:
+            Latest execution dict or None if not found
+        """
+        try:
+            from backend.db.models.agent_builder import WorkflowExecution
+            
+            execution = self.db.query(WorkflowExecution).filter(
+                WorkflowExecution.workflow_id == workflow_id,
+                WorkflowExecution.user_id == user_id,
+            ).order_by(
+                WorkflowExecution.created_at.desc()
+            ).first()
+            
+            if not execution:
+                return None
+            
+            return {
+                "id": str(execution.id),
+                "status": execution.status,
+                "created_at": execution.created_at.timestamp() if execution.created_at else None,
+            }
+        except Exception as e:
+            logger.error(f"Error getting latest execution: {e}")
+            return None
+    
+    async def update_node_status(
+        self,
+        execution_id: str,
+        node_id: str,
+        status_update: Dict[str, Any]
+    ) -> bool:
+        """
+        Update node status in execution record.
+        
+        Args:
+            execution_id: Execution ID
+            node_id: Node ID
+            status_update: Status update dict with keys:
+                - status: 'pending' | 'running' | 'success' | 'failed' | 'skipped'
+                - node_name: Node display name
+                - start_time: Start timestamp
+                - end_time: End timestamp
+                - error: Error message if failed
+                - output: Node output data
+                
+        Returns:
+            True if updated successfully
+        """
+        try:
+            from backend.db.models.agent_builder import WorkflowExecution
+            
+            execution = self.db.query(WorkflowExecution).filter(
+                WorkflowExecution.id == execution_id
+            ).first()
+            
+            if not execution:
+                logger.warning(f"Execution not found: {execution_id}")
+                return False
+            
+            # Get current node statuses
+            node_statuses = execution.node_statuses or {}
+            
+            # Update or create node status
+            if node_id not in node_statuses:
+                node_statuses[node_id] = {}
+            
+            node_statuses[node_id].update(status_update)
+            
+            # Update execution record
+            execution.node_statuses = node_statuses
+            execution.updated_at = datetime.utcnow()
+            
+            self.db.commit()
+            logger.debug(f"Updated node status: {node_id} -> {status_update.get('status')}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error updating node status: {e}")
+            self.db.rollback()
+            return False

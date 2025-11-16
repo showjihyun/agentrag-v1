@@ -2,9 +2,11 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { logger } from '@/lib/logger';
 import { WorkflowEditor } from '@/components/workflow/WorkflowEditor';
 import { BlockPalette, BlockConfig } from '@/components/workflow/BlockPalette';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -16,6 +18,8 @@ import { ArrowLeft, Save, Eye, AlertCircle, AlertTriangle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { Node, Edge } from 'reactflow';
 import { validateWorkflow, getValidationSummary, type ValidationError } from '@/lib/workflow-validation';
+import { ValidationPanel, ValidationBadge } from '@/components/workflow/ValidationPanel';
+import { useAutoSave } from '@/hooks/useAutoSave';
 
 interface Workflow {
   id: string;
@@ -60,6 +64,9 @@ export default function EditWorkflowPage() {
   const [blocks, setBlocks] = useState<BlockConfig[]>([]);
   const [loadingBlocks, setLoadingBlocks] = useState(true);
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
+  const [showValidation, setShowValidation] = useState(false);
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
+  const [highlightedNodeId, setHighlightedNodeId] = useState<string | null>(null);
 
   useEffect(() => {
     loadWorkflow();
@@ -309,11 +316,11 @@ export default function EditWorkflowPage() {
         })),
       ];
 
-      console.log('Loaded blocks:', blocksData.length);
-      console.log('Loaded tools:', toolsData.length);
-      console.log('Loaded agents:', agentsData.length);
-      console.log('Total blockConfigs:', blockConfigs.length);
-      console.log('BlockConfigs by category:', {
+      logger.log('Loaded blocks:', blocksData.length);
+      logger.log('Loaded tools:', toolsData.length);
+      logger.log('Loaded agents:', agentsData.length);
+      logger.log('Total blockConfigs:', blockConfigs.length);
+      logger.log('BlockConfigs by category:', {
         control: blockConfigs.filter(b => b.category === 'control').length,
         triggers: blockConfigs.filter(b => b.category === 'triggers').length,
         agents: blockConfigs.filter(b => b.category === 'agents').length,
@@ -337,16 +344,51 @@ export default function EditWorkflowPage() {
     try {
       setLoading(true);
       const data = await agentBuilderAPI.getWorkflow(workflowId);
+      
+      logger.log('📊 Edit page - Workflow loaded:', {
+        id: data.id,
+        name: data.name,
+        nodesCount: data.graph_definition?.nodes?.length || 0,
+        edgesCount: data.graph_definition?.edges?.length || 0,
+        nodes: data.graph_definition?.nodes,
+      });
+      
       setWorkflow(data);
       setName(data.name);
       setDescription(data.description || '');
       
-      const loadedNodes: Node[] = data.graph_definition.nodes.map((node: any) => ({
-        id: node.id,
-        type: node.node_type === 'control' ? (node.configuration?.type || 'block') : node.node_type,
-        position: node.position || { x: node.position_x || 0, y: node.position_y || 0 },
-        data: node.configuration || node.data || {},
-      }));
+      const loadedNodes: Node[] = data.graph_definition.nodes.map((node: any) => {
+        // Determine node type
+        let nodeType = node.node_type || node.type;
+        
+        // Handle control nodes - they should have a specific type in configuration
+        if (nodeType === 'control') {
+          nodeType = node.configuration?.type || 
+                     node.configuration?.nodeType || 
+                     node.data?.type || 
+                     'start';
+          logger.log('🎛️ Edit page - Control node detected:', {
+            originalType: node.node_type,
+            configType: node.configuration?.type,
+            finalType: nodeType,
+            configuration: node.configuration,
+          });
+        }
+        
+        const transformedNode = {
+          id: node.id,
+          type: nodeType,
+          position: node.position || { x: node.position_x || 0, y: node.position_y || 0 },
+          data: node.configuration || node.data || {},
+        };
+        
+        logger.log('🔄 Edit page - Node transformation:', {
+          original: { id: node.id, type: node.node_type, config: node.configuration },
+          transformed: { id: transformedNode.id, type: transformedNode.type, data: transformedNode.data },
+        });
+        
+        return transformedNode;
+      });
       
       const loadedEdges: Edge[] = data.graph_definition.edges.map((edge: any) => ({
         id: edge.id,
@@ -356,9 +398,16 @@ export default function EditWorkflowPage() {
         targetHandle: edge.target_handle || edge.targetHandle,
       }));
 
+      logger.log('✅ Edit page - Setting nodes and edges:', {
+        nodesCount: loadedNodes.length,
+        edgesCount: loadedEdges.length,
+        nodes: loadedNodes,
+      });
+
       setNodes(loadedNodes);
       setEdges(loadedEdges);
     } catch (error: any) {
+      console.error('❌ Edit page - Failed to load workflow:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to load workflow',
@@ -368,23 +417,71 @@ export default function EditWorkflowPage() {
     }
   };
 
+  // Real-time validation
+  useEffect(() => {
+    if (nodes.length > 0 || edges.length > 0) {
+      const validation = validateWorkflow(nodes, edges);
+      setValidationErrors(validation.errors);
+      
+      // Auto-show validation panel if there are errors
+      if (validation.errors.length > 0) {
+        setShowValidation(true);
+      }
+    }
+  }, [nodes, edges]);
+
+  // Auto-save hook
+  const { restoreFromLocalStorage, clearLocalStorage } = useAutoSave({
+    data: { name, description, nodes, edges },
+    onSave: async (data) => {
+      if (!autoSaveEnabled || !hasChanges) return;
+      
+      try {
+        await handleSave(true); // silent save
+      } catch (error) {
+        logger.error('Auto-save failed:', error);
+      }
+    },
+    delay: 10000, // 10 seconds
+    enabled: autoSaveEnabled && hasChanges,
+    storageKey: `workflow-draft-${workflowId}`,
+  });
+
+  // Check for unsaved changes on mount
+  useEffect(() => {
+    const draft = restoreFromLocalStorage();
+    if (draft && workflow) {
+      const hasUnsavedChanges = confirm(
+        'Unsaved changes detected. Would you like to restore them?'
+      );
+      
+      if (hasUnsavedChanges) {
+        setName(draft.name);
+        setDescription(draft.description);
+        setNodes(draft.nodes);
+        setEdges(draft.edges);
+        setHasChanges(true);
+        toast({
+          title: 'Draft Restored',
+          description: 'Your unsaved changes have been restored.',
+        });
+      } else {
+        clearLocalStorage();
+      }
+    }
+  }, [workflow]);
+
   const handleNodesChange = useCallback((updatedNodes: Node[]) => {
-    console.log('🔄 Nodes changed:', updatedNodes.length);
+    logger.log('🔄 Nodes changed:', updatedNodes.length);
     setNodes(updatedNodes);
     setHasChanges(true);
-    // Validate on change
-    const errors = validateWorkflow(updatedNodes, edges);
-    setValidationErrors(errors);
-  }, [edges]);
+  }, []);
 
   const handleEdgesChange = useCallback((updatedEdges: Edge[]) => {
-    console.log('🔗 Edges changed:', updatedEdges.length);
+    logger.log('🔗 Edges changed:', updatedEdges.length);
     setEdges(updatedEdges);
     setHasChanges(true);
-    // Validate on change
-    const errors = validateWorkflow(nodes, updatedEdges);
-    setValidationErrors(errors);
-  }, [nodes]);
+  }, []);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -402,45 +499,56 @@ export default function EditWorkflowPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [name, hasChanges, saving]);
 
-  const handleSave = async () => {
-    console.log('💾 Saving workflow...');
-    console.log('📊 Current state:', {
-      nodes: nodes.length,
-      edges: edges.length,
-      name,
-      description,
-    });
-    console.log('🔗 Edges:', edges);
+  const handleSave = async (silent = false) => {
+    if (!silent) {
+      logger.log('💾 Saving workflow...');
+      logger.log('📊 Current state:', {
+        nodes: nodes.length,
+        edges: edges.length,
+        name,
+        description,
+      });
+      logger.log('🔗 Edges:', edges);
+    }
 
     if (!name.trim()) {
-      toast({
-        title: 'Validation Error',
-        description: 'Workflow name is required',
-      });
+      if (!silent) {
+        toast({
+          title: 'Validation Error',
+          description: 'Workflow name is required',
+          variant: 'error',
+        });
+      }
       return;
     }
 
     // Validate workflow
-    const errors = validateWorkflow(nodes, edges);
-    const summary = getValidationSummary(errors);
+    const validation = validateWorkflow(nodes, edges);
+    const summary = getValidationSummary(validation);
     
-    console.log('🔍 Validation errors:', errors);
-    console.log('📋 Node types:', nodes.map(n => ({ id: n.id, type: n.type, name: n.data?.name })));
+    if (!silent) {
+      logger.log('🔍 Validation result:', validation);
+      logger.log('📋 Node types:', nodes.map(n => ({ id: n.id, type: n.type, name: n.data?.name })));
+    }
     
     if (summary.hasErrors) {
-      const errorMessages = errors
-        .filter(e => e.type === 'error')
+      const errorMessages = validation.errors
+        .slice(0, 3)
         .map(e => e.message)
         .join('; ');
       
-      toast({
-        title: 'Validation Failed',
-        description: errorMessages || `Please fix ${summary.errorCount} error(s) before saving`,
-      });
+      if (!silent) {
+        toast({
+          title: 'Validation Failed',
+          description: errorMessages || `Please fix ${summary.errorCount} error(s) before saving`,
+          variant: 'error',
+        });
+        setShowValidation(true);
+      }
       return;
     }
     
-    if (summary.hasWarnings) {
+    if (summary.hasWarnings && !silent) {
       const confirmed = confirm(
         `Workflow has ${summary.warningCount} warning(s). Do you want to save anyway?`
       );
@@ -458,7 +566,7 @@ export default function EditWorkflowPage() {
         if (!isValidUUID(nodeId)) {
           nodeId = generateUUID();
           idMapping.set(node.id, nodeId);
-          console.log(`🔄 Converting node ID: ${node.id} → ${nodeId}`);
+          logger.log(`🔄 Converting node ID: ${node.id} → ${nodeId}`);
         }
         return { ...node, id: nodeId };
       });
@@ -468,7 +576,7 @@ export default function EditWorkflowPage() {
         let edgeId = edge.id;
         if (!isValidUUID(edgeId)) {
           edgeId = generateUUID();
-          console.log(`🔄 Converting edge ID: ${edge.id} → ${edgeId}`);
+          logger.log(`🔄 Converting edge ID: ${edge.id} → ${edgeId}`);
         }
         
         return {
@@ -483,7 +591,7 @@ export default function EditWorkflowPage() {
       const startNode = convertedNodes.find(node => node.type === 'start' || node.type === 'trigger');
       const entryPoint = startNode?.id || (convertedNodes.length > 0 ? convertedNodes[0].id : '');
 
-      console.log('💾 Updating with converted IDs:', {
+      logger.log('💾 Updating with converted IDs:', {
         nodes: convertedNodes.length,
         edges: convertedEdges.length,
         entryPoint,
@@ -493,29 +601,15 @@ export default function EditWorkflowPage() {
         name,
         description,
         nodes: convertedNodes.map(node => {
-          // Determine if this is a control node (start, end, condition, trigger, loop, parallel, etc.)
-          const controlTypes = ['start', 'end', 'condition', 'trigger', 'loop', 'parallel', 'delay', 'try_catch', 'switch', 'merge'];
-          const isControl = controlTypes.includes(node.type || '');
-          
-          // Determine node_type for backend
-          let nodeType = 'block'; // default
-          if (isControl) {
-            nodeType = 'control';
-          } else if (node.type === 'agent' || node.data?.agentId) {
-            nodeType = 'agent';
-          } else if (node.type === 'block' || node.data?.blockId) {
-            nodeType = 'block';
-          }
-          
           return {
             id: node.id,
-            node_type: nodeType,
-            node_ref_id: isControl ? null : (node.data?.agentId || node.data?.blockId || null),
+            node_type: node.type, // 직접 매핑
+            node_ref_id: node.data?.agentId || node.data?.blockId || null,
             position_x: node.position.x,
             position_y: node.position.y,
             configuration: {
               ...node.data,
-              type: node.type, // Preserve the actual node type for execution
+              type: node.type, // 백업용으로 configuration에도 저장
             },
           };
         }),
@@ -530,17 +624,24 @@ export default function EditWorkflowPage() {
         entry_point: entryPoint,
       });
 
-      toast({
-        title: 'Success',
-        description: 'Workflow updated successfully',
-      });
+      if (!silent) {
+        toast({
+          title: 'Success',
+          description: 'Workflow updated successfully',
+        });
+      }
 
       setHasChanges(false);
+      clearLocalStorage(); // Clear auto-save backup after successful save
     } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to update workflow',
-      });
+      if (!silent) {
+        toast({
+          title: 'Error',
+          description: error.message || 'Failed to update workflow',
+          variant: 'error',
+        });
+      }
+      throw error; // Re-throw for auto-save to handle
     } finally {
       setSaving(false);
     }
@@ -602,6 +703,22 @@ export default function EditWorkflowPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {/* Validation Badge */}
+            <ValidationBadge
+              validation={{
+                isValid: validationErrors.length === 0,
+                errors: validationErrors,
+                warnings: [],
+              }}
+            />
+            
+            {/* Auto-save indicator */}
+            {autoSaveEnabled && hasChanges && (
+              <Badge variant="outline" className="text-xs">
+                Auto-saving...
+              </Badge>
+            )}
+            
             <Button
               variant="outline"
               onClick={() => router.push(`/agent-builder/workflows/${workflowId}`)}
@@ -610,7 +727,7 @@ export default function EditWorkflowPage() {
               Preview
             </Button>
             <Button 
-              onClick={handleSave} 
+              onClick={() => handleSave(false)} 
               disabled={saving || !hasChanges || !name.trim()}
               className={!name.trim() ? 'opacity-50 cursor-not-allowed' : ''}
             >
@@ -671,61 +788,26 @@ export default function EditWorkflowPage() {
               </CardContent>
             </Card>
 
-            {/* Validation Errors - Between Workflow Details and Block Palette */}
-            {validationErrors.length > 0 && (
-              <div className="space-y-2">
-                {validationErrors.filter(e => e.type === 'error').length > 0 && (
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertTitle>Errors ({validationErrors.filter(e => e.type === 'error').length})</AlertTitle>
-                    <AlertDescription>
-                      <ul className="list-disc list-inside text-sm mt-2 space-y-1">
-                        {validationErrors
-                          .filter(e => e.type === 'error')
-                          .map((error, i) => (
-                            <li key={i}>{error.message}</li>
-                          ))}
-                      </ul>
-                    </AlertDescription>
-                  </Alert>
-                )}
-                
-                {validationErrors.filter(e => e.type === 'warning').length > 0 && (
-                  <Alert className="border-yellow-500 bg-yellow-50">
-                    <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                    <AlertTitle className="text-yellow-800">
-                      Warnings ({validationErrors.filter(e => e.type === 'warning').length})
-                    </AlertTitle>
-                    <AlertDescription className="text-yellow-700">
-                      <ul className="list-disc list-inside text-sm mt-2 space-y-1">
-                        {validationErrors
-                          .filter(e => e.type === 'warning')
-                          .slice(0, 3)
-                          .map((error, i) => (
-                            <li key={i}>{error.message}</li>
-                          ))}
-                        {validationErrors.filter(e => e.type === 'warning').length > 3 && (
-                          <li className="font-medium">
-                            +{validationErrors.filter(e => e.type === 'warning').length - 3} more warnings
-                          </li>
-                        )}
-                      </ul>
-                    </AlertDescription>
-                  </Alert>
-                )}
-              </div>
+            {/* Validation Panel */}
+            {showValidation && validationErrors.length > 0 && (
+              <ValidationPanel
+                validation={{
+                  isValid: validationErrors.length === 0,
+                  errors: validationErrors,
+                  warnings: [],
+                }}
+                onClose={() => setShowValidation(false)}
+                onNodeClick={(nodeId) => {
+                  logger.log('🎯 Highlighting node:', nodeId);
+                  setHighlightedNodeId(nodeId);
+                }}
+              />
             )}
 
-            {/* Separator for visual clarity */}
-            {validationErrors.length > 0 && (
-              <div className="border-t pt-4">
-                <BlockPalette blocks={blocks} />
-              </div>
-            )}
-            
-            {validationErrors.length === 0 && (
+            {/* Block Palette */}
+            <div className={validationErrors.length > 0 ? 'border-t pt-4' : ''}>
               <BlockPalette blocks={blocks} />
-            )}
+            </div>
           </div>
         </div>
 
@@ -737,7 +819,13 @@ export default function EditWorkflowPage() {
             initialEdges={edges}
             onNodesChange={handleNodesChange}
             onEdgesChange={handleEdgesChange}
-            onSave={handleSave}
+            onSave={(updatedNodes, updatedEdges) => {
+              setNodes(updatedNodes);
+              setEdges(updatedEdges);
+              handleSave(false);
+            }}
+            highlightedNodeId={highlightedNodeId}
+            onHighlightNode={setHighlightedNodeId}
           />
         </div>
       </div>

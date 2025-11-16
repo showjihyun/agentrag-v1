@@ -17,6 +17,7 @@ import type { Node, Edge } from 'reactflow';
 import { validateWorkflow, getValidationSummary, type ValidationError } from '@/lib/workflow-validation';
 import { instantiateTemplate, getTemplate } from '@/lib/workflow-templates';
 import { useSearchParams } from 'next/navigation';
+import { logger } from '@/lib/logger';
 
 // UUID v4 generator
 function generateUUID(): string {
@@ -248,11 +249,11 @@ export default function NewWorkflowPage() {
         })),
       ];
 
-      console.log('Loaded blocks:', blocksData.length);
-      console.log('Loaded tools:', toolsData.length);
-      console.log('Loaded agents:', agentsData.length);
-      console.log('Total blockConfigs:', blockConfigs.length);
-      console.log('BlockConfigs by category:', {
+      logger.log('Loaded blocks:', blocksData.length);
+      logger.log('Loaded tools:', toolsData.length);
+      logger.log('Loaded agents:', agentsData.length);
+      logger.log('Total blockConfigs:', blockConfigs.length);
+      logger.log('BlockConfigs by category:', {
         control: blockConfigs.filter(b => b.category === 'control').length,
         triggers: blockConfigs.filter(b => b.category === 'triggers').length,
         agents: blockConfigs.filter(b => b.category === 'agents').length,
@@ -273,7 +274,7 @@ export default function NewWorkflowPage() {
   };
 
   const handleNodesChange = useCallback((updatedNodes: Node[]) => {
-    console.log('🔄 Nodes changed:', updatedNodes.length);
+    logger.log('🔄 Nodes changed:', updatedNodes.length);
     setNodes(updatedNodes);
     // Validate on change
     const errors = validateWorkflow(updatedNodes, edges);
@@ -281,7 +282,7 @@ export default function NewWorkflowPage() {
   }, [edges]);
 
   const handleEdgesChange = useCallback((updatedEdges: Edge[]) => {
-    console.log('🔗 Edges changed:', updatedEdges.length);
+    logger.log('🔗 Edges changed:', updatedEdges.length);
     setEdges(updatedEdges);
     // Validate on change
     const errors = validateWorkflow(nodes, updatedEdges);
@@ -305,14 +306,14 @@ export default function NewWorkflowPage() {
   }, [name, saving]);
 
   const handleSave = async () => {
-    console.log('💾 Saving new workflow...');
-    console.log('📊 Current state:', {
+    logger.log('💾 Saving new workflow...');
+    logger.log('📊 Current state:', {
       nodes: nodes.length,
       edges: edges.length,
       name,
       description,
     });
-    console.log('🔗 Edges:', edges);
+    logger.log('🔗 Edges:', edges);
 
     if (!name.trim()) {
       toast({
@@ -352,7 +353,7 @@ export default function NewWorkflowPage() {
         if (!isValidUUID(nodeId)) {
           nodeId = generateUUID();
           idMapping.set(node.id, nodeId);
-          console.log(`🔄 Converting node ID: ${node.id} → ${nodeId}`);
+          logger.log(`🔄 Converting node ID: ${node.id} → ${nodeId}`);
         }
         return { ...node, id: nodeId };
       });
@@ -362,7 +363,7 @@ export default function NewWorkflowPage() {
         let edgeId = edge.id;
         if (!isValidUUID(edgeId)) {
           edgeId = generateUUID();
-          console.log(`🔄 Converting edge ID: ${edge.id} → ${edgeId}`);
+          logger.log(`🔄 Converting edge ID: ${edge.id} → ${edgeId}`);
         }
         
         return {
@@ -377,7 +378,7 @@ export default function NewWorkflowPage() {
       const startNode = convertedNodes.find(node => node.type === 'start' || node.type === 'trigger');
       const entryPoint = startNode?.id || (convertedNodes.length > 0 ? convertedNodes[0].id : '');
 
-      console.log('💾 Saving with converted IDs:', {
+      logger.log('💾 Saving with converted IDs:', {
         nodes: convertedNodes.length,
         edges: convertedEdges.length,
         entryPoint,
@@ -387,15 +388,16 @@ export default function NewWorkflowPage() {
         name,
         description,
         nodes: convertedNodes.map(node => {
-          const isControl = node.type === 'start' || node.type === 'end' || 
-                           node.type === 'condition' || node.type === 'trigger';
           return {
             id: node.id,
-            node_type: isControl ? 'control' : node.type,
-            node_ref_id: isControl ? null : (node.data?.agentId || node.data?.blockId || null),
+            node_type: node.type, // 직접 매핑 - 'control' 대신 실제 타입 사용
+            node_ref_id: node.data?.agentId || node.data?.blockId || null,
             position_x: node.position.x,
             position_y: node.position.y,
-            configuration: node.data || {},
+            configuration: {
+              ...node.data,
+              type: node.type, // 백업용으로 configuration에도 저장
+            },
           };
         }),
         edges: convertedEdges.map(edge => ({

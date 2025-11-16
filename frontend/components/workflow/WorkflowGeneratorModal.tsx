@@ -60,6 +60,9 @@ export function WorkflowGeneratorModal({
     setIsGenerating(true);
 
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+
       const response = await fetch('/api/workflow-generator/generate', {
         method: 'POST',
         headers: {
@@ -68,13 +71,23 @@ export function WorkflowGeneratorModal({
         body: JSON.stringify({
           description: description,
         }),
+        signal: controller.signal,
       });
 
+      clearTimeout(timeoutId);
+
       if (!response.ok) {
-        throw new Error('Failed to generate workflow');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Failed to generate workflow');
       }
 
       const data = await response.json();
+      
+      // Validate response
+      if (!data.workflow || !data.workflow.nodes) {
+        throw new Error('Invalid workflow response');
+      }
+
       setGeneratedWorkflow(data.workflow);
       setSuggestions(data.suggestions || []);
 
@@ -83,12 +96,20 @@ export function WorkflowGeneratorModal({
         description: `"${data.workflow.name}" 워크플로우가 생성되었습니다`,
         duration: 3000,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to generate workflow:', error);
+      
+      let errorMessage = '워크플로우 생성 중 오류가 발생했습니다';
+      if (error.name === 'AbortError') {
+        errorMessage = '생성 시간이 초과되었습니다. 더 간단한 설명을 시도해보세요';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: '❌ 생성 실패',
-        description: '워크플로우 생성 중 오류가 발생했습니다',
-        duration: 3000,
+        description: errorMessage,
+        duration: 4000,
       });
     } finally {
       setIsGenerating(false);
@@ -97,8 +118,24 @@ export function WorkflowGeneratorModal({
 
   const handleApply = () => {
     if (generatedWorkflow) {
+      // Validate workflow before applying
+      if (!generatedWorkflow.nodes || generatedWorkflow.nodes.length === 0) {
+        toast({
+          title: '❌ 적용 실패',
+          description: '워크플로우에 노드가 없습니다',
+          duration: 2000,
+        });
+        return;
+      }
+
       onGenerate(generatedWorkflow);
       onClose();
+      
+      // Reset state
+      setDescription('');
+      setGeneratedWorkflow(null);
+      setSuggestions([]);
+      
       toast({
         title: '✅ 워크플로우 적용됨',
         description: '생성된 워크플로우가 캔버스에 적용되었습니다',
@@ -224,7 +261,7 @@ export function WorkflowGeneratorModal({
                 </div>
                 <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
                   <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                    {new Set(generatedWorkflow.nodes?.map((n: any) => n.type) || []).size}
+                    {new Set(generatedWorkflow.nodes?.map((n: any) => n.node_type || n.type) || []).size}
                   </div>
                   <div className="text-sm text-gray-600 dark:text-gray-400">노드 타입</div>
                 </div>
@@ -235,25 +272,31 @@ export function WorkflowGeneratorModal({
                 <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   포함된 노드
                 </h4>
-                <div className="space-y-2">
-                  {generatedWorkflow.nodes?.map((node: any, index: number) => (
-                    <div
-                      key={index}
-                      className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
-                    >
-                      <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center text-white text-sm font-bold">
-                        {index + 1}
-                      </div>
-                      <div className="flex-1">
-                        <div className="font-medium text-sm text-gray-900 dark:text-white">
-                          {node.data?.label || node.data?.name || node.type}
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {generatedWorkflow.nodes?.map((node: any, index: number) => {
+                    // Handle both backend and frontend formats
+                    const nodeType = node.node_type || node.type;
+                    const nodeName = node.configuration?.name || node.data?.label || node.data?.name || nodeType;
+                    
+                    return (
+                      <div
+                        key={node.id || index}
+                        className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
+                      >
+                        <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center text-white text-sm font-bold">
+                          {index + 1}
                         </div>
-                        <div className="text-xs text-gray-600 dark:text-gray-400">
-                          {node.type}
+                        <div className="flex-1">
+                          <div className="font-medium text-sm text-gray-900 dark:text-white">
+                            {nodeName}
+                          </div>
+                          <div className="text-xs text-gray-600 dark:text-gray-400">
+                            {nodeType}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 

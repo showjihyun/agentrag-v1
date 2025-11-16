@@ -41,13 +41,21 @@ from contextlib import asynccontextmanager
 from typing import Optional
 from datetime import datetime
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from backend.config import settings
+
+# Prometheus metrics
+try:
+    from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+    PROMETHEUS_AVAILABLE = True
+except ImportError:
+    PROMETHEUS_AVAILABLE = False
+    logging.warning("prometheus_client not installed, metrics endpoint disabled")
 from backend.core.dependencies import initialize_container, cleanup_container
 
 # Note: rate_limit_middleware not implemented yet - using SecurityManager for rate limiting in endpoints
@@ -788,6 +796,11 @@ from backend.api.agent_builder import (
     custom_tools as agent_builder_custom_tools,
     api_keys as agent_builder_api_keys,
     workflow_generator as agent_builder_workflow_generator,
+    agent_chat as agent_builder_agent_chat,  # KB-aware agent chat
+    kb_monitoring as agent_builder_kb_monitoring,  # KB monitoring
+    embedding_models as agent_builder_embedding_models,  # Embedding models management
+    milvus_admin as agent_builder_milvus_admin,  # Milvus administration
+    triggers as agent_builder_triggers,  # Triggers management
 )
 
 # Circuit Breaker Status API (Phase 1 Architecture)
@@ -825,6 +838,11 @@ app.include_router(agent_builder_tools.router)
 app.include_router(agent_builder_analytics.router)
 app.include_router(agent_builder_custom_tools.router)
 app.include_router(agent_builder_workflow_generator.router)
+app.include_router(agent_builder_agent_chat.router)  # KB-aware agent chat
+app.include_router(agent_builder_kb_monitoring.router)  # KB monitoring
+app.include_router(agent_builder_embedding_models.router)  # Embedding models management
+app.include_router(agent_builder_milvus_admin.router)  # Milvus administration
+app.include_router(agent_builder_triggers.router)  # Triggers management
 app.include_router(llm_settings.router)
 
 # Workflow Execution Streaming API (SSE)
@@ -835,11 +853,39 @@ app.include_router(workflow_execution_stream.router, prefix="/api/agent-builder"
 from backend.api.agent_builder import memory_management
 app.include_router(memory_management.router)
 
+# Cache Management API (Priority 9)
+from backend.api import cache_management
+app.include_router(cache_management.router)
+
 # Knowledge Base API (for workflow integration)
 app.include_router(knowledge_base.router)
 
 # Circuit Breaker Status API (Phase 1 Architecture)
 app.include_router(circuit_breaker_status.router)
+
+
+@app.get("/metrics")
+async def metrics():
+    """
+    Prometheus metrics endpoint.
+    
+    Returns metrics in Prometheus format for scraping.
+    """
+    if not PROMETHEUS_AVAILABLE:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "Prometheus client not installed"}
+        )
+    
+    try:
+        metrics_output = generate_latest()
+        return Response(content=metrics_output, media_type=CONTENT_TYPE_LATEST)
+    except Exception as e:
+        logger.error(f"Failed to generate metrics: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Failed to generate metrics"}
+        )
 
 
 @app.get("/api/health")
@@ -916,6 +962,34 @@ async def component_health_check(component: str):
                 "timestamp": datetime.utcnow().isoformat() + "Z",
             },
         )
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Application startup event"""
+    logger.info("Starting Agentic RAG application...")
+    
+    # Start KB cache scheduler
+    try:
+        from backend.core.kb_scheduler import start_kb_scheduler
+        start_kb_scheduler()
+        logger.info("KB cache scheduler started")
+    except Exception as e:
+        logger.warning(f"Failed to start KB cache scheduler: {e}")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Application shutdown event"""
+    logger.info("Shutting down Agentic RAG application...")
+    
+    # Stop KB cache scheduler
+    try:
+        from backend.core.kb_scheduler import stop_kb_scheduler
+        stop_kb_scheduler()
+        logger.info("KB cache scheduler stopped")
+    except Exception as e:
+        logger.warning(f"Failed to stop KB cache scheduler: {e}")
 
 
 if __name__ == "__main__":

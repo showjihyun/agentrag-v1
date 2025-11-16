@@ -55,9 +55,14 @@ export function CustomEdge({
     data?.isExecuting,
     data?.executionStatus
   );
+  
+  // Determine if edge should be animated
+  const isAnimated = data?.isExecuting || data?.executionStatus === 'success';
+  const isError = data?.executionStatus === 'error';
 
   return (
     <>
+      {/* Main edge path */}
       <BaseEdge
         id={id}
         path={edgePath}
@@ -68,8 +73,50 @@ export function CustomEdge({
           stroke: edgeColor,
           strokeDasharray: data?.isInvalid ? '5,5' : undefined,
         }}
-        className={data?.isExecuting ? 'animate-pulse' : ''}
       />
+      
+      {/* Animated overlay for data flow */}
+      {isAnimated && !isError && (
+        <path
+          d={edgePath}
+          fill="none"
+          stroke={edgeColor}
+          strokeWidth={selected || data?.isExecuting ? 3 : 2}
+          strokeDasharray="5 5"
+          className="edge-animated"
+          style={{
+            opacity: 0.6,
+          }}
+        />
+      )}
+      
+      {/* Pulsing effect for executing edges */}
+      {data?.isExecuting && (
+        <path
+          d={edgePath}
+          fill="none"
+          stroke={edgeColor}
+          strokeWidth={6}
+          className="animate-pulse"
+          style={{
+            opacity: 0.3,
+          }}
+        />
+      )}
+      
+      {/* Error shake effect */}
+      {isError && (
+        <path
+          d={edgePath}
+          fill="none"
+          stroke={edgeColor}
+          strokeWidth={3}
+          style={{
+            animation: 'shake 0.5s',
+            opacity: 0.8,
+          }}
+        />
+      )}
       {data?.label && (
         <EdgeLabelRenderer>
           <div

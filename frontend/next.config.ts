@@ -51,6 +51,15 @@ const nextConfig: NextConfig = {
 
   // Webpack optimizations
   webpack: (config, { dev, isServer }) => {
+    // Suppress OpenTelemetry warnings from Sentry
+    config.ignoreWarnings = [
+      ...(config.ignoreWarnings || []),
+      {
+        module: /@opentelemetry\/instrumentation/,
+        message: /Critical dependency: the request of a dependency is an expression/,
+      },
+    ];
+
     // Production optimizations
     if (!dev && !isServer) {
       config.optimization = {

@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ExternalLink } from 'lucide-react';
+import { ExpressionEditor } from '../ExpressionEditor';
 
 interface DiscordNodeConfigProps {
   data: {
@@ -123,15 +124,18 @@ export default function DiscordNodeConfig({ data, onChange }: DiscordNodeConfigP
 
       <div>
         <Label>Message Content</Label>
-        <textarea
+        <ExpressionEditor
           value={message}
-          onChange={(e) => handleMessageChange(e.target.value)}
-          className="w-full h-32 p-3 border rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+          onChange={handleMessageChange}
           placeholder="Enter your message..."
+          multiline={true}
+          availableVariables={{
+            status: 'completed',
+            result: 'Success',
+            user: 'John Doe',
+            timestamp: new Date().toISOString(),
+          }}
         />
-        <p className="text-xs text-gray-500 mt-1">
-          Use {'{'}$json.field{'}'} to reference data
-        </p>
       </div>
 
       <div>

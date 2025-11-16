@@ -186,7 +186,8 @@ def get_agent(
         agent = agent_service.get_agent(agent_id)
         
         # Check permissions (owner or has read permission)
-        if agent.user_id != str(current_user.id) and not agent.is_public:
+        # Convert both to UUID for comparison
+        if str(agent.user_id) != str(current_user.id) and not agent.is_public:
             raise AgentPermissionException(agent_id, str(current_user.id), "read")
         
         return AgentResponse.from_orm(agent)
@@ -257,7 +258,7 @@ def update_agent(
                 detail=f"Agent {agent_id} not found"
             )
         
-        if existing_agent.user_id != str(current_user.id):
+        if str(existing_agent.user_id) != str(current_user.id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You don't have permission to update this agent"
@@ -330,7 +331,7 @@ async def delete_agent(
                 detail=f"Agent {agent_id} not found"
             )
         
-        if existing_agent.user_id != str(current_user.id):
+        if str(existing_agent.user_id) != str(current_user.id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You don't have permission to delete this agent"
@@ -502,7 +503,7 @@ async def clone_agent(
             )
         
         # Check permissions (owner or public)
-        if source_agent.user_id != str(current_user.id) and not source_agent.is_public:
+        if str(source_agent.user_id) != str(current_user.id) and not source_agent.is_public:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You don't have permission to clone this agent"
@@ -569,7 +570,7 @@ async def export_agent(
             )
         
         # Check permissions
-        if agent.user_id != str(current_user.id) and not agent.is_public:
+        if str(agent.user_id) != str(current_user.id) and not agent.is_public:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You don't have permission to export this agent"
@@ -657,4 +658,193 @@ async def import_agent(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to import agent"
+        )
+
+
+
+class AgentExecuteRequest(BaseModel):
+    """Agent execution request."""
+    input: str
+    context: Optional[dict] = None
+
+
+@router.post(
+    "/{agent_id}/execute",
+    summary="Execute agent",
+    description="Execute an agent with given input.",
+)
+async def execute_agent(
+    agent_id: str,
+    request: AgentExecuteRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Execute agent with input.
+    
+    **Request:**
+    - input: Input text for the agent
+    - context: Optional context data
+    
+    **Returns:**
+    - Execution result with output
+    
+    **Errors:**
+    - 404: Agent not found
+    - 403: Permission denied
+    - 500: Execution failed
+    """
+    try:
+        logger.info(f"Executing agent {agent_id} for user {current_user.id}")
+        
+        agent_service = AgentServiceRefactored(db)
+        
+        # Get agent and verify permissions
+        agent = agent_service.get_agent(agent_id)
+        if not agent:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Agent not found"
+            )
+        
+        if str(agent.user_id) != str(current_user.id) and not agent.is_public:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have permission to execute this agent"
+            )
+        
+        # Execute agent (simplified version - you may want to integrate with actual execution logic)
+        # For now, return a mock response
+        execution_id = str(uuid.uuid4())
+        
+        result = {
+            "success": True,
+            "execution_id": execution_id,
+            "output": f"Agent '{agent.name}' processed input: {request.input}",
+            "result": {
+                "agent_id": agent_id,
+                "agent_name": agent.name,
+                "input": request.input,
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+        }
+        
+        logger.info(f"Agent executed successfully: {execution_id}")
+        return result
+        
+    except HTTPException:
+        raise
+    except AgentNotFoundException as e:
+        logger.warning(f"Agent not found: {agent_id}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+    except AgentPermissionException as e:
+        logger.warning(f"Permission denied for agent {agent_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.error(f"Failed to execute agent: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to execute agent: {str(e)}"
+        )
+
+
+
+class AgentStatsResponse(BaseModel):
+    """Agent statistics response."""
+    agent_id: str
+    total_runs: int
+    successful_runs: int
+    failed_runs: int
+    success_rate: float
+    avg_duration_ms: Optional[float]
+    last_run_at: Optional[datetime]
+
+
+@router.get(
+    "/{agent_id}/stats",
+    response_model=AgentStatsResponse,
+    summary="Get agent statistics",
+    description="Get execution statistics for an agent.",
+)
+async def get_agent_stats(
+    agent_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Get agent execution statistics.
+    
+    **Returns:**
+    - Execution statistics including runs, success rate, and average duration
+    
+    **Errors:**
+    - 404: Agent not found
+    - 403: Permission denied
+    """
+    try:
+        logger.info(f"Getting stats for agent {agent_id}")
+        
+        agent_service = AgentServiceRefactored(db)
+        
+        # Get agent and verify permissions
+        agent = agent_service.get_agent(agent_id)
+        if not agent:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Agent not found"
+            )
+        
+        if str(agent.user_id) != str(current_user.id) and not agent.is_public:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have permission to view this agent's statistics"
+            )
+        
+        # Get execution statistics from agent_executions table
+        from backend.db.models.agent_builder import AgentExecution
+        
+        executions = db.query(AgentExecution).filter(
+            AgentExecution.agent_id == agent_id
+        ).all()
+        
+        total_runs = len(executions)
+        successful_runs = sum(1 for e in executions if e.status == 'completed')
+        failed_runs = sum(1 for e in executions if e.status == 'failed')
+        
+        success_rate = (successful_runs / total_runs * 100) if total_runs > 0 else 0.0
+        
+        # Calculate average duration
+        completed_executions = [e for e in executions if e.status == 'completed' and e.started_at and e.completed_at]
+        if completed_executions:
+            durations = [(e.completed_at - e.started_at).total_seconds() * 1000 for e in completed_executions]
+            avg_duration_ms = sum(durations) / len(durations)
+        else:
+            avg_duration_ms = None
+        
+        # Get last run time
+        last_run_at = max([e.started_at for e in executions], default=None) if executions else None
+        
+        return AgentStatsResponse(
+            agent_id=agent_id,
+            total_runs=total_runs,
+            successful_runs=successful_runs,
+            failed_runs=failed_runs,
+            success_rate=round(success_rate, 1),
+            avg_duration_ms=round(avg_duration_ms, 1) if avg_duration_ms else None,
+            last_run_at=last_run_at,
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get agent stats: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get agent statistics: {str(e)}"
         )

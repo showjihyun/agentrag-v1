@@ -431,6 +431,7 @@ class MilvusManager:
             # Extract fields from metadata
             ids = []
             document_ids = []
+            knowledgebase_ids = []
             texts = []
             chunk_indices = []
             document_names = []
@@ -461,6 +462,7 @@ class MilvusManager:
 
                 ids.append(meta["id"])
                 document_ids.append(meta["document_id"])
+                knowledgebase_ids.append(meta.get("knowledgebase_id", ""))
                 texts.append(meta["text"])
                 chunk_indices.append(meta["chunk_index"])
                 document_names.append(meta["document_name"])
@@ -503,6 +505,7 @@ class MilvusManager:
             data = [
                 ids,
                 document_ids,
+                knowledgebase_ids,
                 texts,
                 embeddings,
                 chunk_indices,
@@ -590,6 +593,7 @@ class MilvusManager:
                 output_fields = [
                     "id",
                     "document_id",
+                    "knowledgebase_id",
                     "text",
                     "document_name",
                     "chunk_index",
@@ -647,8 +651,13 @@ class MilvusManager:
                         document_name=hit.entity.get("document_name"),
                         chunk_index=hit.entity.get("chunk_index"),
                         metadata={
+                            "filename": hit.entity.get("document_name"),
+                            "document_name": hit.entity.get("document_name"),
+                            "chunk_index": hit.entity.get("chunk_index"),
                             "file_type": hit.entity.get("file_type"),
                             "upload_date": hit.entity.get("upload_date"),
+                            "page_number": hit.entity.get("page_number"),
+                            "line_number": hit.entity.get("line_number"),
                         },
                     )
                     results.append(result)

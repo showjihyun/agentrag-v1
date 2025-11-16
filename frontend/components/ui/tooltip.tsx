@@ -33,11 +33,33 @@ const TooltipTrigger = React.forwardRef<
   const context = React.useContext(TooltipContext)
   if (!context) throw new Error('TooltipTrigger must be used within Tooltip')
 
+  const handlers = {
+    onMouseEnter: () => context.setOpen(true),
+    onMouseLeave: () => context.setOpen(false),
+  }
+
+  if (asChild && React.isValidElement(children)) {
+    return React.cloneElement(children as React.ReactElement<any>, {
+      ...handlers,
+      // Merge original handlers if they exist
+      onMouseEnter: (e: React.MouseEvent) => {
+        handlers.onMouseEnter()
+        const originalOnMouseEnter = (children as any).props?.onMouseEnter
+        if (originalOnMouseEnter) originalOnMouseEnter(e)
+      },
+      onMouseLeave: (e: React.MouseEvent) => {
+        handlers.onMouseLeave()
+        const originalOnMouseLeave = (children as any).props?.onMouseLeave
+        if (originalOnMouseLeave) originalOnMouseLeave(e)
+      },
+    })
+  }
+
   return (
     <div
       ref={ref}
-      onMouseEnter={() => context.setOpen(true)}
-      onMouseLeave={() => context.setOpen(false)}
+      onMouseEnter={handlers.onMouseEnter}
+      onMouseLeave={handlers.onMouseLeave}
       className={className}
       {...props}
     >

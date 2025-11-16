@@ -70,6 +70,17 @@ class Settings(BaseSettings):
     DB_POOL_TIMEOUT: int = 30  # Connection timeout in seconds
     DB_ECHO_POOL: bool = False  # Enable pool debugging (dev only)
     DB_STATEMENT_TIMEOUT: int = 30000  # Statement timeout in milliseconds (30s)
+    
+    # Read Replica Configuration (Priority 10)
+    READ_REPLICA_URLS: Optional[str] = None  # Comma-separated list of read replica URLs
+    ENABLE_READ_REPLICAS: bool = False  # Enable read/write splitting
+    
+    @property
+    def read_replica_urls_list(self) -> List[str]:
+        """Parse comma-separated read replica URLs"""
+        if not self.READ_REPLICA_URLS:
+            return []
+        return [url.strip() for url in self.READ_REPLICA_URLS.split(',') if url.strip()]
 
     # Authentication Configuration (Phase 5)
     JWT_SECRET_KEY: str = "your_jwt_secret_key_here_min_32_chars_change_in_production"
