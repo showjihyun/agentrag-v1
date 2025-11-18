@@ -11,7 +11,7 @@ Multi-Agent RAG | Visual Workflow Builder | 50+ Integrations | Real-time Streami
 
 ---
 
-## Spectacculartive RAG
+## Speculartive RAG
 <img width="2016" height="1266" alt="image" src="https://github.com/user-attachments/assets/e820bf80-4f84-45cb-bbb8-471d6556d879" />
 
 ## Agent  Builder
