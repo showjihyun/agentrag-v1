@@ -2,23 +2,8 @@
   "queries": [
     "What is RAG?",
     "How does vector search work?",
-    "Explain semantic search",
-    "What is the difference between BM25 and vector search?",
-    "How to improve search accuracy?",
-    "What is a cross-encoder?",
     "Explain hybrid search",
-    "What is speculative RAG?",
     "How does agentic RAG work?",
-    "What is chain of thought reasoning?",
-    "Explain ReAct pattern",
-    "What is episodic memory?",
-    "How to optimize RAG performance?",
-    "What is query expansion?",
-    "Explain document chunking strategies",
-    "What is MMR diversification?",
-    "How does caching improve performance?",
-    "What is semantic caching?",
-    "Explain corrective RAG",
-    "What is self-RAG?"
+    "How to optimize RAG performance?"
   ]
 }

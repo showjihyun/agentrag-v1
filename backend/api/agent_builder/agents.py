@@ -158,7 +158,7 @@ def create_agent(
     summary="Get agent by ID",
     description="Retrieve a specific agent by ID. Checks user permissions.",
 )
-def get_agent(
+async def get_agent(
     agent_id: str,
     current_user: User = Depends(get_current_user),
     agent_service: AgentServiceRefactored = Depends(get_agent_service),
@@ -183,14 +183,46 @@ def get_agent(
     try:
         logger.info(f"Fetching agent {agent_id} for user {current_user.id}")
         
-        agent = agent_service.get_agent(agent_id)
+        agent = await agent_service.get_agent(agent_id)
         
         # Check permissions (owner or has read permission)
         # Convert both to UUID for comparison
         if str(agent.user_id) != str(current_user.id) and not agent.is_public:
             raise AgentPermissionException(agent_id, str(current_user.id), "read")
         
-        return AgentResponse.from_orm(agent)
+        # Convert Agent ORM object to AgentResponse
+        return AgentResponse(
+            id=str(agent.id),
+            user_id=str(agent.user_id),
+            name=agent.name,
+            description=agent.description,
+            agent_type=agent.agent_type,
+            template_id=str(agent.template_id) if agent.template_id else None,
+            llm_provider=agent.llm_provider,
+            llm_model=agent.llm_model,
+            prompt_template_id=str(agent.prompt_template_id) if agent.prompt_template_id else None,
+            configuration=agent.configuration or {},
+            is_public=agent.is_public,
+            created_at=agent.created_at,
+            updated_at=agent.updated_at,
+            deleted_at=agent.deleted_at,
+            tools=[
+                {
+                    "tool_id": str(at.tool_id),
+                    "order": at.order,
+                    "configuration": at.configuration or {}
+                }
+                for at in agent.tools
+            ] if agent.tools else [],
+            knowledgebases=[
+                {
+                    "knowledgebase_id": str(ak.knowledgebase_id),
+                    "order": ak.order
+                }
+                for ak in agent.knowledgebases
+            ] if agent.knowledgebases else [],
+            version_count=0
+        )
         
     except AgentNotFoundException as e:
         logger.warning(f"Agent not found: {e.message}")
@@ -218,7 +250,7 @@ def get_agent(
     summary="Update agent",
     description="Update an existing agent. Requires ownership.",
 )
-def update_agent(
+async def update_agent(
     agent_id: str,
     agent_data: AgentUpdate,
     current_user: User = Depends(get_current_user),
@@ -248,10 +280,8 @@ def update_agent(
     try:
         logger.info(f"Updating agent {agent_id} for user {current_user.id}")
         
-        agent_service = AgentServiceRefactored(db)
-        
         # Check ownership
-        existing_agent = agent_service.get_agent(agent_id)
+        existing_agent = await agent_service.get_agent(agent_id)
         if not existing_agent:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -265,7 +295,7 @@ def update_agent(
             )
         
         # Update agent
-        updated_agent = agent_service.update_agent(
+        updated_agent = await agent_service.update_agent(
             agent_id=agent_id,
             agent_data=agent_data,
             user_id=str(current_user.id)
@@ -324,7 +354,7 @@ async def delete_agent(
         agent_service = AgentServiceRefactored(db)
         
         # Check ownership
-        existing_agent = agent_service.get_agent(agent_id)
+        existing_agent = await agent_service.get_agent(agent_id)
         if not existing_agent:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -338,7 +368,7 @@ async def delete_agent(
             )
         
         # Soft delete
-        agent_service.delete_agent(agent_id)
+        await agent_service.delete_agent(agent_id)
         
         logger.info(f"Agent deleted successfully: {agent_id}")
         return None
@@ -495,7 +525,7 @@ async def clone_agent(
         agent_service = AgentServiceRefactored(db)
         
         # Check if agent exists and user has access
-        source_agent = agent_service.get_agent(agent_id)
+        source_agent = await agent_service.get_agent(agent_id)
         if not source_agent:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -510,7 +540,7 @@ async def clone_agent(
             )
         
         # Clone agent
-        cloned_agent = agent_service.clone_agent(
+        cloned_agent = await agent_service.clone_agent(
             agent_id=agent_id,
             user_id=str(current_user.id)
         )
@@ -562,7 +592,7 @@ async def export_agent(
         agent_service = AgentServiceRefactored(db)
         
         # Check if agent exists and user has access
-        agent = agent_service.get_agent(agent_id)
+        agent = await agent_service.get_agent(agent_id)
         if not agent:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -700,7 +730,7 @@ async def execute_agent(
         agent_service = AgentServiceRefactored(db)
         
         # Get agent and verify permissions
-        agent = agent_service.get_agent(agent_id)
+        agent = await agent_service.get_agent(agent_id)
         if not agent:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -713,23 +743,37 @@ async def execute_agent(
                 detail="You don't have permission to execute this agent"
             )
         
-        # Execute agent (simplified version - you may want to integrate with actual execution logic)
-        # For now, return a mock response
-        execution_id = str(uuid.uuid4())
+        # Import executor
+        from backend.services.agent_builder.agent_executor import AgentExecutor
         
+        # Execute agent with actual executor
+        executor = AgentExecutor(db)
+        execution = await executor.execute_agent(
+            agent_id=agent_id,
+            user_id=str(current_user.id),
+            input_data={"input": request.input, **(request.context or {})},
+            session_id=None,
+            variables=request.context
+        )
+        
+        # Return execution result
         result = {
-            "success": True,
-            "execution_id": execution_id,
-            "output": f"Agent '{agent.name}' processed input: {request.input}",
+            "success": execution.status == "completed",
+            "execution_id": str(execution.id),
+            "output": execution.output_data.get("output", "") if execution.output_data else "",
+            "status": execution.status,
+            "error": execution.error_message,
             "result": {
                 "agent_id": agent_id,
                 "agent_name": agent.name,
                 "input": request.input,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": execution.started_at.isoformat(),
+                "duration_ms": execution.duration_ms,
+                "tokens_used": execution.output_data.get("tokens_used", 0) if execution.output_data else 0
             }
         }
         
-        logger.info(f"Agent executed successfully: {execution_id}")
+        logger.info(f"Agent executed successfully: {execution.id}")
         return result
         
     except HTTPException:
@@ -767,7 +811,7 @@ class AgentStatsResponse(BaseModel):
 
 
 @router.get(
-    "/{agent_id}/stats",
+    "/{agent_id}/statistics",
     response_model=AgentStatsResponse,
     summary="Get agent statistics",
     description="Get execution statistics for an agent.",
@@ -793,7 +837,7 @@ async def get_agent_stats(
         agent_service = AgentServiceRefactored(db)
         
         # Get agent and verify permissions
-        agent = agent_service.get_agent(agent_id)
+        agent = await agent_service.get_agent(agent_id)
         if not agent:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -848,3 +892,23 @@ async def get_agent_stats(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get agent statistics: {str(e)}"
         )
+
+
+
+@router.get(
+    "/{agent_id}/stats",
+    response_model=AgentStatsResponse,
+    summary="Get agent statistics (alias)",
+    description="Get execution statistics for an agent. Alias for /statistics endpoint.",
+)
+async def get_agent_stats_alias(
+    agent_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Get agent execution statistics (alias endpoint).
+    
+    This is an alias for the /statistics endpoint for backward compatibility.
+    """
+    return await get_agent_stats(agent_id, current_user, db)

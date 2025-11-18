@@ -29,7 +29,7 @@ from backend.core.rate_limiter_enhanced import get_rate_limiter
 logger = logging.getLogger(__name__)
 
 router = APIRouter(
-    prefix="/api/agent-builder/agents",
+    prefix="/api/agent-builder/agents/{agent_id}/chat",
     tags=["agent-chat"],
 )
 
@@ -53,7 +53,7 @@ class ChatResponse(BaseModel):
 
 
 @router.post(
-    "/{agent_id}/chat",
+    "",
     response_model=ChatResponse,
     summary="Chat with agent (KB-aware)",
     description="Send a message to an agent. Automatically uses agent's knowledgebases."
@@ -310,7 +310,7 @@ async def chat_with_agent(
 
 
 @router.get(
-    "/{agent_id}/chat/history",
+    "/history",
     summary="Get chat history",
     description="Retrieve chat history for an agent session"
 )

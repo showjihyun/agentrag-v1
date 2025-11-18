@@ -1,0 +1,370 @@
+{
+  "workflows": [
+    {
+      "name": "Slack Deployment Notification",
+      "description": "Send rich Slack notification when deployment completes",
+      "trigger": "webhook",
+      "nodes": [
+        {
+          "id": "webhook_trigger",
+          "type": "webhook",
+          "name": "Deployment Webhook",
+          "config": {
+            "path": "/webhooks/deployment-complete",
+            "method": "POST"
+          }
+        },
+        {
+          "id": "slack_notification",
+          "type": "tool",
+          "name": "Send Slack Notification",
+          "tool_id": "slack",
+          "config": {
+            "operation": "Send Message",
+            "token": "{{env.SLACK_BOT_TOKEN}}",
+            "channel": "#deployments",
+            "blocks": [
+              {
+                "type": "header",
+                "text": {
+                  "type": "plain_text",
+                  "text": "🚀 Deployment Complete"
+                }
+              },
+              {
+                "type": "section",
+                "fields": [
+                  {
+                    "type": "mrkdwn",
+                    "text": "*Environment:*\n{{webhook_trigger.body.environment}}"
+                  },
+                  {
+                    "type": "mrkdwn",
+                    "text": "*Version:*\n{{webhook_trigger.body.version}}"
+                  },
+                  {
+                    "type": "mrkdwn",
+                    "text": "*Status:*\n✅ Success"
+                  },
+                  {
+                    "type": "mrkdwn",
+                    "text": "*Duration:*\n{{webhook_trigger.body.duration}}s"
+                  }
+                ]
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*Changes:*\n{{webhook_trigger.body.changes}}"
+                }
+              },
+              {
+                "type": "divider"
+              },
+              {
+                "type": "context",
+                "elements": [
+                  {
+                    "type": "mrkdwn",
+                    "text": "Deployed by {{webhook_trigger.body.user}} at {{webhook_trigger.body.timestamp}}"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gmail Daily Report",
+      "description": "Send daily HTML report via Gmail",
+      "trigger": "schedule",
+      "nodes": [
+        {
+          "id": "schedule_trigger",
+          "type": "schedule",
+          "name": "Daily at 9 AM",
+          "config": {
+            "cron": "0 9 * * *",
+            "timezone": "UTC"
+          }
+        },
+        {
+          "id": "fetch_metrics",
+          "type": "code",
+          "name": "Fetch Metrics",
+          "config": {
+            "code": "// Fetch metrics from database\nconst metrics = await fetchDailyMetrics();\nreturn metrics;"
+          }
+        },
+        {
+          "id": "generate_report",
+          "type": "code",
+          "name": "Generate HTML Report",
+          "config": {
+            "code": "const html = `\n<html>\n  <head>\n    <style>\n      body { font-family: Arial, sans-serif; }\n      .header { background: #4A154B; color: white; padding: 20px; }\n      .metric { padding: 10px; border-bottom: 1px solid #ddd; }\n      .metric-value { font-size: 24px; font-weight: bold; color: #10B981; }\n    </style>\n  </head>\n  <body>\n    <div class=\"header\">\n      <h1>Daily AgenticRAG Report</h1>\n      <p>${new Date().toLocaleDateString()}</p>\n    </div>\n    <div class=\"metric\">\n      <h3>Total Queries</h3>\n      <div class=\"metric-value\">${fetch_metrics.output.total_queries}</div>\n    </div>\n    <div class=\"metric\">\n      <h3>Average Response Time</h3>\n      <div class=\"metric-value\">${fetch_metrics.output.avg_response_time}s</div>\n    </div>\n    <div class=\"metric\">\n      <h3>User Satisfaction</h3>\n      <div class=\"metric-value\">${fetch_metrics.output.satisfaction}%</div>\n    </div>\n    <div class=\"metric\">\n      <h3>Cache Hit Rate</h3>\n      <div class=\"metric-value\">${fetch_metrics.output.cache_hit_rate}%</div>\n    </div>\n  </body>\n</html>\n`;\nreturn { html };"
+          }
+        },
+        {
+          "id": "send_email",
+          "type": "tool",
+          "name": "Send Gmail Report",
+          "tool_id": "gmail",
+          "config": {
+            "operation": "Send Email",
+            "credentials": "{{env.GMAIL_CREDENTIALS}}",
+            "to": "admin@example.com",
+            "cc": "team@example.com",
+            "subject": "Daily AgenticRAG Report - {{schedule_trigger.date}}",
+            "body": "{{generate_report.output.html}}",
+            "body_type": "HTML"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Error Alert System",
+      "description": "Monitor errors and send alerts via Slack and Gmail",
+      "trigger": "schedule",
+      "nodes": [
+        {
+          "id": "check_errors",
+          "type": "code",
+          "name": "Check for Errors",
+          "config": {
+            "code": "// Check error logs\nconst errors = await checkErrorLogs();\nreturn { errors, hasErrors: errors.length > 0 };"
+          }
+        },
+        {
+          "id": "condition",
+          "type": "condition",
+          "name": "Has Errors?",
+          "config": {
+            "condition": "{{check_errors.output.hasErrors}} === true"
+          }
+        },
+        {
+          "id": "slack_alert",
+          "type": "tool",
+          "name": "Send Slack Alert",
+          "tool_id": "slack",
+          "config": {
+            "operation": "Send Message",
+            "token": "{{env.SLACK_BOT_TOKEN}}",
+            "channel": "#alerts",
+            "blocks": [
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "⚠️ *Error Alert*\n{{check_errors.output.errors.length}} errors detected in the last hour"
+                }
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*Recent Errors:*\n{{check_errors.output.errors | slice(0, 5) | map(e => `• ${e.message}`) | join('\\n')}}"
+                }
+              }
+            ]
+          },
+          "dependencies": ["condition"]
+        },
+        {
+          "id": "gmail_alert",
+          "type": "tool",
+          "name": "Send Gmail Alert",
+          "tool_id": "gmail",
+          "config": {
+            "operation": "Send Email",
+            "credentials": "{{env.GMAIL_CREDENTIALS}}",
+            "to": "oncall@example.com",
+            "subject": "🚨 Error Alert - {{check_errors.output.errors.length}} errors detected",
+            "body": "<h1>Error Alert</h1><p>{{check_errors.output.errors.length}} errors detected in the last hour.</p><h2>Recent Errors:</h2><ul>{{check_errors.output.errors | map(e => `<li>${e.message} (${e.timestamp})</li>`) | join('')}}</ul>",
+            "body_type": "HTML"
+          },
+          "dependencies": ["condition"]
+        }
+      ]
+    },
+    {
+      "name": "Customer Onboarding",
+      "description": "Send welcome messages via Slack DM and Gmail",
+      "trigger": "webhook",
+      "nodes": [
+        {
+          "id": "new_user_webhook",
+          "type": "webhook",
+          "name": "New User Webhook",
+          "config": {
+            "path": "/webhooks/new-user",
+            "method": "POST"
+          }
+        },
+        {
+          "id": "slack_welcome",
+          "type": "tool",
+          "name": "Send Slack Welcome",
+          "tool_id": "slack",
+          "config": {
+            "operation": "Send Direct Message",
+            "token": "{{env.SLACK_BOT_TOKEN}}",
+            "user": "{{new_user_webhook.body.slack_user_id}}",
+            "blocks": [
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "👋 Welcome to AgenticRAG, {{new_user_webhook.body.name}}!"
+                }
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "Here are some resources to get you started:\n• <https://docs.agenticrag.com|Documentation>\n• <https://docs.agenticrag.com/quickstart|Quick Start Guide>\n• <https://docs.agenticrag.com/tutorials|Tutorials>"
+                }
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "Need help? Just ask me anything!"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "gmail_welcome",
+          "type": "tool",
+          "name": "Send Welcome Email",
+          "tool_id": "gmail",
+          "config": {
+            "operation": "Send Email",
+            "credentials": "{{env.GMAIL_CREDENTIALS}}",
+            "to": "{{new_user_webhook.body.email}}",
+            "subject": "Welcome to AgenticRAG! 🚀",
+            "body": "<html><body><h1>Welcome to AgenticRAG!</h1><p>Hi {{new_user_webhook.body.name}},</p><p>We're excited to have you on board! Here's what you can do next:</p><ol><li>Complete your profile setup</li><li>Upload your first documents</li><li>Try your first query</li></ol><p>If you have any questions, feel free to reach out to our support team.</p><p>Best regards,<br>The AgenticRAG Team</p></body></html>",
+            "body_type": "HTML"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Slack to Gmail Bridge",
+      "description": "Forward important Slack messages to Gmail",
+      "trigger": "webhook",
+      "nodes": [
+        {
+          "id": "slack_webhook",
+          "type": "webhook",
+          "name": "Slack Event",
+          "config": {
+            "path": "/webhooks/slack-event",
+            "method": "POST"
+          }
+        },
+        {
+          "id": "check_importance",
+          "type": "code",
+          "name": "Check Message Importance",
+          "config": {
+            "code": "// Check if message contains important keywords\nconst message = slack_webhook.body.event.text;\nconst keywords = ['urgent', 'critical', 'emergency', 'asap'];\nconst isImportant = keywords.some(k => message.toLowerCase().includes(k));\nreturn { isImportant, message };"
+          }
+        },
+        {
+          "id": "condition",
+          "type": "condition",
+          "name": "Is Important?",
+          "config": {
+            "condition": "{{check_importance.output.isImportant}} === true"
+          }
+        },
+        {
+          "id": "forward_to_gmail",
+          "type": "tool",
+          "name": "Forward to Gmail",
+          "tool_id": "gmail",
+          "config": {
+            "operation": "Send Email",
+            "credentials": "{{env.GMAIL_CREDENTIALS}}",
+            "to": "oncall@example.com",
+            "subject": "🔴 Important Slack Message",
+            "body": "<h2>Important Message from Slack</h2><p><strong>From:</strong> {{slack_webhook.body.event.user}}</p><p><strong>Channel:</strong> {{slack_webhook.body.event.channel}}</p><p><strong>Message:</strong></p><blockquote>{{check_importance.output.message}}</blockquote><p><strong>Time:</strong> {{slack_webhook.body.event.ts}}</p>",
+            "body_type": "HTML"
+          },
+          "dependencies": ["condition"]
+        }
+      ]
+    },
+    {
+      "name": "Multi-Channel Announcement",
+      "description": "Send announcements to both Slack and Gmail",
+      "trigger": "webhook",
+      "nodes": [
+        {
+          "id": "announcement_webhook",
+          "type": "webhook",
+          "name": "Announcement Trigger",
+          "config": {
+            "path": "/webhooks/announcement",
+            "method": "POST"
+          }
+        },
+        {
+          "id": "slack_announcement",
+          "type": "tool",
+          "name": "Post to Slack",
+          "tool_id": "slack",
+          "config": {
+            "operation": "Send Message",
+            "token": "{{env.SLACK_BOT_TOKEN}}",
+            "channel": "#announcements",
+            "blocks": [
+              {
+                "type": "header",
+                "text": {
+                  "type": "plain_text",
+                  "text": "📢 {{announcement_webhook.body.title}}"
+                }
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "{{announcement_webhook.body.message}}"
+                }
+              },
+              {
+                "type": "context",
+                "elements": [
+                  {
+                    "type": "mrkdwn",
+                    "text": "Posted by {{announcement_webhook.body.author}}"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "gmail_announcement",
+          "type": "tool",
+          "name": "Email to Team",
+          "tool_id": "gmail",
+          "config": {
+            "operation": "Send Email",
+            "credentials": "{{env.GMAIL_CREDENTIALS}}",
+            "to": "team@example.com",
+            "subject": "📢 {{announcement_webhook.body.title}}",
+            "body": "<html><body><h1>{{announcement_webhook.body.title}}</h1><p>{{announcement_webhook.body.message}}</p><hr><p><em>Posted by {{announcement_webhook.body.author}}</em></p></body></html>",
+            "body_type": "HTML"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -504,7 +504,9 @@ async def test_block(
         # Test block
         result = await block_service.test_block(
             block_id=block_id,
-            test_input=test_request
+            test_input=test_request,
+            user_id=str(current_user.id),
+            save_execution=True
         )
         
         logger.info(f"Block tested successfully: {block_id}")
@@ -589,4 +591,112 @@ async def get_block_versions(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve block versions"
+        )
+
+
+
+@router.get(
+    "/{block_id}/executions",
+    summary="Get block execution history",
+    description="Retrieve execution history for a specific block.",
+)
+async def get_block_executions(
+    block_id: str,
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    status_filter: Optional[str] = Query(None, description="Filter by status (success, failed, timeout)"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Get block execution history.
+    
+    **Path Parameters:**
+    - block_id: Block UUID
+    
+    **Query Parameters:**
+    - limit: Maximum number of records (default: 50, max: 100)
+    - offset: Number of records to skip (default: 0)
+    - status_filter: Filter by execution status
+    
+    **Returns:**
+    - List of block executions with pagination
+    
+    **Errors:**
+    - 401: Unauthorized
+    - 403: Forbidden (no permission to access)
+    - 404: Block not found
+    - 500: Internal server error
+    """
+    try:
+        from backend.db.models.agent_builder import BlockExecution
+        
+        logger.info(f"Fetching executions for block {block_id}")
+        
+        # Check if block exists and user has access
+        block_service = BlockService(db)
+        block = block_service.get_block(block_id)
+        
+        if not block:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Block not found"
+            )
+        
+        # Check permissions
+        if str(block.user_id) != str(current_user.id) and not block.is_public:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have permission to view this block's executions"
+            )
+        
+        # Query executions
+        query = db.query(BlockExecution).filter(
+            BlockExecution.block_id == block_id
+        )
+        
+        if status_filter:
+            query = query.filter(BlockExecution.status == status_filter)
+        
+        # Get total count
+        total = query.count()
+        
+        # Get paginated results
+        executions = query.order_by(
+            BlockExecution.created_at.desc()
+        ).limit(limit).offset(offset).all()
+        
+        # Format response
+        results = [
+            {
+                "id": str(ex.id),
+                "block_id": str(ex.block_id),
+                "user_id": str(ex.user_id),
+                "input_data": ex.input_data,
+                "output_data": ex.output_data,
+                "status": ex.status,
+                "error_message": ex.error_message,
+                "duration_ms": ex.duration_ms,
+                "tokens_used": ex.tokens_used,
+                "cost": ex.cost,
+                "execution_metadata": ex.execution_metadata,
+                "created_at": ex.created_at.isoformat() if ex.created_at else None,
+            }
+            for ex in executions
+        ]
+        
+        return {
+            "executions": results,
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get block executions: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get block executions"
         )

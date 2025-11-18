@@ -24,6 +24,7 @@ def initialize_tools():
     
     try:
         # Import all tool integration modules
+        from backend.core.tools.integrations import ai_agent_tools
         from backend.core.tools.integrations import ai_tools
         from backend.core.tools.integrations import communication_tools
         from backend.core.tools.integrations import productivity_tools

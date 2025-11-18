@@ -14,7 +14,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/agent-builder/workflows", tags=["Branch Management"])
+router = APIRouter(prefix="/api/agent-builder/workflows/{workflow_id}/branches", tags=["Branch Management"])
 
 
 # Models
@@ -46,7 +46,7 @@ class BranchSwitchRequest(BaseModel):
 
 
 # Endpoints
-@router.get("/{workflow_id}/branches", response_model=List[Branch])
+@router.get("", response_model=List[Branch])
 async def get_branches(
     workflow_id: str,
     db: Session = Depends(get_db)
@@ -99,7 +99,7 @@ async def get_branches(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/{workflow_id}/branches", response_model=Branch, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=Branch, status_code=status.HTTP_201_CREATED)
 async def create_branch(
     workflow_id: str,
     request: BranchCreate,
@@ -132,7 +132,7 @@ async def create_branch(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/{workflow_id}/branches/{branch_id}/switch")
+@router.post("/{branch_id}/switch")
 async def switch_branch(
     workflow_id: str,
     branch_id: str,
@@ -160,7 +160,7 @@ async def switch_branch(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/{workflow_id}/branches/{branch_id}/merge")
+@router.post("/{branch_id}/merge")
 async def merge_branch(
     workflow_id: str,
     branch_id: str,
@@ -204,7 +204,7 @@ async def merge_branch(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.delete("/{workflow_id}/branches/{branch_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{branch_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_branch(
     workflow_id: str,
     branch_id: str,
@@ -237,7 +237,7 @@ async def delete_branch(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/{workflow_id}/branches/{branch_id}/commits")
+@router.get("/{branch_id}/commits")
 async def get_branch_commits(
     workflow_id: str,
     branch_id: str,
@@ -266,7 +266,7 @@ async def get_branch_commits(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/{workflow_id}/branches/{branch_id}/commit")
+@router.post("/{branch_id}/commit")
 async def create_commit(
     workflow_id: str,
     branch_id: str,

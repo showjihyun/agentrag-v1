@@ -83,11 +83,22 @@ class WorkflowService:
             # Create nodes (if any)
             if workflow_data.nodes:
                 for node_data in workflow_data.nodes:
+                    # Fix node_ref_id for block nodes
+                    node_ref_id = node_data.node_ref_id
+                    
+                    if node_data.node_type == "block":
+                        # For block nodes, node_ref_id should be None
+                        node_ref_id = None
+                    elif node_ref_id and not self._is_valid_uuid(node_ref_id):
+                        # If node_ref_id is not a valid UUID, set to None
+                        logger.warning(f"Invalid UUID for node_ref_id: {node_ref_id}, setting to None")
+                        node_ref_id = None
+                    
                     node = WorkflowNode(
                         id=node_data.id,
                         workflow_id=workflow.id,
                         node_type=node_data.node_type,
-                        node_ref_id=node_data.node_ref_id,
+                        node_ref_id=node_ref_id,
                         position_x=node_data.position_x,
                         position_y=node_data.position_y,
                         configuration=node_data.configuration
@@ -211,11 +222,24 @@ class WorkflowService:
             
             # Create new nodes
             for node_data in nodes:
+                # Fix node_ref_id for block nodes
+                # Block nodes should have None as node_ref_id (blockId is in configuration)
+                node_ref_id = node_data.node_ref_id
+                
+                if node_data.node_type == "block":
+                    # For block nodes, node_ref_id should be None
+                    # The blockId is stored in configuration, not as a UUID reference
+                    node_ref_id = None
+                elif node_ref_id and not self._is_valid_uuid(node_ref_id):
+                    # If node_ref_id is not a valid UUID, set to None
+                    logger.warning(f"Invalid UUID for node_ref_id: {node_ref_id}, setting to None")
+                    node_ref_id = None
+                
                 node = WorkflowNode(
                     id=node_data.id,
                     workflow_id=workflow.id,
                     node_type=node_data.node_type,
-                    node_ref_id=node_data.node_ref_id,
+                    node_ref_id=node_ref_id,
                     position_x=node_data.position_x,
                     position_y=node_data.position_y,
                     configuration=node_data.configuration
@@ -306,6 +330,25 @@ class WorkflowService:
         query = query.limit(limit).offset(offset)
         
         return query.all()
+    
+    def _is_valid_uuid(self, value: Any) -> bool:
+        """
+        Check if a value is a valid UUID.
+        
+        Args:
+            value: Value to check
+            
+        Returns:
+            True if valid UUID, False otherwise
+        """
+        if value is None:
+            return False
+        
+        try:
+            uuid.UUID(str(value))
+            return True
+        except (ValueError, AttributeError, TypeError):
+            return False
     
     def validate_workflow_definition(
         self,
@@ -438,8 +481,25 @@ class WorkflowService:
             
             # Validate block nodes
             elif node_type == "block":
-                if not config.get("blockId") and not config.get("block_id"):
-                    errors.append(f"Block node '{node.id}' missing blockId")
+                # Block nodes are flexible - they don't require blockId
+                # The blockId is stored in configuration, not node_ref_id
+                # node_ref_id should be None for generic blocks
+                has_block_id = config.get("blockId") or config.get("block_id")
+                has_block_type = config.get("blockType") or config.get("block_type")
+                
+                # Auto-generate blockId if missing but has blockType
+                if not has_block_id and has_block_type:
+                    block_type = config.get("blockType") or config.get("block_type")
+                    # Store as string in configuration, not as UUID in node_ref_id
+                    config["blockId"] = f"block-{block_type}-{node.id[:8]}"
+                    config["block_id"] = config["blockId"]
+                    warnings.append(f"Auto-generated blockId for block node '{node.id}'")
+                elif not has_block_id and not has_block_type:
+                    # If neither exists, treat as a generic block
+                    config["blockId"] = f"block-generic-{node.id[:8]}"
+                    config["block_id"] = config["blockId"]
+                    config["blockType"] = "generic"
+                    warnings.append(f"Auto-generated blockId and blockType for block node '{node.id}'")
             
             # Validate tool nodes
             elif node_type == "tool":

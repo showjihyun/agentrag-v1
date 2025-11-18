@@ -1,1 +1,0 @@
-export { genericWebhookTrigger } from './webhook'

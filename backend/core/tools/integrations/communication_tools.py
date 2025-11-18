@@ -1,7 +1,8 @@
 """Communication and messaging tool integrations.
 
 This module provides integrations for communication services including:
-- Slack
+- Slack (full n8n-level integration)
+- Gmail (full n8n-level integration)
 - Discord
 - Telegram
 - SendGrid (Email)
@@ -13,63 +14,15 @@ from backend.core.tools.registry import ToolRegistry
 from backend.core.tools.base import ParamConfig, OutputConfig, RequestConfig
 from backend.core.tools.response_transformer import ResponseTransformer
 
+# Import full-featured tools
+from backend.core.tools.integrations.slack_tool import execute_slack_tool
+from backend.core.tools.integrations.gmail_tool import execute_gmail_tool
+
 logger = logging.getLogger(__name__)
 
 
-# Slack
-@ToolRegistry.register(
-    tool_id="slack",
-    name="Slack",
-    description="Send messages to Slack channels",
-    category="communication",
-    params={
-        "channel": ParamConfig(
-            type="string",
-            description="Channel ID or name",
-            required=True
-        ),
-        "text": ParamConfig(
-            type="string",
-            description="Message text",
-            required=True
-        ),
-        "blocks": ParamConfig(
-            type="array",
-            description="Rich message blocks (optional)"
-        ),
-        "thread_ts": ParamConfig(
-            type="string",
-            description="Thread timestamp for replies"
-        )
-    },
-    outputs={
-        "ok": OutputConfig(type="boolean", description="Success status"),
-        "ts": OutputConfig(type="string", description="Message timestamp")
-    },
-    request=RequestConfig(
-        method="POST",
-        url="https://slack.com/api/chat.postMessage",
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": "Bearer {{api_key}}"
-        },
-        body_template={
-            "channel": "{{channel}}",
-            "text": "{{text}}",
-            "blocks": "{{blocks}}",
-            "thread_ts": "{{thread_ts}}"
-        }
-    ),
-    api_key_env="SLACK_BOT_TOKEN",
-    transform_response=ResponseTransformer.create_transformer(
-        field_mapping={"ok": "ok", "ts": "ts"}
-    ),
-    icon="message-square",
-    bg_color="#4A154B",
-    docs_link="https://api.slack.com/methods/chat.postMessage"
-)
-class SlackTool:
-    pass
+# Note: Slack and Gmail are now registered in their respective modules
+# (slack_tool.py and gmail_tool.py) with full n8n-level functionality
 
 
 # Discord
@@ -247,4 +200,4 @@ class SendGridTool:
     pass
 
 
-logger.info("Registered 4 communication tools")
+logger.info("Registered 6 communication tools (including Slack and Gmail with n8n-level features)")

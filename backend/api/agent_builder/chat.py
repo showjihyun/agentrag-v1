@@ -16,7 +16,7 @@ from backend.core.triggers.chat import ChatTrigger
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/chat", tags=["chat"])
+router = APIRouter(prefix="/api/agent-builder/chat", tags=["chat"])
 
 
 class ChatMessageRequest(BaseModel):

@@ -80,7 +80,7 @@ class AgentExecutor:
         
         try:
             # Get agent
-            agent = self.agent_service.get_agent(agent_id)
+            agent = await self.agent_service.get_agent(agent_id)
             if not agent:
                 raise ValueError(f"Agent {agent_id} not found")
             

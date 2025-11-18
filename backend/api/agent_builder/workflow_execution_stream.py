@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from typing import AsyncGenerator
 import json
 import asyncio
+import logging
 from datetime import datetime
 
 from backend.db.database import get_db
@@ -16,6 +17,8 @@ from backend.db.models.user import User
 from backend.db.query_helpers import get_workflow_with_relations
 from backend.core.auth_dependencies import get_current_user
 from backend.services.agent_builder.workflow_executor import WorkflowExecutor
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 

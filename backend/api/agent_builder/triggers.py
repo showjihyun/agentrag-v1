@@ -21,7 +21,7 @@ from backend.core.triggers.manager import TriggerManager
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/triggers", tags=["triggers"])
+router = APIRouter(prefix="/api/agent-builder/triggers", tags=["triggers"])
 
 
 # ============================================================================

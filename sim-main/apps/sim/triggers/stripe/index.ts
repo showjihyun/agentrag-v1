@@ -1,1 +1,0 @@
-export { stripeWebhookTrigger } from './webhook'

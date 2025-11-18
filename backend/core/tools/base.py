@@ -45,16 +45,18 @@ class ToolExecutionError(Exception):
 class ParamConfig:
     """Configuration for a tool parameter."""
     
-    type: str  # "string", "number", "boolean", "object", "array"
+    type: str  # "string", "number", "boolean", "object", "array", "select", "chat", "text"
     description: str
     required: bool = False
     default: Any = None
     enum: Optional[List[Any]] = None
+    options: Optional[List[Dict[str, str]]] = None  # For select type: [{"label": "...", "value": "..."}]
     min_value: Optional[float] = None
     max_value: Optional[float] = None
     pattern: Optional[str] = None
     items: Optional[Dict[str, Any]] = None  # For array types
     properties: Optional[Dict[str, Any]] = None  # For object types
+    display_name: Optional[str] = None  # Display name for UI
 
 
 @dataclass

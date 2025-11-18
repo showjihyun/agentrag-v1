@@ -1,6 +1,7 @@
 """AI and LLM tool integrations.
 
 This module provides integrations for AI services including:
+- AI Agent (Autonomous agent with reasoning and tool use)
 - OpenAI (GPT-4, GPT-3.5)
 - Anthropic Claude
 - Google Gemini
@@ -13,6 +14,9 @@ import logging
 from backend.core.tools.registry import ToolRegistry
 from backend.core.tools.base import ParamConfig, OutputConfig, RequestConfig
 from backend.core.tools.response_transformer import ResponseTransformer
+
+# Import AI Agent tool
+from backend.core.tools.integrations.ai_agent_tools import execute_ai_agent_tool
 
 logger = logging.getLogger(__name__)
 
@@ -297,4 +301,4 @@ class CohereTool:
     pass
 
 
-logger.info("Registered 5 AI tools")
+logger.info("Registered 6 AI tools (including autonomous AI Agent)")

@@ -14,7 +14,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/agent-builder/agents", tags=["Prompt Optimization"])
+router = APIRouter(prefix="/api/agent-builder/agents/{agent_id}/prompts", tags=["Prompt Optimization"])
 
 
 # Models
@@ -70,7 +70,7 @@ class ABTestCreate(BaseModel):
 
 
 # Endpoints
-@router.post("/{agent_id}/optimize-prompt")
+@router.post("/optimize")
 async def optimize_prompt(
     agent_id: str,
     request: OptimizationRequest,
@@ -114,7 +114,7 @@ async def optimize_prompt(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/{agent_id}/prompt-metrics", response_model=PromptMetrics)
+@router.get("/metrics", response_model=PromptMetrics)
 async def get_prompt_metrics(
     agent_id: str,
     db: Session = Depends(get_db)
@@ -149,7 +149,7 @@ async def get_prompt_metrics(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/{agent_id}/ab-tests")
+@router.get("/ab-tests")
 async def get_ab_tests(
     agent_id: str,
     db: Session = Depends(get_db)
@@ -197,7 +197,7 @@ async def get_ab_tests(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/{agent_id}/ab-tests")
+@router.post("/ab-tests")
 async def create_ab_test(
     agent_id: str,
     request: ABTestCreate,
@@ -222,7 +222,7 @@ async def create_ab_test(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/{agent_id}/ab-tests/{test_id}/start")
+@router.post("/ab-tests/{test_id}/start")
 async def start_ab_test(
     agent_id: str,
     test_id: str,
@@ -244,7 +244,7 @@ async def start_ab_test(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/{agent_id}/ab-tests/{test_id}/pause")
+@router.post("/ab-tests/{test_id}/pause")
 async def pause_ab_test(
     agent_id: str,
     test_id: str,

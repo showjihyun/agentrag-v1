@@ -801,6 +801,12 @@ from backend.api.agent_builder import (
     embedding_models as agent_builder_embedding_models,  # Embedding models management
     milvus_admin as agent_builder_milvus_admin,  # Milvus administration
     triggers as agent_builder_triggers,  # Triggers management
+    approvals as agent_builder_approvals,  # Human-in-the-Loop approvals
+    templates as agent_builder_templates,  # Workflow templates
+    versions as agent_builder_versions,  # Workflow versions
+    tool_execution as agent_builder_tool_execution,  # Tool execution
+    tool_metrics as agent_builder_tool_metrics,  # Tool metrics
+    tool_marketplace as agent_builder_tool_marketplace,  # Tool marketplace
 )
 
 # Circuit Breaker Status API (Phase 1 Architecture)
@@ -843,6 +849,12 @@ app.include_router(agent_builder_kb_monitoring.router)  # KB monitoring
 app.include_router(agent_builder_embedding_models.router)  # Embedding models management
 app.include_router(agent_builder_milvus_admin.router)  # Milvus administration
 app.include_router(agent_builder_triggers.router)  # Triggers management
+app.include_router(agent_builder_approvals.router)  # Human-in-the-Loop approvals
+app.include_router(agent_builder_templates.router)  # Workflow templates
+app.include_router(agent_builder_versions.router)  # Workflow versions
+app.include_router(agent_builder_tool_execution.router)  # Tool execution
+app.include_router(agent_builder_tool_metrics.router)  # Tool metrics
+app.include_router(agent_builder_tool_marketplace.router)  # Tool marketplace
 app.include_router(llm_settings.router)
 
 # Workflow Execution Streaming API (SSE)

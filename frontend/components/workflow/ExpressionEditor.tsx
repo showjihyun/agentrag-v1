@@ -1,208 +1,386 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
-import { Input } from '@/components/ui/input';
+import { useState, useRef, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/textarea';
+import { Code, Play, Info, Sparkles } from 'lucide-react';
+
+interface Variable {
+  name: string;
+  description: string;
+  type: string;
+  example?: string;
+}
+
+interface Function {
+  name: string;
+  description: string;
+  syntax: string;
+  example: string;
+}
+
+const VARIABLES: Variable[] = [
+  {
+    name: '$input',
+    description: 'Input data from previous node',
+    type: 'object',
+    example: '$input.data.name'
+  },
+  {
+    name: '$node',
+    description: 'Access data from specific node',
+    type: 'object',
+    example: '$node["Node Name"].data'
+  },
+  {
+    name: '$workflow',
+    description: 'Workflow metadata',
+    type: 'object',
+    example: '$workflow.id'
+  },
+  {
+    name: '$env',
+    description: 'Environment variables',
+    type: 'object',
+    example: '$env.API_KEY'
+  },
+  {
+    name: '$execution',
+    description: 'Current execution context',
+    type: 'object',
+    example: '$execution.id'
+  },
+];
+
+const FUNCTIONS: Function[] = [
+  {
+    name: 'now()',
+    description: 'Current timestamp',
+    syntax: 'now()',
+    example: 'now() // 2024-01-01T00:00:00Z'
+  },
+  {
+    name: 'uuid()',
+    description: 'Generate UUID',
+    syntax: 'uuid()',
+    example: 'uuid() // "123e4567-e89b-12d3-a456-426614174000"'
+  },
+  {
+    name: 'json()',
+    description: 'Parse JSON string',
+    syntax: 'json(string)',
+    example: 'json(\'{"key": "value"}\') // {key: "value"}'
+  },
+  {
+    name: 'base64()',
+    description: 'Encode to base64',
+    syntax: 'base64(string)',
+    example: 'base64("hello") // "aGVsbG8="'
+  },
+  {
+    name: 'length()',
+    description: 'Get array/string length',
+    syntax: 'length(value)',
+    example: 'length([1,2,3]) // 3'
+  },
+  {
+    name: 'upper()',
+    description: 'Convert to uppercase',
+    syntax: 'upper(string)',
+    example: 'upper("hello") // "HELLO"'
+  },
+  {
+    name: 'lower()',
+    description: 'Convert to lowercase',
+    syntax: 'lower(string)',
+    example: 'lower("HELLO") // "hello"'
+  },
+  {
+    name: 'trim()',
+    description: 'Remove whitespace',
+    syntax: 'trim(string)',
+    example: 'trim("  hello  ") // "hello"'
+  },
+  {
+    name: 'split()',
+    description: 'Split string',
+    syntax: 'split(string, separator)',
+    example: 'split("a,b,c", ",") // ["a","b","c"]'
+  },
+  {
+    name: 'join()',
+    description: 'Join array',
+    syntax: 'join(array, separator)',
+    example: 'join(["a","b"], ",") // "a,b"'
+  },
+];
 
 interface ExpressionEditorProps {
   value: string;
   onChange: (value: string) => void;
-  availableVariables?: Record<string, any>;
+  context?: Record<string, any>;
   placeholder?: string;
-  multiline?: boolean;
+  height?: string;
 }
-
-const FUNCTIONS = [
-  { name: '$now', description: '현재 시간', example: '{{$now}}', category: 'Time' },
-  { name: '$json', description: '이전 노드 출력', example: '{{$json.field}}', category: 'Data' },
-  { name: '$env', description: '환경 변수', example: '{{$env.API_KEY}}', category: 'Environment' },
-  { name: '$node', description: '특정 노드 출력', example: '{{$node["NodeName"].json}}', category: 'Data' },
-  { name: '$workflow', description: '워크플로우 정보', example: '{{$workflow.id}}', category: 'Workflow' },
-  { name: '$input', description: '워크플로우 입력', example: '{{$input.data}}', category: 'Data' },
-  { name: '$prev', description: '이전 단계 결과', example: '{{$prev}}', category: 'Data' },
-];
-
-const STRING_FUNCTIONS = [
-  { name: 'toUpperCase()', description: '대문자 변환', example: '{{$json.name.toUpperCase()}}' },
-  { name: 'toLowerCase()', description: '소문자 변환', example: '{{$json.name.toLowerCase()}}' },
-  { name: 'trim()', description: '공백 제거', example: '{{$json.text.trim()}}' },
-  { name: 'length', description: '길이', example: '{{$json.text.length}}' },
-];
 
 export function ExpressionEditor({
   value,
   onChange,
-  availableVariables = {},
-  placeholder = 'Enter expression...',
-  multiline = false
+  context = {},
+  placeholder = 'Enter expression... e.g., $input.data.name',
+  height = 'h-32'
 }: ExpressionEditorProps) {
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [suggestions, setSuggestions] = useState<typeof FUNCTIONS>([]);
+  const [preview, setPreview] = useState<any>(null);
+  const [isEvaluating, setIsEvaluating] = useState(false);
+  const [showAutocomplete, setShowAutocomplete] = useState(false);
+  const [autocompleteFilter, setAutocompleteFilter] = useState('');
   const [cursorPosition, setCursorPosition] = useState(0);
-  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Filter suggestions based on current input
+  const filteredVariables = VARIABLES.filter(v =>
+    v.name.toLowerCase().includes(autocompleteFilter.toLowerCase())
+  );
   
-  // 자동완성 로직
-  useEffect(() => {
-    const text = value.slice(0, cursorPosition);
-    const match = text.match(/\{\{([^}]*)$/);
+  const filteredFunctions = FUNCTIONS.filter(f =>
+    f.name.toLowerCase().includes(autocompleteFilter.toLowerCase())
+  );
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newValue = e.target.value;
+    onChange(newValue);
     
-    if (match) {
-      const query = match[1].toLowerCase();
-      const filtered = FUNCTIONS.filter(f => 
-        f.name.toLowerCase().includes(query) ||
-        f.description.toLowerCase().includes(query)
-      );
-      setSuggestions(filtered);
-      setShowSuggestions(filtered.length > 0);
+    // Check if we should show autocomplete
+    const cursorPos = e.target.selectionStart;
+    setCursorPosition(cursorPos);
+    
+    // Get word at cursor
+    const textBeforeCursor = newValue.substring(0, cursorPos);
+    const lastWord = textBeforeCursor.split(/\s/).pop() || '';
+    
+    if (lastWord.startsWith('$') || lastWord.includes('(')) {
+      setAutocompleteFilter(lastWord);
+      setShowAutocomplete(true);
     } else {
-      setShowSuggestions(false);
+      setShowAutocomplete(false);
     }
-  }, [value, cursorPosition]);
-  
-  const insertSuggestion = (suggestion: typeof FUNCTIONS[0]) => {
-    const before = value.slice(0, cursorPosition);
-    const after = value.slice(cursorPosition);
-    const match = before.match(/\{\{([^}]*)$/);
+  };
+
+  const insertSuggestion = (text: string) => {
+    if (!textareaRef.current) return;
     
-    if (match) {
-      const newValue = before.slice(0, -match[0].length) + suggestion.example + after;
-      onChange(newValue);
-      setShowSuggestions(false);
-    }
+    const textarea = textareaRef.current;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const textBefore = value.substring(0, start);
+    const textAfter = value.substring(end);
+    
+    // Find the start of the current word
+    const words = textBefore.split(/\s/);
+    const currentWord = words[words.length - 1];
+    const wordStart = start - currentWord.length;
+    
+    const newValue = value.substring(0, wordStart) + text + textAfter;
+    onChange(newValue);
+    setShowAutocomplete(false);
+    
+    // Set cursor position after inserted text
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(wordStart + text.length, wordStart + text.length);
+    }, 0);
   };
-  
-  // 미리보기 (간단한 평가)
-  const preview = React.useMemo(() => {
+
+  const evaluateExpression = async () => {
+    setIsEvaluating(true);
     try {
-      let result = value;
+      // In production, call backend API
+      // For now, simulate evaluation
+      await new Promise(resolve => setTimeout(resolve, 500));
       
-      // {{$now}} -> 현재 시간
-      result = result.replace(/\{\{\$now\}\}/g, new Date().toISOString());
+      // Simple evaluation for demo
+      let result: any;
+      try {
+        // Replace variables with context values
+        let expr = value;
+        Object.keys(context).forEach(key => {
+          expr = expr.replace(new RegExp(`\\$${key}`, 'g'), JSON.stringify(context[key]));
+        });
+        
+        // Simulate result
+        result = {
+          value: expr,
+          type: typeof expr,
+          preview: expr.substring(0, 100)
+        };
+      } catch (e) {
+        result = { error: 'Invalid expression' };
+      }
       
-      // {{$json.field}} -> availableVariables에서 가져오기
-      result = result.replace(/\{\{\$json\.(\w+)\}\}/g, (_, field) => {
-        return availableVariables[field] !== undefined 
-          ? String(availableVariables[field]) 
-          : `[${field}]`;
-      });
-      
-      // {{$env.VAR}} -> 환경 변수 (예시)
-      result = result.replace(/\{\{\$env\.(\w+)\}\}/g, (_, varName) => {
-        return `[env.${varName}]`;
-      });
-      
-      return result;
-    } catch {
-      return value;
-    }
-  }, [value, availableVariables]);
-  
-  const hasExpressions = value.includes('{{');
-  const showPreview = hasExpressions && value !== preview;
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange(e.target.value);
-    setCursorPosition(e.target.selectionStart || 0);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      setShowSuggestions(false);
+      setPreview(result);
+    } catch (error) {
+      setPreview({ error: 'Evaluation failed' });
+    } finally {
+      setIsEvaluating(false);
     }
   };
-  
+
   return (
-    <div className="relative space-y-2">
-      {multiline ? (
-        <Textarea
-          ref={inputRef as React.RefObject<HTMLTextAreaElement>}
-          value={value}
-          onChange={handleChange}
-          onKeyDown={handleKeyDown}
-          placeholder={placeholder}
-          className="font-mono text-sm min-h-[100px]"
-          rows={4}
-        />
-      ) : (
-        <Input
-          ref={inputRef as React.RefObject<HTMLInputElement>}
-          value={value}
-          onChange={handleChange}
-          onKeyDown={handleKeyDown}
-          placeholder={placeholder}
-          className="font-mono text-sm"
-        />
-      )}
-      
-      {/* 자동완성 제안 */}
-      {showSuggestions && (
-        <Card className="absolute z-50 mt-1 w-full max-h-60 overflow-auto shadow-lg">
-          <div className="p-2">
-            {suggestions.map((suggestion, index) => (
-              <button
-                key={index}
-                onClick={() => insertSuggestion(suggestion)}
-                className="w-full text-left px-3 py-2 hover:bg-accent rounded-md transition-colors"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-sm font-medium">{suggestion.name}</span>
-                  <Badge variant="outline" className="text-xs">
-                    {suggestion.category}
-                  </Badge>
+    <div className="space-y-3">
+      {/* Editor Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Code className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm font-medium">Expression</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="relative group">
+            <Button variant="ghost" size="sm" className="h-7 px-2">
+              <Info className="h-3 w-3 mr-1" />
+              Help
+            </Button>
+            <div className="absolute right-0 top-full mt-1 w-80 bg-white border rounded-lg shadow-lg p-4 z-50 hidden group-hover:block">
+              <div className="space-y-3">
+                <div>
+                  <h4 className="font-semibold text-sm mb-2">Expression Syntax</h4>
+                  <ul className="text-xs space-y-1 text-muted-foreground">
+                    <li>• Use <code className="bg-muted px-1 rounded">$variable</code> to access data</li>
+                    <li>• Use <code className="bg-muted px-1 rounded">function()</code> for operations</li>
+                    <li>• Chain with <code className="bg-muted px-1 rounded">.</code> for nested access</li>
+                    <li>• Use <code className="bg-muted px-1 rounded">[]</code> for array indexing</li>
+                  </ul>
                 </div>
-                <div className="text-xs text-muted-foreground mt-1">
-                  {suggestion.description}
+                <div>
+                  <h4 className="font-semibold text-sm mb-2">Examples</h4>
+                  <ul className="text-xs space-y-1 text-muted-foreground">
+                    <li><code className="bg-muted px-1 rounded">$input.data.name</code></li>
+                    <li><code className="bg-muted px-1 rounded">upper($input.email)</code></li>
+                    <li><code className="bg-muted px-1 rounded">$node["HTTP Request"].data</code></li>
+                  </ul>
                 </div>
-                <div className="text-xs font-mono text-muted-foreground mt-1 bg-muted px-2 py-1 rounded">
-                  {suggestion.example}
-                </div>
-              </button>
-            ))}
+              </div>
+            </div>
           </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={evaluateExpression}
+            disabled={isEvaluating || !value}
+            className="h-7 px-2"
+          >
+            {isEvaluating ? (
+              <>
+                <Sparkles className="h-3 w-3 mr-1 animate-spin" />
+                Testing...
+              </>
+            ) : (
+              <>
+                <Play className="h-3 w-3 mr-1" />
+                Test
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+
+      {/* Editor */}
+      <div className="relative">
+        <textarea
+          ref={textareaRef}
+          value={value}
+          onChange={handleInputChange}
+          className={`w-full ${height} p-3 font-mono text-sm border rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-primary`}
+          placeholder={placeholder}
+          spellCheck={false}
+        />
+        
+        {/* Autocomplete Dropdown */}
+        {showAutocomplete && (filteredVariables.length > 0 || filteredFunctions.length > 0) && (
+          <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border rounded-md shadow-lg z-10 max-h-64 overflow-y-auto">
+            {/* Variables */}
+            {filteredVariables.length > 0 && (
+              <div className="p-2">
+                <p className="text-xs font-semibold text-gray-500 mb-1 px-2">Variables</p>
+                {filteredVariables.map((v) => (
+                  <div
+                    key={v.name}
+                    className="px-2 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded cursor-pointer"
+                    onClick={() => insertSuggestion(v.name)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <code className="text-sm font-mono text-primary">{v.name}</code>
+                      <Badge variant="outline" className="text-xs">{v.type}</Badge>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">{v.description}</p>
+                    {v.example && (
+                      <code className="text-xs text-gray-400 mt-1 block">{v.example}</code>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {/* Functions */}
+            {filteredFunctions.length > 0 && (
+              <div className="p-2 border-t">
+                <p className="text-xs font-semibold text-gray-500 mb-1 px-2">Functions</p>
+                {filteredFunctions.map((f) => (
+                  <div
+                    key={f.name}
+                    className="px-2 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded cursor-pointer"
+                    onClick={() => insertSuggestion(f.syntax)}
+                  >
+                    <code className="text-sm font-mono text-primary">{f.name}</code>
+                    <p className="text-xs text-gray-500 mt-1">{f.description}</p>
+                    <code className="text-xs text-gray-400 mt-1 block">{f.example}</code>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+      
+      {/* Preview */}
+      {preview && (
+        <Card className="p-3 bg-muted/50">
+          <div className="flex items-start justify-between mb-2">
+            <p className="text-xs font-semibold">Preview Result:</p>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setPreview(null)}
+              className="h-5 w-5 p-0"
+            >
+              ×
+            </Button>
+          </div>
+          {preview.error ? (
+            <div className="text-xs text-destructive">{preview.error}</div>
+          ) : (
+            <pre className="text-xs bg-background p-2 rounded overflow-x-auto">
+              {JSON.stringify(preview, null, 2)}
+            </pre>
+          )}
         </Card>
       )}
       
-      {/* 미리보기 */}
-      {showPreview && (
-        <div className="p-3 bg-muted rounded-md border">
-          <div className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-2">
-            <span>Preview:</span>
-            <Badge variant="secondary" className="text-xs">Live</Badge>
-          </div>
-          <div className="text-sm font-mono break-all">{preview}</div>
-        </div>
-      )}
-      
-      {/* 도움말 */}
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <span>💡 Tip: Type</span>
-        <code className="bg-muted px-1.5 py-0.5 rounded font-mono">{'{{'}</code>
-        <span>to see available expressions</span>
+      {/* Quick Reference */}
+      <div className="flex flex-wrap gap-2">
+        <span className="text-xs text-muted-foreground">Quick insert:</span>
+        {VARIABLES.slice(0, 4).map((v) => (
+          <Button
+            key={v.name}
+            variant="outline"
+            size="sm"
+            onClick={() => insertSuggestion(v.name)}
+            className="h-6 px-2 text-xs"
+          >
+            {v.name}
+          </Button>
+        ))}
       </div>
-
-      {/* 사용 가능한 변수 표시 */}
-      {Object.keys(availableVariables).length > 0 && (
-        <div className="text-xs">
-          <div className="font-medium text-muted-foreground mb-1">Available variables:</div>
-          <div className="flex flex-wrap gap-1">
-            {Object.keys(availableVariables).map(key => (
-              <Badge 
-                key={key} 
-                variant="outline" 
-                className="text-xs cursor-pointer hover:bg-accent"
-                onClick={() => {
-                  const expr = `{{$json.${key}}}`;
-                  onChange(value + expr);
-                }}
-              >
-                {key}
-              </Badge>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

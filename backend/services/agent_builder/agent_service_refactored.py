@@ -192,7 +192,7 @@ class AgentServiceRefactored:
         
         return agent
     
-    def get_agent(self, agent_id: str, use_cache: bool = True) -> Agent:
+    async def get_agent(self, agent_id: str, use_cache: bool = True) -> Agent:
         """
         Get agent by ID with caching.
         
@@ -211,7 +211,7 @@ class AgentServiceRefactored:
         # Try cache first
         if use_cache and self.cache:
             key = cache_key("agent", agent_id)
-            cached = self.cache.get_sync(key)
+            cached = await self.cache.get(key)
             if cached:
                 logger.debug(f"Cache hit for agent: {agent_id}")
                 return cached
@@ -225,7 +225,7 @@ class AgentServiceRefactored:
         # Cache result
         if use_cache and self.cache:
             key = cache_key("agent", agent_id)
-            self.cache.set_sync(key, agent, ttl=3600)
+            await self.cache.set(key, agent, ttl=3600)
         
         # Log execution time
         duration_ms = (datetime.utcnow() - start_time).total_seconds() * 1000
@@ -233,7 +233,7 @@ class AgentServiceRefactored:
         
         return agent
     
-    def update_agent(
+    async def update_agent(
         self,
         agent_id: str,
         agent_data: AgentUpdate,
@@ -254,7 +254,7 @@ class AgentServiceRefactored:
             AgentNotFoundException: If agent not found
             AgentValidationException: If validation fails
         """
-        agent = self.get_agent(agent_id, use_cache=False)
+        agent = await self.get_agent(agent_id, use_cache=False)
         
         # Track if significant changes were made
         significant_change = False
@@ -375,7 +375,7 @@ class AgentServiceRefactored:
         
         return agent
     
-    def delete_agent(self, agent_id: str) -> bool:
+    async def delete_agent(self, agent_id: str) -> bool:
         """
         Soft delete an agent.
         
@@ -388,7 +388,7 @@ class AgentServiceRefactored:
         Raises:
             AgentNotFoundException: If agent not found
         """
-        agent = self.get_agent(agent_id, use_cache=False)
+        agent = await self.get_agent(agent_id, use_cache=False)
         
         with transaction(self.db):
             self.agent_repo.soft_delete(agent)
@@ -449,7 +449,7 @@ class AgentServiceRefactored:
                 offset=offset
             )
     
-    def clone_agent(
+    async def clone_agent(
         self,
         agent_id: str,
         user_id: str,
@@ -469,7 +469,7 @@ class AgentServiceRefactored:
         Raises:
             AgentNotFoundException: If source agent not found
         """
-        source_agent = self.get_agent(agent_id)
+        source_agent = await self.get_agent(agent_id)
         
         with transaction(self.db):
             # Create cloned agent

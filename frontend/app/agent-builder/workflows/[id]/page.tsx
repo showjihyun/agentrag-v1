@@ -194,12 +194,12 @@ export default function WorkflowViewPage() {
     setExecutionId(execId);
     setExecuting(true);
     
-    // Switch to executions tab to show progress
-    setActiveTab('executions');
+    // Stay on current tab - user can manually switch to executions tab if needed
+    // setActiveTab('executions'); // Removed: Don't auto-switch tabs
     
     toast({
       title: 'Executing',
-      description: 'Workflow execution started...',
+      description: 'Workflow execution started. Check Executions tab for logs.',
     });
     
     // SSE will handle the execution and status updates
@@ -411,41 +411,130 @@ export default function WorkflowViewPage() {
             </TabsList>
           </div>
 
-          <TabsContent value="canvas" className="flex-1 m-0 bg-muted/20">
-            <WorkflowEditor
-              workflowId={workflowId}
-              initialNodes={nodes}
-              initialEdges={edges}
-              readOnly={true}
-            />
+          <TabsContent value="canvas" className="flex-1 m-0 bg-muted/20 flex flex-col overflow-hidden">
+            {/* Canvas Area - 70% */}
+            <div className="flex-1 overflow-hidden">
+              <WorkflowEditor
+                workflowId={workflowId}
+                initialNodes={nodes}
+                initialEdges={edges}
+                readOnly={true}
+              />
+            </div>
+            
+            {/* Execution Logs Panel - 30% */}
+            <div className="h-[30%] min-h-[200px] border-t bg-white dark:bg-gray-950">
+              <Card className="h-full flex flex-col rounded-none border-0">
+                <CardHeader className="p-3 border-b bg-gray-50 dark:bg-gray-900">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                      <Clock className="h-4 w-4" />
+                      Execution Logs
+                      {executing && (
+                        <Badge variant="secondary" className="ml-2">
+                          <div className="h-2 w-2 bg-blue-500 rounded-full animate-pulse mr-2"></div>
+                          Running
+                        </Badge>
+                      )}
+                    </CardTitle>
+                    <Badge variant="outline" className="text-xs">
+                      {executions.length} executions
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="flex-1 overflow-auto p-3">
+                  {executions.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">No execution logs yet</p>
+                      <p className="text-xs mt-1">Click Execute to run the workflow</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {executions.slice(0, 10).map((exec) => (
+                        <div
+                          key={exec.id}
+                          className="p-2 rounded border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors cursor-pointer"
+                          onClick={() => {
+                            setSelectedExecution(exec);
+                            setExecutionDetailsOpen(true);
+                          }}
+                        >
+                          <div className="flex items-start gap-2">
+                            <span className={`text-sm font-mono font-bold ${
+                              exec.status === 'success' ? 'text-green-600' :
+                              exec.status === 'failed' ? 'text-red-600' :
+                              'text-blue-600'
+                            }`}>
+                              {exec.status === 'success' ? '✓' :
+                               exec.status === 'failed' ? '✗' :
+                               '⟳'}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-xs font-medium truncate">
+                                  Execution {exec.id.substring(0, 8)}
+                                </span>
+                                <Badge variant="outline" className="text-xs">
+                                  {exec.duration.toFixed(2)}s
+                                </Badge>
+                                <Badge
+                                  variant={
+                                    exec.status === 'success' ? 'default' :
+                                    exec.status === 'failed' ? 'destructive' :
+                                    'secondary'
+                                  }
+                                  className="text-xs"
+                                >
+                                  {exec.status}
+                                </Badge>
+                              </div>
+                              {exec.error_message && (
+                                <p className="text-xs text-red-600 line-clamp-1">
+                                  {exec.error_message}
+                                </p>
+                              )}
+                              <p className="text-xs text-gray-500 mt-1">
+                                {new Date(exec.started_at).toLocaleString()}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
-          <TabsContent value="executions" className="flex-1 m-0 overflow-auto">
-            <div className="container mx-auto p-6">
-              {/* Real-time Execution Progress */}
-              {executing && (
-                <div className="mb-4">
-                  <ExecutionProgress
-                    workflowId={workflowId}
-                    executionId={executionId || undefined}
-                    isExecuting={executing}
-                    nodeStatuses={nodeStatuses}
-                    onNodeClick={(nodeId) => {
-                      logger.log('Node clicked:', nodeId);
-                      // Could highlight node in canvas
-                    }}
-                  />
-                </div>
-              )}
-              
-              <Card>
-                <CardHeader>
-                  <CardTitle>Execution History</CardTitle>
-                  <CardDescription>
-                    View past workflow executions and their results
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
+          <TabsContent value="executions" className="flex-1 m-0 flex flex-col overflow-hidden">
+            <div className="flex-1 overflow-auto">
+              <div className="container mx-auto p-6">
+                {/* Real-time Execution Progress */}
+                {executing && (
+                  <div className="mb-4">
+                    <ExecutionProgress
+                      workflowId={workflowId}
+                      executionId={executionId || undefined}
+                      isExecuting={executing}
+                      nodeStatuses={nodeStatuses}
+                      onNodeClick={(nodeId) => {
+                        logger.log('Node clicked:', nodeId);
+                        // Could highlight node in canvas
+                      }}
+                    />
+                  </div>
+                )}
+                
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Execution History</CardTitle>
+                    <CardDescription>
+                      View past workflow executions and their results
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
                   {loadingExecutions ? (
                     <div className="text-center py-8">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
@@ -526,6 +615,86 @@ export default function WorkflowViewPage() {
                         ))}
                       </TableBody>
                     </Table>
+                  )}
+                </CardContent>
+              </Card>
+              </div>
+            </div>
+            
+            {/* Execution Logs Panel - Bottom 30% */}
+            <div className="h-[30%] min-h-[200px] border-t bg-gray-50 dark:bg-gray-900">
+              <Card className="h-full flex flex-col rounded-none border-0">
+                <CardHeader className="p-3 border-b bg-white dark:bg-gray-950">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                      <Clock className="h-4 w-4" />
+                      Execution Logs
+                    </CardTitle>
+                    <Badge variant="outline" className="text-xs">
+                      {executions.length} executions
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="flex-1 overflow-auto p-3">
+                  {executions.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">No execution logs yet</p>
+                      <p className="text-xs mt-1">Logs will appear here when you run workflows</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {executions.slice(0, 10).map((exec) => (
+                        <div
+                          key={exec.id}
+                          className="p-2 rounded border border-gray-200 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+                          onClick={() => {
+                            setSelectedExecution(exec);
+                            setExecutionDetailsOpen(true);
+                          }}
+                        >
+                          <div className="flex items-start gap-2">
+                            <span className={`text-sm font-mono ${
+                              exec.status === 'success' ? 'text-green-600' :
+                              exec.status === 'failed' ? 'text-red-600' :
+                              'text-blue-600'
+                            }`}>
+                              {exec.status === 'success' ? '✓' :
+                               exec.status === 'failed' ? '✗' :
+                               '⟳'}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-xs font-medium truncate">
+                                  Execution {exec.id.substring(0, 8)}
+                                </span>
+                                <Badge variant="outline" className="text-xs">
+                                  {exec.duration.toFixed(2)}s
+                                </Badge>
+                                <Badge
+                                  variant={
+                                    exec.status === 'success' ? 'default' :
+                                    exec.status === 'failed' ? 'destructive' :
+                                    'secondary'
+                                  }
+                                  className="text-xs"
+                                >
+                                  {exec.status}
+                                </Badge>
+                              </div>
+                              {exec.error_message && (
+                                <p className="text-xs text-red-600 line-clamp-1">
+                                  {exec.error_message}
+                                </p>
+                              )}
+                              <p className="text-xs text-gray-500 mt-1">
+                                {new Date(exec.started_at).toLocaleString()}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </CardContent>
               </Card>

@@ -244,7 +244,9 @@ class BlockService:
     async def test_block(
         self,
         block_id: str,
-        test_input: BlockTestInput
+        test_input: BlockTestInput,
+        user_id: Optional[str] = None,
+        save_execution: bool = True
     ) -> BlockTestResult:
         """
         Test a block with given input.
@@ -252,6 +254,8 @@ class BlockService:
         Args:
             block_id: Block ID
             test_input: Test input data
+            user_id: User ID (for execution history)
+            save_execution: Whether to save execution history
             
         Returns:
             BlockTestResult with output or error
@@ -274,6 +278,9 @@ class BlockService:
         
         # Execute block based on type
         start_time = time.time()
+        execution_status = "success"
+        error_message = None
+        output = None
         
         try:
             if block.block_type == "llm":
@@ -285,13 +292,27 @@ class BlockService:
             elif block.block_type == "composite":
                 output = await self._execute_composite_block(block, test_input)
             else:
+                execution_status = "failed"
+                error_message = f"Unknown block type: {block.block_type}"
                 return BlockTestResult(
                     success=False,
-                    error=f"Unknown block type: {block.block_type}",
+                    error=error_message,
                     duration_ms=0
                 )
             
             duration_ms = int((time.time() - start_time) * 1000)
+            
+            # Save execution history
+            if save_execution and user_id:
+                self._save_block_execution(
+                    block_id=block_id,
+                    user_id=user_id,
+                    input_data=test_input.input_data,
+                    output_data=output,
+                    status=execution_status,
+                    duration_ms=duration_ms,
+                    error_message=error_message
+                )
             
             return BlockTestResult(
                 success=True,
@@ -302,13 +323,59 @@ class BlockService:
         
         except Exception as e:
             duration_ms = int((time.time() - start_time) * 1000)
+            execution_status = "failed"
+            error_message = str(e)
             logger.error(f"Block execution failed: {e}")
+            
+            # Save failed execution history
+            if save_execution and user_id:
+                self._save_block_execution(
+                    block_id=block_id,
+                    user_id=user_id,
+                    input_data=test_input.input_data,
+                    output_data=None,
+                    status=execution_status,
+                    duration_ms=duration_ms,
+                    error_message=error_message
+                )
             
             return BlockTestResult(
                 success=False,
-                error=str(e),
+                error=error_message,
                 duration_ms=duration_ms
             )
+    
+    def _save_block_execution(
+        self,
+        block_id: str,
+        user_id: str,
+        input_data: Dict[str, Any],
+        output_data: Optional[Dict[str, Any]],
+        status: str,
+        duration_ms: int,
+        error_message: Optional[str] = None
+    ):
+        """Save block execution history to database."""
+        try:
+            from backend.db.models.agent_builder import BlockExecution
+            
+            execution = BlockExecution(
+                block_id=block_id,
+                user_id=user_id,
+                input_data=input_data,
+                output_data=output_data,
+                status=status,
+                duration_ms=duration_ms,
+                error_message=error_message,
+                execution_metadata={"block_type": "test"}
+            )
+            
+            self.db.add(execution)
+            self.db.commit()
+            logger.info(f"Saved block execution: {execution.id}")
+        except Exception as e:
+            logger.error(f"Failed to save block execution: {e}")
+            self.db.rollback()
     
     def create_composite_block(
         self,
@@ -537,18 +604,22 @@ class BlockService:
             # Format prompt with input data
             prompt = prompt_template.format(**test_input.input_data)
             
+            # Convert prompt to messages format
+            messages = [
+                {"role": "user", "content": prompt}
+            ]
+            
             # Call LLM
             response = await llm_manager.generate(
-                prompt=prompt,
-                provider=llm_provider,
-                model=llm_model,
+                messages=messages,
                 temperature=temperature,
                 max_tokens=max_tokens
             )
             
+            # Response is a string, not a dict
             return {
-                "output": response.get("text", ""),
-                "tokens_used": response.get("tokens", 0),
+                "output": response if isinstance(response, str) else str(response),
+                "tokens_used": 0,  # Token counting would need to be implemented separately
                 "model": llm_model,
                 "provider": llm_provider
             }

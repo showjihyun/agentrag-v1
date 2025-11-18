@@ -167,27 +167,12 @@ export default function WorkflowsPage() {
     try {
       toast({
         title: 'Executing',
-        description: 'Workflow execution started...',
+        description: 'Opening workflow builder with execution logs...',
       });
       
-      const result = await agentBuilderAPI.executeWorkflow(workflowId, {});
+      // Navigate to builder page where execution logs are visible
+      router.push(`/agent-builder/workflows/builder?workflowId=${workflowId}&autoExecute=true`);
       
-      // Check if execution failed
-      if (result.status === 'failed') {
-        toast({
-          title: 'Execution Failed',
-          description: result.message || result.error_message || 'Workflow execution failed',
-          variant: 'error',
-        });
-      } else {
-        toast({
-          title: 'Success',
-          description: result.message || 'Workflow executed successfully',
-          variant: 'success',
-        });
-      }
-      
-      loadWorkflows();
     } catch (error: any) {
       // Handle API errors
       const errorMessage = error.message || error.detail || 'Failed to execute workflow';

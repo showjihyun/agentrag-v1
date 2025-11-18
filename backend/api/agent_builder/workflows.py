@@ -435,7 +435,7 @@ async def execute_workflow(
 ):
     """Execute a workflow."""
     try:
-        logger.info(f"Executing workflow {workflow_id} for user {current_user.id}")
+        logger.info(f"[WORKFLOW EXECUTE] Starting execution for workflow {workflow_id}, user {current_user.id}, input: {input_data}")
         
         workflow_service = WorkflowService(db)
         workflow = workflow_service.get_workflow(workflow_id)
@@ -458,8 +458,9 @@ async def execute_workflow(
         from datetime import datetime
         import uuid
         
+        execution_id = uuid.uuid4()
         execution = WorkflowExecution(
-            id=uuid.uuid4(),
+            id=execution_id,
             workflow_id=uuid.UUID(workflow_id),
             user_id=uuid.UUID(str(current_user.id)),
             input_data=input_data,
@@ -470,8 +471,13 @@ async def execute_workflow(
         
         try:
             db.add(execution)
+            db.flush()  # Flush first to catch any DB errors early
+            logger.info(f"[WORKFLOW EXECUTE] Created execution record: {execution.id}, flushed to DB")
+            
+            # Commit immediately to ensure record is saved
             db.commit()
             db.refresh(execution)
+            logger.info(f"[WORKFLOW EXECUTE] Committed execution record: {execution.id}")
             
             # Execute workflow using the execution engine
             from backend.services.agent_builder.workflow_executor import execute_workflow

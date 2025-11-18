@@ -14,7 +14,7 @@ from backend.models.agent_builder import WorkflowResponse
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/agent-builder/workflows", tags=["workflow-versions"])
+router = APIRouter(prefix="/api/agent-builder/workflows/{workflow_id}/versions", tags=["workflow-versions"])
 
 
 class VersionResponse(BaseModel):
@@ -56,7 +56,7 @@ class CompareVersionsResponse(BaseModel):
     edges_removed: List[tuple]
 
 
-@router.post("/{workflow_id}/versions", response_model=VersionResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=VersionResponse, status_code=status.HTTP_201_CREATED)
 async def create_version(
     workflow_id: str,
     request: CreateVersionRequest,
@@ -97,7 +97,7 @@ async def create_version(
         )
 
 
-@router.get("/{workflow_id}/versions", response_model=VersionListResponse)
+@router.get("", response_model=VersionListResponse)
 async def list_versions(
     workflow_id: str,
     db: Session = Depends(get_db),
@@ -132,7 +132,7 @@ async def list_versions(
         )
 
 
-@router.get("/{workflow_id}/versions/{version_number}", response_model=VersionResponse)
+@router.get("/{version_number}", response_model=VersionResponse)
 async def get_version(
     workflow_id: str,
     version_number: int,
@@ -166,7 +166,7 @@ async def get_version(
         )
 
 
-@router.post("/{workflow_id}/rollback", response_model=WorkflowResponse)
+@router.post("/rollback", response_model=WorkflowResponse)
 async def rollback_to_version(
     workflow_id: str,
     request: RollbackRequest,
@@ -215,7 +215,7 @@ async def rollback_to_version(
         )
 
 
-@router.get("/{workflow_id}/versions/compare", response_model=CompareVersionsResponse)
+@router.get("/compare", response_model=CompareVersionsResponse)
 async def compare_versions(
     workflow_id: str,
     version1: int,

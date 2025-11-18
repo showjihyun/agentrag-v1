@@ -22,7 +22,7 @@ from backend.db.models.user import User
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/audit-logs", tags=["audit-logs"])
+router = APIRouter(prefix="/api/agent-builder/audit-logs", tags=["audit-logs"])
 
 
 @router.get("")

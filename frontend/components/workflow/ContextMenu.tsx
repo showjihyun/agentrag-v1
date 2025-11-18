@@ -1,13 +1,13 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
-import { Copy, Files, Trash2, Group, AlignCenter, AlignLeft, AlignRight, StickyNote } from 'lucide-react';
+import { Trash2, Group, AlignCenter, AlignLeft, StickyNote } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export interface ContextMenuItem {
-  label: string;
+  label?: string;
   icon?: React.ComponentType<{ className?: string }>;
-  action: () => void;
+  action?: () => void;
   disabled?: boolean;
   separator?: boolean;
   danger?: boolean;
@@ -91,7 +91,7 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
             <button
               key={index}
               onClick={() => {
-                if (!item.disabled) {
+                if (!item.disabled && item.action) {
                   item.action();
                   onClose();
                 }
@@ -118,8 +118,6 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
 export const getNodeContextMenuItems = (
   selectedNodes: any[],
   handlers: {
-    onCopy: () => void;
-    onDuplicate: () => void;
     onDelete: () => void;
     onGroup: () => void;
     onAlignHorizontal: () => void;
@@ -130,19 +128,6 @@ export const getNodeContextMenuItems = (
   const multipleSelected = selectedNodes.length > 1;
 
   return [
-    {
-      label: 'Copy',
-      icon: Copy,
-      action: handlers.onCopy,
-    },
-    {
-      label: 'Duplicate',
-      icon: Files,
-      action: handlers.onDuplicate,
-    },
-    {
-      separator: true,
-    },
     {
       label: 'Add Note',
       icon: StickyNote,
@@ -185,29 +170,17 @@ export const getNodeContextMenuItems = (
 // Canvas context menu items
 export const getCanvasContextMenuItems = (
   handlers: {
-    onPaste: () => void;
     onSelectAll: () => void;
     onFitView: () => void;
-  },
-  hasClipboard: boolean
+  }
 ): ContextMenuItem[] => {
   return [
-    {
-      label: 'Paste',
-      icon: Copy,
-      action: handlers.onPaste,
-      disabled: !hasClipboard,
-    },
-    {
-      separator: true,
-    },
     {
       label: 'Select All',
       action: handlers.onSelectAll,
     },
     {
       label: 'Fit View',
-      icon: Maximize,
       action: handlers.onFitView,
     },
   ];

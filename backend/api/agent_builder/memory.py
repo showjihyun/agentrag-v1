@@ -23,7 +23,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/agent-builder/agents", tags=["Memory Management"])
+router = APIRouter(prefix="/api/agent-builder/agents/{agent_id}/memory", tags=["Memory Management"])
 
 
 # Simple in-memory cache for stats (5 minutes TTL)
@@ -99,7 +99,7 @@ class MemorySettings(BaseModel):
 
 
 # Endpoints
-@router.get("/{agent_id}/memory/stats", response_model=MemoryStats)
+@router.get("/stats", response_model=MemoryStats)
 async def get_memory_stats(
     agent_id: str,
     db: Session = Depends(get_db),
@@ -133,7 +133,7 @@ async def get_memory_stats(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/{agent_id}/memory", response_model=List[Memory])
+@router.get("", response_model=List[Memory])
 async def get_memories(
     agent_id: str,
     memory_type: Optional[str] = Query(None, pattern="^(short_term|long_term|episodic|semantic)$"),
@@ -168,7 +168,7 @@ async def get_memories(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.delete("/{agent_id}/memory/{memory_id}", status_code=204)
+@router.delete("/{memory_id}", status_code=204)
 async def delete_memory(
     agent_id: str,
     memory_id: str,
@@ -187,7 +187,7 @@ async def delete_memory(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/{agent_id}/memory/search", response_model=List[MemorySearchResult])
+@router.post("/search", response_model=List[MemorySearchResult])
 async def search_memories(
     agent_id: str,
     request: MemorySearchRequest,
@@ -220,7 +220,7 @@ async def search_memories(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/{agent_id}/memory/timeline", response_model=List[MemoryTimelineEvent])
+@router.get("/timeline", response_model=List[MemoryTimelineEvent])
 async def get_memory_timeline(
     agent_id: str,
     limit: int = Query(50, ge=1, le=200),
@@ -250,7 +250,7 @@ async def get_memory_timeline(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/{agent_id}/memory/settings", response_model=MemorySettings)
+@router.get("/settings", response_model=MemorySettings)
 async def get_memory_settings(
     agent_id: str,
     db: Session = Depends(get_db)
@@ -275,7 +275,7 @@ async def get_memory_settings(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.put("/{agent_id}/memory/settings", response_model=MemorySettings)
+@router.put("/settings", response_model=MemorySettings)
 async def update_memory_settings(
     agent_id: str,
     settings: MemorySettings,
@@ -294,7 +294,7 @@ async def update_memory_settings(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/{agent_id}/memory/consolidate")
+@router.post("/consolidate")
 async def consolidate_memories(
     agent_id: str,
     db: Session = Depends(get_db)

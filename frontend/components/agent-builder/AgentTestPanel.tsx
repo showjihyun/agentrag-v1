@@ -72,7 +72,7 @@ export function AgentTestPanel({ agentId, agentName, open, onOpenChange }: Agent
         return acc;
       }, {} as Record<string, any>);
 
-      const eventSource = await agentBuilderAPI.executeAgent(agentId, {
+      const eventSource = await agentBuilderAPI.executeAgentStream(agentId, {
         query: testQuery,
         context,
       });

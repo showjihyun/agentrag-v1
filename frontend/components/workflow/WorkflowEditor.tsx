@@ -45,6 +45,7 @@ import ConsensusNode from './nodes/ConsensusNode';
 import HumanApprovalNode from './nodes/HumanApprovalNode';
 import { CustomEdge } from './edges/CustomEdge';
 import { NodeConfigPanel } from './NodeConfigPanel';
+import { NodeConfigurationPanel } from './NodeConfigurationPanel';
 import { ExecutionDetailsPanel } from './ExecutionDetailsPanel';
 import { ExecutionControlPanel } from './ExecutionControlPanel';
 import { ExecutionStatusBadge } from './ExecutionStatusBadge';
@@ -460,8 +461,7 @@ function WorkflowEditorInner({
     setEdges(nextState.edges);
   }, [redo, historyState, setNodes, setEdges]);
 
-  // Clipboard state
-  const [copiedNodes, setCopiedNodes] = useState<Node[]>([]);
+
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -485,119 +485,11 @@ function WorkflowEditorInner({
         e.preventDefault();
         handleRedo();
       }
-      // Copy
-      else if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
-        const selectedNodes = nodes.filter(node => node.selected);
-        if (selectedNodes.length > 0) {
-          e.preventDefault();
-          setCopiedNodes(selectedNodes);
-          toast({
-            title: '📋 Copied',
-            description: `${selectedNodes.length} node${selectedNodes.length !== 1 ? 's' : ''} copied to clipboard`,
-            duration: 1500,
-          });
-        }
-      }
-      // Paste
-      else if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
-        if (copiedNodes.length > 0) {
-          e.preventDefault();
-          
-          // Create ID mapping for copied nodes
-          const idMapping = new Map<string, string>();
-          const newNodes = copiedNodes.map(node => {
-            const newId = generateUUID();
-            idMapping.set(node.id, newId);
-            
-            return {
-              ...node,
-              id: newId,
-              position: {
-                x: node.position.x + 50, // Offset by 50px
-                y: node.position.y + 50,
-              },
-              selected: true,
-            };
-          });
-          
-          // Copy edges between copied nodes
-          const copiedNodeIds = new Set(copiedNodes.map(n => n.id));
-          const newEdges = edges
-            .filter(edge => copiedNodeIds.has(edge.source) && copiedNodeIds.has(edge.target))
-            .map(edge => ({
-              ...edge,
-              id: generateUUID(),
-              source: idMapping.get(edge.source) || edge.source,
-              target: idMapping.get(edge.target) || edge.target,
-            }));
-          
-          // Deselect existing nodes
-          setNodes(nds => [
-            ...nds.map(n => ({ ...n, selected: false })),
-            ...newNodes,
-          ]);
-          
-          setEdges(eds => [...eds, ...newEdges]);
-          
-          toast({
-            title: '📋 Pasted',
-            description: `${newNodes.length} node${newNodes.length !== 1 ? 's' : ''} and ${newEdges.length} connection${newEdges.length !== 1 ? 's' : ''} pasted`,
-            duration: 2000,
-          });
-        }
-      }
-      // Duplicate (Ctrl+D)
-      else if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
-        const selectedNodes = nodes.filter(node => node.selected);
-        if (selectedNodes.length > 0) {
-          e.preventDefault();
-          
-          // Same as paste logic
-          const idMapping = new Map<string, string>();
-          const newNodes = selectedNodes.map(node => {
-            const newId = generateUUID();
-            idMapping.set(node.id, newId);
-            
-            return {
-              ...node,
-              id: newId,
-              position: {
-                x: node.position.x + 50,
-                y: node.position.y + 50,
-              },
-              selected: true,
-            };
-          });
-          
-          const selectedNodeIds = new Set(selectedNodes.map(n => n.id));
-          const newEdges = edges
-            .filter(edge => selectedNodeIds.has(edge.source) && selectedNodeIds.has(edge.target))
-            .map(edge => ({
-              ...edge,
-              id: generateUUID(),
-              source: idMapping.get(edge.source) || edge.source,
-              target: idMapping.get(edge.target) || edge.target,
-            }));
-          
-          setNodes(nds => [
-            ...nds.map(n => ({ ...n, selected: false })),
-            ...newNodes,
-          ]);
-          
-          setEdges(eds => [...eds, ...newEdges]);
-          
-          toast({
-            title: '📋 Duplicated',
-            description: `${newNodes.length} node${newNodes.length !== 1 ? 's' : ''} duplicated`,
-            duration: 2000,
-          });
-        }
-      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [readOnly, handleUndo, handleRedo, nodes, edges, copiedNodes, setNodes, setEdges, toast]);
+  }, [readOnly, handleUndo, handleRedo]);
 
   // Handle node selection from search
   const handleSelectNode = useCallback((nodeId: string) => {
@@ -1175,11 +1067,41 @@ function WorkflowEditorInner({
       
       {/* Node Configuration Panel */}
       {selectedNode && !readOnly && !showExecutionDetails && (
-        <NodeConfigPanel
-          node={selectedNode}
+        <NodeConfigurationPanel
+          node={{
+            id: selectedNode.id,
+            type: selectedNode.type || 'custom',
+            label: selectedNode.data?.name || selectedNode.data?.label || 'Node',
+            tool_id: selectedNode.data?.tool_id || selectedNode.data?.type || selectedNode.data?.blockType,
+            config: selectedNode.data?.config
+          }}
           onClose={() => setSelectedNode(null)}
-          onUpdate={handleNodeUpdate}
-          onDelete={handleNodeDelete}
+          onSave={(config) => {
+            handleNodeUpdate(selectedNode.id, { config });
+            setSelectedNode(null);
+          }}
+          onTest={async (config) => {
+            const response = await fetch('/api/agent-builder/tools/execute', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                tool_id: selectedNode.data?.tool_id || selectedNode.data?.type || selectedNode.data?.blockType,
+                parameters: config
+              })
+            });
+            
+            if (!response.ok) {
+              const error = await response.json();
+              throw new Error(error.error || 'Test failed');
+            }
+            
+            const result = await response.json();
+            if (!result.success) {
+              throw new Error(result.error || 'Test failed');
+            }
+            
+            return result.result;
+          }}
         />
       )}
 

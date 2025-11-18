@@ -2081,3 +2081,61 @@ class WorkflowExecutionStats(Base):
     
     def __repr__(self):
         return f"<WorkflowExecutionStats(workflow={self.workflow_id}, date={self.date})>"
+
+
+# ============================================================================
+# BLOCK EXECUTION MODELS
+# ============================================================================
+
+
+class BlockExecution(Base):
+    """Block execution history model."""
+
+    __tablename__ = "block_executions"
+
+    # Primary Key
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    # Foreign Keys
+    block_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("blocks.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    # Execution Data
+    input_data = Column(JSONB, nullable=False)
+    output_data = Column(JSONB)
+    status = Column(String(50), nullable=False, index=True)  # success, failed, timeout
+    error_message = Column(Text)
+
+    # Metrics
+    duration_ms = Column(Integer)
+    tokens_used = Column(Integer)
+    cost = Column(Float)
+
+    # Execution Metadata (renamed from 'metadata' to avoid SQLAlchemy reserved word)
+    execution_metadata = Column(JSONB, default=dict)
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+    # Indexes
+    __table_args__ = (
+        Index("ix_block_executions_block_status", "block_id", "status"),
+        Index("ix_block_executions_user_created", "user_id", "created_at"),
+        CheckConstraint(
+            "status IN ('success', 'failed', 'timeout')",
+            name="check_block_execution_status_valid",
+        ),
+    )
+
+    def __repr__(self):
+        return f"<BlockExecution(block={self.block_id}, status={self.status})>"

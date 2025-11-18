@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import { ToolSelector } from './ToolSelector';
 import { PromptTemplateEditor } from './PromptTemplateEditor';
+import { AgentToolsPanel } from './AgentToolsPanel';
 
 const agentFormSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100),
@@ -378,6 +379,18 @@ export function AgentWizard({ agentId, initialData, mode = 'create' }: AgentWiza
                           <Badge variant="secondary" className="text-xs">Cloud</Badge>
                         </div>
                       </SelectItem>
+                      <SelectItem value="gemini">
+                        <div className="flex items-center gap-2">
+                          <span>Gemini</span>
+                          <Badge variant="secondary" className="text-xs">Cloud</Badge>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="grok">
+                        <div className="flex items-center gap-2">
+                          <span>Grok</span>
+                          <Badge variant="secondary" className="text-xs">Cloud</Badge>
+                        </div>
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -400,21 +413,47 @@ export function AgentWizard({ agentId, initialData, mode = 'create' }: AgentWiza
                     <SelectContent>
                       {form.watch('llm_provider') === 'ollama' && (
                         <>
-                          <SelectItem value="llama3.1">Llama 3.1</SelectItem>
-                          <SelectItem value="llama2">Llama 2</SelectItem>
-                          <SelectItem value="mistral">Mistral</SelectItem>
+                          <SelectItem value="llama3.3:70b">Llama 3.3 70B</SelectItem>
+                          <SelectItem value="llama3.1:70b">Llama 3.1 70B</SelectItem>
+                          <SelectItem value="qwen2.5:72b">Qwen 2.5 72B</SelectItem>
+                          <SelectItem value="deepseek-r1:70b">DeepSeek R1 70B</SelectItem>
+                          <SelectItem value="mixtral:8x7b">Mixtral 8x7B</SelectItem>
                         </>
                       )}
                       {form.watch('llm_provider') === 'openai' && (
                         <>
-                          <SelectItem value="gpt-4">GPT-4</SelectItem>
-                          <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo</SelectItem>
+                          <SelectItem value="gpt-5">GPT-5</SelectItem>
+                          <SelectItem value="o3">GPT-o3</SelectItem>
+                          <SelectItem value="o3-mini">GPT-o3 Mini</SelectItem>
+                          <SelectItem value="gpt-4o">GPT-4o</SelectItem>
+                          <SelectItem value="gpt-4o-mini">GPT-4o Mini</SelectItem>
                         </>
                       )}
                       {form.watch('llm_provider') === 'claude' && (
                         <>
+                          <SelectItem value="claude-4.5-sonnet">Claude 4.5 Sonnet</SelectItem>
+                          <SelectItem value="claude-4-sonnet">Claude 4 Sonnet</SelectItem>
+                          <SelectItem value="claude-3.7-sonnet">Claude 3.7 Sonnet</SelectItem>
+                          <SelectItem value="claude-3.5-sonnet">Claude 3.5 Sonnet</SelectItem>
                           <SelectItem value="claude-3-opus">Claude 3 Opus</SelectItem>
-                          <SelectItem value="claude-3-sonnet">Claude 3 Sonnet</SelectItem>
+                        </>
+                      )}
+                      {form.watch('llm_provider') === 'gemini' && (
+                        <>
+                          <SelectItem value="gemini-2.0-flash">Gemini 2.0 Flash</SelectItem>
+                          <SelectItem value="gemini-2.0-pro">Gemini 2.0 Pro</SelectItem>
+                          <SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro</SelectItem>
+                          <SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash</SelectItem>
+                          <SelectItem value="gemini-ultra">Gemini Ultra</SelectItem>
+                        </>
+                      )}
+                      {form.watch('llm_provider') === 'grok' && (
+                        <>
+                          <SelectItem value="grok-3">Grok 3</SelectItem>
+                          <SelectItem value="grok-2.5">Grok 2.5</SelectItem>
+                          <SelectItem value="grok-2">Grok 2</SelectItem>
+                          <SelectItem value="grok-2-mini">Grok 2 Mini</SelectItem>
+                          <SelectItem value="grok-vision">Grok Vision</SelectItem>
                         </>
                       )}
                     </SelectContent>
@@ -458,52 +497,27 @@ export function AgentWizard({ agentId, initialData, mode = 'create' }: AgentWiza
 
       case 3:
         const currentToolIds = form.watch('tool_ids');
-        console.log('Step 3 - Current tool_ids:', currentToolIds);
         
         return (
           <div className="space-y-6">
-            <div className="rounded-lg bg-muted p-4 flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                Tools extend your agent's capabilities. Select the tools your agent needs to accomplish its tasks.
-              </p>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => window.open('/agent-builder/custom-tools', '_blank')}
-                className="ml-4 whitespace-nowrap"
-              >
-                <Wrench className="h-4 w-4 mr-2" />
-                Manage Custom Tools
-              </Button>
-            </div>
-
             <FormField
               control={form.control}
               name="tool_ids"
-              render={({ field }) => {
-                console.log('FormField render - field.value:', field.value);
-                return (
-                  <FormItem>
-                    <FormControl>
-                      <ToolSelector
-                        selectedTools={field.value || []}
-                        onSelectionChange={(newValue) => {
-                          console.log('ToolSelector onChange:', newValue);
-                          field.onChange(newValue);
-                        }}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                );
-              }}
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <AgentToolsPanel
+                      agentId={agentId || 'new'}
+                      selectedTools={field.value || []}
+                      onToolsChange={(newValue) => {
+                        field.onChange(newValue);
+                      }}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-            
-            {/* Debug info */}
-            <div className="text-xs text-muted-foreground p-2 bg-muted rounded">
-              Debug: Currently selected = {JSON.stringify(currentToolIds || [])}
-            </div>
           </div>
         );
 

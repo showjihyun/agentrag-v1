@@ -1,1 +1,0 @@
-export { outlookPollingTrigger } from './poller'

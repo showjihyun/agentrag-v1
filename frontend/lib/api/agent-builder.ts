@@ -434,16 +434,22 @@ class AgentBuilderAPI {
   }
 
   // Execution endpoints
-  async executeAgent(
+  async executeAgentStream(
     agentId: string,
     input: { query: string; context?: Record<string, any> }
   ): Promise<EventSource> {
     const token = localStorage.getItem('token');
-    const url = new URL(`${API_BASE_URL}/api/agent-builder/executions/agents/${agentId}`);
+    
+    if (!input.query) {
+      throw new Error('Query is required');
+    }
+    
+    const url = new URL(`${API_BASE_URL}/api/agent-builder/executions/agents/${agentId}/execute`);
     
     // For SSE, we need to use EventSource
+    // Pass token even if null (backend will handle DEBUG mode)
     const eventSource = new EventSource(
-      `${url.toString()}?query=${encodeURIComponent(input.query)}&token=${token}`
+      `${url.toString()}?query=${encodeURIComponent(input.query)}&token=${token || 'null'}`
     );
     
     return eventSource;
@@ -999,6 +1005,39 @@ class AgentBuilderAPI {
     });
     if (!response.ok) throw new Error('Failed to uninstall model');
     return response.json();
+  }
+
+  // Custom Tool APIs
+  async getCustomTools(): Promise<any[]> {
+    const response = await this.request<{ tools: any[] }>('/api/agent-builder/custom-tools');
+    return response.tools || [];
+  }
+
+  async createCustomTool(data: any): Promise<any> {
+    return this.request('/api/agent-builder/custom-tools', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateCustomTool(toolId: string, data: any): Promise<any> {
+    return this.request(`/api/agent-builder/custom-tools/${toolId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteCustomTool(toolId: string): Promise<void> {
+    return this.request(`/api/agent-builder/custom-tools/${toolId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async testCustomTool(data: { implementation: string; implementationType: string; parameters: any }): Promise<any> {
+    return this.request('/api/agent-builder/tools/test-custom', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   }
 }
 

@@ -24,7 +24,7 @@ from backend.models.agent_builder import ExecutionContext
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/variables", tags=["variables"])
+router = APIRouter(prefix="/api/agent-builder/variables", tags=["variables"])
 
 
 @router.post("", response_model=VariableResponse, status_code=status.HTTP_201_CREATED)
