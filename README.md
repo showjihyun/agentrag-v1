@@ -10,10 +10,10 @@ Multi-Agent RAG | Visual Workflow Builder | 50+ Integrations | Real-time Streami
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.109+-green.svg)](https://fastapi.tiangolo.com/)
 
 ---
-## 1. Agent  Builder(Main Target)
+## 1. Agent  Builder
 <img width="2016" height="1266" alt="image" src="https://github.com/user-attachments/assets/23c7ce2c-decf-445a-89b6-2f5e8b2bc550" />
 
-## 2. Speculartive RAG(Mock)
+## 2. Speculartive RAG
 <img width="2016" height="1266" alt="image" src="https://github.com/user-attachments/assets/e820bf80-4f84-45cb-bbb8-471d6556d879" />
 ---
 
