@@ -1,6 +1,6 @@
 # 🤖 Agentic RAG System with Agent Builder
 
-**차세대 AI 문서 검색 & 질의응답 시스템 + 노코드 AI 워크플로우 빌더**
+**Next-Generation AI Document Search & QA System + No-Code AI Workflow Builder**
 
 Multi-Agent RAG | Visual Workflow Builder | 50+ Integrations | Real-time Streaming
 
@@ -10,42 +10,48 @@ Multi-Agent RAG | Visual Workflow Builder | 50+ Integrations | Real-time Streami
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.109+-green.svg)](https://fastapi.tiangolo.com/)
 
 ---
+## 1. Agent  Builder(Main Target)
+<img width="2016" height="1266" alt="image" src="https://github.com/user-attachments/assets/23c7ce2c-decf-445a-89b6-2f5e8b2bc550" />
 
-## ✨ 주요 기능
+## 2. Speculartive RAG(Mock)
+<img width="2016" height="1266" alt="image" src="https://github.com/user-attachments/assets/e820bf80-4f84-45cb-bbb8-471d6556d879" />
+---
 
-### 🎨 Agent Builder - 노코드 AI 워크플로우 빌더
+## ✨ Key Features
 
-**sim.ai, n8n, Zapier 스타일의 비주얼 워크플로우 빌더**로 복잡한 AI 자동화를 드래그 앤 드롭으로 구성하세요.
+### 🎨 Agent Builder - No-Code AI Workflow Builder
 
-#### 🧩 노드 타입 (70+ 노드)
+**Visual workflow builder inspired by sim.ai, n8n, and Zapier** - Build complex AI automations with drag-and-drop simplicity.
 
-**Control Nodes** (제어 흐름):
-- Start, End, Condition (조건 분기)
-- Loop (반복), Parallel (병렬 실행)
-- Delay (지연), Merge (병합)
-- Switch (다중 분기)
+#### 🧩 Node Types (70+ Nodes)
 
-**Trigger Nodes** (워크플로우 시작점):
-- Manual Trigger (수동 실행)
-- Schedule Trigger (크론 스케줄)
-- Webhook Trigger (HTTP 웹훅)
-- Email Trigger (이메일 수신)
-- Event Trigger (시스템 이벤트)
-- Database Trigger (DB 변경 감지)
+**Control Nodes** (Flow Control):
+- Start, End, Condition (Branching)
+- Loop (Iteration), Parallel (Concurrent Execution)
+- Delay (Wait), Merge (Combine)
+- Switch (Multi-branch)
 
-**Agent Nodes** (AI 에이전트):
-- Custom Agents (사용자 정의 에이전트)
-- Template-based Agents (템플릿 기반)
-- Multi-agent Collaboration (다중 에이전트 협업)
-- Manager Agent (에이전트 관리자)
-- Consensus Agent (합의 에이전트)
+**Trigger Nodes** (Workflow Initiators):
+- Manual Trigger (On-demand execution)
+- Schedule Trigger (Cron scheduling)
+- Webhook Trigger (HTTP webhooks)
+- Email Trigger (Email reception)
+- Event Trigger (System events)
+- Database Trigger (DB change detection)
 
-**Integration Nodes** (50+ 통합):
+**Agent Nodes** (AI Agents):
+- Custom Agents (User-defined agents)
+- Template-based Agents
+- Multi-agent Collaboration
+- Manager Agent (Agent coordinator)
+- Consensus Agent (Agreement-based)
+
+**Integration Nodes** (50+ Integrations):
 - **Communication**: Slack, Discord, Email, SMS
 - **Storage**: Google Drive, S3, Dropbox, OneDrive
 - **Database**: PostgreSQL, MySQL, MongoDB, Redis
 - **APIs**: HTTP Request, GraphQL, REST API
-- **AI/ML**: OpenAI, Anthropic, Hugging Face
+- **AI/ML**: OpenAI, Anthropic, Hugging Face, Gemini, Grok
 - **Productivity**: Notion, Airtable, Google Sheets
 - **And more...**
 
@@ -54,120 +60,120 @@ Multi-Agent RAG | Visual Workflow Builder | 50+ Integrations | Real-time Streami
 - Data Transformation
 - Condition Evaluation
 - Memory Operations (STM/LTM)
-- Human Approval (인간 승인)
+- Human Approval (Human-in-the-loop)
 
-#### 🚀 주요 기능
+#### 🚀 Core Capabilities
 
-✅ **드래그 앤 드롭 인터페이스** - 직관적인 비주얼 에디터
-✅ **실시간 실행 모니터링** - 각 노드의 실행 상태 추적
-✅ **조건 분기 & 반복** - 복잡한 로직 구현
-✅ **에러 핸들링 & 재시도** - 자동 재시도 및 폴백
-✅ **변수 & 표현식** - 동적 데이터 처리 (`{{$json.field}}`)
-✅ **템플릿 라이브러리** - 사전 구성된 워크플로우
-✅ **AI 워크플로우 생성기** - 자연어로 워크플로우 생성
-✅ **버전 관리** - 워크플로우 버전 추적
-✅ **실행 히스토리** - 모든 실행 기록 저장
-✅ **API 키 관리** - 안전한 자격 증명 관리
+✅ **Drag-and-Drop Interface** - Intuitive visual editor
+✅ **Real-time Execution Monitoring** - Track each node's execution status
+✅ **Conditional Branching & Loops** - Implement complex logic
+✅ **Error Handling & Retry** - Automatic retry and fallback
+✅ **Variables & Expressions** - Dynamic data processing (`{{$json.field}}`)
+✅ **Template Library** - Pre-configured workflows
+✅ **AI Workflow Generator** - Create workflows from natural language
+✅ **Version Control** - Track workflow versions
+✅ **Execution History** - Store all execution records
+✅ **API Key Management** - Secure credential management
 
-#### 📊 Agent Builder 메뉴
+#### 📊 Agent Builder Menu
 
 ```
 Agent Builder
-├── 🏠 Dashboard        (대시보드 & 분석)
-├── 🤖 Agents          (AI 에이전트 관리)
-├── 🧩 Blocks          (재사용 가능한 블록)
-├── 🔧 Tools           (통합 도구 관리)
-├── ⚡ Triggers        (트리거 관리)
-├── 🔄 Workflows       (워크플로우 구성)
-├── 📚 Knowledgebases  (지식 베이스)
-├── 📝 Variables       (환경 변수)
-├── 🔐 API Keys        (API 키 관리)
-├── ✅ Approvals       (승인 대기 목록)
-├── 📊 Analytics       (분석 & 인사이트)
-└── ⚙️ Settings        (설정)
-    ├── LLM Settings   (LLM 제공자 설정)
-    └── Environment    (환경 변수)
+├── 🏠 Dashboard        (Overview & Analytics)
+├── 🤖 Agents          (AI Agent Management)
+├── 🧩 Blocks          (Reusable Components)
+├── 🔧 Tools           (Integration Tools)
+├── ⚡ Triggers        (Trigger Management)
+├── 🔄 Workflows       (Workflow Configuration)
+├── 📚 Knowledgebases  (Knowledge Bases)
+├── 📝 Variables       (Environment Variables)
+├── 🔐 API Keys        (API Key Management)
+├── ✅ Approvals       (Pending Approvals)
+├── 📊 Analytics       (Insights & Metrics)
+└── ⚙️ Settings        (Configuration)
+    ├── LLM Settings   (LLM Provider Setup)
+    └── Environment    (Environment Variables)
 ```
 
-#### 🎯 워크플로우 예시
+#### 🎯 Workflow Examples
 
-**1. 자동 고객 지원 봇**
+**1. Automated Customer Support Bot**
 ```
-Webhook Trigger (고객 문의)
-  → Agent (의도 분석)
-  → Condition (문의 유형)
-    ├─ FAQ → Agent (FAQ 검색) → Slack (답변 전송)
-    ├─ 기술 지원 → Agent (티켓 생성) → Email (알림)
-    └─ 기타 → Human Approval → Agent (답변 생성)
+Webhook Trigger (Customer Inquiry)
+  → Agent (Intent Analysis)
+  → Condition (Inquiry Type)
+    ├─ FAQ → Agent (FAQ Search) → Slack (Send Response)
+    ├─ Technical Support → Agent (Create Ticket) → Email (Notify)
+    └─ Other → Human Approval → Agent (Generate Response)
 ```
 
-**2. 일일 리포트 자동화**
+**2. Daily Report Automation**
 ```
-Schedule Trigger (매일 9시)
-  → Database (데이터 수집)
-  → Agent (데이터 분석)
-  → Agent (리포트 생성)
+Schedule Trigger (Daily at 9 AM)
+  → Database (Collect Data)
+  → Agent (Analyze Data)
+  → Agent (Generate Report)
   → Parallel
-    ├─ Email (리포트 발송)
-    ├─ Slack (알림)
-    └─ Google Drive (저장)
+    ├─ Email (Send Report)
+    ├─ Slack (Notify)
+    └─ Google Drive (Save)
 ```
 
-**3. 소셜 미디어 모니터링**
+**3. Social Media Monitoring**
 ```
-Schedule Trigger (1시간마다)
-  → HTTP Request (소셜 미디어 API)
-  → Loop (각 게시물)
-    → Agent (감정 분석)
-    → Condition (부정적 감정?)
-      └─ True → Discord (알림) → Human Approval
+Schedule Trigger (Every Hour)
+  → HTTP Request (Social Media API)
+  → Loop (Each Post)
+    → Agent (Sentiment Analysis)
+    → Condition (Negative Sentiment?)
+      └─ True → Discord (Alert) → Human Approval
 ```
 
 ---
 
 ### 🤖 Multi-Agent RAG System
 
-**Agentic RAG**는 전통적인 RAG를 넘어 다중 에이전트 협업으로 더 정확하고 맥락을 이해하는 답변을 제공합니다.
+**Agentic RAG** goes beyond traditional RAG by leveraging multi-agent collaboration to deliver more accurate and context-aware responses.
 
-#### 에이전트 아키텍처
+#### Agent Architecture
 
-**Aggregator Agent** (마스터 코디네이터):
-- ReAct (Reasoning + Acting) 패턴
-- Chain of Thought (CoT) 추론
-- 다중 에이전트 오케스트레이션
+**Aggregator Agent** (Master Coordinator):
+- ReAct (Reasoning + Acting) pattern
+- Chain of Thought (CoT) reasoning
+- Multi-agent orchestration
 
 **Specialized Agents**:
-- **Vector Search Agent**: Milvus 기반 의미론적 검색
-- **Local Data Agent**: 파일 시스템 & 데이터베이스
-- **Web Search Agent**: 실시간 웹 검색 (DuckDuckGo)
+- **Vector Search Agent**: Milvus-based semantic search
+- **Local Data Agent**: File system & database access
+- **Web Search Agent**: Real-time web search (DuckDuckGo)
 
 #### 🎯 Adaptive Query Routing
 
-쿼리 복잡도를 자동 분석하여 최적의 처리 방식 선택:
+Automatically analyzes query complexity and selects optimal processing mode:
 
 | Mode | Response Time | Use Case |
 |------|---------------|----------|
-| **Fast** | < 1초 | 간단한 사실 확인 |
-| **Balanced** | < 3초 | 일반적인 질문 |
-| **Deep** | < 10초 | 복잡한 분석 & 추론 |
+| **Fast** | < 1s | Simple fact checking |
+| **Balanced** | < 3s | General questions |
+| **Deep** | < 10s | Complex analysis & reasoning |
 
 #### 📄 Multimodal Document Processing
 
-**지원 포맷**: PDF, DOCX, HWP, HWPX, PPT, PPTX, XLSX, TXT, MD, 이미지
+**Supported Formats**: PDF, DOCX, HWP, HWPX, PPT, PPTX, XLSX, TXT, MD, Images
 
-**PaddleOCR Advanced 기술**:
-- **PP-OCRv5**: 98%+ 텍스트 인식 정확도
-- **PP-StructureV3**: 98%+ 표 구조 인식
-- **PaddleOCR-VL**: 멀티모달 문서 이해
-- **PP-ChatOCRv4**: 문서 기반 대화형 AI
-- **PP-DocTranslation**: 레이아웃 보존 문서 번역
+**PaddleOCR Advanced Technology**:
+- **PP-OCRv5**: 98%+ text recognition accuracy
+- **PP-StructureV3**: 98%+ table structure recognition
+- **PaddleOCR-VL**: Multimodal document understanding
+- **PP-ChatOCRv4**: Document-based conversational AI
+- **PP-DocTranslation**: Layout-preserving document translation
 
 #### 🔍 Hybrid Search
 
-**Vector Search** (의미론적) + **BM25** (키워드) 결합:
-- 한국어 최적화 (jhgan/ko-sroberta-multitask)
+**Vector Search** (Semantic) + **BM25** (Keyword) combined:
+- Korean-optimized (jhgan/ko-sroberta-multitask)
 - Adaptive Reranking
-- L1/L2 캐싱 전략
+- L1/L2 caching strategy
 
 ---
 
@@ -188,12 +194,12 @@ cp .env.example .env
 ```
 
 ### 2. Configure Environment
-`.env` 파일을 편집하여 필요한 설정을 구성하세요:
+Edit the `.env` file to configure necessary settings:
 
 ```env
-# LLM Provider (ollama, openai, claude)
+# LLM Provider (ollama, openai, claude, gemini, grok)
 LLM_PROVIDER=ollama
-LLM_MODEL=llama3.1
+LLM_MODEL=llama3.3:70b
 
 # Database
 DATABASE_URL=postgresql://raguser:ragpassword@localhost:5433/agentic_rag
@@ -221,26 +227,26 @@ docker-compose logs -f
 
 | Service | URL | Description |
 |---------|-----|-------------|
-| 🌐 **Frontend** | http://localhost:3000 | 메인 웹 인터페이스 |
-| 🤖 **Agent Builder** | http://localhost:3000/agent-builder | 워크플로우 빌더 |
+| 🌐 **Frontend** | http://localhost:3000 | Main web interface |
+| 🤖 **Agent Builder** | http://localhost:3000/agent-builder | Workflow builder |
 | 🚀 **Backend API** | http://localhost:8000 | REST API |
 | 📚 **API Docs** | http://localhost:8000/docs | Swagger UI |
-| 🗄️ **PostgreSQL** | localhost:5433 | 데이터베이스 |
-| 🔍 **Milvus** | localhost:19530 | 벡터 DB |
-| 💾 **Redis** | localhost:6380 | 캐시 |
+| 🗄️ **PostgreSQL** | localhost:5433 | Database |
+| 🔍 **Milvus** | localhost:19530 | Vector DB |
+| 💾 **Redis** | localhost:6380 | Cache |
 
 ### 5. Create Your First Workflow
 
-1. **Agent Builder 접속**: http://localhost:3000/agent-builder
-2. **Workflows 메뉴** 클릭
-3. **"New Workflow"** 버튼 클릭
-4. **노드 추가**:
-   - Start 노드 추가
-   - Agent 노드 추가 (드래그 앤 드롭)
-   - End 노드 추가
-5. **노드 연결**: 노드 간 연결선 그리기
-6. **설정**: 각 노드 클릭하여 설정
-7. **저장 & 실행**: "Save" → "Execute"
+1. **Access Agent Builder**: http://localhost:3000/agent-builder
+2. **Click Workflows** menu
+3. **Click "New Workflow"** button
+4. **Add Nodes**:
+   - Add Start node
+   - Add Agent node (drag & drop)
+   - Add End node
+5. **Connect Nodes**: Draw connections between nodes
+6. **Configure**: Click each node to configure
+7. **Save & Execute**: "Save" → "Execute"
 
 ---
 
@@ -294,11 +300,11 @@ docker-compose logs -f
 - **AI/ML**: LangChain, LangGraph, LiteLLM
 - **OCR**: PaddleOCR Advanced (PP-OCRv5, PP-StructureV3)
 - **Databases**: PostgreSQL, Milvus, Redis
-- **Embeddings**: jhgan/ko-sroberta-multitask (Korean)
+- **Embeddings**: jhgan/ko-sroberta-multitask (Korean-optimized)
 
 **Frontend**:
 - **Framework**: Next.js 15 (App Router)
-- **UI**: React 19, Tailwind CSS, Shadcn/ui
+- **UI**: React 19, Tailwind CSS 4, Shadcn/ui
 - **Workflow**: ReactFlow (visual editor)
 - **State**: Zustand, TanStack Query
 
@@ -312,13 +318,13 @@ docker-compose logs -f
 
 | Metric | Target | Actual |
 |--------|--------|--------|
-| Fast Mode Response | < 1초 | ✅ 0.8초 |
-| Balanced Mode | < 3초 | ✅ 2.5초 |
-| Deep Mode | < 10초 | ✅ 8초 |
+| Fast Mode Response | < 1s | ✅ 0.8s |
+| Balanced Mode | < 3s | ✅ 2.5s |
+| Deep Mode | < 10s | ✅ 8s |
 | Cache Hit Rate | 60%+ | ✅ 65% |
 | OCR Accuracy | 95%+ | ✅ 98% |
 | Table Recognition | 95%+ | ✅ 98% |
-| Workflow Execution | < 5초 | ✅ 3초 |
+| Workflow Execution | < 5s | ✅ 3s |
 
 ---
 
@@ -328,10 +334,12 @@ docker-compose logs -f
 
 **LLM Configuration**:
 ```env
-LLM_PROVIDER=ollama              # ollama, openai, claude
-LLM_MODEL=llama3.1              # Model name
+LLM_PROVIDER=ollama              # ollama, openai, claude, gemini, grok
+LLM_MODEL=llama3.3:70b          # Model name
 OPENAI_API_KEY=sk-...           # OpenAI API key (if using)
 ANTHROPIC_API_KEY=sk-ant-...    # Anthropic API key (if using)
+GOOGLE_API_KEY=...              # Google Gemini API key (if using)
+XAI_API_KEY=...                 # xAI Grok API key (if using)
 ```
 
 **Database Configuration**:
@@ -482,16 +490,17 @@ npm run dev
 - ✅ API key management
 - ✅ Human approval system
 - ✅ Memory management (STM/LTM)
+- ✅ Support for latest LLMs (GPT-5, o3, Claude 4.5, Gemini 2.0, Grok 3)
 
 ### 🚧 v1.1 (In Progress)
 - 🔄 GraphRAG integration
 - 🔄 Advanced analytics dashboard
 - 🔄 Workflow marketplace
 - 🔄 Mobile app (React Native)
-- 🔄 Voice input/output
-- 🔄 Real-time collaboration
+- � Voic.e input/output
+- � Reatl-time collaboration
 
-### 🔮 v2.0 (Planned)
+### � v2.n0 (Planned)
 - 📋 Multi-tenant support
 - 📋 Custom agent builder UI
 - 📋 Plugin system
@@ -504,19 +513,19 @@ npm run dev
 ## 🏆 Use Cases
 
 ### 1. Customer Support Automation
-자동으로 고객 문의를 분석하고 답변하는 AI 봇을 구축하세요.
+Build AI bots that automatically analyze and respond to customer inquiries.
 
 ### 2. Document Intelligence
-대량의 문서를 자동으로 처리하고 인사이트를 추출하세요.
+Automatically process large volumes of documents and extract insights.
 
 ### 3. Data Pipeline Automation
-복잡한 데이터 파이프라인을 시각적으로 구성하고 자동화하세요.
+Visually configure and automate complex data pipelines.
 
 ### 4. Content Generation
-AI를 활용한 자동 콘텐츠 생성 워크플로우를 만드세요.
+Create automated content generation workflows powered by AI.
 
 ### 5. Business Process Automation
-반복적인 비즈니스 프로세스를 AI로 자동화하세요.
+Automate repetitive business processes with AI.
 
 ---
 
@@ -526,9 +535,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-## 💬 Support & Community
+## � Supsport & Community
 
-- 📖 **Documentation**: [docs/](docs/)
+- � ***Documentation**: [docs/](docs/)
 - 🐛 **Issue Tracker**: [GitHub Issues](https://github.com/showjihyun/agentrag-v1/issues)
 - 💬 **Discussions**: [GitHub Discussions](https://github.com/showjihyun/agentrag-v1/discussions)
 - 📧 **Email**: showjihyun@gmail.com
