@@ -64,18 +64,23 @@ def upgrade() -> None:
     op.create_index(op.f('ix_trigger_executions_triggered_at'), 'trigger_executions', ['triggered_at'], unique=False)
     op.create_index(op.f('ix_trigger_executions_workflow_id'), 'trigger_executions', ['workflow_id'], unique=False)
     op.create_index('ix_trigger_executions_workflow_time', 'trigger_executions', ['workflow_id', 'triggered_at'], unique=False)
+    # Drop custom_tool_ratings first (has FK to custom_tools)
+    op.drop_index('idx_custom_tool_ratings_tool_id', table_name='custom_tool_ratings')
+    op.drop_index('idx_custom_tool_ratings_user_id', table_name='custom_tool_ratings')
+    op.drop_table('custom_tool_ratings')
+    
+    # Drop custom_tool_usage (has FK to custom_tools)
     op.drop_index('idx_custom_tool_usage_executed_at', table_name='custom_tool_usage')
     op.drop_index('idx_custom_tool_usage_tool_id', table_name='custom_tool_usage')
     op.drop_index('idx_custom_tool_usage_user_id', table_name='custom_tool_usage')
     op.drop_table('custom_tool_usage')
+    
+    # Finally drop custom_tools
     op.drop_index('idx_custom_tools_category', table_name='custom_tools')
     op.drop_index('idx_custom_tools_marketplace', table_name='custom_tools')
     op.drop_index('idx_custom_tools_public', table_name='custom_tools')
     op.drop_index('idx_custom_tools_user_id', table_name='custom_tools')
     op.drop_table('custom_tools')
-    op.drop_index('idx_custom_tool_ratings_tool_id', table_name='custom_tool_ratings')
-    op.drop_index('idx_custom_tool_ratings_user_id', table_name='custom_tool_ratings')
-    op.drop_table('custom_tool_ratings')
     op.alter_column('agent_blocks', 'sub_blocks',
                existing_type=postgresql.JSON(astext_type=sa.Text()),
                type_=postgresql.JSONB(astext_type=sa.Text()),

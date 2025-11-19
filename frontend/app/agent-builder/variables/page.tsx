@@ -51,7 +51,8 @@ export default function VariablesManagerPage() {
   const loadVariables = async () => {
     try {
       const variablesData = await agentBuilderAPI.getVariables();
-      setVariables(variablesData);
+      // Ensure variablesData is an array
+      setVariables(Array.isArray(variablesData) ? variablesData : []);
     } catch (error) {
       console.error('Failed to load variables:', error);
       toast({
@@ -59,12 +60,13 @@ export default function VariablesManagerPage() {
         title: 'Error',
         description: 'Failed to load variables',
       });
+      setVariables([]); // Set empty array on error
     } finally {
       setLoading(false);
     }
   };
 
-  const groupedVariables = variables.reduce((acc, variable) => {
+  const groupedVariables = (Array.isArray(variables) ? variables : []).reduce((acc, variable) => {
     if (!acc[variable.scope]) {
       acc[variable.scope] = [];
     }

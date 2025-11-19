@@ -9,6 +9,7 @@ from backend.api.agent_builder import (
     executions,
     permissions,
     custom_tools,
+    dashboard,
 )
 
 __all__ = [
@@ -20,4 +21,5 @@ __all__ = [
     "executions",
     "permissions",
     "custom_tools",
+    "dashboard",
 ]

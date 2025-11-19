@@ -225,25 +225,96 @@ class AgentExecutor:
                 embedding_service
             )
             
+            # Initialize memory manager
+            from backend.memory.manager import MemoryManager
+            from backend.memory.stm import ShortTermMemory
+            from backend.memory.ltm import LongTermMemory
+            from backend.config import settings
+            
+            stm = ShortTermMemory(
+                host=settings.REDIS_HOST,
+                port=settings.REDIS_PORT,
+                password=settings.REDIS_PASSWORD,
+                ttl=3600
+            )
+            
+            ltm = LongTermMemory(
+                milvus_manager=milvus_manager,
+                embedding_service=embedding_service
+            )
+            
+            memory_manager = MemoryManager(
+                stm=stm,
+                ltm=ltm,
+                max_history_length=20,
+                ltm_similarity_threshold=0.7
+            )
+            
+            # Initialize specialized agents
+            from backend.agents.vector_search import VectorSearchAgent
+            from backend.agents.local_data import LocalDataAgent
+            from backend.agents.web_search import WebSearchAgent
+            
+            # VectorSearchAgent can work with direct Milvus (no MCP required)
+            vector_agent = VectorSearchAgent(
+                milvus_manager=milvus_manager,
+                embedding_service=embedding_service,
+                enable_cross_encoder=True
+            )
+            
+            # LocalDataAgent and WebSearchAgent need MCP manager
+            from backend.mcp.manager import MCPServerManager
+            mcp_manager = MCPServerManager()
+            
+            local_agent = LocalDataAgent(
+                mcp_manager=mcp_manager,
+                server_name="local_data_server"
+            )
+            
+            search_agent = WebSearchAgent(
+                mcp_manager=mcp_manager,
+                server_name="search_server"
+            )
+            
             # Create aggregator
             aggregator = AggregatorAgent(
                 llm_manager=llm_manager,
-                embedding_service=embedding_service,
-                milvus_manager=milvus_manager
+                memory_manager=memory_manager,
+                vector_agent=vector_agent,
+                local_agent=local_agent,
+                search_agent=search_agent,
+                max_iterations=10
             )
             
             # Execute with timeout
             query = resolved_input.get("query") or resolved_input.get("input") or str(resolved_input)
+            session_id = context.session_id
             
-            result = await asyncio.wait_for(
-                aggregator.execute(
+            # Collect all steps from the async generator
+            steps = []
+            final_answer = None
+            
+            async def collect_steps():
+                async for step in aggregator.process_query(
                     query=query,
-                    context=context.to_dict()
-                ),
+                    session_id=session_id,
+                    top_k=10
+                ):
+                    steps.append(step)
+                    if step.type == "response":
+                        return step.content
+                return None
+            
+            final_answer = await asyncio.wait_for(
+                collect_steps(),
                 timeout=60.0  # 60 second timeout
             )
             
-            return result
+            return {
+                "output": final_answer or "No answer generated",
+                "steps": [{"type": s.type, "content": s.content} for s in steps],
+                "tokens_used": 0
+            }
             
         except asyncio.TimeoutError:
             logger.error(f"Agent execution timed out for agent {agent.id}")

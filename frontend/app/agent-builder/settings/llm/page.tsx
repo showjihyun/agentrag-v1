@@ -15,57 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-interface LLMProvider {
-  id: string;
-  name: string;
-  description: string;
-  requiresApiKey: boolean;
-  models: string[];
-  icon: string;
-}
-
-const LLM_PROVIDERS: LLMProvider[] = [
-  {
-    id: 'openai',
-    name: 'OpenAI',
-    description: 'GPT-4, GPT-3.5 Turbo',
-    requiresApiKey: true,
-    models: ['gpt-4', 'gpt-4-turbo', 'gpt-3.5-turbo', 'gpt-3.5-turbo-16k'],
-    icon: '🤖',
-  },
-  {
-    id: 'anthropic',
-    name: 'Anthropic Claude',
-    description: 'Claude 3 Opus, Sonnet, Haiku',
-    requiresApiKey: true,
-    models: ['claude-3-opus-20240229', 'claude-3-sonnet-20240229', 'claude-3-haiku-20240307'],
-    icon: '🧠',
-  },
-  {
-    id: 'google',
-    name: 'Google Gemini',
-    description: 'Gemini Pro, Gemini Ultra',
-    requiresApiKey: true,
-    models: ['gemini-pro', 'gemini-pro-vision', 'gemini-ultra'],
-    icon: '✨',
-  },
-  {
-    id: 'ollama',
-    name: 'Ollama (Local)',
-    description: 'Run models locally',
-    requiresApiKey: false,
-    models: ['llama3.1:8b', 'llama3.1:70b', 'mistral', 'mixtral', 'codellama'],
-    icon: '🦙',
-  },
-  {
-    id: 'groq',
-    name: 'Groq',
-    description: 'Ultra-fast inference',
-    requiresApiKey: true,
-    models: ['llama3-70b-8192', 'llama3-8b-8192', 'mixtral-8x7b-32768'],
-    icon: '⚡',
-  },
-];
+import { LLM_PROVIDERS, type LLMProvider } from '@/lib/llm-models';
 
 export default function LLMSettingsPage() {
   const { toast } = useToast();
@@ -88,7 +38,7 @@ export default function LLMSettingsPage() {
   useEffect(() => {
     // Set default model when provider changes
     if (currentProvider && currentProvider.models.length > 0) {
-      setSelectedModel(currentProvider.models[0]);
+      setSelectedModel(currentProvider.models[0].id);
     }
   }, [selectedProvider, currentProvider]);
 
@@ -253,8 +203,13 @@ export default function LLMSettingsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   {currentProvider.models.map((model) => (
-                    <SelectItem key={model} value={model}>
-                      {model}
+                    <SelectItem key={model.id} value={model.id}>
+                      <div className="flex flex-col">
+                        <span>{model.name}</span>
+                        {model.description && (
+                          <span className="text-xs text-muted-foreground">{model.description}</span>
+                        )}
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>

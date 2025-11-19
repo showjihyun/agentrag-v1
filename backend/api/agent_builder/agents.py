@@ -302,7 +302,40 @@ async def update_agent(
         )
         
         logger.info(f"Agent updated successfully: {agent_id}")
-        return updated_agent
+        
+        # Convert Agent ORM object to AgentResponse
+        return AgentResponse(
+            id=str(updated_agent.id),
+            user_id=str(updated_agent.user_id),
+            name=updated_agent.name,
+            description=updated_agent.description,
+            agent_type=updated_agent.agent_type,
+            template_id=str(updated_agent.template_id) if updated_agent.template_id else None,
+            llm_provider=updated_agent.llm_provider,
+            llm_model=updated_agent.llm_model,
+            prompt_template_id=str(updated_agent.prompt_template_id) if updated_agent.prompt_template_id else None,
+            configuration=updated_agent.configuration or {},
+            is_public=updated_agent.is_public,
+            created_at=updated_agent.created_at,
+            updated_at=updated_agent.updated_at,
+            deleted_at=updated_agent.deleted_at,
+            tools=[
+                {
+                    "tool_id": str(at.tool_id),
+                    "order": at.order,
+                    "configuration": at.configuration or {}
+                }
+                for at in updated_agent.tools
+            ] if updated_agent.tools else [],
+            knowledgebases=[
+                {
+                    "knowledgebase_id": str(ak.knowledgebase_id),
+                    "order": ak.order
+                }
+                for ak in updated_agent.knowledgebases
+            ] if updated_agent.knowledgebases else [],
+            version_count=0
+        )
         
     except HTTPException:
         raise
@@ -546,7 +579,40 @@ async def clone_agent(
         )
         
         logger.info(f"Agent cloned successfully: {cloned_agent.id}")
-        return cloned_agent
+        
+        # Convert Agent ORM object to AgentResponse
+        return AgentResponse(
+            id=str(cloned_agent.id),
+            user_id=str(cloned_agent.user_id),
+            name=cloned_agent.name,
+            description=cloned_agent.description,
+            agent_type=cloned_agent.agent_type,
+            template_id=str(cloned_agent.template_id) if cloned_agent.template_id else None,
+            llm_provider=cloned_agent.llm_provider,
+            llm_model=cloned_agent.llm_model,
+            prompt_template_id=str(cloned_agent.prompt_template_id) if cloned_agent.prompt_template_id else None,
+            configuration=cloned_agent.configuration or {},
+            is_public=cloned_agent.is_public,
+            created_at=cloned_agent.created_at,
+            updated_at=cloned_agent.updated_at,
+            deleted_at=cloned_agent.deleted_at,
+            tools=[
+                {
+                    "tool_id": str(at.tool_id),
+                    "order": at.order,
+                    "configuration": at.configuration or {}
+                }
+                for at in cloned_agent.tools
+            ] if cloned_agent.tools else [],
+            knowledgebases=[
+                {
+                    "knowledgebase_id": str(ak.knowledgebase_id),
+                    "order": ak.order
+                }
+                for ak in cloned_agent.knowledgebases
+            ] if cloned_agent.knowledgebases else [],
+            version_count=0
+        )
         
     except HTTPException:
         raise
@@ -673,7 +739,40 @@ async def import_agent(
         )
         
         logger.info(f"Agent imported successfully: {imported_agent.id}")
-        return imported_agent
+        
+        # Convert Agent ORM object to AgentResponse
+        return AgentResponse(
+            id=str(imported_agent.id),
+            user_id=str(imported_agent.user_id),
+            name=imported_agent.name,
+            description=imported_agent.description,
+            agent_type=imported_agent.agent_type,
+            template_id=str(imported_agent.template_id) if imported_agent.template_id else None,
+            llm_provider=imported_agent.llm_provider,
+            llm_model=imported_agent.llm_model,
+            prompt_template_id=str(imported_agent.prompt_template_id) if imported_agent.prompt_template_id else None,
+            configuration=imported_agent.configuration or {},
+            is_public=imported_agent.is_public,
+            created_at=imported_agent.created_at,
+            updated_at=imported_agent.updated_at,
+            deleted_at=imported_agent.deleted_at,
+            tools=[
+                {
+                    "tool_id": str(at.tool_id),
+                    "order": at.order,
+                    "configuration": at.configuration or {}
+                }
+                for at in imported_agent.tools
+            ] if imported_agent.tools else [],
+            knowledgebases=[
+                {
+                    "knowledgebase_id": str(ak.knowledgebase_id),
+                    "order": ak.order
+                }
+                for ak in imported_agent.knowledgebases
+            ] if imported_agent.knowledgebases else [],
+            version_count=0
+        )
         
     except HTTPException:
         raise

@@ -163,17 +163,16 @@ export default function AgentDetailPage() {
           <CardContent>
             {agent.tools && agent.tools.length > 0 ? (
               <div className="space-y-2">
-                {agent.tools.map((tool: any) => (
-                  <div key={tool.id} className="flex items-center gap-2 p-2 border rounded">
+                {agent.tools.map((tool: any, index: number) => (
+                  <div key={tool.tool_id || index} className="flex items-center gap-2 p-2 border rounded">
                     <div className="flex-1">
-                      <div className="font-medium text-sm">{tool.name}</div>
-                      {tool.description && (
-                        <div className="text-xs text-muted-foreground">{tool.description}</div>
+                      <div className="font-medium text-sm">{tool.tool_id}</div>
+                      {tool.configuration && Object.keys(tool.configuration).length > 0 && (
+                        <div className="text-xs text-muted-foreground">
+                          Order: {tool.order}
+                        </div>
                       )}
                     </div>
-                    <Badge variant="outline" className="text-xs">
-                      {tool.category}
-                    </Badge>
                   </div>
                 ))}
               </div>

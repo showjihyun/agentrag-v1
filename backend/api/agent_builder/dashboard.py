@@ -38,7 +38,7 @@ async def get_dashboard_stats(
 ):
     """Get Agent Builder dashboard statistics."""
     try:
-        user_id = current_user.id
+        user_id = str(current_user.id)
 
         # Count resources
         total_agents = db.query(Agent).filter(
@@ -134,10 +134,10 @@ async def get_recent_activity(
 ):
     """Get recent activity timeline."""
     try:
-        user_id = current_user.id
+        user_id = str(current_user.id)
 
         # Get recent executions with agent info preloaded (prevents N+1 queries)
-        recent_executions = get_dashboard_executions_optimized(db, str(user_id), limit)
+        recent_executions = get_dashboard_executions_optimized(db, user_id, limit)
 
         activities = []
         for execution in recent_executions:
@@ -177,7 +177,7 @@ async def get_favorite_agents(
 ):
     """Get most frequently used agents."""
     try:
-        user_id = current_user.id
+        user_id = str(current_user.id)
 
         # Get agents with execution count
         agent_stats = db.query(
@@ -245,7 +245,7 @@ async def get_execution_trend(
 ):
     """Get execution trend for the last N days."""
     try:
-        user_id = current_user.id
+        user_id = str(current_user.id)
         start_date = datetime.utcnow() - timedelta(days=days)
 
         # Get daily execution counts

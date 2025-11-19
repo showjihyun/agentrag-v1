@@ -38,6 +38,7 @@ import {
 import { ToolSelector } from './ToolSelector';
 import { PromptTemplateEditor } from './PromptTemplateEditor';
 import { AgentToolsPanel } from './AgentToolsPanel';
+import { LLM_PROVIDERS, getModelsForProvider } from '@/lib/llm-models';
 
 const agentFormSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100),
@@ -361,36 +362,17 @@ export function AgentWizard({ agentId, initialData, mode = 'create' }: AgentWiza
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="ollama">
-                        <div className="flex items-center gap-2">
-                          <span>Ollama</span>
-                          <Badge variant="secondary" className="text-xs">Local</Badge>
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="openai">
-                        <div className="flex items-center gap-2">
-                          <span>OpenAI</span>
-                          <Badge variant="secondary" className="text-xs">Cloud</Badge>
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="claude">
-                        <div className="flex items-center gap-2">
-                          <span>Claude</span>
-                          <Badge variant="secondary" className="text-xs">Cloud</Badge>
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="gemini">
-                        <div className="flex items-center gap-2">
-                          <span>Gemini</span>
-                          <Badge variant="secondary" className="text-xs">Cloud</Badge>
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="grok">
-                        <div className="flex items-center gap-2">
-                          <span>Grok</span>
-                          <Badge variant="secondary" className="text-xs">Cloud</Badge>
-                        </div>
-                      </SelectItem>
+                      {LLM_PROVIDERS.map((provider) => (
+                        <SelectItem key={provider.id} value={provider.id}>
+                          <div className="flex items-center gap-2">
+                            <span>{provider.icon}</span>
+                            <span>{provider.name}</span>
+                            <Badge variant="secondary" className="text-xs">
+                              {provider.type === 'local' ? 'Local' : 'Cloud'}
+                            </Badge>
+                          </div>
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -411,51 +393,16 @@ export function AgentWizard({ agentId, initialData, mode = 'create' }: AgentWiza
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {form.watch('llm_provider') === 'ollama' && (
-                        <>
-                          <SelectItem value="llama3.3:70b">Llama 3.3 70B</SelectItem>
-                          <SelectItem value="llama3.1:70b">Llama 3.1 70B</SelectItem>
-                          <SelectItem value="qwen2.5:72b">Qwen 2.5 72B</SelectItem>
-                          <SelectItem value="deepseek-r1:70b">DeepSeek R1 70B</SelectItem>
-                          <SelectItem value="mixtral:8x7b">Mixtral 8x7B</SelectItem>
-                        </>
-                      )}
-                      {form.watch('llm_provider') === 'openai' && (
-                        <>
-                          <SelectItem value="gpt-5">GPT-5</SelectItem>
-                          <SelectItem value="o3">GPT-o3</SelectItem>
-                          <SelectItem value="o3-mini">GPT-o3 Mini</SelectItem>
-                          <SelectItem value="gpt-4o">GPT-4o</SelectItem>
-                          <SelectItem value="gpt-4o-mini">GPT-4o Mini</SelectItem>
-                        </>
-                      )}
-                      {form.watch('llm_provider') === 'claude' && (
-                        <>
-                          <SelectItem value="claude-4.5-sonnet">Claude 4.5 Sonnet</SelectItem>
-                          <SelectItem value="claude-4-sonnet">Claude 4 Sonnet</SelectItem>
-                          <SelectItem value="claude-3.7-sonnet">Claude 3.7 Sonnet</SelectItem>
-                          <SelectItem value="claude-3.5-sonnet">Claude 3.5 Sonnet</SelectItem>
-                          <SelectItem value="claude-3-opus">Claude 3 Opus</SelectItem>
-                        </>
-                      )}
-                      {form.watch('llm_provider') === 'gemini' && (
-                        <>
-                          <SelectItem value="gemini-2.0-flash">Gemini 2.0 Flash</SelectItem>
-                          <SelectItem value="gemini-2.0-pro">Gemini 2.0 Pro</SelectItem>
-                          <SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro</SelectItem>
-                          <SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash</SelectItem>
-                          <SelectItem value="gemini-ultra">Gemini Ultra</SelectItem>
-                        </>
-                      )}
-                      {form.watch('llm_provider') === 'grok' && (
-                        <>
-                          <SelectItem value="grok-3">Grok 3</SelectItem>
-                          <SelectItem value="grok-2.5">Grok 2.5</SelectItem>
-                          <SelectItem value="grok-2">Grok 2</SelectItem>
-                          <SelectItem value="grok-2-mini">Grok 2 Mini</SelectItem>
-                          <SelectItem value="grok-vision">Grok Vision</SelectItem>
-                        </>
-                      )}
+                      {getModelsForProvider(form.watch('llm_provider') || 'ollama').map((model) => (
+                        <SelectItem key={model.id} value={model.id}>
+                          <div className="flex flex-col">
+                            <span>{model.name}</span>
+                            {model.description && (
+                              <span className="text-xs text-muted-foreground">{model.description}</span>
+                            )}
+                          </div>
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <FormMessage />

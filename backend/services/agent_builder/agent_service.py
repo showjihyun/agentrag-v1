@@ -203,7 +203,7 @@ class AgentService:
             if self.db_breaker:
                 agent = await self.db_breaker.call(_query)
             else:
-                agent = _query()
+                agent = await _query()
             
             # Cache result
             if agent and self.cache:
