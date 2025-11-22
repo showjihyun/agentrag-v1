@@ -807,6 +807,11 @@ from backend.api.agent_builder import (
     tool_execution as agent_builder_tool_execution,  # Tool execution
     tool_metrics as agent_builder_tool_metrics,  # Tool metrics
     tool_marketplace as agent_builder_tool_marketplace,  # Tool marketplace
+    tool_config as agent_builder_tool_config,  # Tool configuration
+    workflow_debug as agent_builder_workflow_debug,  # Workflow debugging
+    workflow_monitoring as agent_builder_workflow_monitoring,  # Workflow monitoring
+    ai_assistant as agent_builder_ai_assistant,  # AI Assistant
+    ai_agent_chat as agent_builder_ai_agent_chat,  # AI Agent Chat WebSocket
 )
 
 # Circuit Breaker Status API (Phase 1 Architecture)
@@ -855,6 +860,11 @@ app.include_router(agent_builder_versions.router)  # Workflow versions
 app.include_router(agent_builder_tool_execution.router)  # Tool execution
 app.include_router(agent_builder_tool_metrics.router)  # Tool metrics
 app.include_router(agent_builder_tool_marketplace.router)  # Tool marketplace
+app.include_router(agent_builder_tool_config.router)  # Tool configuration
+app.include_router(agent_builder_workflow_debug.router)  # Workflow debugging
+app.include_router(agent_builder_workflow_monitoring.router)  # Workflow monitoring
+app.include_router(agent_builder_ai_assistant.router)  # AI Assistant
+app.include_router(agent_builder_ai_agent_chat.router)  # AI Agent Chat WebSocket
 app.include_router(llm_settings.router)
 
 # Workflow Execution Streaming API (SSE)

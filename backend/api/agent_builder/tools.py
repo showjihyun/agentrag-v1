@@ -9,26 +9,45 @@ from functools import lru_cache
 from backend.core.auth_dependencies import get_current_user
 from backend.db.database import get_db
 from backend.db.models.user import User
-from backend.core.tools.catalog import (
-    ALL_TOOLS,
-    TOOL_CATALOG,
-    get_tools_by_category,
-    get_tool_by_id,
-    search_tools,
-)
+from backend.core.tools.registry import ToolRegistry
 
 logger = logging.getLogger(__name__)
 
-# Cache tool catalog in memory (immutable data)
-@lru_cache(maxsize=1)
-def get_cached_all_tools():
-    """Get all tools with caching."""
-    return ALL_TOOLS
-
-@lru_cache(maxsize=10)
-def get_cached_tools_by_category(category: str):
-    """Get tools by category with caching."""
-    return get_tools_by_category(category)
+def convert_tool_config_to_dict(tool_config):
+    """Convert ToolConfig to dictionary format."""
+    try:
+        return {
+            "id": tool_config.id,
+            "name": tool_config.name,
+            "description": tool_config.description,
+            "category": tool_config.category,
+            "icon": getattr(tool_config, "icon", "tool"),
+            "bg_color": getattr(tool_config, "bg_color", "#6B7280"),
+            "docs_link": getattr(tool_config, "docs_link", None),
+            "params": {
+                name: {
+                    "type": param.type,
+                    "description": param.description,
+                    "required": param.required,
+                    "default": param.default,
+                    "enum": param.enum,
+                    "min": getattr(param, "min_value", None),
+                    "max": getattr(param, "max_value", None),
+                    "pattern": param.pattern,
+                }
+                for name, param in (tool_config.params if tool_config.params else {}).items()
+            },
+            "outputs": {
+                name: {
+                    "type": output.type,
+                    "description": output.description,
+                }
+                for name, output in (tool_config.outputs if tool_config.outputs else {}).items()
+            },
+        }
+    except Exception as e:
+        logger.error(f"Failed to convert tool config {tool_config.id}: {e}", exc_info=True)
+        raise
 
 router = APIRouter(
     prefix="/api/agent-builder/tools",
@@ -59,18 +78,60 @@ async def list_tools(
     try:
         logger.info(f"Listing tools for user {current_user.id}, category={category}, search={search}")
         
-        # Get tools based on filters (with caching)
+        # Get tools from ToolRegistry
+        tool_configs = ToolRegistry.list_tools(category=category)
+        
+        # Convert to dict format
+        tools = [convert_tool_config_to_dict(tc) for tc in tool_configs]
+        
+        # Also get tools from database (custom tools)
+        from backend.db.models.agent_builder import Tool as DBTool
+        db = next(get_db())
+        try:
+            query = db.query(DBTool)
+            if category:
+                query = query.filter(DBTool.category == category)
+            
+            db_tools = query.all()
+            
+            # Convert DB tools to dict format
+            for db_tool in db_tools:
+                # Skip if already in registry
+                if any(t['id'] == db_tool.id for t in tools):
+                    continue
+                
+                tools.append({
+                    "id": db_tool.id,
+                    "name": db_tool.name,
+                    "description": db_tool.description or "",
+                    "category": db_tool.category or "utility",
+                    "icon": "tool",
+                    "bg_color": "#6B7280",
+                    "docs_link": None,
+                    "params": db_tool.input_schema or {},
+                    "outputs": db_tool.output_schema or {},
+                })
+        finally:
+            db.close()
+        
+        # Apply search filter if provided
         if search:
-            tools = search_tools(search)  # Search not cached (dynamic)
-        elif category:
-            tools = get_cached_tools_by_category(category)
-        else:
-            tools = get_cached_all_tools()
+            search_lower = search.lower()
+            tools = [
+                t for t in tools
+                if search_lower in t["name"].lower() or search_lower in t["description"].lower()
+            ]
+        
+        # Get all categories
+        categorized = ToolRegistry.list_by_category()
+        all_categories = set(categorized.keys())
+        all_categories.update(t["category"] for t in tools)
+        categories = sorted(list(all_categories))
         
         return {
             "tools": tools,
             "total": len(tools),
-            "categories": list(TOOL_CATALOG.keys())
+            "categories": categories
         }
         
     except Exception as e:
@@ -78,6 +139,85 @@ async def list_tools(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to list tools"
+        )
+
+
+@router.get("/{tool_id}")
+async def get_tool(
+    tool_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Get tool details by ID.
+    
+    **Path Parameters:**
+    - tool_id: Tool identifier
+    
+    **Returns:**
+    - Tool details with full configuration
+    
+    **Errors:**
+    - 401: Unauthorized
+    - 404: Tool not found
+    """
+    try:
+        logger.info(f"Getting tool {tool_id} for user {current_user.id}")
+        
+        # Try to get executor schema from tool executor registry
+        from backend.services.tools.tool_executor_registry import ToolExecutorRegistry
+        
+        executor = ToolExecutorRegistry.get_executor(tool_id)
+        if executor and hasattr(executor, 'params_schema'):
+            return {
+                "id": tool_id,
+                "name": executor.tool_name,
+                "description": f"{executor.tool_name} tool",
+                "category": getattr(executor, 'category', 'utility'),
+                "icon": "tool",
+                "bg_color": "#6B7280",
+                "docs_link": None,
+                "params": executor.params_schema,
+                "outputs": {},
+            }
+        
+        # Try ToolRegistry
+        tool_config = ToolRegistry.get_tool(tool_id)
+        if tool_config:
+            return convert_tool_config_to_dict(tool_config)
+        
+        # Try database
+        from backend.db.models.agent_builder import Tool as DBTool
+        db = next(get_db())
+        try:
+            db_tool = db.query(DBTool).filter(DBTool.id == tool_id).first()
+            if db_tool:
+                return {
+                    "id": db_tool.id,
+                    "name": db_tool.name,
+                    "description": db_tool.description or "",
+                    "category": db_tool.category or "utility",
+                    "icon": "tool",
+                    "bg_color": "#6B7280",
+                    "docs_link": None,
+                    "params": db_tool.input_schema or {},
+                    "outputs": db_tool.output_schema or {},
+                }
+        finally:
+            db.close()
+        
+        # Not found
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Tool {tool_id} not found"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get tool {tool_id}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get tool"
         )
 
 
@@ -95,8 +235,9 @@ async def list_categories(
     - 401: Unauthorized
     """
     try:
+        categorized = ToolRegistry.list_by_category()
         categories = []
-        for category, tools in TOOL_CATALOG.items():
+        for category, tools in categorized.items():
             categories.append({
                 "id": category,
                 "name": category.title(),
@@ -138,15 +279,15 @@ async def get_tool(
     try:
         logger.info(f"Getting tool {tool_id} for user {current_user.id}")
         
-        tool = get_tool_by_id(tool_id)
+        tool_config = ToolRegistry.get_tool_config(tool_id)
         
-        if not tool:
+        if not tool_config:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Tool {tool_id} not found"
             )
         
-        return tool
+        return convert_tool_config_to_dict(tool_config)
         
     except HTTPException:
         raise

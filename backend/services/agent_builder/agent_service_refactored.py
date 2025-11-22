@@ -158,8 +158,12 @@ class AgentServiceRefactored:
             
             agent = self.agent_repo.create(agent)
             
-            # Attach tools
-            if agent_data.tool_ids:
+            # Attach tools (support both old tool_ids and new tools format)
+            if agent_data.tools:
+                # New format with configurations
+                self._attach_tools_with_config(agent.id, agent_data.tools)
+            elif agent_data.tool_ids:
+                # Legacy format (backward compatibility)
                 self._attach_tools(agent.id, agent_data.tool_ids)
             
             # Attach knowledgebases
@@ -602,7 +606,7 @@ class AgentServiceRefactored:
         return missing_kbs
     
     def _attach_tools(self, agent_id: str, tool_ids: List[str]) -> None:
-        """Attach tools to agent."""
+        """Attach tools to agent (legacy method for backward compatibility)."""
         for order, tool_id in enumerate(tool_ids):
             agent_tool = AgentTool(
                 id=str(uuid.uuid4()),
@@ -610,6 +614,18 @@ class AgentServiceRefactored:
                 tool_id=tool_id,
                 configuration={},
                 order=order
+            )
+            self.tool_repo.create(agent_tool)
+    
+    def _attach_tools_with_config(self, agent_id: str, tools: List) -> None:
+        """Attach tools to agent with configurations."""
+        for tool_config in tools:
+            agent_tool = AgentTool(
+                id=str(uuid.uuid4()),
+                agent_id=agent_id,
+                tool_id=tool_config.tool_id,
+                configuration=tool_config.configuration or {},
+                order=tool_config.order
             )
             self.tool_repo.create(agent_tool)
     

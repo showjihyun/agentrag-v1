@@ -1,9 +1,13 @@
-"""Agent Builder API endpoints for workflow management - FIXED VERSION."""
+"""Agent Builder API endpoints for workflow management - Phase 2 Enhanced."""
 
 import logging
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
+from datetime import datetime, timedelta
+import json
+import asyncio
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Header
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from backend.core.auth_dependencies import get_current_user
@@ -259,29 +263,34 @@ async def delete_workflow(
     "",
     response_model=WorkflowListResponse,
     summary="List workflows",
-    description="List workflows with filtering and search.",
+    description="List workflows with advanced filtering and search (Phase 2).",
 )
 async def list_workflows(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(50, ge=1, le=100, description="Maximum number of records to return"),
     search: Optional[str] = Query(None, description="Search in name and description"),
     include_public: bool = Query(True, description="Include public workflows"),
+    node_types: Optional[str] = Query(None, description="Filter by node types (comma-separated: agent,control,tool)"),
+    tags: Optional[str] = Query(None, description="Filter by tags (comma-separated)"),
+    status_filter: Optional[str] = Query(None, description="Filter by status (draft,active,archived)"),
+    sort_by: Optional[str] = Query("updated_at", description="Sort field (name,created_at,updated_at)"),
+    sort_order: Optional[str] = Query("desc", description="Sort order (asc,desc)"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """List workflows with filtering."""
+    """List workflows with advanced filtering (Phase 2)."""
     try:
         logger.info(f"Listing workflows for user {current_user.id}")
         
         workflow_service = WorkflowService(db)
         
-        # Get workflows based on filters
+        # Get workflows based on filters (fetch more for filtering)
         if include_public:
             workflows = workflow_service.list_workflows(
                 user_id=None,
                 is_public=None,
-                limit=limit,
-                offset=skip
+                limit=limit * 3,  # Get more for filtering
+                offset=0
             )
             # Convert UUID to string for comparison
             workflows = [w for w in workflows if str(w.user_id) == str(current_user.id) or w.is_public]
@@ -289,8 +298,8 @@ async def list_workflows(
             workflows = workflow_service.list_workflows(
                 user_id=str(current_user.id),
                 is_public=None,
-                limit=limit,
-                offset=skip
+                limit=limit * 3,
+                offset=0
             )
         
         # Apply search filter if provided
@@ -302,7 +311,50 @@ async def list_workflows(
                 (w.description and search_lower in w.description.lower())
             ]
         
+        # Apply node type filter (Phase 2)
+        if node_types:
+            node_type_list = [nt.strip() for nt in node_types.split(",")]
+            filtered_workflows = []
+            for w in workflows:
+                graph_def = w.graph_definition or {}
+                nodes = graph_def.get("nodes", [])
+                workflow_node_types = {node.get("node_type") for node in nodes if node.get("node_type")}
+                if any(nt in workflow_node_types for nt in node_type_list):
+                    filtered_workflows.append(w)
+            workflows = filtered_workflows
+        
+        # Apply tags filter (Phase 2)
+        if tags:
+            tag_list = [t.strip() for t in tags.split(",")]
+            filtered_workflows = []
+            for w in workflows:
+                graph_def = w.graph_definition or {}
+                nodes = graph_def.get("nodes", [])
+                workflow_tags = set()
+                for node in nodes:
+                    node_tags = node.get("data", {}).get("tags", [])
+                    if isinstance(node_tags, list):
+                        workflow_tags.update(node_tags)
+                if any(tag in workflow_tags for tag in tag_list):
+                    filtered_workflows.append(w)
+            workflows = filtered_workflows
+        
+        # Apply status filter (Phase 2)
+        if status_filter:
+            workflows = [w for w in workflows if w.graph_definition.get("status") == status_filter]
+        
+        # Apply sorting (Phase 2)
+        if sort_by == "name":
+            workflows.sort(key=lambda w: w.name.lower(), reverse=(sort_order == "desc"))
+        elif sort_by == "created_at":
+            workflows.sort(key=lambda w: w.created_at, reverse=(sort_order == "desc"))
+        else:  # updated_at (default)
+            workflows.sort(key=lambda w: w.updated_at, reverse=(sort_order == "desc"))
+        
         total = len(workflows)
+        
+        # Apply pagination after filtering
+        workflows = workflows[skip:skip + limit]
         
         # Convert UUID fields to strings for response
         workflow_responses = [
@@ -690,4 +742,288 @@ async def duplicate_workflow(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to duplicate workflow"
+        )
+
+
+# ============================================================================
+# Phase 2 Enhancements
+# ============================================================================
+
+
+@router.get(
+    "/{workflow_id}/execute/stream",
+    summary="Execute workflow with streaming",
+    description="Execute workflow with Server-Sent Events streaming for real-time progress (Phase 2).",
+)
+async def execute_workflow_stream(
+    workflow_id: str,
+    input_data: str = Query("{}", description="JSON string of input data"),
+    token: Optional[str] = Query(None, description="Auth token for SSE"),
+    db: Session = Depends(get_db),
+):
+    """
+    Execute workflow with Server-Sent Events streaming (Phase 2).
+    
+    Streams real-time execution progress for ExecutionTimeline component.
+    
+    Events:
+    - start: Execution started
+    - node_start: Node execution started
+    - node_complete: Node execution completed
+    - node_error: Node execution failed
+    - complete: Workflow execution completed
+    - error: Workflow execution failed
+    """
+    async def event_generator():
+        try:
+            # Authenticate user
+            if not token or token == 'null':
+                yield f"data: {json.dumps({'type': 'error', 'data': {'message': 'Authentication required'}})}\n\n"
+                return
+            
+            from backend.services.auth_service import AuthService
+            payload = AuthService.decode_token(token)
+            if not payload:
+                yield f"data: {json.dumps({'type': 'error', 'data': {'message': 'Invalid token'}})}\n\n"
+                return
+            
+            user_id = payload.get("sub")
+            
+            # Get workflow
+            workflow_service = WorkflowService(db)
+            workflow = workflow_service.get_workflow(workflow_id)
+            
+            if not workflow:
+                yield f"data: {json.dumps({'type': 'error', 'data': {'message': 'Workflow not found'}})}\n\n"
+                return
+            
+            # Check permissions
+            if str(workflow.user_id) != str(user_id) and not workflow.is_public:
+                yield f"data: {json.dumps({'type': 'error', 'data': {'message': 'Access denied'}})}\n\n"
+                return
+            
+            # Parse input data
+            try:
+                input_dict = json.loads(input_data)
+            except:
+                input_dict = {}
+            
+            # Send start event
+            yield f"data: {json.dumps({'type': 'start', 'data': {'workflow_id': workflow_id, 'timestamp': datetime.utcnow().isoformat()}})}\n\n"
+            
+            # Execute workflow with streaming
+            from backend.services.agent_builder.workflow_executor import execute_workflow_stream
+            
+            async for event in execute_workflow_stream(workflow, db, input_dict, user_id):
+                yield f"data: {json.dumps(event)}\n\n"
+                await asyncio.sleep(0.01)  # Small delay for smooth streaming
+            
+        except Exception as e:
+            logger.error(f"SSE stream error: {e}", exc_info=True)
+            yield f"data: {json.dumps({'type': 'error', 'data': {'message': str(e)}})}\n\n"
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        }
+    )
+
+
+@router.patch(
+    "/{workflow_id}/autosave",
+    summary="Autosave workflow",
+    description="Autosave workflow changes (optimized for Phase 2 debouncing).",
+)
+async def autosave_workflow(
+    workflow_id: str,
+    nodes: Optional[List[Any]] = None,
+    edges: Optional[List[Any]] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Autosave workflow changes (Phase 2 optimization).
+    
+    Only updates graph_definition without full validation.
+    Use PUT /workflows/{id} for full updates with validation.
+    """
+    try:
+        workflow_service = WorkflowService(db)
+        workflow = workflow_service.get_workflow(workflow_id)
+        
+        if not workflow:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Workflow {workflow_id} not found"
+            )
+        
+        # Check ownership
+        if str(workflow.user_id) != str(current_user.id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied"
+            )
+        
+        # Update only if provided
+        if nodes is not None or edges is not None:
+            graph_def = workflow.graph_definition or {}
+            
+            if nodes is not None:
+                graph_def["nodes"] = nodes
+            
+            if edges is not None:
+                graph_def["edges"] = edges
+            
+            workflow.graph_definition = graph_def
+            workflow.updated_at = datetime.utcnow()
+            
+            db.commit()
+            db.refresh(workflow)
+        
+        return {
+            "success": True,
+            "workflow_id": workflow_id,
+            "updated_at": workflow.updated_at.isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to autosave workflow: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to autosave workflow"
+        )
+
+
+@router.get(
+    "/{workflow_id}/statistics",
+    summary="Get workflow statistics",
+    description="Get workflow execution statistics and performance metrics (Phase 2).",
+)
+async def get_workflow_statistics(
+    workflow_id: str,
+    time_range: Optional[str] = Query("7d", description="Time range (1d, 7d, 30d, all)"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Get workflow execution statistics (Phase 2).
+    
+    Returns:
+    - Total executions
+    - Success/failure rates
+    - Average execution time
+    - Node performance metrics
+    - Execution timeline
+    """
+    try:
+        workflow_service = WorkflowService(db)
+        workflow = workflow_service.get_workflow(workflow_id)
+        
+        if not workflow:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Workflow {workflow_id} not found"
+            )
+        
+        # Check permissions
+        if str(workflow.user_id) != str(current_user.id) and not workflow.is_public:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied"
+            )
+        
+        # Get executions
+        from backend.db.models.agent_builder import WorkflowExecution
+        
+        # Calculate time range
+        now = datetime.utcnow()
+        if time_range == "1d":
+            start_time = now - timedelta(days=1)
+        elif time_range == "7d":
+            start_time = now - timedelta(days=7)
+        elif time_range == "30d":
+            start_time = now - timedelta(days=30)
+        else:  # all
+            start_time = datetime.min
+        
+        # Query executions
+        executions = db.query(WorkflowExecution).filter(
+            WorkflowExecution.workflow_id == workflow_id,
+            WorkflowExecution.started_at >= start_time
+        ).all()
+        
+        # Calculate statistics
+        total = len(executions)
+        completed = sum(1 for e in executions if e.status == "completed")
+        failed = sum(1 for e in executions if e.status == "failed")
+        running = sum(1 for e in executions if e.status == "running")
+        
+        # Calculate average duration
+        completed_execs = [e for e in executions if e.status == "completed" and e.completed_at and e.started_at]
+        avg_duration = sum((e.completed_at - e.started_at).total_seconds() for e in completed_execs) / len(completed_execs) if completed_execs else 0
+        
+        # Node performance metrics
+        node_stats = {}
+        for exec in completed_execs:
+            context = exec.execution_context or {}
+            node_timings = context.get("node_timings", {})
+            for node_id, timing in node_timings.items():
+                if node_id not in node_stats:
+                    node_stats[node_id] = {
+                        "executions": 0,
+                        "total_time": 0,
+                        "failures": 0
+                    }
+                node_stats[node_id]["executions"] += 1
+                node_stats[node_id]["total_time"] += timing.get("duration", 0)
+                if timing.get("status") == "failed":
+                    node_stats[node_id]["failures"] += 1
+        
+        # Calculate averages
+        for node_id, stats in node_stats.items():
+            stats["avg_time"] = stats["total_time"] / stats["executions"] if stats["executions"] > 0 else 0
+            stats["failure_rate"] = stats["failures"] / stats["executions"] if stats["executions"] > 0 else 0
+        
+        # Execution timeline (last 10)
+        recent_executions = sorted(executions, key=lambda e: e.started_at, reverse=True)[:10]
+        timeline = [
+            {
+                "id": str(e.id),
+                "status": e.status,
+                "started_at": e.started_at.isoformat() if e.started_at else None,
+                "completed_at": e.completed_at.isoformat() if e.completed_at else None,
+                "duration": (e.completed_at - e.started_at).total_seconds() if e.completed_at and e.started_at else None,
+                "error": e.error_message
+            }
+            for e in recent_executions
+        ]
+        
+        return {
+            "workflow_id": workflow_id,
+            "time_range": time_range,
+            "statistics": {
+                "total_executions": total,
+                "completed": completed,
+                "failed": failed,
+                "running": running,
+                "success_rate": round((completed / total * 100) if total > 0 else 0, 1),
+                "avg_duration_seconds": round(avg_duration, 2),
+            },
+            "node_performance": node_stats,
+            "recent_executions": timeline
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get workflow statistics: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get workflow statistics"
         )

@@ -409,7 +409,7 @@ export function ImprovedWorkflowCanvas({
           }}
           onTest={async (config) => {
             // Test the tool with the configuration
-            const response = await fetch('/api/agent-builder/tools/execute', {
+            const response = await fetch('/api/v1/agent-builder/tool-execution/execute', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({

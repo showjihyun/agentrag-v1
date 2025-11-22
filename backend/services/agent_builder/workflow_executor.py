@@ -3075,3 +3075,273 @@ Approval ID: {approval_id}
             logger.error(f"Error updating node status: {e}")
             self.db.rollback()
             return False
+
+
+# ============================================================================
+# Phase 2: Real-time Execution Streaming
+# ============================================================================
+
+async def execute_workflow_stream(
+    workflow: Any,
+    db: Session,
+    input_data: Dict[str, Any],
+    user_id: str
+):
+    """
+    Execute workflow with Server-Sent Events streaming (Phase 2).
+    
+    Yields execution events in real-time for ExecutionTimeline component.
+    
+    Args:
+        workflow: Workflow model instance
+        db: Database session
+        input_data: Input data for workflow
+        user_id: User ID for authentication
+        
+    Yields:
+        Event dictionaries with type and data
+    """
+    import uuid
+    from datetime import datetime
+    from backend.db.models.agent_builder import WorkflowExecution
+    
+    execution_id = str(uuid.uuid4())
+    
+    try:
+        # Create execution record
+        execution = WorkflowExecution(
+            id=uuid.UUID(execution_id),
+            workflow_id=workflow.id,
+            user_id=uuid.UUID(user_id),
+            input_data=input_data,
+            execution_context={},
+            status="running",
+            started_at=datetime.utcnow(),
+        )
+        
+        db.add(execution)
+        db.commit()
+        
+        # Yield start event
+        yield {
+            "type": "start",
+            "data": {
+                "execution_id": execution_id,
+                "workflow_id": str(workflow.id),
+                "timestamp": datetime.utcnow().isoformat()
+            }
+        }
+        
+        # Get workflow graph
+        graph = workflow.graph_definition
+        nodes = graph.get("nodes", [])
+        edges = graph.get("edges", [])
+        
+        # Find start node
+        start_node = None
+        for n in nodes:
+            node_type = n.get("type") or n.get("node_type")
+            config_type = n.get("configuration", {}).get("type")
+            effective_type = config_type if node_type == "control" and config_type else (node_type or config_type)
+            
+            if effective_type == "start" or (effective_type and effective_type.startswith("trigger")):
+                start_node = n
+                break
+        
+        if not start_node:
+            yield {
+                "type": "error",
+                "data": {
+                    "message": "No start node found in workflow",
+                    "timestamp": datetime.utcnow().isoformat()
+                }
+            }
+            return
+        
+        # Execute workflow with streaming
+        executor = WorkflowExecutor(workflow, db, execution_id)
+        
+        # Stream node executions
+        async for event in _stream_node_execution(
+            executor, start_node, nodes, edges, input_data
+        ):
+            yield event
+        
+        # Get final result
+        result = executor.node_results.get(start_node["id"], input_data)
+        
+        # Update execution record
+        execution.status = "completed"
+        execution.completed_at = datetime.utcnow()
+        execution.output_data = {"result": str(result)[:1000]}  # Limit size
+        db.commit()
+        
+        # Yield complete event
+        yield {
+            "type": "complete",
+            "data": {
+                "execution_id": execution_id,
+                "status": "completed",
+                "duration": (execution.completed_at - execution.started_at).total_seconds(),
+                "output": execution.output_data,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Workflow streaming execution failed: {e}", exc_info=True)
+        
+        # Update execution record
+        try:
+            execution.status = "failed"
+            execution.completed_at = datetime.utcnow()
+            execution.error_message = str(e)
+            db.commit()
+        except:
+            pass
+        
+        # Yield error event
+        yield {
+            "type": "error",
+            "data": {
+                "execution_id": execution_id,
+                "message": str(e),
+                "timestamp": datetime.utcnow().isoformat()
+            }
+        }
+
+
+async def _stream_node_execution(
+    executor: WorkflowExecutor,
+    current_node: Dict[str, Any],
+    nodes: List[Dict[str, Any]],
+    edges: List[Dict[str, Any]],
+    data: Any
+):
+    """
+    Stream node execution events recursively.
+    
+    Args:
+        executor: WorkflowExecutor instance
+        current_node: Current node to execute
+        nodes: All workflow nodes
+        edges: All workflow edges
+        data: Input data for current node
+        
+    Yields:
+        Execution events
+    """
+    node_id = current_node["id"]
+    raw_node_type = current_node.get("type") or current_node.get("node_type")
+    config_type = current_node.get("configuration", {}).get("type")
+    node_type = config_type if raw_node_type == "control" and config_type else (raw_node_type or config_type or "block")
+    node_data = current_node.get("data") or current_node.get("configuration", {})
+    node_name = node_data.get("name") or node_data.get("label") or node_type
+    
+    start_time = datetime.utcnow()
+    
+    # Yield node start event
+    yield {
+        "type": "node_start",
+        "data": {
+            "node_id": node_id,
+            "node_type": node_type,
+            "label": node_name,
+            "timestamp": start_time.isoformat()
+        }
+    }
+    
+    try:
+        # Execute node
+        result = await executor._execute_node_with_retry(
+            node_id=node_id,
+            node_type=node_type,
+            node_data=node_data,
+            data=data,
+            nodes=nodes,
+            edges=edges,
+            max_retries=node_data.get("maxRetries", 3),
+            retry_delay=node_data.get("retryDelay", 1),
+            retry_backoff=node_data.get("retryBackoff", "exponential"),
+        )
+        
+        end_time = datetime.utcnow()
+        duration = (end_time - start_time).total_seconds()
+        
+        # Store result
+        executor.node_results[node_id] = result
+        
+        # Yield node complete event
+        yield {
+            "type": "node_complete",
+            "data": {
+                "node_id": node_id,
+                "status": "success",
+                "duration": duration,
+                "output": str(result)[:200] if result else None,
+                "timestamp": end_time.isoformat()
+            }
+        }
+        
+        # Find and execute next nodes
+        next_edges = [e for e in edges if e.get("source") == node_id]
+        
+        if next_edges:
+            # Handle condition node (multiple branches)
+            if node_type == "condition" and isinstance(result, dict) and "branch" in result:
+                branch = result["branch"]
+                next_edge = next(
+                    (e for e in next_edges if e.get("sourceHandle") == branch),
+                    next_edges[0] if next_edges else None
+                )
+                if next_edge:
+                    next_node = next((n for n in nodes if n["id"] == next_edge["target"]), None)
+                    if next_node:
+                        async for event in _stream_node_execution(
+                            executor, next_node, nodes, edges, result.get("data", data)
+                        ):
+                            yield event
+            else:
+                # Execute next node (single path)
+                next_edge = next_edges[0]
+                next_node = next((n for n in nodes if n["id"] == next_edge["target"]), None)
+                if next_node:
+                    async for event in _stream_node_execution(
+                        executor, next_node, nodes, edges, result
+                    ):
+                        yield event
+        
+    except Exception as e:
+        end_time = datetime.utcnow()
+        duration = (end_time - start_time).total_seconds()
+        
+        # Yield node error event
+        yield {
+            "type": "node_error",
+            "data": {
+                "node_id": node_id,
+                "status": "failed",
+                "duration": duration,
+                "error": str(e),
+                "timestamp": end_time.isoformat()
+            }
+        }
+        
+        # Don't continue execution after error
+        raise
+
+
+async def execute_workflow(workflow: Any, db: Session, input_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Execute workflow (non-streaming version).
+    
+    Args:
+        workflow: Workflow model instance
+        db: Database session
+        input_data: Input data for workflow
+        
+    Returns:
+        Execution result
+    """
+    executor = WorkflowExecutor(workflow, db)
+    return await executor.execute(input_data)

@@ -73,7 +73,7 @@ export default function ToolConfigurePage() {
   };
 
   const handleTest = async (values: Record<string, any>) => {
-    const response = await fetch('/api/agent-builder/tools/execute', {
+    const response = await fetch('/api/v1/agent-builder/tool-execution/execute', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

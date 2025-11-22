@@ -139,6 +139,7 @@ class Tool(Base):
     """Tool registry model."""
 
     __tablename__ = "tools"
+    __table_args__ = {'extend_existing': True}
 
     # Primary Key
     id = Column(String(100), primary_key=True)  # e.g., "vector_search"
@@ -2139,3 +2140,188 @@ class BlockExecution(Base):
 
     def __repr__(self):
         return f"<BlockExecution(block={self.block_id}, status={self.status})>"
+
+
+# ============================================================================
+# TOOL EXECUTION MODELS
+# ============================================================================
+
+
+class ToolExecution(Base):
+    """Tool execution history model."""
+    
+    __tablename__ = "tool_executions"
+    
+    # Primary Key
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # Foreign Keys
+    tool_id = Column(
+        String(100),
+        ForeignKey("tools.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    agent_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("agents.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    
+    # Execution Details
+    parameters = Column(JSONB, default=dict)  # Input parameters
+    credentials_used = Column(Boolean, default=False)  # Whether credentials were used
+    
+    # Results
+    success = Column(Boolean, nullable=False, index=True)
+    output = Column(JSONB)  # Execution result
+    error = Column(Text)  # Error message if failed
+    
+    # Performance
+    execution_time = Column(Float)  # Seconds
+    started_at = Column(DateTime, nullable=False, index=True)
+    completed_at = Column(DateTime)
+    
+    # Context
+    session_id = Column(String(255), index=True)  # Session identifier
+    workflow_execution_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("workflow_executions.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    
+    # Relationships
+    tool = relationship("Tool")
+    agent = relationship("Agent")
+    user = relationship("User")
+    workflow_execution = relationship("WorkflowExecution")
+    
+    # Indexes
+    __table_args__ = (
+        Index("ix_tool_executions_tool_user", "tool_id", "user_id"),
+        Index("ix_tool_executions_started_at_desc", started_at.desc()),
+        Index("ix_tool_executions_success_started", "success", "started_at"),
+    )
+    
+    def __repr__(self):
+        return f"<ToolExecution(id={self.id}, tool_id={self.tool_id}, success={self.success})>"
+
+
+class ToolCredential(Base):
+    """User's tool credentials storage."""
+    
+    __tablename__ = "tool_credentials"
+    
+    # Primary Key
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # Foreign Keys
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    tool_id = Column(
+        String(100),
+        ForeignKey("tools.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    
+    # Credential Information
+    name = Column(String(255), nullable=False)  # User-friendly name
+    credentials = Column(JSONB, nullable=False)  # Encrypted credentials
+    
+    # Metadata
+    is_active = Column(Boolean, default=True, index=True)
+    last_used_at = Column(DateTime)
+    
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+    
+    # Relationships
+    user = relationship("User")
+    tool = relationship("Tool")
+    
+    # Constraints
+    __table_args__ = (
+        UniqueConstraint("user_id", "tool_id", "name", name="uq_user_tool_credential_name"),
+        Index("ix_tool_credentials_user_tool", "user_id", "tool_id"),
+    )
+    
+    def __repr__(self):
+        return f"<ToolCredential(id={self.id}, user_id={self.user_id}, tool_id={self.tool_id}, name={self.name})>"
+
+
+class ToolUsageMetric(Base):
+    """Aggregated tool usage metrics."""
+    
+    __tablename__ = "tool_usage_metrics"
+    
+    # Primary Key
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # Foreign Keys
+    tool_id = Column(
+        String(100),
+        ForeignKey("tools.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+    
+    # Metrics Period
+    date = Column(DateTime, nullable=False, index=True)  # Date for aggregation
+    
+    # Execution Metrics
+    execution_count = Column(Integer, default=0)
+    success_count = Column(Integer, default=0)
+    failure_count = Column(Integer, default=0)
+    
+    # Performance Metrics
+    avg_execution_time = Column(Float)  # Average execution time in seconds
+    total_execution_time = Column(Float)  # Total execution time in seconds
+    min_execution_time = Column(Float)  # Minimum execution time
+    max_execution_time = Column(Float)  # Maximum execution time
+    
+    # Cost Metrics (for paid APIs)
+    estimated_cost = Column(Float, default=0.0)  # Estimated cost in USD
+    
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+    
+    # Relationships
+    tool = relationship("Tool")
+    user = relationship("User")
+    
+    # Constraints
+    __table_args__ = (
+        UniqueConstraint("tool_id", "user_id", "date", name="uq_tool_user_date_metric"),
+        Index("ix_tool_usage_metrics_date_desc", date.desc()),
+        Index("ix_tool_usage_metrics_tool_date", "tool_id", "date"),
+    )
+    
+    def __repr__(self):
+        return f"<ToolUsageMetric(tool_id={self.tool_id}, date={self.date}, executions={self.execution_count})>"

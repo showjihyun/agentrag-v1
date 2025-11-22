@@ -123,6 +123,58 @@ const DropdownMenuLabel = React.forwardRef<
 ))
 DropdownMenuLabel.displayName = "DropdownMenuLabel"
 
+const DropdownMenuCheckboxItem = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement> & {
+    checked?: boolean
+    onCheckedChange?: (checked: boolean) => void
+    onSelect?: () => void
+  }
+>(({ className, children, checked, onCheckedChange, onSelect, ...props }, ref) => {
+  const context = React.useContext(DropdownMenuContext)
+  
+  const handleClick = () => {
+    if (onCheckedChange) {
+      onCheckedChange(!checked)
+    }
+    if (onSelect) {
+      onSelect()
+    }
+  }
+
+  return (
+    <div
+      ref={ref}
+      className={cn(
+        "relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground",
+        className
+      )}
+      onClick={handleClick}
+      {...props}
+    >
+      <span className="mr-2 flex h-4 w-4 items-center justify-center">
+        {checked && (
+          <svg
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M5 13l4 4L19 7"
+            />
+          </svg>
+        )}
+      </span>
+      {children}
+    </div>
+  )
+})
+DropdownMenuCheckboxItem.displayName = "DropdownMenuCheckboxItem"
+
 export {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -130,4 +182,5 @@ export {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuLabel,
+  DropdownMenuCheckboxItem,
 }

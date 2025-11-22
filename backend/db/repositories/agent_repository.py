@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
 
 from backend.db.models.agent_builder import Agent, AgentVersion, AgentTool, AgentKnowledgebase
+from backend.core.query_optimizer import QueryOptimizer
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +67,8 @@ class AgentRepository:
         """
         Find agents by user ID with filters.
         
+        Optimized with eager loading to prevent N+1 queries.
+        
         Args:
             user_id: User ID
             agent_type: Filter by agent type (optional)
@@ -76,9 +79,18 @@ class AgentRepository:
         Returns:
             List of Agent models
         """
+        # Build base query
         query = self.db.query(Agent).filter(
             Agent.user_id == user_id,
             Agent.deleted_at.is_(None)
+        )
+        
+        # Apply eager loading to prevent N+1 queries
+        query = QueryOptimizer.apply_eager_loading(
+            query,
+            Agent,
+            ['tools', 'knowledgebases'],
+            strategy='joined'
         )
         
         if agent_type:
@@ -179,7 +191,7 @@ class AgentRepository:
         if agent_type:
             query = query.filter(Agent.agent_type == agent_type)
         
-        return query.count()
+        return QueryOptimizer.optimize_count_query(query)
     
     def exists(self, agent_id: str) -> bool:
         """
@@ -191,10 +203,11 @@ class AgentRepository:
         Returns:
             True if exists, False otherwise
         """
-        return self.db.query(Agent).filter(
-            Agent.id == agent_id,
-            Agent.deleted_at.is_(None)
-        ).count() > 0
+        return QueryOptimizer.optimize_exists_check(
+            self.db,
+            Agent,
+            {'id': agent_id, 'deleted_at': None}
+        )
     
     def find_by_template(self, template_id: str, limit: int = 50) -> List[Agent]:
         """

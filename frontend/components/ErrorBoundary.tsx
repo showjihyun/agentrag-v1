@@ -1,155 +1,110 @@
 'use client';
 
-import React, { Component, ReactNode } from 'react';
-import { Button } from './Button';
+import { Component, ReactNode, ErrorInfo } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 
-interface Props {
+interface ErrorBoundaryProps {
   children: ReactNode;
-  fallback?: ReactNode;
-  onError?: (error: Error, errorInfo: React.ErrorInfo) => void;
+  fallback?: (error: Error, reset: () => void) => ReactNode;
+  onError?: (error: Error, errorInfo: ErrorInfo) => void;
 }
 
-interface State {
+interface ErrorBoundaryState {
   hasError: boolean;
-  error: Error | null;
-  errorInfo: React.ErrorInfo | null;
+  error?: Error;
+  errorInfo?: ErrorInfo;
 }
 
-/**
- * Error Boundary Component
- * 
- * Catches JavaScript errors anywhere in the child component tree,
- * logs those errors, and displays a fallback UI
- */
-class ErrorBoundary extends Component<Props, State> {
-  constructor(props: Props) {
+export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
     super(props);
-    this.state = {
-      hasError: false,
-      error: null,
-      errorInfo: null,
-    };
+    this.state = { hasError: false };
   }
 
-  static getDerivedStateFromError(error: Error): Partial<State> {
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('ErrorBoundary caught an error:', error, errorInfo);
     
-    this.setState({
-      error,
-      errorInfo,
-    });
+    this.setState({ errorInfo });
 
-    // Call optional error handler
+    // Call custom error handler if provided
     this.props.onError?.(error, errorInfo);
 
     // Log to error reporting service (e.g., Sentry)
     if (typeof window !== 'undefined' && (window as any).Sentry) {
       (window as any).Sentry.captureException(error, {
-        contexts: {
-          react: {
-            componentStack: errorInfo.componentStack,
-          },
-        },
+        contexts: { react: { componentStack: errorInfo.componentStack } },
       });
     }
   }
 
   handleReset = () => {
-    this.setState({
-      hasError: false,
-      error: null,
-      errorInfo: null,
-    });
+    this.setState({ hasError: false, error: undefined, errorInfo: undefined });
   };
 
-  handleReload = () => {
-    window.location.reload();
+  handleGoHome = () => {
+    window.location.href = '/';
   };
 
   render() {
     if (this.state.hasError) {
-      // Custom fallback UI
+      // Use custom fallback if provided
       if (this.props.fallback) {
-        return this.props.fallback;
+        return this.props.fallback(this.state.error!, this.handleReset);
       }
 
-      // Default fallback UI
+      // Default error UI
       return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
-          <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
-            <div className="flex items-center justify-center w-16 h-16 mx-auto bg-red-100 dark:bg-red-900/30 rounded-full mb-4">
-              <svg
-                className="w-8 h-8 text-red-600 dark:text-red-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                />
-              </svg>
-            </div>
+        <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50 dark:bg-gray-900">
+          <Card className="max-w-2xl w-full">
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="h-8 w-8 text-destructive" />
+                <CardTitle className="text-2xl">Something went wrong</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-muted-foreground">
+                We're sorry, but something unexpected happened. The error has been logged
+                and we'll look into it.
+              </p>
 
-            <h2 className="text-2xl font-bold text-center text-gray-900 dark:text-gray-100 mb-2">
-              Oops! Something went wrong
-            </h2>
-
-            <p className="text-center text-gray-600 dark:text-gray-400 mb-6">
-              We encountered an unexpected error. Don't worry, your data is safe.
-            </p>
-
-            {process.env.NODE_ENV === 'development' && this.state.error && (
-              <details className="mb-6 p-4 bg-gray-100 dark:bg-gray-900 rounded-lg text-sm">
-                <summary className="cursor-pointer font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Error Details (Development Only)
-                </summary>
-                <div className="space-y-2">
-                  <div>
-                    <strong className="text-red-600 dark:text-red-400">Error:</strong>
-                    <pre className="mt-1 text-xs overflow-auto text-gray-800 dark:text-gray-200">
-                      {this.state.error.toString()}
-                    </pre>
-                  </div>
-                  {this.state.errorInfo && (
-                    <div>
-                      <strong className="text-red-600 dark:text-red-400">Component Stack:</strong>
-                      <pre className="mt-1 text-xs overflow-auto text-gray-800 dark:text-gray-200">
-                        {this.state.errorInfo.componentStack}
-                      </pre>
-                    </div>
-                  )}
+              {this.state.error && (
+                <div className="bg-muted p-4 rounded-lg">
+                  <p className="text-sm font-mono text-destructive">
+                    {this.state.error.message}
+                  </p>
                 </div>
-              </details>
-            )}
+              )}
 
-            <div className="flex gap-3">
-              <Button
-                onClick={this.handleReset}
-                variant="secondary"
-                className="flex-1"
-              >
-                Try Again
-              </Button>
-              <Button
-                onClick={this.handleReload}
-                variant="primary"
-                className="flex-1"
-              >
-                Reload Page
-              </Button>
-            </div>
+              {process.env.NODE_ENV === 'development' && this.state.errorInfo && (
+                <details className="bg-muted p-4 rounded-lg">
+                  <summary className="cursor-pointer text-sm font-semibold mb-2">
+                    Error Details (Development Only)
+                  </summary>
+                  <pre className="text-xs overflow-auto max-h-64">
+                    {this.state.errorInfo.componentStack}
+                  </pre>
+                </details>
+              )}
 
-            <p className="text-center text-xs text-gray-500 dark:text-gray-400 mt-4">
-              If the problem persists, please contact support
-            </p>
-          </div>
+              <div className="flex gap-2">
+                <Button onClick={this.handleReset} className="flex-1">
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Try Again
+                </Button>
+                <Button onClick={this.handleGoHome} variant="outline" className="flex-1">
+                  <Home className="h-4 w-4 mr-2" />
+                  Go Home
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       );
     }
@@ -158,57 +113,69 @@ class ErrorBoundary extends Component<Props, State> {
   }
 }
 
-export default ErrorBoundary;
+// Alias for chat components
+export const ChatErrorBoundary = ErrorBoundary;
 
-// Named exports for specific use cases
-export const ChatErrorBoundary: React.FC<{ children: ReactNode }> = ({ children }) => (
-  <ErrorBoundary
-    fallback={
-      <div className="bg-red-50 dark:bg-red-900/20 border-2 border-red-200 dark:border-red-800 rounded-xl p-6">
-        <div className="flex items-center gap-3 mb-3">
-          <svg className="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
-          <h3 className="text-lg font-semibold text-red-900 dark:text-red-100">Chat Error</h3>
-        </div>
-        <p className="text-red-700 dark:text-red-300 mb-4">
-          Something went wrong with the chat interface. Please refresh the page.
-        </p>
-        <button
-          onClick={() => window.location.reload()}
-          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-        >
-          Reload Page
-        </button>
-      </div>
-    }
-  >
-    {children}
-  </ErrorBoundary>
-);
+// Specialized error boundary for workflow components
+export class WorkflowErrorBoundary extends Component<
+  ErrorBoundaryProps,
+  ErrorBoundaryState
+> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
 
-export const DocumentErrorBoundary: React.FC<{ children: ReactNode }> = ({ children }) => (
-  <ErrorBoundary
-    fallback={
-      <div className="bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-200 dark:border-orange-800 rounded-xl p-6">
-        <div className="flex items-center gap-3 mb-3">
-          <svg className="w-6 h-6 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-          <h3 className="text-lg font-semibold text-orange-900 dark:text-orange-100">Document Upload Error</h3>
-        </div>
-        <p className="text-orange-700 dark:text-orange-300 mb-4">
-          Something went wrong with document upload. Please try again.
-        </p>
-        <button
-          onClick={() => window.location.reload()}
-          className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
-        >
-          Reload Page
-        </button>
-      </div>
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('Workflow error:', error, errorInfo);
+    this.setState({ errorInfo });
+    this.props.onError?.(error, errorInfo);
+  }
+
+  handleReset = () => {
+    this.setState({ hasError: false, error: undefined, errorInfo: undefined });
+  };
+
+  render() {
+    if (this.state.hasError) {
+      if (this.props.fallback) {
+        return this.props.fallback(this.state.error!, this.handleReset);
+      }
+
+      return (
+        <Card className="m-4">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Workflow Error
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              The workflow encountered an error. You can try again or refresh the page.
+            </p>
+
+            {this.state.error && (
+              <div className="bg-destructive/10 border border-destructive/20 p-3 rounded-lg">
+                <p className="text-sm text-destructive font-mono">
+                  {this.state.error.message}
+                </p>
+              </div>
+            )}
+
+            <Button onClick={this.handleReset} className="w-full">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Try Again
+            </Button>
+          </CardContent>
+        </Card>
+      );
     }
-  >
-    {children}
-  </ErrorBoundary>
-);
+
+    return this.props.children;
+  }
+}

@@ -31,6 +31,12 @@ export interface Tool {
   is_builtin: boolean;
 }
 
+export interface ToolConfiguration {
+  tool_id: string;
+  configuration: Record<string, any>;
+  order: number;
+}
+
 export interface AgentCreate {
   name: string;
   description?: string;
@@ -40,6 +46,7 @@ export interface AgentCreate {
   prompt_template?: string;
   configuration?: Record<string, any>;
   tool_ids?: string[];
+  tools?: ToolConfiguration[];
 }
 
 export interface AgentUpdate {
@@ -50,6 +57,7 @@ export interface AgentUpdate {
   prompt_template?: string;
   configuration?: Record<string, any>;
   tool_ids?: string[];
+  tools?: ToolConfiguration[];
 }
 
 export interface AgentFilters {

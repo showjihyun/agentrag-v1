@@ -171,6 +171,39 @@ ActivityItem.displayName = 'ActivityItem';
 export default function AgentBuilderDashboard() {
   const router = useRouter();
 
+  // Helper functions for status display
+  const getStatusColor = React.useCallback((status: string) => {
+    switch (status) {
+      case 'completed': return 'text-green-500';
+      case 'failed': return 'text-red-500';
+      case 'running': return 'text-blue-500';
+      default: return 'text-gray-500';
+    }
+  }, []);
+
+  const getStatusIcon = React.useCallback((status: string) => {
+    switch (status) {
+      case 'completed': return <CheckCircle2 className="h-4 w-4" />;
+      case 'failed': return <AlertCircle className="h-4 w-4" />;
+      case 'running': return <Activity className="h-4 w-4 animate-pulse" />;
+      default: return <Clock className="h-4 w-4" />;
+    }
+  }, []);
+
+  const formatTimeAgo = React.useCallback((dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return `${diffDays}d ago`;
+  }, []);
+
   const { data: stats, isLoading: statsLoading, error: statsError } = useQuery({
     queryKey: ['agent-builder-stats'],
     queryFn: () => agentBuilderAPI.getDashboardStats(),

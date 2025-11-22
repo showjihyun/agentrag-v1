@@ -1011,3 +1011,297 @@ async def get_agent_stats_alias(
     This is an alias for the /statistics endpoint for backward compatibility.
     """
     return await get_agent_stats(agent_id, current_user, db)
+
+
+
+# ============================================================================
+# Agent Tools Management Endpoints
+# ============================================================================
+
+class AgentToolConfig(BaseModel):
+    """Agent tool configuration."""
+    tool_id: str
+    configuration: dict
+
+
+class AgentToolsUpdate(BaseModel):
+    """Update agent tools."""
+    tools: List[AgentToolConfig]
+
+
+@router.get(
+    "/{agent_id}/tools",
+    summary="Get agent tools",
+    description="Get configured tools for an agent.",
+)
+async def get_agent_tools(
+    agent_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Get agent tools configuration.
+    
+    **Returns:**
+    - List of configured tools with their configurations
+    
+    **Errors:**
+    - 404: Agent not found
+    - 403: Permission denied
+    """
+    try:
+        logger.info(f"Getting tools for agent {agent_id}")
+        
+        agent_service = AgentServiceRefactored(db)
+        
+        # Get agent and verify permissions
+        agent = await agent_service.get_agent(agent_id)
+        if not agent:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Agent not found"
+            )
+        
+        if str(agent.user_id) != str(current_user.id) and not agent.is_public:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have permission to view this agent's tools"
+            )
+        
+        # Get tools from agent configuration
+        tools = agent.tools or []
+        
+        return {
+            "agent_id": agent_id,
+            "tools": tools,
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get agent tools: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get agent tools"
+        )
+
+
+@router.put(
+    "/{agent_id}/tools",
+    summary="Update agent tools",
+    description="Update configured tools for an agent.",
+)
+async def update_agent_tools(
+    agent_id: str,
+    tools_update: AgentToolsUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Update agent tools configuration.
+    
+    **Request Body:**
+    - tools: List of tool configurations
+    
+    **Returns:**
+    - Updated agent with tools
+    
+    **Errors:**
+    - 404: Agent not found
+    - 403: Permission denied
+    """
+    try:
+        logger.info(f"Updating tools for agent {agent_id}")
+        
+        agent_service = AgentServiceRefactored(db)
+        
+        # Get agent and verify permissions
+        agent = await agent_service.get_agent(agent_id)
+        if not agent:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Agent not found"
+            )
+        
+        if str(agent.user_id) != str(current_user.id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have permission to update this agent's tools"
+            )
+        
+        # Update tools
+        agent.tools = [tool.dict() for tool in tools_update.tools]
+        agent.updated_at = datetime.utcnow()
+        
+        db.commit()
+        db.refresh(agent)
+        
+        logger.info(f"Updated tools for agent {agent_id}: {len(tools_update.tools)} tools")
+        
+        return {
+            "agent_id": agent_id,
+            "tools": agent.tools,
+            "message": f"Successfully updated {len(tools_update.tools)} tools"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to update agent tools: {e}", exc_info=True)
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update agent tools"
+        )
+
+
+@router.post(
+    "/{agent_id}/tools/{tool_id}",
+    summary="Add tool to agent",
+    description="Add a single tool to an agent.",
+)
+async def add_agent_tool(
+    agent_id: str,
+    tool_id: str,
+    configuration: dict = {},
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Add a tool to an agent.
+    
+    **Returns:**
+    - Updated agent tools
+    
+    **Errors:**
+    - 404: Agent not found
+    - 403: Permission denied
+    """
+    try:
+        logger.info(f"Adding tool {tool_id} to agent {agent_id}")
+        
+        agent_service = AgentServiceRefactored(db)
+        
+        # Get agent and verify permissions
+        agent = await agent_service.get_agent(agent_id)
+        if not agent:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Agent not found"
+            )
+        
+        if str(agent.user_id) != str(current_user.id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have permission to update this agent"
+            )
+        
+        # Add tool
+        tools = agent.tools or []
+        
+        # Check if tool already exists
+        existing_tool = next((t for t in tools if t.get('tool_id') == tool_id), None)
+        if existing_tool:
+            # Update configuration
+            existing_tool['configuration'] = configuration
+        else:
+            # Add new tool
+            tools.append({
+                'tool_id': tool_id,
+                'configuration': configuration,
+                'order': len(tools)
+            })
+        
+        agent.tools = tools
+        agent.updated_at = datetime.utcnow()
+        
+        db.commit()
+        db.refresh(agent)
+        
+        return {
+            "agent_id": agent_id,
+            "tool_id": tool_id,
+            "tools": agent.tools,
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to add tool to agent: {e}", exc_info=True)
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to add tool to agent"
+        )
+
+
+@router.delete(
+    "/{agent_id}/tools/{tool_id}",
+    summary="Remove tool from agent",
+    description="Remove a tool from an agent.",
+)
+async def remove_agent_tool(
+    agent_id: str,
+    tool_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Remove a tool from an agent.
+    
+    **Returns:**
+    - Updated agent tools
+    
+    **Errors:**
+    - 404: Agent not found
+    - 403: Permission denied
+    """
+    try:
+        logger.info(f"Removing tool {tool_id} from agent {agent_id}")
+        
+        agent_service = AgentServiceRefactored(db)
+        
+        # Get agent and verify permissions
+        agent = await agent_service.get_agent(agent_id)
+        if not agent:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Agent not found"
+            )
+        
+        if str(agent.user_id) != str(current_user.id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have permission to update this agent"
+            )
+        
+        # Remove tool
+        tools = agent.tools or []
+        tools = [t for t in tools if t.get('tool_id') != tool_id]
+        
+        # Reorder
+        for i, tool in enumerate(tools):
+            tool['order'] = i
+        
+        agent.tools = tools
+        agent.updated_at = datetime.utcnow()
+        
+        db.commit()
+        db.refresh(agent)
+        
+        return {
+            "agent_id": agent_id,
+            "tool_id": tool_id,
+            "tools": agent.tools,
+            "message": f"Tool {tool_id} removed successfully"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to remove tool from agent: {e}", exc_info=True)
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to remove tool from agent"
+        )

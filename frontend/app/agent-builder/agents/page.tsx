@@ -97,15 +97,12 @@ export default function AgentsPage() {
     if (filterStatus !== 'all') {
       result = result.filter((agent: Agent) => {
         const stats = agentStats[agent.id];
-        if (!stats) return filterStatus === 'draft'; // No stats = draft
+        if (!stats) return true; // Show all agents without stats
         
         // Determine status based on statistics
         if (filterStatus === 'active') {
           // Active: has runs and good success rate
           return stats.total_runs > 0 && stats.success_rate >= 50;
-        } else if (filterStatus === 'draft') {
-          // Draft: no runs yet
-          return stats.total_runs === 0;
         } else if (filterStatus === 'archived') {
           // Archived: has runs but low success rate or not used recently
           return stats.total_runs > 0 && stats.success_rate < 50;
@@ -275,7 +272,6 @@ export default function AgentsPage() {
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="draft">Draft</SelectItem>
                   <SelectItem value="archived">Archived</SelectItem>
                 </SelectContent>
               </Select>
@@ -398,7 +394,7 @@ export default function AgentsPage() {
                         {(() => {
                           const stats = agentStats[agent.id];
                           if (!stats || stats.total_runs === 0) {
-                            return <Badge variant="secondary" className="text-xs">Draft</Badge>;
+                            return <Badge variant="secondary" className="text-xs">New</Badge>;
                           } else if (stats.success_rate >= 50) {
                             return <Badge variant="default" className="text-xs bg-green-600">Active</Badge>;
                           } else {

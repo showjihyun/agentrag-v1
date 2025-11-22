@@ -157,8 +157,20 @@ export default function AgentDetailPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Tools</CardTitle>
-            <CardDescription>Available tools for this agent</CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Tools</CardTitle>
+                <CardDescription>Available tools for this agent</CardDescription>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push(`/agent-builder/agents/${agentId}/tools`)}
+              >
+                <Edit className="mr-2 h-4 w-4" />
+                Configure
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             {agent.tools && agent.tools.length > 0 ? (
@@ -169,15 +181,27 @@ export default function AgentDetailPage() {
                       <div className="font-medium text-sm">{tool.tool_id}</div>
                       {tool.configuration && Object.keys(tool.configuration).length > 0 && (
                         <div className="text-xs text-muted-foreground">
-                          Order: {tool.order}
+                          {Object.keys(tool.configuration).length} parameters configured
                         </div>
                       )}
                     </div>
+                    <Badge variant="outline" className="text-xs">
+                      Order: {tool.order}
+                    </Badge>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">No tools configured</p>
+              <div className="text-center py-6">
+                <p className="text-sm text-muted-foreground mb-3">No tools configured</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push(`/agent-builder/agents/${agentId}/tools`)}
+                >
+                  Add Tools
+                </Button>
+              </div>
             )}
           </CardContent>
         </Card>

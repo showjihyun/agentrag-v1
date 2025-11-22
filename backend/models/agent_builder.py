@@ -9,6 +9,16 @@ from datetime import datetime
 # Agent Schemas
 # ============================================================================
 
+class ToolConfiguration(BaseModel):
+    """Schema for tool configuration."""
+    
+    tool_id: str = Field(..., description="Tool ID")
+    configuration: Dict[str, Any] = Field(
+        default_factory=dict, description="Tool-specific configuration"
+    )
+    order: int = Field(default=0, description="Execution order")
+
+
 class AgentCreate(BaseModel):
     """Schema for creating a new agent."""
     
@@ -26,7 +36,10 @@ class AgentCreate(BaseModel):
         default_factory=dict, description="Agent-specific configuration"
     )
     tool_ids: List[str] = Field(
-        default_factory=list, description="List of tool IDs to attach"
+        default_factory=list, description="List of tool IDs to attach (deprecated, use tools)"
+    )
+    tools: List[ToolConfiguration] = Field(
+        default_factory=list, description="List of tools with configurations"
     )
     knowledgebase_ids: List[str] = Field(
         default_factory=list, description="List of knowledgebase IDs to attach"
@@ -61,6 +74,7 @@ class AgentUpdate(BaseModel):
     prompt_template: Optional[str] = None
     configuration: Optional[Dict[str, Any]] = None
     tool_ids: Optional[List[str]] = None
+    tools: Optional[List[ToolConfiguration]] = None
     knowledgebase_ids: Optional[List[str]] = None
     is_public: Optional[bool] = None
 

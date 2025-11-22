@@ -69,16 +69,18 @@ export function NodeConfigurationPanel({
   const fetchToolConfig = async () => {
     console.log('🔍 NodeConfigurationPanel - Node data:', node);
     console.log('🔍 Tool ID:', node.tool_id);
+    console.log('🔍 Node Type:', node.node_type);
     
-    if (!node.tool_id) {
-      console.warn('⚠️ No tool_id found in node data');
+    // Only fetch tool config for actual tool nodes
+    if (!node.tool_id || node.node_type !== 'tool') {
+      console.warn('⚠️ Not a tool node or no tool_id found');
       setLoading(false);
       return;
     }
 
     try {
       console.log('📡 Fetching tool config for:', node.tool_id);
-      const response = await fetch(`/api/agent-builder/marketplace/${node.tool_id}`);
+      const response = await fetch(`/api/agent-builder/tools/${node.tool_id}`);
       
       if (!response.ok) {
         console.error('❌ API response not OK:', response.status, response.statusText);

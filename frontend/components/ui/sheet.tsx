@@ -64,17 +64,22 @@ const SheetContent = React.forwardRef<
 
   return (
     <>
+      {/* Backdrop */}
       <div 
-        className="fixed inset-0 z-50 bg-black/50" 
+        className="fixed inset-0 z-[9998] bg-black/50 animate-in fade-in duration-200" 
         onClick={() => context.onOpenChange(false)}
       />
+      {/* Sheet Panel */}
       <div
         ref={ref}
         className={cn(
-          "fixed z-50 gap-4 bg-background p-6 shadow-lg transition ease-in-out",
+          "fixed z-[9999] gap-4 bg-background p-6 shadow-2xl",
           "right-0 top-0 h-full w-3/4 border-l sm:max-w-sm",
+          "animate-in slide-in-from-right duration-300",
+          "data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right",
           className
         )}
+        data-state={context.open ? "open" : "closed"}
         {...props}
       >
         {children}

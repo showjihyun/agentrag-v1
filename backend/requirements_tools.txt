@@ -1,0 +1,37 @@
+# Tool Execution Dependencies
+# Install with: pip install -r requirements_tools.txt
+
+# Search Tools
+duckduckgo-search>=6.0.0  # DuckDuckGo search without API key
+
+# HTTP Tools (already in main requirements via httpx)
+# httpx>=0.24.0
+
+# Database Tools (already in main requirements)
+# sqlalchemy>=2.0.0
+# psycopg2-binary>=2.9.0
+
+# Additional dependencies for specific tools
+# Uncomment as needed:
+
+# GitHub
+# PyGithub>=2.0.0
+
+# Slack
+# slack-sdk>=3.0.0
+
+# Email (built-in smtplib, no extra package needed)
+
+# Google APIs
+# google-api-python-client>=2.0.0
+# google-auth-httplib2>=0.1.0
+# google-auth-oauthlib>=1.0.0
+
+# Notion
+# notion-client>=2.0.0
+
+# OpenAI (already in main requirements via litellm)
+# openai>=1.0.0
+
+# Anthropic (already in main requirements via litellm)
+# anthropic>=0.25.0

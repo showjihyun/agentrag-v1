@@ -30,6 +30,7 @@ def initialize_tools():
         from backend.core.tools.integrations import productivity_tools
         from backend.core.tools.integrations import data_tools
         from backend.core.tools.integrations import search_tools
+        from backend.core.tools.integrations import http_tools
         
         # Get tool count
         from backend.core.tools.registry import ToolRegistry

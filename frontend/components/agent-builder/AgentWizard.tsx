@@ -98,6 +98,7 @@ export function AgentWizard({ agentId, initialData, mode = 'create' }: AgentWiza
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [draftSaved, setDraftSaved] = React.useState(false);
   const [allTools, setAllTools] = React.useState<any[]>([]);
+  const [selectedToolsWithConfig, setSelectedToolsWithConfig] = React.useState<any[]>([]);
   const [, forceUpdate] = React.useReducer(x => x + 1, 0);
 
   const form = useForm<AgentFormValues>({
@@ -147,43 +148,14 @@ export function AgentWizard({ agentId, initialData, mode = 'create' }: AgentWiza
     }
   }, [currentStep, reviewToolIds, reviewName]);
 
+  // Draft functionality disabled for simplicity
   const saveDraft = async () => {
-    const values = form.getValues();
-    console.log('saveDraft - values:', values);
-    console.log('saveDraft - tool_ids:', values.tool_ids);
-    localStorage.setItem('agent_draft', JSON.stringify(values));
-    setDraftSaved(true);
-    toast({
-      title: 'Draft saved',
-      description: 'Your progress has been saved locally.',
-    });
-    setTimeout(() => setDraftSaved(false), 2000);
+    // No-op: Draft auto-save disabled
   };
 
   const loadDraft = () => {
-    const draft = localStorage.getItem('agent_draft');
-    if (draft) {
-      const values = JSON.parse(draft);
-      Object.keys(values).forEach((key) => {
-        form.setValue(key as any, values[key]);
-      });
-      toast({
-        title: 'Draft loaded',
-        description: 'Your previous progress has been restored.',
-      });
-    }
+    // No-op: Draft loading disabled
   };
-
-  React.useEffect(() => {
-    // Check for draft on mount
-    const draft = localStorage.getItem('agent_draft');
-    if (draft) {
-      const shouldLoad = confirm('Found a saved draft. Would you like to continue from where you left off?');
-      if (shouldLoad) {
-        loadDraft();
-      }
-    }
-  }, []);
 
   const validateStep = async (step: number): Promise<boolean> => {
     switch (step) {
@@ -223,6 +195,13 @@ export function AgentWizard({ agentId, initialData, mode = 'create' }: AgentWiza
     console.log('onSubmit called with data:', data);
     setIsSubmitting(true);
     try {
+      // Get tool configurations from selectedToolsWithConfig state
+      const toolConfigurations = selectedToolsWithConfig.map(t => ({
+        tool_id: t.tool_id,
+        configuration: t.configuration || {},
+        order: t.order
+      }));
+
       const agentData: AgentCreate = {
         name: data.name,
         description: data.description,
@@ -230,7 +209,8 @@ export function AgentWizard({ agentId, initialData, mode = 'create' }: AgentWiza
         llm_provider: data.llm_provider,
         llm_model: data.llm_model,
         prompt_template: data.prompt_template,
-        // Only include tool_ids if there are any selected
+        // Send tool configurations if available, otherwise fall back to tool_ids
+        tools: toolConfigurations.length > 0 ? toolConfigurations : undefined,
         tool_ids: data.tool_ids && data.tool_ids.length > 0 ? data.tool_ids : undefined,
       };
 
@@ -258,7 +238,12 @@ export function AgentWizard({ agentId, initialData, mode = 'create' }: AgentWiza
           description: 'Your agent has been created successfully.',
         });
 
-        router.push('/agent-builder/agents');
+        // If tools were selected, redirect to tools configuration page
+        if (data.tool_ids && data.tool_ids.length > 0) {
+          router.push(`/agent-builder/agents/${createdAgent.id}/tools`);
+        } else {
+          router.push('/agent-builder/agents');
+        }
       }
     } catch (error) {
       toast({
@@ -446,20 +431,25 @@ export function AgentWizard({ agentId, initialData, mode = 'create' }: AgentWiza
         const currentToolIds = form.watch('tool_ids');
         
         return (
-          <div className="space-y-6">
+          <div className="space-y-6" onClick={(e) => e.stopPropagation()}>
             <FormField
               control={form.control}
               name="tool_ids"
               render={({ field }) => (
                 <FormItem>
                   <FormControl>
-                    <AgentToolsPanel
-                      agentId={agentId || 'new'}
-                      selectedTools={field.value || []}
-                      onToolsChange={(newValue) => {
-                        field.onChange(newValue);
-                      }}
-                    />
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <AgentToolsPanel
+                        agentId={agentId || 'new'}
+                        selectedTools={field.value || []}
+                        onToolsChange={(newValue) => {
+                          field.onChange(newValue);
+                        }}
+                        onToolsWithConfigChange={(toolsWithConfig) => {
+                          setSelectedToolsWithConfig(toolsWithConfig);
+                        }}
+                      />
+                    </div>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -623,6 +613,11 @@ export function AgentWizard({ agentId, initialData, mode = 'create' }: AgentWiza
                             </Badge>
                           );
                         })}
+                      </div>
+                      <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
+                        <p className="text-xs text-blue-900 dark:text-blue-100">
+                          💡 After creating the agent, you'll be redirected to configure tool parameters.
+                        </p>
                       </div>
                     </div>
                   ) : (

@@ -24,6 +24,11 @@ export default function Home() {
   const searchParams = useSearchParams();
   const { isAuthenticated } = useAuth();
   
+  // Redirect to Agent Builder Dashboard
+  useEffect(() => {
+    router.push('/agent-builder');
+  }, [router]);
+  
   // Use Zustand store instead of local state
   const activeSessionId = useActiveSessionId();
   const showSidebar = useShowSidebar();

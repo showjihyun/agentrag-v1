@@ -70,7 +70,7 @@ Pillow>=10.0.0  # Image processing
 # For now, MCP functionality will be disabled if not installed
 
 # Web Search
-ddgs>=1.0.0
+duckduckgo-search>=6.0.0  # DuckDuckGo search API
 
 # Utilities
 python-dotenv>=1.0.1,<2.0.0
