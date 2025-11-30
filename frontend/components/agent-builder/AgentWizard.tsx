@@ -138,13 +138,10 @@ export function AgentWizard({ agentId, initialData, mode = 'create' }: AgentWiza
   const reviewToolIds = form.watch('tool_ids');
   const reviewPromptTemplate = form.watch('prompt_template');
 
+  // Debug effect for review step (development only)
   React.useEffect(() => {
-    if (currentStep === 5) {
-      console.log('Review step - ALL VALUES:');
-      console.log('  name:', reviewName);
-      console.log('  tool_ids:', reviewToolIds);
-      console.log('  form.getValues():', form.getValues());
-      console.log('  form.getValues().tool_ids:', form.getValues().tool_ids);
+    if (process.env.NODE_ENV === 'development' && currentStep === 5) {
+      // Review step debugging available in dev tools
     }
   }, [currentStep, reviewToolIds, reviewName]);
 
@@ -180,7 +177,6 @@ export function AgentWizard({ agentId, initialData, mode = 'create' }: AgentWiza
       // Force re-render to ensure form values are fresh
       setTimeout(() => {
         forceUpdate();
-        console.log('After step change - tool_ids:', form.getValues().tool_ids);
       }, 10);
     }
   };
@@ -192,7 +188,6 @@ export function AgentWizard({ agentId, initialData, mode = 'create' }: AgentWiza
   };
 
   const onSubmit = async (data: AgentFormValues) => {
-    console.log('onSubmit called with data:', data);
     setIsSubmitting(true);
     try {
       // Get tool configurations from selectedToolsWithConfig state
@@ -215,9 +210,7 @@ export function AgentWizard({ agentId, initialData, mode = 'create' }: AgentWiza
       };
 
       if (mode === 'edit' && agentId) {
-        console.log('Updating agent with data:', agentData);
         await agentBuilderAPI.updateAgent(agentId, agentData);
-        console.log('Agent updated successfully');
         
         toast({
           title: 'Agent updated',
@@ -226,9 +219,7 @@ export function AgentWizard({ agentId, initialData, mode = 'create' }: AgentWiza
 
         router.push(`/agent-builder/agents/${agentId}`);
       } else {
-        console.log('Creating agent with data:', agentData);
         const createdAgent = await agentBuilderAPI.createAgent(agentData);
-        console.log('Agent created successfully:', createdAgent);
         
         // Clear draft
         localStorage.removeItem('agent_draft');

@@ -55,7 +55,7 @@ export default function MergeNode({ data, selected }: NodeProps<MergeNodeData>) 
         </div>
       </div>
 
-      <Handle type="source" position={Position.Right} className="w-3 h-3" />
+      <Handle type="source" id="output" position={Position.Right} className="w-3 h-3" />
     </div>
   );
 }

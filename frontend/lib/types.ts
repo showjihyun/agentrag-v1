@@ -196,38 +196,8 @@ export interface UploadResponse {
   chunk_count?: number;
 }
 
-/**
- * Response type for progressive streaming.
- */
-export type ResponseType = 'preliminary' | 'refinement' | 'final';
-
-/**
- * Path source that generated the response.
- */
-export type PathSource = 'speculative' | 'agentic' | 'hybrid';
-
-/**
- * Response chunk for progressive display.
- */
-export interface ResponseChunk {
-  chunk_id: string;
-  type: ResponseType;
-  content: string;
-  path_source: PathSource;
-  confidence_score?: number;
-  sources: SearchResult[];
-  reasoning_steps: Record<string, any>[];
-  timestamp: string;
-  metadata: Record<string, any>;
-}
-
-/**
- * Stream chunk for Server-Sent Events.
- */
-export interface StreamChunk {
-  type: 'step' | 'response' | 'chunk' | 'error' | 'complete';
-  data: AgentStep | QueryResponse | ResponseChunk | { message: string };
-}
+// Note: ResponseType, PathSource, ResponseChunk, and StreamChunk are defined above
+// Removed duplicate definitions
 
 /**
  * Error response from API.

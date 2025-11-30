@@ -34,7 +34,7 @@ export default function GoogleDriveNode({ data, selected }: NodeProps<GoogleDriv
         selected ? 'border-blue-500' : 'border-gray-300'
       }`}
     >
-      <Handle type="target" position={Position.Left} className="w-3 h-3" />
+      <Handle type="target" position={Position.Left} className="w-3 h-3" id="input" />
       
       <div className="p-4">
         <div className="flex items-center gap-2 mb-2">
@@ -53,7 +53,7 @@ export default function GoogleDriveNode({ data, selected }: NodeProps<GoogleDriv
         )}
       </div>
 
-      <Handle type="source" position={Position.Right} className="w-3 h-3" />
+      <Handle type="source" id="output" position={Position.Right} className="w-3 h-3" />
     </div>
   );
 }

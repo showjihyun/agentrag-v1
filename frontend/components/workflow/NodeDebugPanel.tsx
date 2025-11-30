@@ -16,7 +16,7 @@ interface NodeDebugPanelProps {
     error?: string;
     duration: number;
     timestamp: string;
-    status: 'success' | 'failed' | 'running' | 'pending';
+    status: 'success' | 'failed' | 'running' | 'pending' | 'skipped' | 'waiting';
   };
   onClose: () => void;
 }

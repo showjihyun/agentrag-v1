@@ -448,7 +448,84 @@ class AnomalyDetector:
             }
         )
         
-        # TODO: Send actual notification (email, Slack, PagerDuty, etc.)
+        # Send notifications based on severity
+        await self._send_anomaly_notifications(anomaly)
+    
+    async def _send_anomaly_notifications(self, anomaly):
+        """Send anomaly notifications via multiple channels."""
+        import httpx
+        
+        severity_emoji = {
+            "low": "⚠️",
+            "medium": "🔶", 
+            "high": "🔴",
+            "critical": "🚨"
+        }
+        emoji = severity_emoji.get(anomaly.severity, "⚠️")
+        
+        # Build message
+        subject = f"Anomaly Alert: {anomaly.severity.upper()}"
+        message = (
+            f"Severity: {anomaly.severity}\n"
+            f"Score: {anomaly.score:.2f}\n"
+            f"Affected Metrics: {', '.join(anomaly.affected_metrics)}\n"
+            f"Recommendation: {anomaly.recommendation}"
+        )
+        
+        # Send to Sentry for critical/high severity
+        if anomaly.severity in ("critical", "high"):
+            try:
+                import sentry_sdk
+                sentry_sdk.capture_message(
+                    f"Anomaly detected: {anomaly.severity}",
+                    level="warning" if anomaly.severity == "high" else "error"
+                )
+            except ImportError:
+                pass
+        
+        # Send Slack notification
+        try:
+            from backend.config import settings
+            webhook_url = getattr(settings, 'SLACK_WEBHOOK_URL', None)
+            
+            if webhook_url:
+                slack_message = {
+                    "blocks": [
+                        {
+                            "type": "header",
+                            "text": {"type": "plain_text", "text": f"{emoji} {subject}"}
+                        },
+                        {
+                            "type": "section",
+                            "fields": [
+                                {"type": "mrkdwn", "text": f"*Severity:*\n{anomaly.severity}"},
+                                {"type": "mrkdwn", "text": f"*Score:*\n{anomaly.score:.2f}"},
+                            ]
+                        },
+                        {
+                            "type": "section",
+                            "text": {"type": "mrkdwn", "text": f"*Recommendation:*\n{anomaly.recommendation}"}
+                        }
+                    ]
+                }
+                
+                async with httpx.AsyncClient(timeout=5.0) as client:
+                    await client.post(webhook_url, json=slack_message)
+        except Exception as e:
+            logger.debug(f"Slack notification failed: {e}")
+        
+        # Send PagerDuty alert for critical severity
+        if anomaly.severity == "critical":
+            try:
+                from backend.services.pagerduty_service import get_pagerduty_service
+                pagerduty = get_pagerduty_service()
+                await pagerduty.trigger_incident(
+                    title=subject,
+                    description=message,
+                    severity="critical"
+                )
+            except Exception as e:
+                logger.debug(f"PagerDuty notification failed: {e}")
     
     async def start_monitoring(self):
         """Start continuous anomaly monitoring."""

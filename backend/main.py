@@ -1,38 +1,58 @@
 # FastAPI application entry point
 
-# Suppress ALL warnings globally before any imports
 import warnings
 import os
 import sys
 
-# Set environment variable BEFORE any imports
-os.environ["PYTHONWARNINGS"] = "ignore"
+# =============================================================================
+# Warning Filter Configuration
+# Only suppress specific known warnings, not all warnings
+# =============================================================================
 
-# Comprehensive warning suppression - catch everything
-warnings.filterwarnings("ignore")
-warnings.simplefilter("ignore")
+def configure_warnings():
+    """Configure warning filters for known third-party library warnings."""
+    
+    # Pydantic v2 migration warnings (safe to ignore if using v2 correctly)
+    warnings.filterwarnings(
+        "ignore",
+        message=".*Pydantic.*deprecated.*",
+        category=DeprecationWarning
+    )
+    warnings.filterwarnings(
+        "ignore", 
+        message=".*model_fields.*",
+        category=DeprecationWarning
+    )
+    
+    # LiteLLM streaming warnings (known issue with response serialization)
+    warnings.filterwarnings(
+        "ignore",
+        message=".*StreamingChoices.*",
+        category=UserWarning
+    )
+    warnings.filterwarnings(
+        "ignore",
+        message=".*Message.*serialized value.*",
+        category=UserWarning
+    )
+    
+    # SQLAlchemy 2.0 migration warnings
+    warnings.filterwarnings(
+        "ignore",
+        message=".*SQLAlchemy.*deprecated.*",
+        category=DeprecationWarning
+    )
+    
+    # Suppress Pydantic deprecation categories if available
+    try:
+        from pydantic import PydanticDeprecatedSince20, PydanticDeprecatedSince211
+        warnings.filterwarnings("ignore", category=PydanticDeprecatedSince20)
+        warnings.filterwarnings("ignore", category=PydanticDeprecatedSince211)
+    except ImportError:
+        pass
 
-# Specific suppressions for known warnings
-warnings.filterwarnings("ignore", category=DeprecationWarning)
-warnings.filterwarnings("ignore", category=UserWarning)
-warnings.filterwarnings("ignore", category=FutureWarning)
-warnings.filterwarnings("ignore", message=".*Pydantic.*")
-warnings.filterwarnings("ignore", message=".*pydantic.*")
-warnings.filterwarnings("ignore", message=".*model_fields.*")
-warnings.filterwarnings("ignore", message=".*PydanticSerializationUnexpectedValue.*")
-warnings.filterwarnings("ignore", message=".*PydanticDeprecatedSince.*")
-warnings.filterwarnings("ignore", message=".*dict.*method is deprecated.*")
-warnings.filterwarnings("ignore", message=".*model_dump.*")
-warnings.filterwarnings("ignore", message=".*StreamingChoices.*")
-warnings.filterwarnings("ignore", message=".*Message.*serialized value.*")
-
-# Suppress specific pydantic warnings by category
-try:
-    from pydantic import PydanticDeprecatedSince20, PydanticDeprecatedSince211
-    warnings.filterwarnings("ignore", category=PydanticDeprecatedSince20)
-    warnings.filterwarnings("ignore", category=PydanticDeprecatedSince211)
-except ImportError:
-    pass
+# Apply warning configuration
+configure_warnings()
 
 import logging
 import os
@@ -98,6 +118,15 @@ async def lifespan(app: FastAPI):
     logger.info("Starting up Agentic RAG System...")
 
     try:
+        # Initialize Sentry error tracking
+        from backend.services.sentry_service import initialize_sentry
+        sentry_initialized = initialize_sentry(
+            environment="production" if not settings.DEBUG else "development",
+            enable_tracing=not settings.DEBUG,
+        )
+        if sentry_initialized:
+            logger.info("Sentry error tracking initialized")
+        
         # Initialize service container
         await initialize_container()
 
@@ -715,7 +744,14 @@ from backend.api import monitoring as monitoring_api
 # Import PaddleOCR Advanced API
 from backend.api import paddleocr_advanced
 
+# Import v1 API routers (versioned APIs)
+from backend.api.v1 import health as health_v1
+
+# Legacy health router (backward compatibility)
 app.include_router(health.router)
+
+# v1 API routers (Kubernetes-ready health checks)
+app.include_router(health_v1.router)
 app.include_router(auth.router)
 app.include_router(conversations.router)
 app.include_router(documents.router)
@@ -812,6 +848,16 @@ from backend.api.agent_builder import (
     workflow_monitoring as agent_builder_workflow_monitoring,  # Workflow monitoring
     ai_assistant as agent_builder_ai_assistant,  # AI Assistant
     ai_agent_chat as agent_builder_ai_agent_chat,  # AI Agent Chat WebSocket
+    cost_tracking as agent_builder_cost_tracking,  # Cost and token tracking
+    agent_team as agent_builder_agent_team,  # Multi-agent team orchestration
+    workflow_templates as agent_builder_workflow_templates,  # Workflow templates
+    workflow_nlp_generator as agent_builder_workflow_nlp,  # NLP workflow generation
+    code_execution as agent_builder_code_execution,  # Enhanced code block execution
+    ai_copilot as agent_builder_ai_copilot,  # AI Copilot for code
+    code_debugger as agent_builder_code_debugger,  # Interactive debugger
+    code_analyzer as agent_builder_code_analyzer,  # Code analysis/linting
+    code_profiler as agent_builder_code_profiler,  # Performance profiling & test generation
+    code_secrets as agent_builder_code_secrets,  # Secrets management
 )
 
 # Circuit Breaker Status API (Phase 1 Architecture)
@@ -865,11 +911,33 @@ app.include_router(agent_builder_workflow_debug.router)  # Workflow debugging
 app.include_router(agent_builder_workflow_monitoring.router)  # Workflow monitoring
 app.include_router(agent_builder_ai_assistant.router)  # AI Assistant
 app.include_router(agent_builder_ai_agent_chat.router)  # AI Agent Chat WebSocket
+app.include_router(agent_builder_cost_tracking.router)  # Cost and token tracking
+app.include_router(agent_builder_agent_team.router)  # Multi-agent team orchestration
+app.include_router(agent_builder_workflow_templates.router)  # Workflow templates
+app.include_router(agent_builder_workflow_nlp.router)  # NLP workflow generation
+app.include_router(agent_builder_code_execution.router)  # Enhanced code block execution
+app.include_router(agent_builder_ai_copilot.router)  # AI Copilot for code
+app.include_router(agent_builder_code_debugger.router)  # Interactive debugger
+app.include_router(agent_builder_code_analyzer.router)  # Code analysis/linting
+app.include_router(agent_builder_code_profiler.router)  # Performance profiling & test generation
+app.include_router(agent_builder_code_secrets.router)  # Secrets management
 app.include_router(llm_settings.router)
+
+# Environment Variables API
+from backend.api.agent_builder import environment_variables as agent_builder_env_vars
+app.include_router(agent_builder_env_vars.router, prefix="/api/agent-builder", tags=["environment-variables"])
+
+# User Settings API
+from backend.api.agent_builder import user_settings as agent_builder_user_settings
+app.include_router(agent_builder_user_settings.router)
 
 # Workflow Execution Streaming API (SSE)
 from backend.api.agent_builder import workflow_execution_stream
 app.include_router(workflow_execution_stream.router, prefix="/api/agent-builder", tags=["workflow-execution-stream"])
+
+# AI Agent Streaming API (SSE)
+from backend.api.agent_builder import ai_agent_stream
+app.include_router(ai_agent_stream.router)
 
 # Memory Management API (Priority 4)
 from backend.api.agent_builder import memory_management
@@ -884,6 +952,32 @@ app.include_router(knowledge_base.router)
 
 # Circuit Breaker Status API (Phase 1 Architecture)
 app.include_router(circuit_breaker_status.router)
+
+# API v2 - Enhanced endpoints with standardized responses
+from backend.api.v2 import workflows as v2_workflows
+from backend.api.v2 import auth as v2_auth
+app.include_router(v2_workflows.router)
+app.include_router(v2_auth.router)
+
+# Enhanced Audit Logs API (replaces basic audit_logs)
+from backend.api.agent_builder import audit_logs as enhanced_audit_logs
+app.include_router(enhanced_audit_logs.router)
+
+# Session Management API
+from backend.api import auth_sessions
+app.include_router(auth_sessions.router)
+
+# Enhanced Notifications API
+from backend.api import notifications as notifications_api
+app.include_router(notifications_api.router)
+
+# PDF Export API
+from backend.api import exports as exports_api
+app.include_router(exports_api.router)
+
+# Chat History API
+from backend.api import chat_history as chat_history_api
+app.include_router(chat_history_api.router)
 
 
 @app.get("/metrics")

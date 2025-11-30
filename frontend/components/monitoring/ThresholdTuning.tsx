@@ -7,6 +7,8 @@
 
 import React, { useState, useEffect } from 'react';
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
 interface ThresholdTuningProps {
   isAdmin: boolean;
   autoRefresh: boolean;
@@ -58,13 +60,13 @@ export default function ThresholdTuning({ isAdmin, autoRefresh, refreshInterval 
       setError(null);
       
       // Fetch current configuration
-      const configResponse = await fetch('http://localhost:8000/api/config/adaptive');
+      const configResponse = await fetch(`${API_BASE_URL}/api/config/adaptive`);
       if (!configResponse.ok) throw new Error('Failed to fetch configuration');
       const configData = await configResponse.json();
       setConfig(configData);
       
       // Fetch metrics
-      const metricsResponse = await fetch('http://localhost:8000/api/metrics/adaptive');
+      const metricsResponse = await fetch(`${API_BASE_URL}/api/metrics/adaptive`);
       if (!metricsResponse.ok) throw new Error('Failed to fetch metrics');
       const metricsData = await metricsResponse.json();
       setMetrics(metricsData);

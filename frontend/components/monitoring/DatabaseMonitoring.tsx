@@ -10,6 +10,8 @@ import React, { useState, useEffect } from 'react';
 import StatCard from '@/components/charts/StatCard';
 import { cn } from '@/lib/utils';
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
 interface DatabaseMonitoringProps {
   autoRefresh?: boolean;
   refreshInterval?: number;
@@ -66,21 +68,21 @@ export default function DatabaseMonitoring({
       setError(null);
       
       // Fetch PostgreSQL metrics
-      const pgResponse = await fetch('http://localhost:8000/api/metrics/database/postgresql/pool');
+      const pgResponse = await fetch(`${API_BASE_URL}/api/metrics/database/postgresql/pool`);
       if (pgResponse.ok) {
         const pgData = await pgResponse.json();
         setPgMetrics(pgData.detailed || pgData.basic);
       }
       
       // Fetch Milvus metrics
-      const milvusResponse = await fetch('http://localhost:8000/api/metrics/database/milvus/pool');
+      const milvusResponse = await fetch(`${API_BASE_URL}/api/metrics/database/milvus/pool`);
       if (milvusResponse.ok) {
         const milvusData = await milvusResponse.json();
         setMilvusMetrics(milvusData.stats);
       }
       
       // Fetch overall health
-      const healthResponse = await fetch('http://localhost:8000/api/metrics/database/summary');
+      const healthResponse = await fetch(`${API_BASE_URL}/api/metrics/database/summary`);
       if (healthResponse.ok) {
         const healthData = await healthResponse.json();
         setHealth(healthData);

@@ -17,13 +17,15 @@ import React, { useState, useRef, useEffect } from "react";
 import { 
   Send, X, Minimize2, Maximize2, Trash2, Download, 
   Copy, Check, RotateCcw, Sparkles, Zap, Clock,
-  User, Bot, Settings as SettingsIcon
+  User, Bot, AlertCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useAIAgentStreaming } from "@/hooks/useAIAgentStreaming";
+import { useToast } from "@/hooks/use-toast";
 
 interface Message {
   id: string;
@@ -34,6 +36,13 @@ interface Message {
     model?: string;
     usage?: any;
     provider?: string;
+    temperature?: number;
+    max_tokens?: number;
+    execution_time_ms?: number;
+    memory_type?: string;
+    success?: boolean;
+    error?: string;
+    canRetry?: boolean;
   };
   isStreaming?: boolean;
 }
@@ -41,11 +50,14 @@ interface Message {
 interface AIAgentChatUIProps {
   position?: "right" | "bottom" | "modal" | "inline";
   onClose?: () => void;
-  onSendMessage: (message: string) => Promise<string>;
+  onSendMessage?: (message: string) => Promise<string>;
   sessionId?: string;
   systemPrompt?: string;
   provider?: string;
   model?: string;
+  externalMessages?: Message[]; // Allow external messages to be injected
+  onMessagesChange?: (messages: Message[]) => void; // Notify parent of message changes
+  readOnly?: boolean; // Read-only mode for workflow execution results
 }
 
 export function AIAgentChatUI({
@@ -56,16 +68,21 @@ export function AIAgentChatUI({
   systemPrompt,
   provider = "ollama",
   model = "llama3.3:70b",
+  externalMessages = [],
+  onMessagesChange,
+  readOnly = false,
 }: AIAgentChatUIProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [showSettings, setShowSettings] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
+  
+  // Streaming hook
+  const { streamMessage, isStreaming } = useAIAgentStreaming();
 
   // Smooth auto-scroll to bottom
   const scrollToBottom = () => {
@@ -90,8 +107,41 @@ export function AIAgentChatUI({
     }
   }, [systemPrompt]);
 
+  // Sync external messages (from workflow execution)
+  useEffect(() => {
+    if (externalMessages.length > 0) {
+      setMessages(prev => {
+        // Merge external messages with existing ones, avoiding duplicates
+        const existingIds = new Set(prev.map(m => m.id));
+        const newMessages = externalMessages.filter(m => !existingIds.has(m.id));
+        
+        if (newMessages.length > 0) {
+          const updated = [...prev, ...newMessages];
+          return updated;
+        }
+        return prev;
+      });
+    }
+  }, [externalMessages]);
+
+  // Notify parent when messages change
+  useEffect(() => {
+    if (onMessagesChange) {
+      onMessagesChange(messages);
+    }
+  }, [messages, onMessagesChange]);
+
   const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
+    if (!input.trim() || isLoading || isStreaming || readOnly) return;
+    
+    // If no onSendMessage provided, show error
+    if (!onSendMessage) {
+      toast({
+        title: 'Chat Disabled',
+        description: 'This chat is read-only. You can only view workflow execution results.',
+      });
+      return;
+    }
 
     const userMessage: Message = {
       id: `user-${Date.now()}`,
@@ -101,6 +151,7 @@ export function AIAgentChatUI({
     };
 
     setMessages((prev) => [...prev, userMessage]);
+    const userInput = input.trim();
     setInput("");
     setIsLoading(true);
 
@@ -117,38 +168,74 @@ export function AIAgentChatUI({
       },
     ]);
 
-    try {
-      const response = await onSendMessage(input.trim());
-
-      // Update with final response
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === streamingId
-            ? {
-                ...msg,
-                content: response,
-                isStreaming: false,
-                metadata: { model, provider },
-              }
-            : msg
-        )
-      );
-    } catch (error) {
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === streamingId
-            ? {
-                ...msg,
-                content: `❌ Error: ${error instanceof Error ? error.message : "Failed to get response"}`,
-                isStreaming: false,
-              }
-            : msg
-        )
-      );
-    } finally {
-      setIsLoading(false);
-      inputRef.current?.focus();
-    }
+    // Try streaming first
+    let accumulatedContent = "";
+    
+    await streamMessage(
+      userInput,
+      {
+        provider,
+        model,
+        systemPrompt,
+        sessionId,
+        temperature: 0.7,
+        maxTokens: 1000,
+      },
+      // onChunk: Update message with each chunk
+      (chunk: string) => {
+        accumulatedContent += chunk;
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === streamingId
+              ? { ...msg, content: accumulatedContent }
+              : msg
+          )
+        );
+      },
+      // onComplete: Mark as complete
+      () => {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === streamingId
+              ? {
+                  ...msg,
+                  isStreaming: false,
+                  metadata: { model, provider },
+                }
+              : msg
+          )
+        );
+        setIsLoading(false);
+        inputRef.current?.focus();
+      },
+      // onError: Handle error with retry option
+      (error: string) => {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === streamingId
+              ? {
+                  ...msg,
+                  content: '',
+                  isStreaming: false,
+                  metadata: {
+                    ...msg.metadata,
+                    error: error,
+                    canRetry: true,
+                  },
+                }
+              : msg
+          )
+        );
+        setIsLoading(false);
+        inputRef.current?.focus();
+        
+        // Show error toast
+        toast({
+          title: 'Message Failed',
+          description: error,
+        });
+      }
+    );
   };
 
   const copyToClipboard = async (text: string, messageId: string) => {
@@ -201,25 +288,29 @@ export function AIAgentChatUI({
     URL.revokeObjectURL(url);
   };
 
-  // Position-based styling with animations
+  // Position-based styling with animations and responsive design
   const getContainerClass = () => {
     const baseAnimation = "transition-all duration-300 ease-in-out";
+    const darkMode = "dark:from-zinc-900 dark:to-zinc-950 dark:border-zinc-800";
     
     if (isMinimized) {
-      return `fixed bottom-4 right-4 w-80 h-14 bg-white border rounded-lg shadow-lg z-50 ${baseAnimation}`;
+      return `fixed bottom-4 right-4 w-72 sm:w-80 h-14 bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-lg shadow-lg z-50 ${baseAnimation}`;
     }
 
     switch (position) {
       case "right":
-        return `fixed top-0 right-0 w-[420px] h-full bg-gradient-to-br from-white to-gray-50 border-l shadow-2xl z-50 flex flex-col ${baseAnimation}`;
+        // Responsive: full width on mobile, fixed width on desktop
+        return `fixed top-0 right-0 w-full sm:w-[380px] md:w-[420px] h-full bg-gradient-to-br from-white to-gray-50 ${darkMode} border-l shadow-2xl z-50 flex flex-col ${baseAnimation}`;
       case "bottom":
-        return `fixed bottom-0 left-0 right-0 h-[500px] bg-gradient-to-t from-white to-gray-50 border-t shadow-2xl z-50 flex flex-col ${baseAnimation}`;
+        // Responsive height
+        return `fixed bottom-0 left-0 right-0 h-[70vh] sm:h-[500px] bg-gradient-to-t from-white to-gray-50 ${darkMode} border-t shadow-2xl z-50 flex flex-col ${baseAnimation}`;
       case "modal":
-        return `fixed inset-0 m-auto w-[900px] h-[700px] bg-gradient-to-br from-white to-gray-50 border rounded-2xl shadow-2xl z-50 flex flex-col ${baseAnimation}`;
+        // Responsive modal
+        return `fixed inset-4 sm:inset-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-[90vw] sm:max-w-[900px] sm:h-[80vh] sm:max-h-[700px] bg-gradient-to-br from-white to-gray-50 ${darkMode} border rounded-2xl shadow-2xl z-50 flex flex-col ${baseAnimation}`;
       case "inline":
-        return `w-full h-[600px] bg-gradient-to-br from-white to-gray-50 border rounded-xl shadow-lg flex flex-col ${baseAnimation}`;
+        return `w-full h-[400px] sm:h-[600px] bg-gradient-to-br from-white to-gray-50 ${darkMode} border rounded-xl shadow-lg flex flex-col ${baseAnimation}`;
       default:
-        return `w-full h-full bg-white flex flex-col ${baseAnimation}`;
+        return `w-full h-full bg-white dark:bg-zinc-900 flex flex-col ${baseAnimation}`;
     }
   };
 
@@ -410,8 +501,44 @@ export function AIAgentChatUI({
 
                     {/* Content */}
                     <div className="whitespace-pre-wrap break-words leading-relaxed">
-                      {message.content || (
-                        <div className="flex gap-1">
+                      {message.metadata?.error ? (
+                        // Error state with retry option
+                        <div className="space-y-3">
+                          <div className="flex items-start gap-2 text-red-600 dark:text-red-400">
+                            <span className="text-lg">⚠️</span>
+                            <div>
+                              <p className="font-medium text-sm">Failed to get response</p>
+                              <p className="text-xs opacity-80 mt-1">{message.metadata.error}</p>
+                            </div>
+                          </div>
+                          {message.metadata.canRetry && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="gap-2 text-xs"
+                              onClick={() => {
+                                // Find the user message before this one and retry
+                                const msgIndex = messages.findIndex(m => m.id === message.id);
+                                if (msgIndex > 0) {
+                                  const userMsg = messages[msgIndex - 1];
+                                  if (userMsg?.role === 'user') {
+                                    setInput(userMsg.content);
+                                    // Remove the error message
+                                    setMessages(prev => prev.filter(m => m.id !== message.id));
+                                  }
+                                }
+                              }}
+                            >
+                              <RotateCcw className="h-3 w-3" />
+                              Retry
+                            </Button>
+                          )}
+                        </div>
+                      ) : message.content ? (
+                        message.content
+                      ) : (
+                        // Loading dots
+                        <div className="flex gap-1" role="status" aria-label="Loading response">
                           <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
                           <div
                             className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
@@ -465,15 +592,33 @@ export function AIAgentChatUI({
 
                   {/* Metadata */}
                   <div
-                    className={`flex items-center gap-2 text-xs text-gray-500 px-2 ${
+                    className={`flex flex-wrap items-center gap-2 text-xs text-gray-500 px-2 ${
                       message.role === "user" ? "justify-end" : "justify-start"
                     }`}
                   >
                     <span>{message.timestamp.toLocaleTimeString()}</span>
+                    {message.metadata?.provider && (
+                      <>
+                        <span>•</span>
+                        <span className="font-medium capitalize">{message.metadata.provider}</span>
+                      </>
+                    )}
                     {message.metadata?.model && (
                       <>
                         <span>•</span>
                         <span className="font-medium">{message.metadata.model}</span>
+                      </>
+                    )}
+                    {message.metadata?.execution_time_ms && (
+                      <>
+                        <span>•</span>
+                        <span className="text-green-600">{message.metadata.execution_time_ms}ms</span>
+                      </>
+                    )}
+                    {message.metadata?.temperature !== undefined && (
+                      <>
+                        <span>•</span>
+                        <span>temp: {message.metadata.temperature}</span>
                       </>
                     )}
                   </div>
@@ -487,87 +632,101 @@ export function AIAgentChatUI({
         </ScrollArea>
 
         {/* Enhanced Input Area */}
-        <div className="border-t bg-white/80 backdrop-blur-sm">
-          <div className="p-4">
-            {/* Quick Suggestions (optional) */}
-            {messages.length === 1 && messages[0].role === "system" && (
-              <div className="mb-3 flex flex-wrap gap-2">
-                {["Hello!", "Help me with...", "Explain..."].map((suggestion) => (
-                  <button
-                    key={suggestion}
-                    onClick={() => setInput(suggestion)}
-                    className="px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
-                  >
-                    {suggestion}
-                  </button>
-                ))}
-              </div>
-            )}
+        {!readOnly && (
+          <div className="border-t bg-white/80 backdrop-blur-sm">
+            <div className="p-4">
+              {/* Quick Suggestions (optional) */}
+              {messages.length === 1 && messages[0].role === "system" && (
+                <div className="mb-3 flex flex-wrap gap-2">
+                  {["Hello!", "Help me with...", "Explain..."].map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      onClick={() => setInput(suggestion)}
+                      className="px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              )}
 
-            {/* Input Container */}
-            <div className="flex gap-3">
-              <div className="flex-1 relative">
-                <Textarea
-                  ref={inputRef}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Type your message... (Shift+Enter for new line)"
-                  className="min-h-[60px] max-h-[120px] resize-none pr-12 rounded-xl border-2 focus:border-blue-500 transition-colors"
-                  disabled={isLoading}
-                />
-                
-                {/* Character Count */}
-                {input.length > 0 && (
-                  <div className="absolute bottom-2 right-2 text-xs text-gray-400">
-                    {input.length}
-                  </div>
-                )}
+              {/* Input Container */}
+              <div className="flex gap-3">
+                <div className="flex-1 relative">
+                  <Textarea
+                    ref={inputRef}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Type your message... (Shift+Enter for new line)"
+                    className="min-h-[60px] max-h-[120px] resize-none pr-12 rounded-xl border-2 focus:border-blue-500 transition-colors"
+                    disabled={isLoading}
+                  />
+                  
+                  {/* Character Count */}
+                  {input.length > 0 && (
+                    <div className="absolute bottom-2 right-2 text-xs text-gray-400">
+                      {input.length}
+                    </div>
+                  )}
+                </div>
+
+                {/* Send Button */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      onClick={handleSend}
+                      disabled={!input.trim() || isLoading}
+                      className={`self-end h-[60px] w-[60px] rounded-xl shadow-lg transition-all ${
+                        input.trim() && !isLoading
+                          ? `bg-gradient-to-br ${getProviderColor()} hover:scale-105`
+                          : ""
+                      }`}
+                    >
+                      {isLoading ? (
+                        <div className="animate-spin">
+                          <Sparkles className="h-5 w-5" />
+                        </div>
+                      ) : (
+                        <Send className="h-5 w-5" />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {isLoading ? "Sending..." : "Send message (Enter)"}
+                  </TooltipContent>
+                </Tooltip>
               </div>
 
-              {/* Send Button */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    onClick={handleSend}
-                    disabled={!input.trim() || isLoading}
-                    className={`self-end h-[60px] w-[60px] rounded-xl shadow-lg transition-all ${
-                      input.trim() && !isLoading
-                        ? `bg-gradient-to-br ${getProviderColor()} hover:scale-105`
-                        : ""
-                    }`}
-                  >
-                    {isLoading ? (
-                      <div className="animate-spin">
-                        <Sparkles className="h-5 w-5" />
-                      </div>
-                    ) : (
-                      <Send className="h-5 w-5" />
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {isLoading ? "Sending..." : "Send message (Enter)"}
-                </TooltipContent>
-              </Tooltip>
-            </div>
-
-            {/* Footer Info */}
-            <div className="flex items-center justify-between mt-3 text-xs text-gray-500">
-              <div className="flex items-center gap-2">
-                <span>Session: {sessionId?.slice(0, 8) || "auto"}</span>
-                <span>•</span>
-                <span className="flex items-center gap-1">
-                  <Zap className="h-3 w-3" />
-                  {provider}
-                </span>
-              </div>
-              <div className="text-gray-400">
-                Press Enter to send, Shift+Enter for new line
+              {/* Footer Info */}
+              <div className="flex items-center justify-between mt-3 text-xs text-gray-500">
+                <div className="flex items-center gap-2">
+                  <span>Session: {sessionId?.slice(0, 8) || "auto"}</span>
+                  <span>•</span>
+                  <span className="flex items-center gap-1">
+                    <Zap className="h-3 w-3" />
+                    {provider}
+                  </span>
+                </div>
+                <div className="text-gray-400">
+                  Press Enter to send, Shift+Enter for new line
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
+        
+        {/* Read-only footer */}
+        {readOnly && (
+          <div className="border-t bg-amber-50/80 backdrop-blur-sm p-4">
+            <div className="flex items-center justify-center gap-2 text-sm text-amber-800">
+              <Bot className="h-4 w-4" />
+              <span className="font-medium">Workflow Execution Results</span>
+              <span>•</span>
+              <span className="text-xs text-amber-600">Read-only mode</span>
+            </div>
+          </div>
+        )}
       </div>
     </TooltipProvider>
   );

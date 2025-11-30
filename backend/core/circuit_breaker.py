@@ -288,6 +288,187 @@ class CircuitBreakerRegistry:
         for name, breaker in self._breakers.items():
             await breaker.reset()
             logger.info(f"Reset circuit breaker: {name}")
+    
+    def get_unhealthy(self) -> list[str]:
+        """Get list of unhealthy (open) circuit breakers"""
+        return [
+            name for name, breaker in self._breakers.items()
+            if breaker.state == CircuitState.OPEN
+        ]
+    
+    def get_summary(self) -> dict:
+        """Get summary of all circuit breakers"""
+        states = self.get_all_states()
+        return {
+            "total": len(states),
+            "closed": sum(1 for s in states.values() if s["state"] == "closed"),
+            "open": sum(1 for s in states.values() if s["state"] == "open"),
+            "half_open": sum(1 for s in states.values() if s["state"] == "half_open"),
+            "breakers": states,
+        }
+
+
+# ============================================================================
+# Resilient Service Wrapper
+# ============================================================================
+
+class ResilientService:
+    """
+    Wrapper for external services with circuit breaker and retry support.
+    
+    Combines circuit breaker pattern with retry logic for robust
+    external service calls.
+    
+    Usage:
+        llm_service = ResilientService(
+            name="llm",
+            circuit_breaker=registry.get("llm_service"),
+            max_retries=3,
+            base_delay=1.0,
+        )
+        
+        result = await llm_service.call(
+            llm_client.generate,
+            prompt="Hello"
+        )
+    """
+    
+    def __init__(
+        self,
+        name: str,
+        circuit_breaker: Optional[CircuitBreaker] = None,
+        max_retries: int = 3,
+        base_delay: float = 1.0,
+        max_delay: float = 30.0,
+        timeout: float = 30.0,
+    ):
+        self.name = name
+        self.circuit_breaker = circuit_breaker
+        self.max_retries = max_retries
+        self.base_delay = base_delay
+        self.max_delay = max_delay
+        self.timeout = timeout
+        
+        # Metrics
+        self.total_calls = 0
+        self.successful_calls = 0
+        self.failed_calls = 0
+        self.total_retries = 0
+    
+    async def call(
+        self,
+        func: Callable[..., T],
+        *args,
+        timeout: Optional[float] = None,
+        **kwargs,
+    ) -> T:
+        """
+        Execute function with circuit breaker and retry protection.
+        
+        Args:
+            func: Function to execute
+            *args: Positional arguments
+            timeout: Override default timeout
+            **kwargs: Keyword arguments
+            
+        Returns:
+            Function result
+            
+        Raises:
+            CircuitBreakerOpenError: If circuit is open
+            Exception: If all retries exhausted
+        """
+        import random
+        
+        self.total_calls += 1
+        effective_timeout = timeout or self.timeout
+        
+        # Check circuit breaker first
+        if self.circuit_breaker:
+            if self.circuit_breaker.state == CircuitState.OPEN:
+                if not self.circuit_breaker._should_attempt_reset():
+                    self.failed_calls += 1
+                    raise CircuitBreakerOpenError(
+                        f"Circuit breaker for {self.name} is OPEN"
+                    )
+        
+        last_exception = None
+        
+        for attempt in range(self.max_retries + 1):
+            try:
+                # Execute with timeout
+                if asyncio.iscoroutinefunction(func):
+                    result = await asyncio.wait_for(
+                        func(*args, **kwargs),
+                        timeout=effective_timeout
+                    )
+                else:
+                    result = await asyncio.wait_for(
+                        asyncio.get_event_loop().run_in_executor(
+                            None, lambda: func(*args, **kwargs)
+                        ),
+                        timeout=effective_timeout
+                    )
+                
+                # Success
+                self.successful_calls += 1
+                
+                if self.circuit_breaker:
+                    await self.circuit_breaker._on_success()
+                
+                return result
+                
+            except asyncio.TimeoutError as e:
+                last_exception = e
+                logger.warning(
+                    f"{self.name}: Timeout after {effective_timeout}s "
+                    f"(attempt {attempt + 1}/{self.max_retries + 1})"
+                )
+                
+            except Exception as e:
+                last_exception = e
+                logger.warning(
+                    f"{self.name}: {type(e).__name__}: {e} "
+                    f"(attempt {attempt + 1}/{self.max_retries + 1})"
+                )
+            
+            # Record failure in circuit breaker
+            if self.circuit_breaker and last_exception:
+                await self.circuit_breaker._on_failure(last_exception)
+            
+            # Retry with backoff
+            if attempt < self.max_retries:
+                self.total_retries += 1
+                delay = min(
+                    self.base_delay * (2 ** attempt) + random.uniform(0, 1),
+                    self.max_delay
+                )
+                logger.info(f"{self.name}: Retrying in {delay:.2f}s...")
+                await asyncio.sleep(delay)
+        
+        # All retries exhausted
+        self.failed_calls += 1
+        raise last_exception or Exception(f"{self.name}: All retries exhausted")
+    
+    def get_stats(self) -> dict:
+        """Get service call statistics."""
+        success_rate = (
+            self.successful_calls / self.total_calls * 100
+            if self.total_calls > 0 else 0
+        )
+        
+        return {
+            "name": self.name,
+            "total_calls": self.total_calls,
+            "successful_calls": self.successful_calls,
+            "failed_calls": self.failed_calls,
+            "total_retries": self.total_retries,
+            "success_rate": round(success_rate, 2),
+            "circuit_breaker_state": (
+                self.circuit_breaker.state.value
+                if self.circuit_breaker else "none"
+            ),
+        }
 
 
 # Global registry

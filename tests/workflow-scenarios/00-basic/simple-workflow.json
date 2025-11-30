@@ -1,0 +1,59 @@
+{
+  "name": "Basic Workflow - Start to End",
+  "description": "Simplest possible workflow to test basic functionality",
+  "category": "basic",
+  "workflow": {
+    "nodes": [
+      {
+        "id": "start_1",
+        "type": "start",
+        "position": { "x": 100, "y": 100 },
+        "data": {
+          "label": "Start"
+        }
+      },
+      {
+        "id": "end_1",
+        "type": "end",
+        "position": { "x": 300, "y": 100 },
+        "data": {
+          "label": "End"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "e1",
+        "source": "start_1",
+        "target": "end_1"
+      }
+    ]
+  },
+  "test_cases": [
+    {
+      "name": "Empty input",
+      "input": {},
+      "expected_output": {
+        "status": "success"
+      }
+    },
+    {
+      "name": "With data",
+      "input": {
+        "message": "Hello World"
+      },
+      "expected_output": {
+        "status": "success"
+      }
+    }
+  ],
+  "assertions": [
+    {
+      "type": "response_time",
+      "max_seconds": 2
+    },
+    {
+      "type": "no_errors"
+    }
+  ]
+}

@@ -31,7 +31,8 @@ class AIAgentTool:
         system_prompt: Optional[str] = None,
         max_tokens: int = 2000,
         memory_enabled: bool = True,
-        conversation_id: Optional[str] = None
+        conversation_id: Optional[str] = None,
+        api_key: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Execute an autonomous AI agent with tool use and reasoning.
@@ -102,7 +103,8 @@ Final Answer: [Your final response]
                         {"role": "user", "content": task}
                     ],
                     temperature=temperature,
-                    max_tokens=max_tokens
+                    max_tokens=max_tokens,
+                    api_key=api_key
                 )
                 
                 # Parse response
@@ -183,36 +185,46 @@ async def _call_llm(
     model: str,
     messages: List[Dict],
     temperature: float,
-    max_tokens: int
+    max_tokens: int,
+    api_key: Optional[str] = None
 ) -> str:
-    """Call LLM provider."""
-    if provider == "ollama":
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                "http://localhost:11434/api/chat",
-                json={
-                    "model": model,
-                    "messages": messages,
-                    "stream": False,
-                    "options": {
-                        "temperature": temperature,
-                        "num_predict": max_tokens
-                    }
-                },
-                timeout=60.0
-            )
-            result = response.json()
-            return result["message"]["content"]
+    """Call LLM provider using LLMManager."""
+    from backend.services.llm_manager import LLMManager, LLMProvider
     
-    elif provider == "openai":
-        # OpenAI implementation
-        pass
-    
-    elif provider == "anthropic":
-        # Anthropic implementation
-        pass
-    
-    raise ValueError(f"Unsupported LLM provider: {provider}")
+    try:
+        # Map provider string to LLMProvider enum
+        # Note: LLMProvider only has OLLAMA, OPENAI, CLAUDE
+        provider_map = {
+            "ollama": LLMProvider.OLLAMA,
+            "openai": LLMProvider.OPENAI,
+            "anthropic": LLMProvider.CLAUDE,
+            "claude": LLMProvider.CLAUDE,
+        }
+        
+        provider_enum = provider_map.get(provider.lower(), LLMProvider.OLLAMA)
+        if not provider_enum:
+            raise ValueError(f"Unsupported LLM provider: {provider}")
+        
+        # Initialize LLM Manager
+        llm_manager = LLMManager(
+            provider=provider_enum,
+            model=model,
+            api_key=api_key
+        )
+        
+        # Generate response (non-streaming for agent reasoning)
+        response = await llm_manager.generate(
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            stream=False
+        )
+        
+        return response
+        
+    except Exception as e:
+        logger.error(f"LLM call failed: {e}", exc_info=True)
+        raise
 
 
 def _parse_agent_response(response: str) -> Dict[str, Any]:
@@ -298,29 +310,58 @@ async def _vector_search(query: str, knowledgebase_id: Optional[str]) -> Dict[st
     }
 
 
-async def execute_ai_agent_tool(parameters: Dict[str, Any]) -> Dict[str, Any]:
-    """Execute AI Agent tool."""
+async def execute_ai_agent_tool(parameters: Dict[str, Any], credentials: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Execute AI Agent tool - simplified for direct LLM response."""
     try:
-        return await AIAgentTool.execute_agent(
-            task=parameters.get("task"),
-            llm_provider=parameters.get("llm_provider", "ollama"),
-            model=parameters.get("model", "llama3.1:8b"),
-            enable_web_search=parameters.get("enable_web_search", True),
-            enable_vector_search=parameters.get("enable_vector_search", True),
-            knowledgebase_id=parameters.get("knowledgebase_id"),
-            available_tools=parameters.get("available_tools"),
-            max_iterations=parameters.get("max_iterations", 10),
-            temperature=parameters.get("temperature", 0.7),
-            system_prompt=parameters.get("system_prompt"),
-            max_tokens=parameters.get("max_tokens", 2000),
-            memory_enabled=parameters.get("memory_enabled", True),
-            conversation_id=parameters.get("conversation_id")
+        # Extract API key from credentials if provided
+        api_key = None
+        if credentials and "api_key" in credentials:
+            api_key = credentials["api_key"]
+        
+        task = parameters.get("task")
+        if not task:
+            return {
+                "success": False,
+                "error": "No task provided"
+            }
+        
+        provider = parameters.get("llm_provider", "ollama")
+        model = parameters.get("model", "llama3.1:8b")
+        temperature = parameters.get("temperature", 0.7)
+        max_tokens = parameters.get("max_tokens", 2000)
+        system_prompt = parameters.get("system_prompt", "You are a helpful AI assistant.")
+        
+        logger.info(f"Executing AI Agent: provider={provider}, model={model}, task={task[:100]}")
+        
+        # Call LLM directly for simple response
+        response = await _call_llm(
+            provider=provider,
+            model=model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": task}
+            ],
+            temperature=temperature,
+            max_tokens=max_tokens,
+            api_key=api_key
         )
+        
+        return {
+            "success": True,
+            "response": response,
+            "provider": provider,
+            "model": model,
+            "task": task,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
     except Exception as e:
-        logger.error(f"AI Agent tool error: {e}")
+        logger.error(f"AI Agent tool error: {e}", exc_info=True)
         return {
             "success": False,
-            "error": str(e)
+            "error": str(e),
+            "provider": parameters.get("llm_provider", "unknown"),
+            "model": parameters.get("model", "unknown")
         }
 
 
@@ -342,7 +383,7 @@ ai_agent_config = ToolConfig(
         ),
         "llm_provider": ParamConfig(
             type="select",
-            required=True,
+            required=False,  # Has default value
             description="LLM provider to use",
             display_name="LLM Provider",
             default="ollama",
@@ -354,7 +395,7 @@ ai_agent_config = ToolConfig(
         ),
         "model": ParamConfig(
             type="text",
-            required=True,
+            required=False,  # Has default value
             description="Model name",
             display_name="Model",
             default="llama3.1:8b"
@@ -367,7 +408,7 @@ ai_agent_config = ToolConfig(
         ),
         "memory_type": ParamConfig(
             type="select",
-            required=True,
+            required=False,  # Has default value
             description="Memory duration type",
             display_name="Memory Type",
             default="short_term",

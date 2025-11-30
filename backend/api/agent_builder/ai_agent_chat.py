@@ -12,6 +12,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, Query
 from sqlalchemy.orm import Session
+from pydantic import BaseModel
 
 from backend.core.auth_dependencies import get_current_user
 from backend.db.database import get_db
@@ -273,3 +274,170 @@ async def clear_chat_session(
         "session_id": session_id,
         "message": "Session cleared"
     }
+
+
+class ConnectionCheckRequest(BaseModel):
+    """Connection check request."""
+    provider: str
+    model: str
+    api_key: Optional[str] = None  # Optional API key from node config
+
+
+@router.post("/check-connection")
+async def check_llm_connection(
+    request: ConnectionCheckRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Check if LLM connection is working.
+    
+    Args:
+        request: Connection check request with provider, model, and optional API key
+        
+    Returns:
+        Connection status
+    """
+    provider = request.provider
+    model = request.model
+    provided_api_key = request.api_key
+    import os
+    import httpx
+    
+    try:
+        if provider == "ollama":
+            # Check Ollama connection
+            ollama_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+            
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                # Check if Ollama is running
+                response = await client.get(f"{ollama_url}/api/tags")
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    models = [m["name"] for m in data.get("models", [])]
+                    
+                    # Check if specific model is available
+                    model_available = any(model in m for m in models)
+                    
+                    return {
+                        "connected": True,
+                        "provider": provider,
+                        "model": model,
+                        "model_available": model_available,
+                        "available_models": models[:5],  # First 5 models
+                        "message": "Ollama is running" if model_available else f"Model '{model}' not found. Available models: {', '.join(models[:3])}"
+                    }
+                else:
+                    return {
+                        "connected": False,
+                        "provider": provider,
+                        "model": model,
+                        "error": f"Ollama returned status {response.status_code}"
+                    }
+        
+        elif provider == "openai":
+            # Check OpenAI API key - use provided key or fallback to env
+            api_key = provided_api_key or os.getenv("OPENAI_API_KEY")
+            if not api_key:
+                return {
+                    "connected": False,
+                    "provider": provider,
+                    "model": model,
+                    "error": "OPENAI_API_KEY not configured. Please add it in Node Properties > Config or set OPENAI_API_KEY environment variable."
+                }
+            
+            # Try a simple API call
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.get(
+                    "https://api.openai.com/v1/models",
+                    headers={"Authorization": f"Bearer {api_key}"}
+                )
+                
+                if response.status_code == 200:
+                    return {
+                        "connected": True,
+                        "provider": provider,
+                        "model": model,
+                        "message": "OpenAI API key is valid"
+                    }
+                elif response.status_code == 401:
+                    return {
+                        "connected": False,
+                        "provider": provider,
+                        "model": model,
+                        "error": "Invalid OpenAI API key. Please check your API key in Node Properties > Config."
+                    }
+                else:
+                    return {
+                        "connected": False,
+                        "provider": provider,
+                        "model": model,
+                        "error": f"OpenAI API returned status {response.status_code}"
+                    }
+        
+        elif provider in ["anthropic", "claude"]:
+            # Check Anthropic API key - use provided key or fallback to env
+            api_key = provided_api_key or os.getenv("ANTHROPIC_API_KEY")
+            if not api_key:
+                return {
+                    "connected": False,
+                    "provider": provider,
+                    "model": model,
+                    "error": "ANTHROPIC_API_KEY not configured. Please add it in Node Properties > Config or set ANTHROPIC_API_KEY environment variable."
+                }
+            
+            return {
+                "connected": True,
+                "provider": provider,
+                "model": model,
+                "message": "Anthropic API key is configured (validation requires actual API call)"
+            }
+        
+        elif provider == "gemini":
+            # Check Gemini API key - use provided key or fallback to env
+            api_key = provided_api_key or os.getenv("GEMINI_API_KEY")
+            if not api_key:
+                return {
+                    "connected": False,
+                    "provider": provider,
+                    "model": model,
+                    "error": "GEMINI_API_KEY not configured. Please add it in Node Properties > Config or set GEMINI_API_KEY environment variable."
+                }
+            
+            return {
+                "connected": True,
+                "provider": provider,
+                "model": model,
+                "message": "Gemini API key is configured"
+            }
+        
+        else:
+            return {
+                "connected": False,
+                "provider": provider,
+                "model": model,
+                "error": f"Unsupported provider: {provider}"
+            }
+    
+    except httpx.ConnectError:
+        return {
+            "connected": False,
+            "provider": provider,
+            "model": model,
+            "error": f"Cannot connect to {provider}. Please ensure the service is running."
+        }
+    except httpx.TimeoutException:
+        return {
+            "connected": False,
+            "provider": provider,
+            "model": model,
+            "error": f"Connection timeout to {provider}"
+        }
+    except Exception as e:
+        logger.error(f"Connection check failed: {e}", exc_info=True)
+        return {
+            "connected": False,
+            "provider": provider,
+            "model": model,
+            "error": str(e)
+        }

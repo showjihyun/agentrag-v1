@@ -6,6 +6,7 @@ import ReactFlow, {
   Node,
   Edge,
   Connection,
+  ConnectionMode,
   addEdge,
   useNodesState,
   useEdgesState,
@@ -20,6 +21,7 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import '@/styles/workflow-execution.css';
+import '@/styles/workflow-execution-animation.css';
 import { BlockNode } from './nodes/BlockNode';
 import { AgentNode } from './nodes/AgentNode';
 import { ToolNode } from './nodes/ToolNode';
@@ -55,14 +57,17 @@ import { ExecutionStatusBadge } from './ExecutionStatusBadge';
 import { NodeExecutionDetailsPanel } from './NodeExecutionDetailsPanel';
 import { NodeDebugPanel } from './NodeDebugPanel';
 import { NodeSearch } from './NodeSearch';
+import { ImprovedBlockPalette } from './ImprovedBlockPalette';
 import { useWorkflowExecutionStream } from '@/hooks/useWorkflowExecutionStream';
+import { useLLMConnectionCheck } from '@/hooks/useLLMConnectionCheck';
 import { useAIAgentChat } from '@/hooks/useAIAgentChat';
 import { Button } from '@/components/ui/button';
-import { Undo, Redo, ZoomIn, ZoomOut, Maximize, X, Bot } from 'lucide-react';
+import { Undo, Redo, ZoomIn, ZoomOut, Maximize, X, Bot, MessageSquare } from 'lucide-react';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { logger } from '@/lib/logger';
+import { AIAgentChatUI } from '@/components/agent-builder/tool-configs/AIAgentChatUI';
 
 // UUID v4 generator
 function generateUUID(): string {
@@ -88,12 +93,17 @@ interface WorkflowEditorProps {
   executionId?: string;
   onExecutionStart?: () => void;
   onExecutionStop?: () => void;
+  nodeStatuses?: Record<string, any>;
+  isExecutionConnected?: boolean;
+  isExecutionComplete?: boolean;
+  aiAgentMessages?: any[]; // AI Agent chat messages from workflow execution
 }
 
 const nodeTypes: NodeTypes = {
   block: BlockNode,
   agent: AgentNode,
   tool: ToolNode,
+  ai_agent: ToolNode, // AI Agent uses ToolNode design
   start: StartNode,
   end: EndNode,
   condition: ConditionNode,
@@ -125,6 +135,101 @@ const edgeTypes: EdgeTypes = {
   custom: CustomEdge,
 };
 
+// Helper component for execution history to avoid TypeScript IIFE issues
+interface ExecutionHistoryContentProps {
+  selectedAIAgent: Node;
+  nodes: Node[];
+  nodeStatuses: Record<string, any>;
+}
+
+function ExecutionHistoryContent({ selectedAIAgent, nodes, nodeStatuses }: ExecutionHistoryContentProps) {
+  const agentId = selectedAIAgent.id;
+  const node = nodes.find(n => n.id === agentId);
+  const nodeStatus = nodeStatuses[agentId];
+  
+  const executionInput = node?.data?.executionInput;
+  const executionOutput = node?.data?.executionOutput;
+  const executionStatus = node?.data?.executionStatus;
+
+  if (nodeStatus && (nodeStatus.output || nodeStatus.error)) {
+    return (
+      <div className="flex-1 overflow-auto p-4">
+        <div className="space-y-4">
+          {/* Execution Status */}
+          <div className="flex items-center gap-2 pb-2 border-b">
+            {executionStatus === 'success' ? (
+              <div className="w-2 h-2 rounded-full bg-green-500" />
+            ) : executionStatus === 'error' ? (
+              <div className="w-2 h-2 rounded-full bg-red-500" />
+            ) : (
+              <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
+            )}
+            <span className="text-sm font-medium">
+              {executionStatus === 'success' ? 'Execution Completed' : 
+               executionStatus === 'error' ? 'Execution Failed' : 
+               'Executing...'}
+            </span>
+          </div>
+
+          {/* User Input */}
+          <div>
+            <p className="text-xs font-medium text-muted-foreground mb-2">REQUEST (Input)</p>
+            <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+              <p className="text-sm whitespace-pre-wrap">
+                {executionInput?.user_message || 
+                 node?.data?.parameters?.user_message || 
+                 'No input message'}
+              </p>
+            </div>
+          </div>
+
+          {/* AI Response */}
+          <div>
+            <p className="text-xs font-medium text-muted-foreground mb-2">RESPONSE (Output)</p>
+            <div className="bg-muted/50 border rounded-lg p-3">
+              <p className="text-sm whitespace-pre-wrap">
+                {executionOutput?.content || JSON.stringify(executionOutput, null, 2)}
+              </p>
+            </div>
+          </div>
+
+          {/* Metadata */}
+          {executionOutput?.metadata && (
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-2">METADATA</p>
+              <div className="bg-muted/30 border rounded-lg p-3">
+                <pre className="text-xs overflow-auto">
+                  {JSON.stringify(executionOutput.metadata, null, 2)}
+                </pre>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 overflow-auto p-4">
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center text-muted-foreground">
+          <Bot className="h-12 w-12 mx-auto mb-3 opacity-30" />
+          <p className="text-sm">No execution history yet</p>
+          <p className="text-xs mt-1">Execute the workflow to see results here</p>
+          {node && (
+            <div className="mt-4 text-xs bg-muted/30 p-3 rounded max-w-md mx-auto">
+              <p className="font-mono text-left font-bold mb-2">Debug Info:</p>
+              <pre className="text-left overflow-auto max-h-64 text-[10px]">
+                {JSON.stringify(node.data ?? {}, null, 2)}
+              </pre>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function WorkflowEditorInner({
   workflowId,
   initialNodes = [],
@@ -139,6 +244,10 @@ function WorkflowEditorInner({
   executionId,
   onExecutionStart,
   onExecutionStop,
+  nodeStatuses: nodeStatusesProp,
+  isExecutionConnected: isExecutionConnectedProp,
+  isExecutionComplete: isExecutionCompleteProp,
+  aiAgentMessages = [],
 }: WorkflowEditorProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
@@ -218,12 +327,21 @@ function WorkflowEditorInner({
   
   // Update node styles based on execution status
   useEffect(() => {
-    if (!executionMode || Object.keys(nodeStatuses).length === 0) return;
+    logger.debug('🎨 Execution status update:', {
+      executionMode,
+      nodeStatusesCount: Object.keys(nodeStatuses).length,
+    });
+    
+    if (!executionMode) return;
     
     setNodes((nds) =>
       nds.map((node) => {
         const status = nodeStatuses[node.id];
-        if (!status) return node;
+        
+        // If no status yet, return node as-is
+        if (!status) {
+          return node;
+        }
         
         // Apply status-based styling
         let className = 'node-idle';
@@ -233,15 +351,21 @@ function WorkflowEditorInner({
             break;
           case 'running':
             className = 'node-running';
+            logger.debug('🔵 Node running:', node.id);
             break;
           case 'success':
             className = 'node-success';
+            logger.debug('🟢 Node success:', node.id);
             break;
           case 'failed':
             className = 'node-error';
+            logger.debug('🔴 Node failed:', node.id);
             break;
           case 'skipped':
             className = 'node-skipped';
+            break;
+          case 'waiting':
+            className = 'node-waiting';
             break;
         }
         
@@ -255,6 +379,7 @@ function WorkflowEditorInner({
             executionOutput: status.output,
             startTime: status.startTime,
             endTime: status.endTime,
+            isExecuting: status.status === 'running',
           },
         };
       })
@@ -274,11 +399,19 @@ function WorkflowEditorInner({
         let isExecuting = false;
         let executionStatus: string | undefined;
         
-        if (sourceStatus?.status === 'running' || targetStatus?.status === 'running') {
+        // Edge is active when source is running and target is pending/running
+        if (sourceStatus?.status === 'running' && 
+            (targetStatus?.status === 'pending' || targetStatus?.status === 'running' || targetStatus?.status === 'waiting')) {
           isExecuting = true;
-        } else if (sourceStatus?.status === 'success' && targetStatus?.status === 'success') {
+          executionStatus = 'active';
+        } 
+        // Edge is successful when both nodes completed successfully
+        else if (sourceStatus?.status === 'success' && 
+                 (targetStatus?.status === 'success' || targetStatus?.status === 'running' || targetStatus?.status === 'waiting')) {
           executionStatus = 'success';
-        } else if (sourceStatus?.status === 'failed' || targetStatus?.status === 'failed') {
+        } 
+        // Edge has error if source failed
+        else if (sourceStatus?.status === 'failed') {
           executionStatus = 'error';
         }
         
@@ -290,6 +423,7 @@ function WorkflowEditorInner({
             executionStatus,
           },
           animated: isExecuting, // Built-in ReactFlow animation
+          className: executionStatus ? `edge-${executionStatus}` : '',
         };
       })
     );
@@ -329,63 +463,120 @@ function WorkflowEditorInner({
   const [selectedAIAgent, setSelectedAIAgent] = useState<Node | null>(null);
   const [chatInput, setChatInput] = useState('');
   const [isMounted, setIsMounted] = useState(false);
+  const [chatTab, setChatTab] = useState<'chat' | 'history'>('chat');
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const [chatPanelPosition, setChatPanelPosition] = useState({ x: 380, y: 0 });
+  const [isDraggingChat, setIsDraggingChat] = useState(false);
+  const chatDragStartPos = useRef({ x: 0, y: 0 });
+  
+  // AI Agent Chatbot state
+  const [showAIAgentChatbot, setShowAIAgentChatbot] = useState(false);
+  
+  // Initialize chat panel position on client side
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setChatPanelPosition({ x: 380, y: window.innerHeight - 450 });
+    }
+  }, []);
 
   // Prevent hydration mismatch by only rendering portal on client
   useEffect(() => {
     setIsMounted(true);
   }, []);
+  
+  // Auto-show AI Agent Chatbot when messages are available
+  useEffect(() => {
+    if (aiAgentMessages && aiAgentMessages.length > 0) {
+      setShowAIAgentChatbot(true);
+    }
+  }, [aiAgentMessages]);
 
-  // WebSocket-based AI Agent chat
+  // Get API key from node config or localStorage
+  const getApiKey = useCallback((provider: string, nodeApiKey?: string) => {
+    // Priority: node config > localStorage
+    if (nodeApiKey) {
+      return nodeApiKey;
+    }
+    
+    // Try to load from localStorage
+    try {
+      const savedApiKeys = localStorage.getItem('llm_api_keys');
+      if (savedApiKeys) {
+        const apiKeys = JSON.parse(savedApiKeys);
+        return apiKeys[provider] || undefined;
+      }
+    } catch (e) {
+      console.error('Failed to load API key from localStorage:', e);
+    }
+    
+    return undefined;
+  }, []);
+
+  // Check LLM connection status (with API key from node config or localStorage)
+  useEffect(() => {
+    if (selectedAIAgent) {
+      const provider = selectedAIAgent?.data?.parameters?.provider || 'ollama';
+      const nodeApiKey = selectedAIAgent?.data?.parameters?.api_key;
+      const apiKey = getApiKey(provider, nodeApiKey);
+      
+      logger.debug('🔑 Selected AI Agent data:', {
+        nodeId: selectedAIAgent.id,
+        provider,
+        model: selectedAIAgent?.data?.parameters?.model,
+        hasApiKey: !!apiKey,
+      });
+    }
+  }, [selectedAIAgent, getApiKey]);
+
+  const selectedProvider = selectedAIAgent?.data?.parameters?.provider || 'ollama';
+  const selectedNodeApiKey = selectedAIAgent?.data?.parameters?.api_key;
+  const effectiveApiKey = getApiKey(selectedProvider, selectedNodeApiKey);
+
+  const llmConnectionStatus = useLLMConnectionCheck(
+    selectedProvider,
+    selectedAIAgent?.data?.parameters?.model || 'llama3.3:70b',
+    effectiveApiKey,  // Use API key from node config or localStorage
+    !!selectedAIAgent && showAIChatPanel
+  );
+
+  // WebSocket-based AI Agent chat (only connect when LLM is confirmed available)
+  const shouldConnectChat = !!selectedAIAgent && 
+                           showAIChatPanel && 
+                           llmConnectionStatus.connected && 
+                           !llmConnectionStatus.checking;
+  
   const {
     messages: chatMessages,
     sendMessage: sendChatMessage,
     clearMessages: clearChatMessages,
-    isConnected: isChatConnected,
+    isConnected: isWsConnected,
     isProcessing: isSending,
-    error: chatError,
+    error: wsError,
     reconnect: reconnectChat,
   } = useAIAgentChat({
     sessionId: `workflow-${workflowId || 'new'}-${selectedAIAgent?.id || 'default'}`,
     nodeId: selectedAIAgent?.id || 'default',
+    enabled: shouldConnectChat,
     config: {
-      provider: selectedAIAgent?.data?.parameters?.provider || 'ollama',
+      provider: selectedProvider,
       model: selectedAIAgent?.data?.parameters?.model || 'llama3.3:70b',
       system_prompt: selectedAIAgent?.data?.parameters?.system_prompt || '',
       temperature: selectedAIAgent?.data?.parameters?.temperature || 0.7,
       max_tokens: selectedAIAgent?.data?.parameters?.max_tokens || 1000,
       enable_memory: selectedAIAgent?.data?.parameters?.enable_memory ?? true,
       memory_type: selectedAIAgent?.data?.parameters?.memory_type || 'short_term',
+      credentials: effectiveApiKey ? {
+        api_key: effectiveApiKey  // Use API key from node config or localStorage
+      } : undefined,
     },
     onError: (error) => {
-      toast({
-        title: '❌ Chat Error',
-        description: error,
-        variant: 'destructive',
-        duration: 5000,
-      });
+      console.error('❌ Chat WebSocket error:', error);
     },
   });
   
   // Check for AI Agent tools and auto-show chat panel
   useEffect(() => {
-    console.log('🔍 Checking for AI Agent tools...', {
-      totalNodes: nodes.length,
-      nodeTypes: nodes.map(n => ({ 
-        id: n.id, 
-        type: n.type, 
-        label: n.data?.label,
-        name: n.data?.name,
-        tool_id: n.data?.tool_id,
-        tool_name: n.data?.tool_name,
-        category: n.data?.category,
-        blockType: n.data?.blockType,
-        nodeType: n.data?.nodeType
-      }))
-    });
-    
     const aiAgents = nodes.filter(node => {
-      // Get all possible identifiers
       const label = (node.data?.label || node.data?.name || '').toLowerCase();
       const toolId = (node.data?.tool_id || node.data?.id || '').toLowerCase();
       const toolName = (node.data?.tool_name || '').toLowerCase();
@@ -393,62 +584,33 @@ function WorkflowEditorInner({
       const nodeType = (node.data?.nodeType || '').toLowerCase();
       const category = (node.data?.category || '').toLowerCase();
       
-      // Check multiple conditions for AI Agent detection
-      const isAIAgent = 
-        // Direct type checks
+      return (
         node.data?.type === 'tool_ai_agent' || 
         node.data?.type === 'ai_agent' ||
         nodeType === 'ai_agent' ||
         blockType === 'ai_agent' ||
-        // Tool ID checks
         toolId === 'ai_agent' ||
         toolId === 'ai-agent' ||
         toolId.includes('ai_agent') ||
         toolId.includes('ai-agent') ||
-        // Tool name checks
-        toolName === 'ai agent' ||
-        toolName === 'ai-agent' ||
         toolName.includes('ai agent') ||
         toolName.includes('ai-agent') ||
-        // Label checks
-        label === 'ai agent' ||
-        label === 'ai-agent' ||
         label.includes('ai agent') ||
         label.includes('ai-agent') ||
-        // Category check for tool nodes
-        (node.type === 'tool' && category === 'ai') ||
-        (node.type === 'tool' && category.includes('ai'));
-      
-      if (isAIAgent) {
-        console.log('✅ Found AI Agent:', {
-          id: node.id,
-          type: node.type,
-          label,
-          toolId,
-          toolName,
-          category,
-          nodeType,
-          blockType
-        });
-      }
-      return isAIAgent;
+        (node.type === 'tool' && category.includes('ai'))
+      );
     });
     
-    console.log('🤖 AI Agents found:', aiAgents.length, aiAgents);
+    logger.debug('🤖 AI Agents found:', aiAgents.length);
     
     setAiAgentNodes(aiAgents);
     
-    // Auto-show chat panel if AI Agent tools exist (both edit and view mode)
     if (aiAgents.length > 0) {
-      console.log('✅ Showing AI Agent chat panel');
       setShowAIChatPanel(true);
-      // Auto-select first AI Agent if none selected
       if (!selectedAIAgent) {
-        console.log('🎯 Auto-selecting first AI Agent:', aiAgents[0].id);
         setSelectedAIAgent(aiAgents[0]);
       }
     } else {
-      console.log('❌ No AI Agents found, hiding chat panel');
       setShowAIChatPanel(false);
       setSelectedAIAgent(null);
     }
@@ -734,6 +896,24 @@ function WorkflowEditorInner({
       
       logger.log('🔗 Manual connection created:', connection);
       
+      // Check if connection already exists (prevent duplicates)
+      const isDuplicate = edges.some(
+        (edge) =>
+          edge.source === connection.source &&
+          edge.target === connection.target &&
+          edge.sourceHandle === connection.sourceHandle &&
+          edge.targetHandle === connection.targetHandle
+      );
+      
+      if (isDuplicate) {
+        toast({
+          title: '⚠️ Duplicate Connection',
+          description: 'This connection already exists',
+          duration: 2000,
+        });
+        return;
+      }
+      
       const newEdge = {
         ...connection,
         type: 'custom',
@@ -743,10 +923,23 @@ function WorkflowEditorInner({
       setEdges((eds) => {
         const updatedEdges = addEdge(newEdge, eds);
         logger.log('📊 Total edges after manual connection:', updatedEdges.length);
+        
+        // Show success message for multiple incoming connections (deferred to avoid setState during render)
+        const incomingCount = updatedEdges.filter(e => e.target === connection.target).length;
+        if (incomingCount > 1) {
+          setTimeout(() => {
+            toast({
+              title: '🔗 Multiple Connections',
+              description: `Node now has ${incomingCount} incoming connections`,
+              duration: 2000,
+            });
+          }, 0);
+        }
+        
         return updatedEdges;
       });
     },
-    [readOnly, setEdges]
+    [readOnly, edges, setEdges, toast]
   );
 
   // Handle drag over for drop support
@@ -776,6 +969,7 @@ function WorkflowEditorInner({
       // Determine node type based on block data
       let nodeType = 'block';
       if (block.nodeType === 'agent') nodeType = 'agent';
+      else if (block.nodeType === 'tool') nodeType = 'tool';
       else if (block.nodeType === 'start') nodeType = 'start';
       else if (block.nodeType === 'end') nodeType = 'end';
       else if (block.nodeType === 'condition') nodeType = 'condition';
@@ -792,6 +986,25 @@ function WorkflowEditorInner({
       }
 
       const nodeId = generateUUID();
+      
+      // Set default config for AI Agent nodes
+      let defaultConfig = block.config || {};
+      if (block.type === 'ai_agent' || nodeType === 'ai_agent') {
+        defaultConfig = {
+          llm_provider: 'ollama',
+          model: 'llama3.1:8b',
+          memory_type: 'short_term',
+          temperature: 0.7,
+          max_tokens: 2000,
+          system_prompt: 'You are a helpful AI assistant.',
+          user_message: '',
+          enable_web_search: true,
+          enable_vector_search: true,
+          max_iterations: 10,
+          ...defaultConfig,
+        };
+      }
+      
       const newNode: Node = {
         id: nodeId,
         type: nodeType,
@@ -799,6 +1012,7 @@ function WorkflowEditorInner({
         data: {
           ...block,
           label: block.name,
+          config: defaultConfig,
           // Add trigger callbacks
           ...(nodeType === 'trigger' && {
             onTrigger: () => handleTriggerActionRef.current(nodeId),
@@ -819,23 +1033,12 @@ function WorkflowEditorInner({
 
   // Handle node click
   const onNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
-    console.log('🖱️ Node clicked:', {
-      nodeId: node.id,
-      nodeType: node.type,
-      executionMode,
-      readOnly,
-      hasStatus: !!nodeStatuses[node.id]
-    });
+    logger.debug('🖱️ Node clicked:', node.id, node.type);
     
     if (executionMode && nodeStatuses[node.id]) {
-      // In execution mode, show debug panel
       setDebugNodeId(node.id);
     } else if (!readOnly) {
-      // In edit mode, show config panel
-      console.log('✅ Setting selected node:', node);
       setSelectedNode(node);
-    } else {
-      console.log('⚠️ Node click ignored - readOnly:', readOnly);
     }
   }, [executionMode, nodeStatuses, readOnly]);
 
@@ -1035,12 +1238,14 @@ function WorkflowEditorInner({
           const updatedEdges = [...eds, ...newEdgesCreated];
           logger.log('📊 Total edges after auto-connection:', updatedEdges.length);
           
-          // Show toast notification
-          toast({
-            title: '✨ Auto-Connected',
-            description: `${newEdgesCreated.length} connection${newEdgesCreated.length > 1 ? 's' : ''} created`,
-            duration: 2000,
-          });
+          // Show toast notification (deferred to avoid setState during render)
+          setTimeout(() => {
+            toast({
+              title: '✨ Auto-Connected',
+              description: `${newEdgesCreated.length} connection${newEdgesCreated.length > 1 ? 's' : ''} created`,
+              duration: 2000,
+            });
+          }, 0);
           
           // Notify parent component with updated edges
           if (onEdgesChangeProp) {
@@ -1062,17 +1267,22 @@ function WorkflowEditorInner({
   const handleSendChatMessage = useCallback(() => {
     if (!chatInput.trim() || isSending || !selectedAIAgent) return;
 
+    if (!isWsConnected) {
+      toast({
+        title: '❌ Not Connected',
+        description: 'WebSocket is not connected. Please wait or click Reconnect.',
+        variant: 'destructive',
+        duration: 3000,
+      });
+      return;
+    }
+
     const currentInput = chatInput.trim();
     setChatInput('');
     
-    console.log('🚀 Sending message via WebSocket:', {
-      message_length: currentInput.length,
-      provider: selectedAIAgent.data?.parameters?.provider || 'ollama',
-      model: selectedAIAgent.data?.parameters?.model || 'llama3.3:70b',
-    });
-
+    logger.debug('🚀 Sending message via WebSocket');
     sendChatMessage(currentInput);
-  }, [chatInput, isSending, selectedAIAgent, sendChatMessage]);
+  }, [chatInput, isSending, selectedAIAgent, isWsConnected, sendChatMessage, toast]);
 
   const handleChatKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -1124,6 +1334,69 @@ function WorkflowEditorInner({
 
   return (
     <div className="flex w-full h-full">
+      {/* Block Palette - Left Sidebar */}
+      {!readOnly && (
+        <div className="w-96 border-r bg-background overflow-y-auto">
+          <ImprovedBlockPalette 
+            onAddNode={(type, toolId, toolName) => {
+              if (!reactFlowInstance) return;
+              
+              // Get center of viewport
+              const { x, y, zoom } = reactFlowInstance.getViewport();
+              const position = {
+                x: -x / zoom + 200,
+                y: -y / zoom + 200,
+              };
+              
+              const nodeId = generateUUID();
+              
+              // Generate default node name with counter
+              const existingNodesOfType = nodes.filter(n => {
+                const baseName = toolName || type;
+                return n.data?.label?.startsWith(baseName) || n.data?.name?.startsWith(baseName);
+              });
+              const counter = existingNodesOfType.length + 1;
+              const defaultName = `${toolName || type} ${counter}`;
+              
+              // Set default config for AI Agent nodes
+              let defaultConfig = {};
+              if (toolId === 'ai_agent') {
+                defaultConfig = {
+                  llm_provider: 'ollama',
+                  model: 'llama3.1:8b',
+                  memory_type: 'short_term',
+                  temperature: 0.7,
+                  max_tokens: 2000,
+                  system_prompt: 'You are a helpful AI assistant.',
+                  user_message: '',
+                  enable_web_search: true,
+                  enable_vector_search: true,
+                  max_iterations: 10,
+                };
+              }
+              
+              const newNode: Node = {
+                id: nodeId,
+                type: toolId === 'ai_agent' ? 'ai_agent' : type,
+                position,
+                data: {
+                  label: defaultName,
+                  name: defaultName,
+                  tool_name: toolName,
+                  ...(toolId && { tool_id: toolId }),
+                  config: defaultConfig,
+                },
+              };
+              
+              setNodes((nds) => [...nds, newNode]);
+              if (onNodesChangeProp) {
+                onNodesChangeProp([...nodes, newNode]);
+              }
+            }}
+          />
+        </div>
+      )}
+      
       <div ref={reactFlowWrapper} className="flex-1">
         <ReactFlow
         nodes={nodes}
@@ -1148,6 +1421,10 @@ function WorkflowEditorInner({
           type: 'custom',
           animated: true,
         }}
+        // Allow multiple edges to connect to the same node
+        connectionMode={ConnectionMode.Loose}
+        // Enable multiple connections
+        elevateEdgesOnSelect={true}
       >
         <Controls />
         <MiniMap
@@ -1239,24 +1516,11 @@ function WorkflowEditorInner({
       </div>
       
       {/* Node Configuration Panel */}
-      {(() => {
-        const shouldShow = selectedNode && !readOnly && !showExecutionDetails;
-        console.log('🎨 Properties Panel render check:', {
-          hasSelectedNode: !!selectedNode,
-          selectedNodeId: selectedNode?.id,
-          readOnly,
-          showExecutionDetails,
-          shouldShow
-        });
-        return shouldShow;
-      })() && (
+      {selectedNode && !readOnly && !showExecutionDetails && (
         <SimplifiedPropertiesPanel
           node={selectedNode}
           isOpen={true}
-          onClose={() => {
-            console.log('🚪 Closing properties panel');
-            setSelectedNode(null);
-          }}
+          onClose={() => setSelectedNode(null)}
           onUpdate={(nodeId, updates) => {
             // Check if this is a delete operation
             if ((updates as any)._delete) {
@@ -1273,45 +1537,7 @@ function WorkflowEditorInner({
         />
       )}
       
-      {/* Old NodeConfigurationPanel - Keeping for reference but hidden */}
-      {false && selectedNode && !readOnly && !showExecutionDetails && (
-        <NodeConfigurationPanel
-          node={{
-            id: selectedNode.id,
-            type: selectedNode.type || 'custom',
-            label: selectedNode.data?.name || selectedNode.data?.label || 'Node',
-            tool_id: selectedNode.data?.tool_id || selectedNode.data?.type || selectedNode.data?.blockType,
-            config: selectedNode.data?.config
-          }}
-          onClose={() => setSelectedNode(null)}
-          onSave={(config) => {
-            handleNodeUpdate(selectedNode.id, { config });
-            setSelectedNode(null);
-          }}
-          onTest={async (config) => {
-            const response = await fetch('/api/v1/agent-builder/tool-execution/execute', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                tool_id: selectedNode.data?.tool_id || selectedNode.data?.type || selectedNode.data?.blockType,
-                parameters: config
-              })
-            });
-            
-            if (!response.ok) {
-              const error = await response.json();
-              throw new Error(error.error || 'Test failed');
-            }
-            
-            const result = await response.json();
-            if (!result.success) {
-              throw new Error(result.error || 'Test failed');
-            }
-            
-            return result.result;
-          }}
-        />
-      )}
+      {/* NodeConfigurationPanel removed - using SimplifiedPropertiesPanel instead */}
 
       {/* Execution Details Panel */}
       {showExecutionDetails && executionData && (
@@ -1327,8 +1553,8 @@ function WorkflowEditorInner({
         />
       )}
       
-      {/* Execution Control Panel - Left side when AI Agent exists */}
-      {executionMode && workflowId && typeof window !== 'undefined' && createPortal(
+      {/* Execution Control Panel - Only show in edit mode, not in read-only view */}
+      {executionMode && workflowId && !readOnly && typeof window !== 'undefined' && createPortal(
         <div
           id="execution-control-panel"
           style={{
@@ -1428,49 +1654,115 @@ function WorkflowEditorInner({
         onSelectNode={handleSelectNode}
       />
 
-      {/* AI Agent Chat Panel - Auto-shown when AI Agent tools exist (Edit & View mode) */}
-      {isMounted && showAIChatPanel && aiAgentNodes.length > 0 && createPortal(
+      {/* AI Agent Chat Panel - Disabled in Workflows view */}
+      {false && isMounted && showAIChatPanel && aiAgentNodes.length > 0 && createPortal(
         <div
           id="ai-agent-chat-panel"
           style={{
             position: 'fixed',
-            bottom: '0px',
-            right: '0px',
+            left: `${chatPanelPosition.x}px`,
+            top: `${chatPanelPosition.y}px`,
             height: 'clamp(300px, 35vh, 450px)',
-            width: 'clamp(400px, 50%, 900px)',
+            width: 'clamp(350px, 40%, 600px)',
             display: 'flex',
             flexDirection: 'column',
             zIndex: 99999,
             background: 'linear-gradient(to top, rgba(17, 24, 39, 0.98), rgba(17, 24, 39, 0.95))',
             backdropFilter: 'blur(20px) saturate(180%)',
             WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-            borderTop: '1px solid rgba(59, 130, 246, 0.2)',
-            borderLeft: '1px solid rgba(59, 130, 246, 0.2)',
-            boxShadow: '-4px -4px 24px rgba(0, 0, 0, 0.12), 0 -1px 3px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(59, 130, 246, 0.1)',
-            transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+            border: '1px solid rgba(59, 130, 246, 0.3)',
+            borderRadius: '16px',
+            boxShadow: isDraggingChat 
+              ? '0 20px 60px rgba(59, 130, 246, 0.3), 0 0 100px rgba(0, 0, 0, 0.8)' 
+              : '4px 4px 32px rgba(59, 130, 246, 0.15), 0 0 80px rgba(0, 0, 0, 0.5)',
+            transition: isDraggingChat ? 'none' : 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            cursor: isDraggingChat ? 'grabbing' : 'default',
+            overflow: 'hidden',
           }}
         >
-          {/* Chat Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white shadow-md">
-                <Bot className="h-5 w-5" />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-semibold text-sm">
-                    {selectedAIAgent?.data?.label || selectedAIAgent?.data?.name || 'AI Agent Chat'}
-                  </h3>
-                  <div className={`w-2 h-2 rounded-full ${isChatConnected ? 'bg-green-500' : 'bg-red-500'}`} title={isChatConnected ? 'Connected' : 'Disconnected'} />
+          {/* Chat Header - Draggable */}
+          <div 
+            className="border-b bg-muted/30"
+            onMouseDown={(e) => {
+              // Only start dragging if clicking on the header area (not buttons/select)
+              if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('select')) return;
+              
+              setIsDraggingChat(true);
+              chatDragStartPos.current = {
+                x: e.clientX - chatPanelPosition.x,
+                y: e.clientY - chatPanelPosition.y,
+              };
+
+              const handleMouseMove = (e: MouseEvent) => {
+                if (typeof window === 'undefined') return;
+                const newX = Math.max(0, Math.min(e.clientX - chatDragStartPos.current.x, window.innerWidth - 400));
+                const newY = Math.max(0, Math.min(e.clientY - chatDragStartPos.current.y, window.innerHeight - 200));
+                setChatPanelPosition({ x: newX, y: newY });
+              };
+
+              const handleMouseUp = () => {
+                setIsDraggingChat(false);
+                document.removeEventListener('mousemove', handleMouseMove);
+                document.removeEventListener('mouseup', handleMouseUp);
+              };
+
+              document.addEventListener('mousemove', handleMouseMove);
+              document.addEventListener('mouseup', handleMouseUp);
+            }}
+            style={{
+              cursor: isDraggingChat ? 'grabbing' : 'grab',
+              userSelect: 'none',
+              borderTopLeftRadius: '16px',
+              borderTopRightRadius: '16px',
+            }}
+          >
+            <div className="flex items-center justify-between px-4 py-3">
+              <div className="flex items-center gap-3">
+                {/* Drag Indicator */}
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '3px',
+                  padding: '8px 4px',
+                  cursor: 'grab',
+                }}>
+                  <div style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: '#606060' }} />
+                  <div style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: '#606060' }} />
+                  <div style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: '#606060' }} />
+                </div>
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white shadow-md">
+                  <Bot className="h-5 w-5" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold text-sm">
+                      {selectedAIAgent?.data?.label || selectedAIAgent?.data?.name || 'AI Agent'}
+                    </h3>
+                  {llmConnectionStatus.checking ? (
+                    <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" title="Checking LLM connection..." />
+                  ) : llmConnectionStatus.connected ? (
+                    isWsConnected ? (
+                      <div className="w-2 h-2 rounded-full bg-green-500" title="Connected and ready" />
+                    ) : (
+                      <div className="w-2 h-2 rounded-full bg-orange-500" title="LLM available but WebSocket disconnected" />
+                    )
+                  ) : (
+                    <div className="w-2 h-2 rounded-full bg-red-500" title={`LLM not available: ${llmConnectionStatus.error || 'Not connected'}`} />
+                  )}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {selectedAIAgent?.data?.parameters?.provider || 'ollama'} • {selectedAIAgent?.data?.parameters?.model || 'llama3.3:70b'}
-                  {!isChatConnected && ' • Disconnected'}
+                  {!llmConnectionStatus.checking && !llmConnectionStatus.connected && (
+                    <span className="text-red-500 ml-1">• {llmConnectionStatus.error || 'Not connected'}</span>
+                  )}
+                  {llmConnectionStatus.connected && !isWsConnected && wsError && (
+                    <span className="text-orange-500 ml-1">• WebSocket: {wsError}</span>
+                  )}
                 </p>
+                </div>
               </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {aiAgentNodes.length > 1 && (
+              <div className="flex items-center gap-2">
+                {aiAgentNodes.length > 1 && (
                 <select
                   value={selectedAIAgent?.id || ''}
                   onChange={(e) => {
@@ -1489,6 +1781,16 @@ function WorkflowEditorInner({
                   ))}
                 </select>
               )}
+              {llmConnectionStatus.connected && !isWsConnected && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={reconnectChat}
+                  className="h-8 text-xs"
+                >
+                  Reconnect
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="sm"
@@ -1498,25 +1800,59 @@ function WorkflowEditorInner({
               >
                 Clear
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowAIChatPanel(false)}
-                className="h-8"
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowAIChatPanel(false)}
+                  className="h-8"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            
+            {/* Tabs */}
+            <div className="flex border-t">
+              <button
+                onClick={() => setChatTab('chat')}
+                className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+                  chatTab === 'chat'
+                    ? 'bg-background text-foreground border-b-2 border-blue-500'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                }`}
               >
-                <X className="h-4 w-4" />
-              </Button>
+                Chat
+              </button>
+              <button
+                onClick={() => setChatTab('history')}
+                className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+                  chatTab === 'history'
+                    ? 'bg-background text-foreground border-b-2 border-blue-500'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                }`}
+              >
+                Execution History
+              </button>
             </div>
           </div>
 
-          {/* Chat Messages */}
-          <div className="flex-1 overflow-auto p-4 space-y-4">
-            {!isChatConnected && chatError && (
+          {/* Chat Tab Content */}
+          {chatTab === 'chat' && (
+            <div className="flex-1 overflow-auto p-4 space-y-4">
+            {!llmConnectionStatus.connected && (
               <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg p-3 mb-4">
+                <p className="text-sm text-red-700 dark:text-red-300 font-medium">LLM Not Available</p>
+                <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                  {llmConnectionStatus.error || 'Please ensure your LLM service is running'}
+                </p>
+              </div>
+            )}
+            {llmConnectionStatus.connected && !isWsConnected && wsError && (
+              <div className="bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-lg p-3 mb-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-red-700 dark:text-red-300 font-medium">Connection Lost</p>
-                    <p className="text-xs text-red-600 dark:text-red-400 mt-1">{chatError}</p>
+                    <p className="text-sm text-orange-700 dark:text-orange-300 font-medium">WebSocket Disconnected</p>
+                    <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">{wsError}</p>
                   </div>
                   <Button
                     size="sm"
@@ -1537,7 +1873,7 @@ function WorkflowEditorInner({
                     Start a conversation with {selectedAIAgent?.data?.label || 'AI Agent'}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {isChatConnected ? 'Type your message below to begin' : 'Connecting to chat server...'}
+                    {isWsConnected ? 'Type your message below to begin' : 'Waiting for connection...'}
                   </p>
                 </div>
               </div>
@@ -1589,23 +1925,44 @@ function WorkflowEditorInner({
                 <div ref={chatEndRef} />
               </>
             )}
-          </div>
+            </div>
+          )}
 
-          {/* Chat Input */}
-          <div className="border-t bg-muted/20 p-4">
+          {/* Execution History Tab Content */}
+          {chatTab === 'history' && selectedAIAgent !== null && (
+            <ExecutionHistoryContent
+              selectedAIAgent={selectedAIAgent as Node}
+              nodes={nodes}
+              nodeStatuses={nodeStatuses}
+            />
+          )}
+          {chatTab === 'history' && !selectedAIAgent && (
+            <div className="flex-1 overflow-auto p-4">
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center text-muted-foreground">
+                  <Bot className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                  <p className="text-sm">No AI Agent selected</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Chat Input (only show in Chat tab) */}
+          {chatTab === 'chat' && (
+            <div className="border-t bg-muted/20 p-4">
             <div className="flex gap-3 max-w-4xl mx-auto">
               <input
                 type="text"
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 onKeyDown={handleChatKeyDown}
-                placeholder={isChatConnected ? "Type your message..." : "Connecting..."}
-                disabled={isSending || !isChatConnected}
+                placeholder="Type your message..."
+                disabled={isSending}
                 className="flex-1 px-4 py-2.5 border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               />
               <Button
                 onClick={handleSendChatMessage}
-                disabled={!chatInput.trim() || isSending || !isChatConnected}
+                disabled={!chatInput.trim() || isSending}
                 className="px-6 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
               >
                 {isSending ? (
@@ -1615,11 +1972,43 @@ function WorkflowEditorInner({
                 )}
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground text-center mt-2">
-              Press Enter to send • Shift+Enter for new line
-            </p>
-          </div>
+              <p className="text-xs text-muted-foreground text-center mt-2">
+                Press Enter to send • Shift+Enter for new line
+              </p>
+            </div>
+          )}
         </div>,
+        document.body
+      )}
+      
+      {/* AI Agent Chatbot - Show when AI Agent messages are available */}
+      {isMounted && showAIAgentChatbot && aiAgentMessages.length > 0 && createPortal(
+        <div className="fixed bottom-4 right-4 z-50">
+          <AIAgentChatUI
+            position="inline"
+            onClose={() => setShowAIAgentChatbot(false)}
+            sessionId={executionId}
+            systemPrompt="AI Agent from workflow execution"
+            provider={aiAgentMessages[0]?.metadata?.provider || 'ollama'}
+            model={aiAgentMessages[0]?.metadata?.model || 'llama3.3:70b'}
+            externalMessages={aiAgentMessages}
+            readOnly={true}
+          />
+        </div>,
+        document.body
+      )}
+      
+      {/* Toggle Button - Show when there are AI Agent messages but chatbot is hidden */}
+      {isMounted && !showAIAgentChatbot && aiAgentMessages.length > 0 && createPortal(
+        <Button
+          variant="default"
+          size="sm"
+          onClick={() => setShowAIAgentChatbot(true)}
+          className="fixed bottom-4 right-4 z-50 shadow-lg bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+        >
+          <MessageSquare className="mr-2 h-4 w-4" />
+          Show AI Agent Chat ({aiAgentMessages.length})
+        </Button>,
         document.body
       )}
     </div>

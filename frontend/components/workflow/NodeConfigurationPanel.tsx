@@ -51,8 +51,6 @@ export function NodeConfigurationPanel({
   onSave,
   onTest
 }: NodeConfigurationPanelProps) {
-  console.log('🎨 NodeConfigurationPanel rendered with node:', node);
-  
   const [toolConfig, setToolConfig] = useState<any>(null);
   const [values, setValues] = useState<Record<string, any>>(node.config || {});
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -62,33 +60,24 @@ export function NodeConfigurationPanel({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    console.log('🔄 useEffect triggered, fetching tool config...');
     fetchToolConfig();
   }, [node.tool_id]);
 
   const fetchToolConfig = async () => {
-    console.log('🔍 NodeConfigurationPanel - Node data:', node);
-    console.log('🔍 Tool ID:', node.tool_id);
-    console.log('🔍 Node Type:', node.node_type);
-    
     // Only fetch tool config for actual tool nodes
     if (!node.tool_id || node.node_type !== 'tool') {
-      console.warn('⚠️ Not a tool node or no tool_id found');
       setLoading(false);
       return;
     }
 
     try {
-      console.log('📡 Fetching tool config for:', node.tool_id);
       const response = await fetch(`/api/agent-builder/tools/${node.tool_id}`);
       
       if (!response.ok) {
-        console.error('❌ API response not OK:', response.status, response.statusText);
         throw new Error('Failed to fetch tool config');
       }
       
       const data = await response.json();
-      console.log('✅ Tool config loaded:', data);
       setToolConfig(data);
 
       // Set default values only if not already set
@@ -99,11 +88,10 @@ export function NodeConfigurationPanel({
             defaults[param.name] = param.default;
           }
         });
-        console.log('📝 Setting default values:', defaults);
         return Object.keys(defaults).length > 0 ? { ...defaults, ...prev } : prev;
       });
     } catch (error) {
-      console.error('❌ Failed to load tool config:', error);
+      console.error('Failed to load tool config:', error);
     } finally {
       setLoading(false);
     }

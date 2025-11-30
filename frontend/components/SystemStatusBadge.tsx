@@ -35,7 +35,8 @@ export default function SystemStatusBadge() {
   const fetchHealth = async () => {
     try {
       const startTime = Date.now();
-      const response = await fetch('http://localhost:8000/api/metrics/database/summary');
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${apiUrl}/api/metrics/database/summary`);
       const endTime = Date.now();
       
       if (response.ok) {

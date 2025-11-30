@@ -62,6 +62,9 @@ class Session(Base):
     answer_feedbacks = relationship(
         "AnswerFeedback", back_populates="session", cascade="all, delete-orphan"
     )
+    shares = relationship(
+        "ConversationShare", back_populates="session", cascade="all, delete-orphan"
+    )
 
     # Composite Indexes and Constraints
     __table_args__ = (

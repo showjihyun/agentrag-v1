@@ -7,6 +7,8 @@
 
 import React, { useState, useEffect } from 'react';
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
 interface AlertsPanelProps {
   autoRefresh: boolean;
   refreshInterval: number;
@@ -31,7 +33,7 @@ export default function AlertsPanel({ autoRefresh, refreshInterval }: AlertsPane
   const fetchAlerts = async () => {
     try {
       setError(null);
-      const response = await fetch('http://localhost:8000/api/metrics/adaptive/alerts');
+      const response = await fetch(`${API_BASE_URL}/api/metrics/adaptive/alerts`);
       if (!response.ok) throw new Error('Failed to fetch alerts');
       const data = await response.json();
       setAlerts(data.alerts || []);

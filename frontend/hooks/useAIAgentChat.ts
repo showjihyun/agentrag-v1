@@ -27,6 +27,7 @@ export interface AIAgentConfig {
 interface UseAIAgentChatOptions {
   sessionId: string;
   nodeId: string;
+  enabled?: boolean;
   config: AIAgentConfig;
   onMessage?: (message: ChatMessage) => void;
   onError?: (error: string) => void;
@@ -46,6 +47,7 @@ interface UseAIAgentChatReturn {
 export function useAIAgentChat({
   sessionId,
   nodeId,
+  enabled = true,
   config,
   onMessage,
   onError,
@@ -59,20 +61,39 @@ export function useAIAgentChat({
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttemptsRef = useRef(0);
+  const hasAttemptedConnectionRef = useRef(false);
   const maxReconnectAttempts = 5;
 
   const connect = useCallback(() => {
+    if (!enabled) {
+      console.log('⚠️ WebSocket connection disabled');
+      return;
+    }
+
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       console.log('⚠️ WebSocket already connected');
       return;
     }
 
     try {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const host = window.location.host;
-      const wsUrl = `${protocol}//${host}/api/agent-builder/ai-agent-chat/ws?session_id=${sessionId}&node_id=${nodeId}`;
+      // Use environment variable for API URL if available, otherwise use current host
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+      let wsUrl: string;
+      
+      if (apiUrl) {
+        // Convert HTTP URL to WebSocket URL
+        const wsProtocol = apiUrl.startsWith('https') ? 'wss:' : 'ws:';
+        const wsHost = apiUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
+        wsUrl = `${wsProtocol}//${wsHost}/api/agent-builder/ai-agent-chat/ws?session_id=${sessionId}&node_id=${nodeId}`;
+      } else {
+        // Fallback to current host
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const host = window.location.host;
+        wsUrl = `${protocol}//${host}/api/agent-builder/ai-agent-chat/ws?session_id=${sessionId}&node_id=${nodeId}`;
+      }
       
       console.log('🔌 Connecting to WebSocket:', wsUrl);
+      console.log('📍 API URL:', apiUrl || 'Using current host');
       onStatusChange?.('connecting');
       
       const ws = new WebSocket(wsUrl);
@@ -135,7 +156,9 @@ export function useAIAgentChat({
 
       ws.onerror = (event) => {
         console.error('❌ WebSocket error:', event);
-        setError('WebSocket connection error');
+        const errorMsg = 'WebSocket connection error. Please check if the backend server is running.';
+        setError(errorMsg);
+        onError?.(errorMsg);
         onStatusChange?.('error');
         onError?.('WebSocket connection error');
       };
@@ -146,18 +169,26 @@ export function useAIAgentChat({
         setIsProcessing(false);
         onStatusChange?.('disconnected');
         
-        // Attempt to reconnect
-        if (reconnectAttemptsRef.current < maxReconnectAttempts) {
-          const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 10000);
-          console.log(`🔄 Reconnecting in ${delay}ms (attempt ${reconnectAttemptsRef.current + 1}/${maxReconnectAttempts})`);
-          
-          reconnectTimeoutRef.current = setTimeout(() => {
-            reconnectAttemptsRef.current++;
-            connect();
-          }, delay);
+        // Handle different close codes
+        if (event.code === 1000 || event.code === 1001) {
+          // Normal closure
+          console.log('✅ WebSocket closed normally');
+          setError(null);
+        } else if (event.code === 1005) {
+          // No status code received (common when server doesn't exist or endpoint not found)
+          console.warn('⚠️ WebSocket closed without status code (1005) - Server may not be running');
+          setError('Cannot connect to AI Agent server. Please check if the backend is running.');
+          onError?.('Cannot connect to AI Agent server. Please check if the backend is running.');
+        } else if (event.code === 1006) {
+          // Abnormal closure (connection lost)
+          console.warn('⚠️ WebSocket connection lost abnormally (1006)');
+          setError('Connection lost unexpectedly. Click Reconnect to try again.');
+          onError?.('Connection lost unexpectedly. Click Reconnect to try again.');
         } else {
-          console.error('❌ Max reconnection attempts reached');
-          setError('Connection lost. Please refresh the page.');
+          // Other unexpected closures
+          console.warn(`⚠️ WebSocket closed unexpectedly (code: ${event.code})`);
+          setError(`Connection closed (code: ${event.code}). Click Reconnect to try again.`);
+          onError?.(`Connection closed (code: ${event.code}). Click Reconnect to try again.`);
         }
       };
     } catch (err) {
@@ -165,7 +196,7 @@ export function useAIAgentChat({
       setError('Failed to establish connection');
       onError?.('Failed to establish connection');
     }
-  }, [sessionId, nodeId, onMessage, onError, onStatusChange]);
+  }, [enabled, sessionId, nodeId, onMessage, onError, onStatusChange]);
 
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {
@@ -206,11 +237,23 @@ export function useAIAgentChat({
       setError(null);
 
       // Send to server
-      wsRef.current.send(JSON.stringify({
+      const messagePayload = {
         type: 'message',
         content: content.trim(),
         config: config,
-      }));
+      };
+      
+      console.log('📤 Sending message with config:', {
+        provider: config.provider,
+        model: config.model,
+        hasCredentials: !!config.credentials,
+        credentialsKeys: config.credentials ? Object.keys(config.credentials) : [],
+        hasApiKey: !!config.credentials?.api_key,
+        apiKeyLength: config.credentials?.api_key?.length,
+        fullConfig: config
+      });
+      
+      wsRef.current.send(JSON.stringify(messagePayload));
 
       console.log('📤 Message sent:', content.substring(0, 50) + '...');
     } catch (err) {
@@ -231,13 +274,39 @@ export function useAIAgentChat({
   }, []);
 
   const reconnect = useCallback(() => {
+    console.log('🔄 Manual reconnect triggered');
     disconnect();
     reconnectAttemptsRef.current = 0;
-    connect();
-  }, [connect, disconnect]);
+    hasAttemptedConnectionRef.current = false;
+    setError(null);
+    
+    // Wait a bit before reconnecting
+    setTimeout(() => {
+      if (enabled) {
+        hasAttemptedConnectionRef.current = true;
+        connect();
+      }
+    }, 100);
+  }, [enabled, connect, disconnect]);
 
-  // Connect on mount
+  // Connect on mount (only if enabled) - use ref to track if we've already tried
   useEffect(() => {
+    if (!enabled) {
+      console.log('⚠️ WebSocket disabled, disconnecting if connected');
+      disconnect();
+      setError(null);
+      hasAttemptedConnectionRef.current = false;
+      return;
+    }
+
+    // Only attempt connection once per enable
+    if (hasAttemptedConnectionRef.current) {
+      console.log('⚠️ Already attempted connection, skipping');
+      return;
+    }
+
+    console.log('🔌 WebSocket enabled, attempting to connect');
+    hasAttemptedConnectionRef.current = true;
     connect();
     
     // Heartbeat to keep connection alive
@@ -251,7 +320,8 @@ export function useAIAgentChat({
       clearInterval(heartbeatInterval);
       disconnect();
     };
-  }, [connect, disconnect]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled]); // Only depend on enabled, not connect/disconnect
 
   return {
     messages,

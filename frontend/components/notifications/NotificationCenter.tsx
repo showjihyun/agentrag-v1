@@ -57,7 +57,8 @@ export default function NotificationCenter({ userId }: NotificationCenterProps) 
     fetchSettings();
     
     // Setup WebSocket for real-time notifications
-    const ws = new WebSocket('ws://localhost:8000/ws/notifications');
+    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000';
+    const ws = new WebSocket(`${wsUrl}/ws/notifications`);
     
     ws.onmessage = (event) => {
       const notification = JSON.parse(event.data);

@@ -18,12 +18,12 @@ class ShareRole(str, enum.Enum):
 
 
 class ConversationShare(Base):
-    """Conversation share model."""
+    """Conversation share model - shares sessions with other users."""
     
     __tablename__ = "conversation_shares"
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    conversation_id = Column(UUID(as_uuid=True), ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False)
+    session_id = Column(UUID(as_uuid=True), ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     
     # Share details
@@ -35,16 +35,16 @@ class ConversationShare(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     
     # Relationships
-    conversation = relationship("Conversation", back_populates="shares")
-    user = relationship("User", foreign_keys=[user_id], back_populates="shared_conversations")
+    session = relationship("Session", back_populates="shares")
+    user = relationship("User", foreign_keys=[user_id], back_populates="shared_sessions")
     shared_by_user = relationship("User", foreign_keys=[shared_by])
     
     # Indexes
     __table_args__ = (
-        Index("idx_conversation_shares_conversation_id", "conversation_id"),
+        Index("idx_conversation_shares_session_id", "session_id"),
         Index("idx_conversation_shares_user_id", "user_id"),
-        Index("idx_conversation_shares_conversation_user", "conversation_id", "user_id", unique=True),
+        Index("idx_conversation_shares_session_user", "session_id", "user_id", unique=True),
     )
     
     def __repr__(self):
-        return f"<ConversationShare(id={self.id}, conversation_id={self.conversation_id}, user_id={self.user_id}, role={self.role})>"
+        return f"<ConversationShare(id={self.id}, session_id={self.session_id}, user_id={self.user_id}, role={self.role})>"

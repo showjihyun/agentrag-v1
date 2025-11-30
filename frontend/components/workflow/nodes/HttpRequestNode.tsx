@@ -44,6 +44,7 @@ export function HttpRequestNode({ data, selected }: NodeProps<HttpRequestNodeDat
       <Handle
         type="target"
         position={Position.Top}
+        id="input"
         className="w-3 h-3 !bg-primary"
       />
 
@@ -81,6 +82,7 @@ export function HttpRequestNode({ data, selected }: NodeProps<HttpRequestNodeDat
       <Handle
         type="source"
         position={Position.Bottom}
+        id="output"
         className="w-3 h-3 !bg-primary"
       />
     </div>

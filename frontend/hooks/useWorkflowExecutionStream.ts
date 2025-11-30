@@ -4,11 +4,12 @@ import { logger } from '@/lib/logger';
 export interface NodeExecutionStatus {
   nodeId: string;
   nodeName: string;
-  status: 'pending' | 'running' | 'success' | 'failed' | 'skipped';
+  status: 'pending' | 'running' | 'success' | 'failed' | 'skipped' | 'waiting';
   startTime?: number;
   endTime?: number;
   error?: string;
   output?: any;
+  input?: any;
   timestamp?: number;
 }
 

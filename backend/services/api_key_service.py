@@ -245,7 +245,7 @@ class APIKeyService:
         service_name: str
     ) -> Dict[str, Any]:
         """
-        Test if an API key is valid.
+        Test if an API key is valid by making a test API call.
         
         Args:
             user_id: User ID
@@ -273,12 +273,12 @@ class APIKeyService:
                     "service_name": service_name,
                 }
             
-            # TODO: Add actual API validation for each service
-            # For now, just check if key exists and can be decrypted
+            # Validate API key with actual service
+            is_valid, validation_message = self._validate_api_key(service_name, decrypted_key)
             
             return {
-                "success": True,
-                "message": "API key is configured and accessible",
+                "success": is_valid,
+                "message": validation_message,
                 "service_name": service_name,
                 "details": {
                     "masked_key": encryption_service.mask_api_key(decrypted_key),
@@ -294,3 +294,141 @@ class APIKeyService:
                 "message": f"API key test failed: {str(e)}",
                 "service_name": service_name,
             }
+    
+    def _validate_api_key(self, service_name: str, api_key: str) -> tuple[bool, str]:
+        """
+        Validate API key by making a test call to the service.
+        
+        Args:
+            service_name: Service name (openai, anthropic, google, etc.)
+            api_key: Decrypted API key
+            
+        Returns:
+            Tuple of (is_valid, message)
+        """
+        import httpx
+        
+        validators = {
+            "openai": self._validate_openai_key,
+            "anthropic": self._validate_anthropic_key,
+            "google": self._validate_google_key,
+            "cohere": self._validate_cohere_key,
+        }
+        
+        validator = validators.get(service_name.lower())
+        if validator:
+            try:
+                return validator(api_key)
+            except Exception as e:
+                logger.warning(f"API validation failed for {service_name}: {e}")
+                return False, f"Validation failed: {str(e)}"
+        
+        # For unknown services, just check key format
+        if len(api_key) < 10:
+            return False, "API key appears too short"
+        return True, "API key format looks valid (service-specific validation not available)"
+    
+    def _validate_openai_key(self, api_key: str) -> tuple[bool, str]:
+        """Validate OpenAI API key."""
+        import httpx
+        
+        try:
+            with httpx.Client(timeout=10.0) as client:
+                response = client.get(
+                    "https://api.openai.com/v1/models",
+                    headers={"Authorization": f"Bearer {api_key}"}
+                )
+                
+                if response.status_code == 200:
+                    return True, "OpenAI API key is valid"
+                elif response.status_code == 401:
+                    return False, "Invalid OpenAI API key"
+                elif response.status_code == 429:
+                    return True, "OpenAI API key is valid (rate limited)"
+                else:
+                    return False, f"OpenAI API returned status {response.status_code}"
+        except httpx.TimeoutException:
+            return False, "OpenAI API request timed out"
+        except Exception as e:
+            return False, f"Failed to validate OpenAI key: {str(e)}"
+    
+    def _validate_anthropic_key(self, api_key: str) -> tuple[bool, str]:
+        """Validate Anthropic API key."""
+        import httpx
+        
+        try:
+            with httpx.Client(timeout=10.0) as client:
+                # Anthropic doesn't have a simple validation endpoint,
+                # so we make a minimal request
+                response = client.post(
+                    "https://api.anthropic.com/v1/messages",
+                    headers={
+                        "x-api-key": api_key,
+                        "anthropic-version": "2023-06-01",
+                        "content-type": "application/json"
+                    },
+                    json={
+                        "model": "claude-3-haiku-20240307",
+                        "max_tokens": 1,
+                        "messages": [{"role": "user", "content": "hi"}]
+                    }
+                )
+                
+                if response.status_code == 200:
+                    return True, "Anthropic API key is valid"
+                elif response.status_code == 401:
+                    return False, "Invalid Anthropic API key"
+                elif response.status_code == 429:
+                    return True, "Anthropic API key is valid (rate limited)"
+                elif response.status_code == 400:
+                    # Bad request but key is valid
+                    return True, "Anthropic API key is valid"
+                else:
+                    return False, f"Anthropic API returned status {response.status_code}"
+        except httpx.TimeoutException:
+            return False, "Anthropic API request timed out"
+        except Exception as e:
+            return False, f"Failed to validate Anthropic key: {str(e)}"
+    
+    def _validate_google_key(self, api_key: str) -> tuple[bool, str]:
+        """Validate Google AI API key."""
+        import httpx
+        
+        try:
+            with httpx.Client(timeout=10.0) as client:
+                response = client.get(
+                    f"https://generativelanguage.googleapis.com/v1/models?key={api_key}"
+                )
+                
+                if response.status_code == 200:
+                    return True, "Google AI API key is valid"
+                elif response.status_code == 400 or response.status_code == 403:
+                    return False, "Invalid Google AI API key"
+                else:
+                    return False, f"Google AI API returned status {response.status_code}"
+        except httpx.TimeoutException:
+            return False, "Google AI API request timed out"
+        except Exception as e:
+            return False, f"Failed to validate Google AI key: {str(e)}"
+    
+    def _validate_cohere_key(self, api_key: str) -> tuple[bool, str]:
+        """Validate Cohere API key."""
+        import httpx
+        
+        try:
+            with httpx.Client(timeout=10.0) as client:
+                response = client.get(
+                    "https://api.cohere.ai/v1/models",
+                    headers={"Authorization": f"Bearer {api_key}"}
+                )
+                
+                if response.status_code == 200:
+                    return True, "Cohere API key is valid"
+                elif response.status_code == 401:
+                    return False, "Invalid Cohere API key"
+                else:
+                    return False, f"Cohere API returned status {response.status_code}"
+        except httpx.TimeoutException:
+            return False, "Cohere API request timed out"
+        except Exception as e:
+            return False, f"Failed to validate Cohere key: {str(e)}"

@@ -2,19 +2,18 @@
  * Optimistic UI update hooks for better UX
  */
 
-import { useQueryClient, useMutation } from '@tanstack/react-query';
-import { useCallback } from 'react';
+import { useQueryClient, useMutation, QueryKey } from '@tanstack/react-query';
 
 /**
  * Generic optimistic update hook
  */
-export function useOptimisticUpdate<TData, TVariables>(
-  queryKey: any[],
+export function useOptimisticUpdate<TData, TVariables, TContext = unknown>(
+  queryKey: QueryKey,
   mutationFn: (variables: TVariables) => Promise<TData>,
   options?: {
     onSuccess?: (data: TData, variables: TVariables) => void;
-    onError?: (error: Error, variables: TVariables, context: any) => void;
-    updateFn?: (oldData: any, variables: TVariables) => any;
+    onError?: (error: Error, variables: TVariables, context: TContext | undefined) => void;
+    updateFn?: (oldData: TData | undefined, variables: TVariables) => TData;
   }
 ) {
   const queryClient = useQueryClient();
@@ -30,19 +29,20 @@ export function useOptimisticUpdate<TData, TVariables>(
 
       // Optimistically update
       if (options?.updateFn) {
-        queryClient.setQueryData(queryKey, (old: any) =>
+        queryClient.setQueryData<TData>(queryKey, (old) =>
           options.updateFn!(old, variables)
         );
       }
 
       return { previousData };
     },
-    onError: (error, variables, context: any) => {
+    onError: (error, variables, context) => {
       // Rollback on error
-      if (context?.previousData) {
-        queryClient.setQueryData(queryKey, context.previousData);
+      const ctx = context as { previousData?: TData } | undefined;
+      if (ctx?.previousData) {
+        queryClient.setQueryData(queryKey, ctx.previousData);
       }
-      options?.onError?.(error as Error, variables, context);
+      options?.onError?.(error as Error, variables, context as TContext | undefined);
     },
     onSuccess: (data, variables) => {
       options?.onSuccess?.(data, variables);
@@ -57,8 +57,8 @@ export function useOptimisticUpdate<TData, TVariables>(
 /**
  * Optimistic create
  */
-export function useOptimisticCreate<TItem, TCreate>(
-  queryKey: any[],
+export function useOptimisticCreate<TItem extends { id?: string }, TCreate>(
+  queryKey: QueryKey,
   createFn: (data: TCreate) => Promise<TItem>,
   options?: {
     generateTempId?: () => string;
@@ -69,7 +69,7 @@ export function useOptimisticCreate<TItem, TCreate>(
   const generateTempId = options?.generateTempId || (() => `temp-${Date.now()}`);
 
   return useOptimisticUpdate<TItem, TCreate>(queryKey, createFn, {
-    updateFn: (oldData: any, variables) => {
+    updateFn: (oldData, variables) => {
       if (Array.isArray(oldData)) {
         // Add temporary item to list
         return [
@@ -79,9 +79,9 @@ export function useOptimisticCreate<TItem, TCreate>(
             id: generateTempId(),
             _optimistic: true,
           },
-        ];
+        ] as unknown as TItem;
       }
-      return oldData;
+      return oldData as TItem;
     },
     onSuccess: options?.onSuccess,
     onError: options?.onError,
@@ -91,8 +91,8 @@ export function useOptimisticCreate<TItem, TCreate>(
 /**
  * Optimistic update
  */
-export function useOptimisticEdit<TItem, TUpdate>(
-  queryKey: any[],
+export function useOptimisticEdit<TItem extends { id?: string }, TUpdate>(
+  queryKey: QueryKey,
   updateFn: (id: string, data: TUpdate) => Promise<TItem>,
   options?: {
     onSuccess?: (data: TItem) => void;
@@ -103,19 +103,19 @@ export function useOptimisticEdit<TItem, TUpdate>(
     queryKey,
     ({ id, data }) => updateFn(id, data),
     {
-      updateFn: (oldData: any, variables) => {
+      updateFn: (oldData, variables) => {
         if (Array.isArray(oldData)) {
           // Update item in list
-          return oldData.map((item: any) =>
-            item.id === variables.id
+          return oldData.map((item) =>
+            (item as { id?: string }).id === variables.id
               ? { ...item, ...variables.data, _optimistic: true }
               : item
-          );
-        } else if (oldData?.id === variables.id) {
+          ) as unknown as TItem;
+        } else if ((oldData as { id?: string })?.id === variables.id) {
           // Update single item
-          return { ...oldData, ...variables.data, _optimistic: true };
+          return { ...oldData, ...variables.data, _optimistic: true } as TItem;
         }
-        return oldData;
+        return oldData as TItem;
       },
       onSuccess: options?.onSuccess,
       onError: options?.onError,
@@ -127,7 +127,7 @@ export function useOptimisticEdit<TItem, TUpdate>(
  * Optimistic delete
  */
 export function useOptimisticDelete<TItem = void>(
-  queryKey: any[],
+  queryKey: QueryKey,
   deleteFn: (id: string) => Promise<TItem>,
   options?: {
     onSuccess?: (data: TItem) => void;
@@ -135,12 +135,12 @@ export function useOptimisticDelete<TItem = void>(
   }
 ) {
   return useOptimisticUpdate<TItem, string>(queryKey, deleteFn, {
-    updateFn: (oldData: any, id) => {
+    updateFn: (oldData, id) => {
       if (Array.isArray(oldData)) {
         // Remove item from list
-        return oldData.filter((item: any) => item.id !== id);
+        return oldData.filter((item) => (item as { id?: string }).id !== id) as unknown as TItem;
       }
-      return oldData;
+      return oldData as TItem;
     },
     onSuccess: options?.onSuccess,
     onError: options?.onError,
@@ -150,8 +150,8 @@ export function useOptimisticDelete<TItem = void>(
 /**
  * Optimistic toggle (e.g., favorite, like)
  */
-export function useOptimisticToggle<TItem>(
-  queryKey: any[],
+export function useOptimisticToggle<TItem extends { id?: string }>(
+  queryKey: QueryKey,
   toggleFn: (id: string, value: boolean) => Promise<TItem>,
   field: string,
   options?: {
@@ -163,17 +163,17 @@ export function useOptimisticToggle<TItem>(
     queryKey,
     ({ id, value }) => toggleFn(id, value),
     {
-      updateFn: (oldData: any, variables) => {
+      updateFn: (oldData, variables) => {
         if (Array.isArray(oldData)) {
-          return oldData.map((item: any) =>
-            item.id === variables.id
+          return oldData.map((item) =>
+            (item as { id?: string }).id === variables.id
               ? { ...item, [field]: variables.value, _optimistic: true }
               : item
-          );
-        } else if (oldData?.id === variables.id) {
-          return { ...oldData, [field]: variables.value, _optimistic: true };
+          ) as unknown as TItem;
+        } else if ((oldData as { id?: string })?.id === variables.id) {
+          return { ...oldData, [field]: variables.value, _optimistic: true } as TItem;
         }
-        return oldData;
+        return oldData as TItem;
       },
       onSuccess: options?.onSuccess,
       onError: options?.onError,

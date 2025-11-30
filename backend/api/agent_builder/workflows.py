@@ -447,7 +447,8 @@ async def get_workflow_executions(
                 duration = (exec.completed_at - exec.started_at).total_seconds()
             
             execution_list.append({
-                "id": exec.id,
+                "id": str(exec.id),
+                "workflow_id": str(exec.workflow_id),
                 "status": exec.status,
                 "duration": duration,
                 "started_at": exec.started_at.isoformat() if exec.started_at else None,
@@ -471,6 +472,97 @@ async def get_workflow_executions(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve workflow executions"
+        )
+
+
+@router.get(
+    "/{workflow_id}/executions/{execution_id}",
+    summary="Get workflow execution detail",
+    description="Retrieve detailed information about a specific workflow execution.",
+)
+async def get_workflow_execution(
+    workflow_id: str,
+    execution_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get workflow execution detail."""
+    try:
+        logger.info(f"Fetching execution {execution_id} for workflow {workflow_id}")
+        
+        from backend.db.models.agent_builder import WorkflowExecution
+        import uuid
+        
+        # Get execution
+        execution = db.query(WorkflowExecution).filter(
+            WorkflowExecution.id == uuid.UUID(execution_id),
+            WorkflowExecution.workflow_id == uuid.UUID(workflow_id)
+        ).first()
+        
+        if not execution:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Execution {execution_id} not found"
+            )
+        
+        # Check permissions
+        if str(execution.user_id) != str(current_user.id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have permission to access this execution"
+            )
+        
+        # Get workflow for name
+        workflow_service = WorkflowService(db)
+        workflow = workflow_service.get_workflow(workflow_id)
+        
+        # Calculate duration
+        duration = None
+        if execution.completed_at and execution.started_at:
+            duration = int((execution.completed_at - execution.started_at).total_seconds() * 1000)
+        
+        # Extract node executions from execution_context
+        node_executions = []
+        if execution.execution_context:
+            # First try to get detailed node_executions
+            node_executions_data = execution.execution_context.get("node_executions", [])
+            if node_executions_data:
+                node_executions = node_executions_data
+            else:
+                # Fallback to node_results for backward compatibility
+                node_results = execution.execution_context.get("node_results", {})
+                for node_id, result in node_results.items():
+                    node_executions.append({
+                        "node_id": node_id,
+                        "node_name": node_id,
+                        "status": "completed",
+                        "input": execution.input_data,
+                        "output": result,
+                        "started_at": execution.started_at.isoformat() if execution.started_at else None,
+                        "completed_at": execution.completed_at.isoformat() if execution.completed_at else None,
+                    })
+        
+        return {
+            "id": str(execution.id),
+            "workflow_id": str(execution.workflow_id),
+            "workflow_name": workflow.name if workflow else "Unknown",
+            "status": execution.status,
+            "started_at": execution.started_at.isoformat() if execution.started_at else None,
+            "completed_at": execution.completed_at.isoformat() if execution.completed_at else None,
+            "duration": duration,
+            "input_data": execution.input_data,
+            "output_data": execution.output_data,
+            "error_message": execution.error_message,
+            "node_executions": node_executions,
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get workflow execution: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve workflow execution"
         )
 
 

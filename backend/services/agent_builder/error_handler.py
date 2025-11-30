@@ -305,10 +305,12 @@ class ErrorHandler:
         context: Dict[str, Any]
     ):
         """
-        Report error to administrators.
+        Report error to administrators via multiple channels.
         
-        This would typically send an email or notification.
-        For now, we just log it with high severity.
+        Sends notifications through:
+        - Sentry error tracking
+        - Email (if configured)
+        - Slack webhook (if configured)
         
         Args:
             error: Exception that occurred
@@ -325,9 +327,166 @@ class ErrorHandler:
             }
         )
         
-        # TODO: Implement email notification to admins
-        # TODO: Implement Slack/Discord webhook notification
-        # TODO: Implement error tracking service integration (e.g., Sentry)
+        # Report to Sentry
+        cls._report_to_sentry(error, user_id, context)
+        
+        # Send email notification (async)
+        cls._send_email_notification(error, user_id, context)
+        
+        # Send Slack notification (async)
+        cls._send_slack_notification(error, user_id, context)
+    
+    @classmethod
+    def _report_to_sentry(
+        cls,
+        error: Exception,
+        user_id: str,
+        context: Dict[str, Any]
+    ):
+        """Report error to Sentry."""
+        try:
+            import sentry_sdk
+            
+            with sentry_sdk.push_scope() as scope:
+                scope.set_user({"id": user_id})
+                scope.set_tag("error_category", "agent_builder")
+                scope.set_context("error_context", context)
+                
+                if isinstance(error, AgentBuilderError):
+                    scope.set_tag("error_severity", error.severity.value)
+                    scope.set_tag("error_type", error.category.value)
+                
+                sentry_sdk.capture_exception(error)
+                logger.info(f"Error reported to Sentry for user {user_id}")
+                
+        except ImportError:
+            logger.debug("Sentry SDK not installed, skipping Sentry reporting")
+        except Exception as e:
+            logger.warning(f"Failed to report to Sentry: {e}")
+    
+    @classmethod
+    def _send_email_notification(
+        cls,
+        error: Exception,
+        user_id: str,
+        context: Dict[str, Any]
+    ):
+        """Send email notification to admins."""
+        try:
+            from backend.services.email_service import get_email_service
+            from backend.config import settings
+            
+            if not getattr(settings, 'ADMIN_EMAIL', None):
+                return
+            
+            email_service = get_email_service()
+            
+            subject = f"[CRITICAL] Agent Builder Error - {type(error).__name__}"
+            body = f"""
+Critical error in Agent Builder:
+
+User ID: {user_id}
+Error Type: {type(error).__name__}
+Error Message: {str(error)}
+
+Context:
+{context}
+
+Please investigate immediately.
+            """
+            
+            # Send async to not block
+            import asyncio
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    asyncio.create_task(
+                        email_service.send_email_async(
+                            to=settings.ADMIN_EMAIL,
+                            subject=subject,
+                            body=body
+                        )
+                    )
+                else:
+                    loop.run_until_complete(
+                        email_service.send_email_async(
+                            to=settings.ADMIN_EMAIL,
+                            subject=subject,
+                            body=body
+                        )
+                    )
+            except RuntimeError:
+                # No event loop, skip async email
+                pass
+                
+        except ImportError:
+            logger.debug("Email service not available")
+        except Exception as e:
+            logger.warning(f"Failed to send email notification: {e}")
+    
+    @classmethod
+    def _send_slack_notification(
+        cls,
+        error: Exception,
+        user_id: str,
+        context: Dict[str, Any]
+    ):
+        """Send Slack notification."""
+        try:
+            from backend.config import settings
+            import httpx
+            
+            webhook_url = getattr(settings, 'SLACK_WEBHOOK_URL', None)
+            if not webhook_url:
+                return
+            
+            severity_emoji = {
+                ErrorSeverity.LOW: "⚠️",
+                ErrorSeverity.MEDIUM: "🔶",
+                ErrorSeverity.HIGH: "🔴",
+                ErrorSeverity.CRITICAL: "🚨",
+            }
+            
+            emoji = "🚨"
+            if isinstance(error, AgentBuilderError):
+                emoji = severity_emoji.get(error.severity, "🚨")
+            
+            message = {
+                "blocks": [
+                    {
+                        "type": "header",
+                        "text": {
+                            "type": "plain_text",
+                            "text": f"{emoji} Agent Builder Error",
+                            "emoji": True
+                        }
+                    },
+                    {
+                        "type": "section",
+                        "fields": [
+                            {"type": "mrkdwn", "text": f"*Error Type:*\n{type(error).__name__}"},
+                            {"type": "mrkdwn", "text": f"*User ID:*\n{user_id}"},
+                        ]
+                    },
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": f"*Message:*\n```{str(error)[:500]}```"
+                        }
+                    }
+                ]
+            }
+            
+            # Send async
+            try:
+                with httpx.Client(timeout=5.0) as client:
+                    client.post(webhook_url, json=message)
+            except Exception:
+                pass
+                
+        except Exception as e:
+            logger.warning(f"Failed to send Slack notification: {e}")
 
 
 # Convenience functions

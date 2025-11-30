@@ -18,6 +18,17 @@ from backend.services.agent_builder.workflow_monitor import (
     WorkflowStatus,
 )
 
+# Import enhanced monitoring components
+from backend.services.agent_builder.workflow_monitoring import (
+    get_workflow_monitor as get_enhanced_monitor,
+    AlertType as EnhancedAlertType,
+    AlertSeverity as EnhancedAlertSeverity,
+)
+from backend.services.agent_builder.workflow_metrics import get_metrics_collector
+from backend.services.agent_builder.dead_letter_queue import get_dead_letter_queue, DLQEntryStatus
+from backend.services.agent_builder.dlq_processor import get_dlq_processor
+from backend.services.agent_builder.checkpoint_recovery import get_checkpoint_manager, CheckpointType
+
 router = APIRouter(prefix="/monitoring", tags=["workflow-monitoring"])
 
 # Global monitor instance (in production, use dependency injection)
@@ -320,4 +331,288 @@ async def get_statistics(
                 for severity in AlertSeverity
             }
         }
+    }
+
+
+# ============================================================================
+# Enhanced Monitoring Endpoints (V2)
+# ============================================================================
+
+# Request/Response Models for V2
+class DLQRetryRequest(BaseModel):
+    force: bool = False
+
+
+class DLQResolveRequest(BaseModel):
+    notes: Optional[str] = None
+    discard: bool = False
+
+
+class AlertThresholdUpdate(BaseModel):
+    warning_threshold: float
+    error_threshold: float
+    critical_threshold: float
+    window_minutes: int = 5
+
+
+# Dashboard V2
+@router.get("/v2/dashboard")
+async def get_monitoring_dashboard_v2(
+    workflow_id: Optional[str] = None,
+):
+    """Get enhanced monitoring dashboard data."""
+    enhanced_monitor = get_enhanced_monitor()
+    return enhanced_monitor.get_dashboard_data(workflow_id)
+
+
+@router.get("/v2/metrics")
+async def get_metrics_v2(
+    format: str = Query("json", regex="^(json|prometheus)$"),
+):
+    """Get workflow metrics in JSON or Prometheus format."""
+    metrics = get_metrics_collector()
+    
+    if format == "prometheus":
+        return metrics.to_prometheus_format()
+    
+    return {
+        "summary": metrics.get_summary(),
+        "metrics": [m.__dict__ for m in metrics.collect_all()],
+    }
+
+
+# Performance Analysis
+@router.get("/v2/performance/{workflow_id}")
+async def get_workflow_performance(
+    workflow_id: str,
+):
+    """Get performance analysis for a workflow."""
+    enhanced_monitor = get_enhanced_monitor()
+    
+    return {
+        "workflow_stats": enhanced_monitor.analyzer.get_workflow_stats(workflow_id),
+        "node_stats": enhanced_monitor.analyzer.get_node_stats(workflow_id),
+        "bottlenecks": enhanced_monitor.analyzer.identify_bottlenecks(workflow_id),
+        "regression": enhanced_monitor.analyzer.detect_performance_regression(workflow_id),
+    }
+
+
+@router.get("/v2/performance/{workflow_id}/bottlenecks")
+async def get_bottlenecks(
+    workflow_id: str,
+):
+    """Identify performance bottlenecks."""
+    enhanced_monitor = get_enhanced_monitor()
+    return enhanced_monitor.analyzer.identify_bottlenecks(workflow_id)
+
+
+# Enhanced Alerts
+@router.get("/v2/alerts")
+async def get_alerts_v2(
+    severity: Optional[str] = None,
+    workflow_id: Optional[str] = None,
+    include_resolved: bool = False,
+    limit: int = 100,
+):
+    """Get alerts with enhanced filtering."""
+    enhanced_monitor = get_enhanced_monitor()
+    
+    severity_enum = EnhancedAlertSeverity(severity) if severity else None
+    
+    if include_resolved:
+        alerts = enhanced_monitor.alert_manager.get_alert_history(limit)
+    else:
+        alerts = enhanced_monitor.alert_manager.get_active_alerts(severity_enum, workflow_id)
+    
+    return {
+        "alerts": [a.to_dict() for a in alerts],
+        "total": len(alerts),
+    }
+
+
+@router.post("/v2/alerts/{alert_id}/resolve")
+async def resolve_alert_v2(
+    alert_id: str,
+):
+    """Resolve an alert."""
+    enhanced_monitor = get_enhanced_monitor()
+    alert = await enhanced_monitor.alert_manager.resolve_alert(alert_id)
+    
+    if not alert:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    
+    return alert.to_dict()
+
+
+# DLQ Management
+@router.get("/v2/dlq")
+async def get_dlq_entries(
+    status: Optional[str] = None,
+    workflow_id: Optional[str] = None,
+    limit: int = 100,
+    offset: int = 0,
+):
+    """Get DLQ entries."""
+    dlq = get_dead_letter_queue()
+    
+    status_enum = DLQEntryStatus(status) if status else None
+    entries = await dlq.list_entries(status_enum, workflow_id, limit, offset)
+    
+    return {
+        "entries": [e.to_dict() for e in entries],
+        "total": len(entries),
+    }
+
+
+@router.get("/v2/dlq/stats")
+async def get_dlq_stats():
+    """Get DLQ statistics."""
+    dlq = get_dead_letter_queue()
+    return await dlq.get_stats()
+
+
+@router.get("/v2/dlq/{entry_id}")
+async def get_dlq_entry(
+    entry_id: str,
+):
+    """Get a specific DLQ entry."""
+    dlq = get_dead_letter_queue()
+    entry = await dlq.get_entry(entry_id)
+    
+    if not entry:
+        raise HTTPException(status_code=404, detail="DLQ entry not found")
+    
+    return entry.to_dict()
+
+
+@router.post("/v2/dlq/{entry_id}/retry")
+async def retry_dlq_entry(
+    entry_id: str,
+    request: DLQRetryRequest,
+):
+    """Retry a DLQ entry."""
+    dlq = get_dead_letter_queue()
+    processor = get_dlq_processor(dlq)
+    
+    entry = await dlq.get_entry(entry_id)
+    if not entry:
+        raise HTTPException(status_code=404, detail="DLQ entry not found")
+    
+    result = await processor.process_entry(entry, force_retry=request.force)
+    
+    return {
+        "entry_id": result.entry_id,
+        "decision": result.decision.value,
+        "success": result.success,
+        "message": result.message,
+        "retry_scheduled_at": result.retry_scheduled_at.isoformat() if result.retry_scheduled_at else None,
+    }
+
+
+@router.post("/v2/dlq/{entry_id}/resolve")
+async def resolve_dlq_entry(
+    entry_id: str,
+    request: DLQResolveRequest,
+):
+    """Resolve a DLQ entry."""
+    dlq = get_dead_letter_queue()
+    entry = await dlq.resolve(entry_id, request.notes, request.discard)
+    
+    if not entry:
+        raise HTTPException(status_code=404, detail="DLQ entry not found")
+    
+    return entry.to_dict()
+
+
+@router.post("/v2/dlq/process-pending")
+async def process_pending_dlq(
+    limit: int = 10,
+    workflow_id: Optional[str] = None,
+):
+    """Process pending DLQ entries."""
+    dlq = get_dead_letter_queue()
+    processor = get_dlq_processor(dlq)
+    
+    results = await processor.process_pending(limit, workflow_id)
+    
+    return {
+        "processed": len(results),
+        "results": [
+            {
+                "entry_id": r.entry_id,
+                "decision": r.decision.value,
+                "success": r.success,
+                "message": r.message,
+            }
+            for r in results
+        ],
+    }
+
+
+# Checkpoint Management
+@router.get("/v2/checkpoints/{execution_id}")
+async def get_checkpoints(
+    execution_id: str,
+):
+    """Get checkpoints for an execution."""
+    manager = get_checkpoint_manager()
+    checkpoints = await manager.list_checkpoints(execution_id)
+    
+    return {
+        "execution_id": execution_id,
+        "checkpoints": [cp.to_dict() for cp in checkpoints],
+        "total": len(checkpoints),
+    }
+
+
+@router.get("/v2/checkpoints/{execution_id}/latest")
+async def get_latest_checkpoint(
+    execution_id: str,
+    checkpoint_type: Optional[str] = None,
+):
+    """Get latest checkpoint for an execution."""
+    manager = get_checkpoint_manager()
+    type_enum = CheckpointType(checkpoint_type) if checkpoint_type else None
+    checkpoint = await manager.get_latest_checkpoint(execution_id, type_enum)
+    
+    if not checkpoint:
+        raise HTTPException(status_code=404, detail="No checkpoint found")
+    
+    return checkpoint.to_dict()
+
+
+@router.delete("/v2/checkpoints/{checkpoint_id}")
+async def delete_checkpoint(
+    checkpoint_id: str,
+):
+    """Delete a checkpoint."""
+    manager = get_checkpoint_manager()
+    success = await manager.delete_checkpoint(checkpoint_id)
+    
+    return {"deleted": success}
+
+
+# Health Check V2
+@router.get("/v2/health")
+async def monitoring_health_v2():
+    """Check enhanced monitoring system health."""
+    enhanced_monitor = get_enhanced_monitor()
+    metrics = get_metrics_collector()
+    dlq = get_dead_letter_queue()
+    
+    dlq_stats = await dlq.get_stats()
+    
+    return {
+        "status": "healthy",
+        "components": {
+            "metrics": "ok",
+            "alerts": "ok",
+            "dlq": "ok",
+            "checkpoints": "ok",
+        },
+        "summary": {
+            "active_alerts": len(enhanced_monitor.alert_manager.get_active_alerts()),
+            "dlq_pending": dlq_stats.get("by_status", {}).get("pending", 0),
+            "total_executions": metrics.get_summary().get("total_executions", 0),
+        },
     }

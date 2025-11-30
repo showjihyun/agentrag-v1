@@ -1,18 +1,32 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+/**
+ * Simplified Properties Panel
+ * 
+ * Unified design system with:
+ * - Tailwind CSS (no inline styles)
+ * - Accessible form controls
+ * - Consistent dark mode support
+ * - Keyboard navigation
+ */
+
+import { useState, useEffect, Suspense, useCallback } from 'react';
 import { Node } from 'reactflow';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Save, X, Trash, Bot, Zap, Brain } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Save, X, Trash, Bot, Zap, Brain, AlertTriangle, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Slider } from '@/components/ui/slider';
 import { LLM_PROVIDERS, getModelsForProvider } from '@/lib/llm-models';
+import { getToolConfig } from '@/components/workflow/tool-configs/ToolConfigRegistry';
+import { cn } from '@/lib/utils';
 
 interface SimplifiedPropertiesPanelProps {
   node: Node | null;
@@ -22,32 +36,16 @@ interface SimplifiedPropertiesPanelProps {
   onChange?: (updates: Partial<Node['data']>) => void;
 }
 
-// Dark theme styles
-const darkStyles = {
-  input: {
-    backgroundColor: '#1a1a1a',
-    borderColor: '#3a3a3a',
-    color: '#e0e0e0',
-  },
-  select: {
-    backgroundColor: '#1a1a1a',
-    borderColor: '#3a3a3a',
-    color: '#e0e0e0',
-  },
-  card: {
-    backgroundColor: '#0f0f0f',
-    borderColor: '#2a2a2a',
-  },
-  label: {
-    color: '#b0b0b0',
-    fontSize: '13px',
-    fontWeight: 500,
-  },
-  helpText: {
-    color: '#707070',
-    fontSize: '11px',
-  },
-};
+// Loading fallback component
+function ConfigLoadingFallback() {
+  return (
+    <div className="flex items-center justify-center p-8">
+      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      <span className="ml-2 text-sm text-muted-foreground">Loading configuration...</span>
+    </div>
+  );
+}
+
 
 export const SimplifiedPropertiesPanel = ({
   node,
@@ -58,125 +56,183 @@ export const SimplifiedPropertiesPanel = ({
 }: SimplifiedPropertiesPanelProps) => {
   const [localData, setLocalData] = useState<any>({});
   const [activeTab, setActiveTab] = useState('basic');
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    console.log('📋 SimplifiedPropertiesPanel mounted/updated:', {
-      hasNode: !!node,
-      nodeId: node?.id,
-      nodeType: node?.type,
-      isOpen,
-      nodeData: node?.data
-    });
-    
     if (node) {
-      setLocalData(node.data || {});
+      const nodeData = node.data || {};
+      
+      // Auto-load API key from localStorage if not set
+      if (nodeData.parameters?.provider && !nodeData.parameters?.api_key) {
+        try {
+          const savedApiKeys = localStorage.getItem('llm_api_keys');
+          if (savedApiKeys) {
+            const apiKeys = JSON.parse(savedApiKeys);
+            const provider = nodeData.parameters.provider;
+            if (apiKeys[provider]) {
+              nodeData.parameters = {
+                ...nodeData.parameters,
+                api_key: apiKeys[provider]
+              };
+            }
+          }
+        } catch (e) {
+          console.error('Failed to parse saved API keys:', e);
+        }
+      }
+      
+      setLocalData(nodeData);
       setActiveTab('basic');
+      setHasUnsavedChanges(false);
     }
   }, [node, isOpen]);
 
-  const handleSave = () => {
-    if (node) {
+  const handleSave = useCallback(async () => {
+    if (!node) return;
+    
+    setIsSaving(true);
+    try {
       if (onUpdate) {
         onUpdate(node.id, localData);
       } else if (onChange) {
         onChange(localData);
       }
+      setHasUnsavedChanges(false);
       onClose();
+    } finally {
+      setIsSaving(false);
     }
-  };
+  }, [node, localData, onUpdate, onChange, onClose]);
 
-  const updateField = (field: string, value: any) => {
+  const updateField = useCallback((field: string, value: any) => {
     setLocalData((prev: any) => ({ ...prev, [field]: value }));
-  };
+    setHasUnsavedChanges(true);
+  }, []);
 
-  const updateParameter = (paramName: string, value: any) => {
-    setLocalData((prev: any) => ({
-      ...prev,
-      parameters: {
-        ...(prev.parameters || {}),
-        [paramName]: value
+  const updateParameter = useCallback((paramName: string, value: any) => {
+    setLocalData((prev: any) => {
+      const configFieldMap: Record<string, string> = {
+        'provider': 'llm_provider',
+        'model': 'model',
+        'system_prompt': 'system_prompt',
+        'temperature': 'temperature',
+        'max_tokens': 'max_tokens',
+        'memory_type': 'memory_type',
+        'enable_memory': 'enable_memory',
+        'memory_window': 'memory_window',
+        'user_message': 'user_message',
+      };
+      
+      const configFieldName = configFieldMap[paramName] || paramName;
+      
+      const updated = {
+        ...prev,
+        parameters: {
+          ...(prev.parameters || {}),
+          [paramName]: value
+        },
+        config: {
+          ...(prev.config || {}),
+          [configFieldName]: value,
+          ...(paramName === 'provider' ? { llm_provider: value } : {}),
+        },
+        [configFieldName]: value,
+      };
+      
+      // Save API key to localStorage
+      if (paramName === 'api_key' && value && prev.parameters?.provider) {
+        try {
+          const savedApiKeys = localStorage.getItem('llm_api_keys');
+          const apiKeys = savedApiKeys ? JSON.parse(savedApiKeys) : {};
+          apiKeys[prev.parameters.provider] = value;
+          localStorage.setItem('llm_api_keys', JSON.stringify(apiKeys));
+        } catch (e) {
+          console.error('Failed to save API key:', e);
+        }
       }
-    }));
-  };
+      
+      return updated;
+    });
+    setHasUnsavedChanges(true);
+  }, []);
 
-  // Check if this is an AI Agent tool
-  const isAIAgentTool = localData.type === 'tool_ai_agent' || 
-                        localData.tool_id === 'ai_agent' ||
-                        localData.tool_name === 'AI Agent';
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!isOpen) return;
+      
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        handleSave();
+      }
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, handleSave, onClose]);
 
-  if (!node) {
-    console.log('⚠️ SimplifiedPropertiesPanel: No node provided');
-    return null;
-  }
+  // Check node types
+  const isToolNode = node?.type === 'tool' || 
+    (node?.type === 'block' && (
+      localData.tool_id || 
+      localData.tool_name || 
+      localData.category === 'ai' ||
+      localData.type === 'tool'
+    ));
 
-  console.log('✅ SimplifiedPropertiesPanel rendering:', {
-    nodeId: node.id,
-    nodeType: node.type,
-    isOpen,
-    hasData: !!node.data,
-    localData
-  });
+  const isAIAgentTool = isToolNode && (
+    localData.type === 'tool_ai_agent' || 
+    localData.tool_id === 'ai_agent' ||
+    localData.id === 'ai_agent' ||
+    localData.tool_name === 'AI Agent' ||
+    localData.name === 'AI Agent' ||
+    localData.label === 'AI Agent' ||
+    localData.label?.includes('AI Agent') ||
+    localData.name?.includes('AI Agent') ||
+    (localData.category === 'ai' && (localData.name?.includes('Agent') || localData.label?.includes('Agent')))
+  );
 
-  if (!isOpen) return null;
+  if (!node || !isOpen) return null;
 
   return (
     <>
       {/* Backdrop */}
       <div
-        style={{
-          position: 'fixed',
-          inset: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.7)',
-          backdropFilter: 'blur(2px)',
-          zIndex: 9998,
-        }}
+        className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[9998] animate-in fade-in duration-200"
         onClick={onClose}
+        aria-hidden="true"
       />
 
       {/* Panel */}
       <div
-        style={{
-          position: 'fixed',
-          right: 0,
-          top: 0,
-          bottom: 0,
-          width: '380px',
-          maxWidth: '90vw',
-          backgroundColor: '#0a0a0a',
-          borderLeft: '1px solid #2a2a2a',
-          boxShadow: '-8px 0 32px rgba(0, 0, 0, 0.5)',
-          zIndex: 9999,
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-        }}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Configure ${localData.label || localData.name || node.type} node`}
+        className={cn(
+          "fixed right-0 top-0 bottom-0 z-[9999]",
+          "w-[480px] max-w-[90vw]",
+          "bg-background dark:bg-zinc-950",
+          "border-l border-border dark:border-zinc-800",
+          "shadow-2xl",
+          "flex flex-col overflow-hidden",
+          "animate-in slide-in-from-right duration-300"
+        )}
       >
         {/* Header */}
-        <div style={{ 
-          padding: '14px 18px', 
-          borderBottom: '1px solid #2a2a2a',
-          background: 'linear-gradient(to bottom, #1a1a1a, #0f0f0f)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="px-5 py-4 border-b border-border dark:border-zinc-800 bg-muted/30 dark:bg-zinc-900/50">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
               <Badge 
                 variant="outline" 
-                className="capitalize text-xs"
-                style={{
-                  backgroundColor: '#1a1a1a',
-                  borderColor: '#3a3a3a',
-                  color: '#808080',
-                  padding: '2px 8px'
-                }}
+                className="capitalize text-xs font-medium"
               >
                 {node.type}
               </Badge>
-              <h2 style={{ 
-                fontSize: '14px', 
-                fontWeight: 600,
-                color: '#e0e0e0',
-                letterSpacing: '-0.01em'
-              }}>
+              <h2 className="text-sm font-semibold text-foreground">
                 Node Properties
               </h2>
             </div>
@@ -184,11 +240,8 @@ export const SimplifiedPropertiesPanel = ({
               variant="ghost" 
               size="sm" 
               onClick={onClose}
-              style={{
-                color: '#808080',
-                padding: '4px',
-                height: 'auto'
-              }}
+              className="h-8 w-8 p-0"
+              aria-label="Close panel"
             >
               <X className="h-4 w-4" />
             </Button>
@@ -196,113 +249,69 @@ export const SimplifiedPropertiesPanel = ({
         </div>
 
         {/* Content */}
-        <div style={{ 
-          flex: 1, 
-          overflow: 'auto', 
-          padding: '14px',
-          backgroundColor: '#0a0a0a'
-        }}>
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList 
-              className="grid w-full mb-4"
-              style={{
-                backgroundColor: '#000000',
-                border: '1px solid #2a2a2a',
-                padding: '2px',
-                height: '36px',
-                gridTemplateColumns: isAIAgentTool ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)'
-              }}
-            >
-              <TabsTrigger 
-                value="basic"
-                style={{
-                  color: activeTab === 'basic' ? '#ffffff' : '#606060',
-                  backgroundColor: activeTab === 'basic' ? '#1a1a1a' : 'transparent',
-                  fontSize: '12px',
-                  fontWeight: 500,
-                  transition: 'all 0.2s'
-                }}
-              >
-                Basic
-              </TabsTrigger>
-              <TabsTrigger 
-                value="config"
-                style={{
-                  color: activeTab === 'config' ? '#ffffff' : '#606060',
-                  backgroundColor: activeTab === 'config' ? '#1a1a1a' : 'transparent',
-                  fontSize: '12px',
-                  fontWeight: 500,
-                  transition: 'all 0.2s'
-                }}
-              >
-                Config
-              </TabsTrigger>
-              {!isAIAgentTool && (
-                <TabsTrigger 
-                  value="advanced"
-                  style={{
-                    color: activeTab === 'advanced' ? '#ffffff' : '#606060',
-                    backgroundColor: activeTab === 'advanced' ? '#1a1a1a' : 'transparent',
-                    fontSize: '12px',
-                    fontWeight: 500,
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  Advanced
+        <ScrollArea className="flex-1">
+          <div className="p-5">
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className={cn(
+                "grid w-full mb-5 h-10",
+                isToolNode ? "grid-cols-2" : "grid-cols-3"
+              )}>
+                <TabsTrigger value="basic" className="text-xs font-medium">
+                  Basic
                 </TabsTrigger>
-              )}
-            </TabsList>
+                <TabsTrigger value="config" className="text-xs font-medium">
+                  Config
+                </TabsTrigger>
+                {!isToolNode && (
+                  <TabsTrigger value="advanced" className="text-xs font-medium">
+                    Advanced
+                  </TabsTrigger>
+                )}
+              </TabsList>
 
-
-
-            {/* Basic Tab */}
-            {activeTab === 'basic' && (
-              <div className="space-y-3">
-                <Card style={darkStyles.card}>
-                  <CardHeader style={{ padding: '12px 14px' }}>
-                    <CardTitle style={{ fontSize: '13px', color: '#e0e0e0', fontWeight: 600 }}>
-                      Essential Settings
-                    </CardTitle>
-                    <CardDescription style={{ fontSize: '11px', color: '#707070', marginTop: '2px' }}>
+              {/* Basic Tab */}
+              <TabsContent value="basic" className="space-y-4 mt-0">
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm">Essential Settings</CardTitle>
+                    <CardDescription className="text-xs">
                       Configure the basic properties
                     </CardDescription>
                   </CardHeader>
-                  <CardContent style={{ padding: '0 14px 14px' }} className="space-y-3">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="node-name" style={darkStyles.label}>Node Name *</Label>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="node-name" className="text-xs font-medium">
+                        Node Name <span className="text-destructive">*</span>
+                      </Label>
                       <Input
                         id="node-name"
                         value={localData.label || localData.name || ''}
                         onChange={(e) => updateField('label', e.target.value)}
                         placeholder="Enter node name"
-                        style={{
-                          ...darkStyles.input,
-                          height: '36px',
-                          fontSize: '13px'
-                        }}
+                        className="h-9"
                       />
                     </div>
 
-                    <div className="space-y-1.5">
-                      <Label htmlFor="node-description" style={darkStyles.label}>Description</Label>
+                    <div className="space-y-2">
+                      <Label htmlFor="node-description" className="text-xs font-medium">
+                        Description
+                      </Label>
                       <Textarea
                         id="node-description"
                         value={localData.description || ''}
                         onChange={(e) => updateField('description', e.target.value)}
                         placeholder="Describe what this node does"
                         rows={2}
-                        style={{
-                          ...darkStyles.input,
-                          fontSize: '12px',
-                          resize: 'none'
-                        }}
+                        className="resize-none text-sm"
                       />
                     </div>
 
-                    <div className="flex items-center justify-between pt-1">
+                    <div className="flex items-center justify-between py-2">
                       <div>
-                        <Label htmlFor="node-enabled" style={darkStyles.label}>Enabled</Label>
-                        <p style={darkStyles.helpText}>Skip if disabled</p>
+                        <Label htmlFor="node-enabled" className="text-xs font-medium cursor-pointer">
+                          Enabled
+                        </Label>
+                        <p className="text-xs text-muted-foreground">Skip if disabled</p>
                       </div>
                       <Switch
                         id="node-enabled"
@@ -312,79 +321,88 @@ export const SimplifiedPropertiesPanel = ({
                     </div>
                   </CardContent>
                 </Card>
-              </div>
-            )}
+              </TabsContent>
 
-            {/* Config Tab */}
-            {activeTab === 'config' && (
-              <div className="space-y-3">
-                {isAIAgentTool ? (
+              {/* Config Tab */}
+              <TabsContent value="config" className="space-y-4 mt-0">
+                {/* Tool-specific config */}
+                {(() => {
+                  const configKey = localData.tool_id || node?.type;
+                  const ToolConfigComponent = configKey ? getToolConfig(configKey) : null;
+                  
+                  if (ToolConfigComponent && !isAIAgentTool) {
+                    return (
+                      <Suspense fallback={<ConfigLoadingFallback />}>
+                        <ToolConfigComponent
+                          data={localData.parameters || localData}
+                          onChange={(updates: any) => {
+                            setLocalData((prev: any) => ({
+                              ...prev,
+                              parameters: { ...prev.parameters, ...updates }
+                            }));
+                            setHasUnsavedChanges(true);
+                          }}
+                        />
+                      </Suspense>
+                    );
+                  }
+                  return null;
+                })()}
+
+                {/* AI Agent Config */}
+                {(isAIAgentTool || !getToolConfig(localData.tool_id || node?.type)) && (
                   <>
                     {/* LLM Configuration */}
-                    <Card style={darkStyles.card}>
-                      <CardHeader style={{ padding: '12px 14px' }}>
-                        <CardTitle style={{ fontSize: '13px', color: '#e0e0e0', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <Bot className="h-3.5 w-3.5" />
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-sm flex items-center gap-2">
+                          <Bot className="h-4 w-4" aria-hidden="true" />
                           LLM Configuration
                         </CardTitle>
-                        <CardDescription style={{ fontSize: '11px', color: '#707070', marginTop: '2px' }}>
+                        <CardDescription className="text-xs">
                           Select the AI model and provider
                         </CardDescription>
                       </CardHeader>
-                      <CardContent style={{ padding: '0 14px 14px' }} className="space-y-3">
-                        <div className="space-y-1.5">
-                          <Label htmlFor="provider" style={darkStyles.label}>LLM Provider *</Label>
+                      <CardContent className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="provider" className="text-xs font-medium">
+                            LLM Provider <span className="text-destructive">*</span>
+                          </Label>
                           <Select
                             value={localData.parameters?.provider || 'ollama'}
                             onValueChange={(value) => updateParameter('provider', value)}
                           >
-                            <SelectTrigger 
-                              id="provider"
-                              style={{
-                                ...darkStyles.select,
-                                height: '36px',
-                                fontSize: '13px'
-                              }}
-                            >
+                            <SelectTrigger id="provider" className="h-9">
                               <SelectValue placeholder="Select provider" />
                             </SelectTrigger>
-                            <SelectContent style={{ backgroundColor: '#1a1a1a', borderColor: '#3a3a3a' }}>
+                            <SelectContent>
                               {LLM_PROVIDERS.map((provider) => (
-                                <SelectItem 
-                                  key={provider.id} 
-                                  value={provider.id}
-                                  style={{ color: '#e0e0e0', fontSize: '13px' }}
-                                >
-                                  {provider.icon} {provider.name} ({provider.type})
+                                <SelectItem key={provider.id} value={provider.id}>
+                                  <span className="flex items-center gap-2">
+                                    <span>{provider.icon}</span>
+                                    <span>{provider.name}</span>
+                                    <span className="text-xs text-muted-foreground">({provider.type})</span>
+                                  </span>
                                 </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
                         </div>
 
-                        <div className="space-y-1.5">
-                          <Label htmlFor="model" style={darkStyles.label}>Model *</Label>
+                        <div className="space-y-2">
+                          <Label htmlFor="model" className="text-xs font-medium">
+                            Model <span className="text-destructive">*</span>
+                          </Label>
                           <Select
                             value={localData.parameters?.model || 'llama3.3:70b'}
                             onValueChange={(value) => updateParameter('model', value)}
                           >
-                            <SelectTrigger 
-                              id="model"
-                              style={{
-                                ...darkStyles.select,
-                                height: '36px',
-                                fontSize: '13px'
-                              }}
-                            >
+                            <SelectTrigger id="model" className="h-9">
                               <SelectValue placeholder="Select model" />
                             </SelectTrigger>
-                            <SelectContent style={{ backgroundColor: '#1a1a1a', borderColor: '#3a3a3a' }}>
+                            <SelectContent>
                               {getModelsForProvider(localData.parameters?.provider || 'ollama').map((model) => (
-                                <SelectItem 
-                                  key={model.id} 
-                                  value={model.id}
-                                  style={{ color: '#e0e0e0', fontSize: '13px' }}
-                                >
+                                <SelectItem key={model.id} value={model.id}>
                                   {model.name}
                                 </SelectItem>
                               ))}
@@ -392,41 +410,53 @@ export const SimplifiedPropertiesPanel = ({
                           </Select>
                         </div>
 
-                        <div className="space-y-1.5">
-                          <Label htmlFor="system-prompt" style={darkStyles.label}>System Prompt</Label>
+                        {/* API Key info */}
+                        {localData.parameters?.provider && localData.parameters.provider !== 'ollama' && (
+                          <div className="p-3 rounded-lg bg-muted/50 border border-border">
+                            <p className="text-xs text-muted-foreground flex items-center gap-2">
+                              <span>🔑</span>
+                              API Key is managed in User Settings or environment variables
+                            </p>
+                          </div>
+                        )}
+
+                        <div className="space-y-2">
+                          <Label htmlFor="system-prompt" className="text-xs font-medium">
+                            System Prompt
+                          </Label>
                           <Textarea
                             id="system-prompt"
                             value={localData.parameters?.system_prompt || ''}
                             onChange={(e) => updateParameter('system_prompt', e.target.value)}
                             placeholder="You are a helpful AI assistant..."
                             rows={3}
-                            style={{
-                              ...darkStyles.input,
-                              fontSize: '12px',
-                              resize: 'none'
-                            }}
+                            className="resize-none text-sm"
                           />
-                          <p style={darkStyles.helpText}>Define the agent's behavior and personality</p>
+                          <p className="text-xs text-muted-foreground">
+                            Define the agent's behavior and personality
+                          </p>
                         </div>
                       </CardContent>
                     </Card>
 
                     {/* Memory Settings */}
-                    <Card style={darkStyles.card}>
-                      <CardHeader style={{ padding: '12px 14px' }}>
-                        <CardTitle style={{ fontSize: '13px', color: '#e0e0e0', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <Brain className="h-3.5 w-3.5" />
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-sm flex items-center gap-2">
+                          <Brain className="h-4 w-4" aria-hidden="true" />
                           Memory Settings
                         </CardTitle>
-                        <CardDescription style={{ fontSize: '11px', color: '#707070', marginTop: '2px' }}>
+                        <CardDescription className="text-xs">
                           Configure conversation memory
                         </CardDescription>
                       </CardHeader>
-                      <CardContent style={{ padding: '0 14px 14px' }} className="space-y-3">
+                      <CardContent className="space-y-4">
                         <div className="flex items-center justify-between">
                           <div>
-                            <Label htmlFor="enable-memory" style={darkStyles.label}>Enable Memory</Label>
-                            <p style={darkStyles.helpText}>Remember conversation history</p>
+                            <Label htmlFor="enable-memory" className="text-xs font-medium cursor-pointer">
+                              Enable Memory
+                            </Label>
+                            <p className="text-xs text-muted-foreground">Remember conversation history</p>
                           </div>
                           <Switch
                             id="enable-memory"
@@ -437,51 +467,41 @@ export const SimplifiedPropertiesPanel = ({
 
                         {(localData.parameters?.enable_memory ?? true) && (
                           <>
-                            <div className="space-y-1.5">
-                              <Label htmlFor="memory-type" style={darkStyles.label}>Memory Type</Label>
+                            <div className="space-y-2">
+                              <Label htmlFor="memory-type" className="text-xs font-medium">
+                                Memory Type
+                              </Label>
                               <Select
                                 value={localData.parameters?.memory_type || 'long_term'}
                                 onValueChange={(value) => updateParameter('memory_type', value)}
                               >
-                                <SelectTrigger 
-                                  id="memory-type"
-                                  style={{
-                                    ...darkStyles.select,
-                                    height: '36px',
-                                    fontSize: '13px'
-                                  }}
-                                >
+                                <SelectTrigger id="memory-type" className="h-9">
                                   <SelectValue />
                                 </SelectTrigger>
-                                <SelectContent style={{ backgroundColor: '#1a1a1a', borderColor: '#3a3a3a' }}>
-                                  <SelectItem value="short_term" style={{ color: '#e0e0e0', fontSize: '13px' }}>Short Term</SelectItem>
-                                  <SelectItem value="mid_term" style={{ color: '#e0e0e0', fontSize: '13px' }}>Mid Term</SelectItem>
-                                  <SelectItem value="long_term" style={{ color: '#e0e0e0', fontSize: '13px' }}>Long Term</SelectItem>
-                                  <SelectItem value="all" style={{ color: '#e0e0e0', fontSize: '13px' }}>All</SelectItem>
+                                <SelectContent>
+                                  <SelectItem value="short_term">Short Term</SelectItem>
+                                  <SelectItem value="mid_term">Mid Term</SelectItem>
+                                  <SelectItem value="long_term">Long Term</SelectItem>
+                                  <SelectItem value="all">All</SelectItem>
                                 </SelectContent>
                               </Select>
                             </div>
 
-                            <div className="space-y-1.5">
-                              <Label htmlFor="memory-window" style={darkStyles.label}>Memory Window</Label>
+                            <div className="space-y-2">
+                              <Label htmlFor="memory-window" className="text-xs font-medium">
+                                Memory Window
+                              </Label>
                               <Select
                                 value={String(localData.parameters?.memory_window || '10')}
                                 onValueChange={(value) => updateParameter('memory_window', value)}
                               >
-                                <SelectTrigger 
-                                  id="memory-window"
-                                  style={{
-                                    ...darkStyles.select,
-                                    height: '36px',
-                                    fontSize: '13px'
-                                  }}
-                                >
+                                <SelectTrigger id="memory-window" className="h-9">
                                   <SelectValue />
                                 </SelectTrigger>
-                                <SelectContent style={{ backgroundColor: '#1a1a1a', borderColor: '#3a3a3a' }}>
+                                <SelectContent>
                                   {['5', '10', '20', '50', '100'].map((val) => (
-                                    <SelectItem key={val} value={val} style={{ color: '#e0e0e0', fontSize: '13px' }}>
-                                      {val}
+                                    <SelectItem key={val} value={val}>
+                                      {val} messages
                                     </SelectItem>
                                   ))}
                                 </SelectContent>
@@ -493,180 +513,132 @@ export const SimplifiedPropertiesPanel = ({
                     </Card>
 
                     {/* Generation Parameters */}
-                    <Card style={darkStyles.card}>
-                      <CardHeader style={{ padding: '12px 14px' }}>
-                        <CardTitle style={{ fontSize: '13px', color: '#e0e0e0', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <Zap className="h-3.5 w-3.5" />
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-sm flex items-center gap-2">
+                          <Zap className="h-4 w-4" aria-hidden="true" />
                           Generation Parameters
                         </CardTitle>
-                        <CardDescription style={{ fontSize: '11px', color: '#707070', marginTop: '2px' }}>
+                        <CardDescription className="text-xs">
                           Fine-tune AI response generation
                         </CardDescription>
                       </CardHeader>
-                      <CardContent style={{ padding: '0 14px 14px' }} className="space-y-3">
-                        <div className="space-y-1.5">
+                      <CardContent className="space-y-4">
+                        <div className="space-y-3">
                           <div className="flex items-center justify-between">
-                            <Label htmlFor="temperature" style={darkStyles.label}>Temperature</Label>
-                            <span style={{ fontSize: '12px', color: '#909090' }}>
+                            <Label htmlFor="temperature" className="text-xs font-medium">
+                              Temperature
+                            </Label>
+                            <span className="text-xs text-muted-foreground font-mono">
                               {localData.parameters?.temperature || 0.7}
                             </span>
                           </div>
-                          <input
+                          <Slider
                             id="temperature"
-                            type="range"
-                            min="0"
-                            max="2"
-                            step="0.1"
-                            value={localData.parameters?.temperature || 0.7}
-                            onChange={(e) => updateParameter('temperature', parseFloat(e.target.value))}
-                            style={{
-                              width: '100%',
-                              height: '4px',
-                              borderRadius: '2px',
-                              background: '#2a2a2a',
-                              outline: 'none',
-                              accentColor: '#3b82f6'
-                            }}
+                            min={0}
+                            max={2}
+                            step={0.1}
+                            value={[localData.parameters?.temperature || 0.7]}
+                            onValueChange={([value]) => updateParameter('temperature', value)}
+                            className="w-full"
+                            aria-label="Temperature"
                           />
-                          <p style={darkStyles.helpText}>0 = deterministic, 2 = very creative</p>
+                          <p className="text-xs text-muted-foreground">
+                            0 = deterministic, 2 = very creative
+                          </p>
                         </div>
 
-                        <div className="space-y-1.5">
-                          <Label htmlFor="max-tokens" style={darkStyles.label}>Max Tokens</Label>
+                        <div className="space-y-2">
+                          <Label htmlFor="max-tokens" className="text-xs font-medium">
+                            Max Tokens
+                          </Label>
                           <Input
                             id="max-tokens"
                             type="number"
-                            min="1"
-                            max="4096"
+                            min={1}
+                            max={4096}
                             value={localData.parameters?.max_tokens || 1000}
                             onChange={(e) => updateParameter('max_tokens', parseInt(e.target.value))}
-                            style={{
-                              ...darkStyles.input,
-                              height: '36px',
-                              fontSize: '13px'
-                            }}
+                            className="h-9"
                           />
-                          <p style={darkStyles.helpText}>Maximum length of response</p>
+                          <p className="text-xs text-muted-foreground">
+                            Maximum length of response (1-4096)
+                          </p>
                         </div>
                       </CardContent>
                     </Card>
                   </>
-                ) : (
-                  <Card style={darkStyles.card}>
-                    <CardHeader style={{ padding: '12px 14px' }}>
-                      <CardTitle style={{ fontSize: '13px', color: '#e0e0e0' }}>Configuration</CardTitle>
+                )}
+              </TabsContent>
+
+              {/* Advanced Tab */}
+              {!isToolNode && (
+                <TabsContent value="advanced" className="space-y-4 mt-0">
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm">Advanced Settings</CardTitle>
+                      <CardDescription className="text-xs">
+                        Raw node data (JSON)
+                      </CardDescription>
                     </CardHeader>
-                    <CardContent style={{ padding: '0 14px 14px' }}>
-                      <div style={{ fontSize: '12px', color: '#909090', fontFamily: 'monospace', padding: '8px', backgroundColor: '#1a1a1a', borderRadius: '4px' }}>
-                        {node.type}
-                      </div>
+                    <CardContent>
+                      <Textarea
+                        value={JSON.stringify(localData, null, 2)}
+                        onChange={(e) => {
+                          try {
+                            const parsed = JSON.parse(e.target.value);
+                            setLocalData(parsed);
+                            setHasUnsavedChanges(true);
+                          } catch {
+                            // Invalid JSON, ignore
+                          }
+                        }}
+                        rows={15}
+                        className="font-mono text-xs resize-none"
+                        spellCheck={false}
+                      />
                     </CardContent>
                   </Card>
-                )}
-              </div>
-            )}
-
-
-
-            {/* Advanced Tab (non-AI Agent tools) */}
-            {activeTab === 'advanced' && !isAIAgentTool && (
-              <div className="space-y-3">
-                <Card style={darkStyles.card}>
-                  <CardHeader style={{ padding: '12px 14px' }}>
-                    <CardTitle style={{ fontSize: '13px', color: '#e0e0e0' }}>Advanced Settings</CardTitle>
-                    <CardDescription style={{ fontSize: '11px', color: '#707070', marginTop: '2px' }}>
-                      Raw node data (JSON)
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent style={{ padding: '0 14px 14px' }}>
-                    <Textarea
-                      value={JSON.stringify(localData, null, 2)}
-                      onChange={(e) => {
-                        try {
-                          const parsed = JSON.parse(e.target.value);
-                          setLocalData(parsed);
-                        } catch {
-                          // Invalid JSON
-                        }
-                      }}
-                      rows={12}
-                      style={{
-                        ...darkStyles.input,
-                        fontSize: '11px',
-                        fontFamily: 'monospace',
-                        resize: 'none'
-                      }}
-                    />
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-          </Tabs>
-        </div>
+                </TabsContent>
+              )}
+            </Tabs>
+          </div>
+        </ScrollArea>
 
         {/* Footer */}
-        <div style={{ 
-          padding: '12px 18px', 
-          borderTop: '1px solid #2a2a2a', 
-          display: 'flex', 
-          gap: '8px', 
-          justifyContent: 'space-between',
-          backgroundColor: '#0f0f0f'
-        }}>
-          <Button
-            onClick={() => {
-              if (window.confirm(`Delete "${localData.label || localData.name || 'this node'}"?`)) {
-                if (node && onUpdate) {
-                  onUpdate(node.id, { _delete: true } as any);
-                }
-                onClose();
-              }
-            }}
-            style={{
-              backgroundColor: '#dc2626',
-              color: 'white',
-              border: 'none',
-              height: '34px',
-              fontSize: '12px',
-              padding: '0 14px'
-            }}
-          >
-            <Trash className="mr-1.5 h-3.5 w-3.5" />
-            Delete
-          </Button>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <Button 
+        <div className="px-5 py-4 border-t border-border dark:border-zinc-800 bg-muted/30 dark:bg-zinc-900/50 space-y-3">
+          {hasUnsavedChanges && (
+            <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400" role="status">
+              <AlertTriangle className="h-3 w-3" aria-hidden="true" />
+              <span>You have unsaved changes</span>
+            </div>
+          )}
+          
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
               onClick={onClose}
-              style={{
-                backgroundColor: 'transparent',
-                borderColor: '#3a3a3a',
-                color: '#909090',
-                height: '34px',
-                fontSize: '12px',
-                padding: '0 14px'
-              }}
+              className="flex-1"
+              disabled={isSaving}
             >
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={handleSave}
-              style={{
-                backgroundColor: '#3b82f6',
-                color: 'white',
-                border: 'none',
-                height: '34px',
-                fontSize: '12px',
-                padding: '0 14px'
-              }}
+              className="flex-1 gap-2"
+              disabled={isSaving || !hasUnsavedChanges}
             >
-              <Save className="mr-1.5 h-3.5 w-3.5" />
+              {isSaving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
               Save
+              <kbd className="ml-auto text-xs opacity-60 hidden sm:inline">⌘S</kbd>
             </Button>
           </div>
         </div>
       </div>
-
-
     </>
   );
 };

@@ -179,3 +179,17 @@ export class WorkflowErrorBoundary extends Component<
     return this.props.children;
   }
 }
+
+// HOC for functional components
+export function withErrorBoundary<P extends object>(
+  WrappedComponent: React.ComponentType<P>,
+  fallback?: React.ReactNode
+) {
+  return function WithErrorBoundary(props: P) {
+    return (
+      <ErrorBoundary fallback={() => fallback || null}>
+        <WrappedComponent {...props} />
+      </ErrorBoundary>
+    );
+  };
+}

@@ -1,4 +1,11 @@
-"""Knowledgebase Service for managing agent knowledgebases."""
+"""Knowledgebase Service for managing agent knowledgebases.
+
+한글/영어 이중 언어 지원:
+- 한글 형태소 분석 기반 토큰화
+- 한글 최적화 청킹
+- 하이브리드 검색 (Vector + BM25)
+- 쿼리 확장
+"""
 
 import logging
 import uuid
@@ -19,6 +26,21 @@ from backend.models.agent_builder import (
 )
 
 logger = logging.getLogger(__name__)
+
+# 한글 처리기 lazy import
+def _get_korean_processor():
+    """한글 처리기 lazy import"""
+    try:
+        from backend.services.agent_builder.knowledgebase_korean_processor import (
+            get_knowledgebase_korean_processor,
+            ChunkConfig,
+            SearchConfig,
+            SearchMode
+        )
+        return get_knowledgebase_korean_processor()
+    except ImportError as e:
+        logger.warning(f"Korean processor not available: {e}")
+        return None
 
 
 class KnowledgebaseService:
@@ -150,7 +172,7 @@ class KnowledgebaseService:
     
     def delete_knowledgebase(self, kb_id: str) -> bool:
         """
-        Delete knowledgebase.
+        Delete knowledgebase including Milvus collection and files.
         
         Args:
             kb_id: Knowledgebase ID
@@ -163,11 +185,47 @@ class KnowledgebaseService:
             if not kb:
                 return False
             
-            # TODO: Delete Milvus collection
-            # from backend.services.milvus import MilvusService
-            # milvus_service = MilvusService()
-            # milvus_service.drop_collection(kb.milvus_collection_name)
+            # Delete Milvus collection
+            try:
+                from backend.services.milvus import MilvusManager
+                from backend.services.embedding import EmbeddingService
+                
+                embedding_service = EmbeddingService()
+                milvus_manager = MilvusManager(
+                    collection_name=kb.milvus_collection_name,
+                    embedding_dim=embedding_service.dimension
+                )
+                milvus_manager.drop_collection()
+                logger.info(f"Dropped Milvus collection: {kb.milvus_collection_name}")
+            except Exception as e:
+                logger.warning(f"Failed to drop Milvus collection: {e}")
             
+            # Delete uploaded files
+            try:
+                import shutil
+                import os
+                upload_dir = f"uploads/kb_{kb_id}"
+                if os.path.exists(upload_dir):
+                    shutil.rmtree(upload_dir)
+                    logger.info(f"Deleted upload directory: {upload_dir}")
+            except Exception as e:
+                logger.warning(f"Failed to delete upload directory: {e}")
+            
+            # Delete associated documents
+            from backend.db.models.document import Document
+            doc_ids = [
+                doc.document_id for doc in 
+                self.db.query(KnowledgebaseDocument).filter(
+                    KnowledgebaseDocument.knowledgebase_id == kb_id
+                ).all()
+            ]
+            
+            if doc_ids:
+                self.db.query(Document).filter(Document.id.in_(doc_ids)).delete(
+                    synchronize_session=False
+                )
+            
+            # Delete knowledgebase (cascades to KnowledgebaseDocument, KnowledgebaseVersion)
             self.db.delete(kb)
             self.db.commit()
             
@@ -284,6 +342,11 @@ class KnowledgebaseService:
         """
         Process a single document asynchronously.
         
+        한글/영어 이중 언어 지원:
+        - 한글 전처리 (한자 변환, 띄어쓰기 정규화)
+        - 한글 최적화 청킹 (문장 경계 인식)
+        - BM25 인덱스 구축
+        
         Args:
             kb_id: Knowledgebase ID
             kb: Knowledgebase model
@@ -335,14 +398,49 @@ class KnowledgebaseService:
                 file_size=len(content)
             )
             
-            # 4. Generate embeddings in batches
+            # 4. 한글 처리기로 청크 후처리
+            korean_processor = _get_korean_processor()
+            processed_chunks = []
+            
+            if korean_processor:
+                for chunk in chunks:
+                    # 텍스트 전처리 (한자 변환, 띄어쓰기 정규화)
+                    processed_text = korean_processor.preprocess_text(chunk.text)
+                    
+                    # 언어 감지
+                    language = korean_processor.detect_language(processed_text)
+                    
+                    # 토큰화 (BM25용)
+                    tokens, _ = korean_processor.tokenize(processed_text, extract_nouns=True)
+                    
+                    processed_chunks.append({
+                        "text": processed_text,
+                        "tokens": tokens,
+                        "language": language.value,
+                        "chunk_index": chunk.chunk_index
+                    })
+                
+                logger.info(
+                    f"Processed {len(processed_chunks)} chunks with Korean processor"
+                )
+            else:
+                # Fallback: 기본 처리
+                for chunk in chunks:
+                    processed_chunks.append({
+                        "text": chunk.text,
+                        "tokens": chunk.text.lower().split(),
+                        "language": "unknown",
+                        "chunk_index": chunk.chunk_index
+                    })
+            
+            # 5. Generate embeddings in batches
             embedding_service = EmbeddingService()
-            texts = [chunk.text for chunk in chunks]
+            texts = [pc["text"] for pc in processed_chunks]
             
             # Batch embeddings for efficiency (embed_batch is already async)
             embeddings = await embedding_service.embed_batch(texts)
             
-            # 5. Store in Milvus in batches
+            # 6. Store in Milvus in batches
             milvus_manager = MilvusManager(
                 collection_name=kb.milvus_collection_name,
                 embedding_dim=embedding_service.dimension
@@ -350,15 +448,16 @@ class KnowledgebaseService:
             
             # Prepare batch insert data
             insert_data = []
-            for chunk, embedding in zip(chunks, embeddings):
+            for pc, embedding in zip(processed_chunks, embeddings):
                 insert_data.append({
-                    "text": chunk.text,
+                    "text": pc["text"],
                     "embedding": embedding,
                     "metadata": {
                         "document_id": str(doc.id),
                         "knowledgebase_id": kb_id,
-                        "chunk_index": chunk.chunk_index,
-                        "filename": file.filename
+                        "chunk_index": pc["chunk_index"],
+                        "filename": file.filename,
+                        "language": pc["language"]
                     }
                 })
             
@@ -368,7 +467,28 @@ class KnowledgebaseService:
                 insert_data
             )
             
-            # 6. Create KnowledgebaseDocument record (association table)
+            # 7. BM25 인덱스 업데이트
+            if korean_processor:
+                from backend.services.agent_builder.knowledgebase_korean_processor import ProcessedChunk
+                
+                bm25_chunks = [
+                    ProcessedChunk(
+                        chunk_id=f"{doc.id}_{pc['chunk_index']}",
+                        text=pc["text"],
+                        tokens=pc["tokens"],
+                        language=korean_processor.detect_language(pc["text"]),
+                        size=len(pc["text"]),
+                        metadata={"document_id": str(doc.id)}
+                    )
+                    for pc in processed_chunks
+                ]
+                
+                korean_processor.update_bm25_index(
+                    collection_id=kb.milvus_collection_name,
+                    new_chunks=bm25_chunks
+                )
+            
+            # 8. Create KnowledgebaseDocument record (association table)
             kb_doc = KnowledgebaseDocument(
                 id=uuid.uuid4(),
                 knowledgebase_id=kb_id,
@@ -377,13 +497,13 @@ class KnowledgebaseService:
             self.db.add(kb_doc)
             
             # Update document with chunk count
-            doc.chunk_count = len(chunks)
+            doc.chunk_count = len(processed_chunks)
             doc.status = "completed"
             doc.processing_completed_at = datetime.utcnow()
             
             logger.info(
                 f"Processed document {file.filename} for knowledgebase {kb_id} "
-                f"({len(chunks)} chunks)"
+                f"({len(processed_chunks)} chunks)"
             )
             
             # Return the Document object (not KnowledgebaseDocument)
@@ -441,15 +561,24 @@ class KnowledgebaseService:
         self,
         kb_id: str,
         query: str,
-        top_k: int = 10
+        top_k: int = 10,
+        search_mode: str = "hybrid",
+        expand_query: bool = True
     ) -> List[KnowledgebaseSearchResult]:
         """
-        Search knowledgebase using hybrid search.
+        Search knowledgebase using hybrid search (Vector + BM25).
+        
+        한글/영어 이중 언어 지원:
+        - 한글 형태소 분석 기반 토큰화
+        - 하이브리드 검색 (Vector + BM25)
+        - 쿼리 확장 (동의어, 관련어)
         
         Args:
             kb_id: Knowledgebase ID
             query: Search query
             top_k: Number of results to return
+            search_mode: "vector", "keyword", "hybrid" (default: hybrid)
+            expand_query: Whether to expand query with synonyms
             
         Returns:
             List of search results
@@ -469,30 +598,92 @@ class KnowledgebaseService:
                 embedding_dim=embedding_service.dimension
             )
             
-            # Generate query embedding
-            query_embedding = await embedding_service.embed_text(query)
+            # 한글 처리기 가져오기
+            korean_processor = _get_korean_processor()
             
-            # Perform vector search with knowledgebase filter
-            results = await milvus_manager.search(
-                query_embedding=query_embedding,
-                top_k=top_k,
-                filters=f'knowledgebase_id == "{kb_id}"'
-            )
+            # 쿼리 전처리
+            processed_query = query
+            if korean_processor:
+                processed_query = korean_processor.preprocess_query(query)
+                language = korean_processor.detect_language(query)
+                logger.info(f"Query language detected: {language.value}")
             
-            # Convert to KnowledgebaseSearchResult
-            search_results = []
-            for result in results:
-                search_results.append(
-                    KnowledgebaseSearchResult(
-                        chunk_id=str(result.id),
-                        document_id=result.document_id,
-                        text=result.text,
-                        score=result.score,
-                        metadata=result.metadata
+            # 쿼리 확장 (선택적)
+            queries_to_search = [processed_query]
+            if expand_query and korean_processor:
+                expanded = korean_processor.expand_query(processed_query)
+                queries_to_search = expanded[:3]  # 최대 3개 쿼리
+                logger.info(f"Query expanded: {queries_to_search}")
+            
+            # 벡터 검색 수행
+            vector_results = []
+            if search_mode in ["vector", "hybrid"]:
+                for q in queries_to_search:
+                    query_embedding = await embedding_service.embed_text(q)
+                    
+                    results = await milvus_manager.search(
+                        query_embedding=query_embedding,
+                        top_k=top_k * 2,
+                        filters=f'knowledgebase_id == "{kb_id}"'
                     )
-                )
+                    
+                    for result in results:
+                        vector_results.append((
+                            str(result.id),
+                            result.text,
+                            float(result.score)
+                        ))
             
-            logger.info(f"Search in knowledgebase {kb_id} returned {len(search_results)} results")
+            # 하이브리드 검색 (Vector + BM25)
+            if search_mode == "hybrid" and korean_processor:
+                hybrid_results = await korean_processor.hybrid_search(
+                    collection_id=kb.milvus_collection_name,
+                    query=processed_query,
+                    vector_results=vector_results,
+                    top_k=top_k
+                )
+                
+                # Convert to KnowledgebaseSearchResult
+                search_results = []
+                for result in hybrid_results:
+                    search_results.append(
+                        KnowledgebaseSearchResult(
+                            chunk_id=result["chunk_id"],
+                            document_id=result.get("document_id", ""),
+                            text=result["text"],
+                            score=result["score"],
+                            metadata={
+                                "sources": result.get("sources", []),
+                                "is_hybrid": result.get("is_hybrid", False)
+                            }
+                        )
+                    )
+            else:
+                # 벡터 검색만 사용
+                # 중복 제거 및 정렬
+                seen = set()
+                unique_results = []
+                for chunk_id, text, score in sorted(vector_results, key=lambda x: x[2], reverse=True):
+                    if chunk_id not in seen:
+                        seen.add(chunk_id)
+                        unique_results.append((chunk_id, text, score))
+                
+                search_results = []
+                for chunk_id, text, score in unique_results[:top_k]:
+                    search_results.append(
+                        KnowledgebaseSearchResult(
+                            chunk_id=chunk_id,
+                            document_id="",
+                            text=text,
+                            score=score,
+                            metadata={"sources": ["vector"]}
+                        )
+                    )
+            
+            logger.info(
+                f"Search in knowledgebase {kb_id} returned {len(search_results)} results "
+                f"(mode={search_mode}, expand={expand_query})"
+            )
             return search_results
             
         except Exception as e:

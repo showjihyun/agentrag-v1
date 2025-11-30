@@ -4,6 +4,8 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Trash2, Database, AlertTriangle, RefreshCw } from 'lucide-react';
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
 export default function AdminActions() {
   const [isOpen, setIsOpen] = useState(false);
   const [showConfirm, setShowConfirm] = useState<'milvus' | 'files' | 'all' | null>(null);
@@ -15,7 +17,7 @@ export default function AdminActions() {
     setMessage(null);
     
     try {
-      const response = await fetch('http://localhost:8000/api/admin/reset-milvus', {
+      const response = await fetch(`${API_BASE_URL}/api/admin/reset-milvus`, {
         method: 'POST',
       });
       
@@ -40,7 +42,7 @@ export default function AdminActions() {
     setMessage(null);
     
     try {
-      const response = await fetch('http://localhost:8000/api/admin/delete-all-files', {
+      const response = await fetch(`${API_BASE_URL}/api/admin/delete-all-files`, {
         method: 'POST',
       });
       
@@ -65,7 +67,7 @@ export default function AdminActions() {
     setMessage(null);
     
     try {
-      const response = await fetch('http://localhost:8000/api/admin/reset-all', {
+      const response = await fetch(`${API_BASE_URL}/api/admin/reset-all`, {
         method: 'POST',
       });
       

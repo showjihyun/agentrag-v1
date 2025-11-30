@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 
-type ToastType = 'success' | 'error' | 'warning' | 'info';
+type ToastType = 'success' | 'error' | 'warning' | 'info' | 'destructive';
 
 interface Toast {
   id: string;
@@ -90,7 +90,7 @@ const ToastContainer: React.FC<ToastContainerProps> = ({ toasts, onClose }) => {
 
   return createPortal(
     <div
-      className="fixed top-4 right-4 z-50 space-y-2 pointer-events-none"
+      className="fixed top-4 left-1/2 -translate-x-1/2 z-50 space-y-2 pointer-events-none"
       aria-live="polite"
       aria-atomic="true"
     >
@@ -113,6 +113,7 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onClose }) => {
       case 'success':
         return 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800 text-green-800 dark:text-green-200';
       case 'error':
+      case 'destructive':
         return 'bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800 text-red-800 dark:text-red-200';
       case 'warning':
         return 'bg-yellow-50 dark:bg-yellow-900/30 border-yellow-200 dark:border-yellow-800 text-yellow-800 dark:text-yellow-200';
@@ -134,6 +135,7 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onClose }) => {
           </svg>
         );
       case 'error':
+      case 'destructive':
         return (
           <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
             <path
@@ -172,7 +174,7 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onClose }) => {
         pointer-events-auto
         flex items-start gap-3 p-4 rounded-lg border shadow-lg
         min-w-[320px] max-w-md
-        animate-slide-in-right
+        animate-slide-in-down
         ${getToastStyles(toast.type)}
       `}
       role="alert"

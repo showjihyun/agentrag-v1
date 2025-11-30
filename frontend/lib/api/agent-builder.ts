@@ -274,7 +274,9 @@ class AgentBuilderAPI {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
-    const token = localStorage.getItem('token');
+    // Import getAccessToken from auth module
+    const { getAccessToken } = await import('@/lib/auth');
+    const token = getAccessToken();
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
       ...(token && { Authorization: `Bearer ${token}` }),
@@ -616,6 +618,7 @@ class AgentBuilderAPI {
   }
 
   async getExecution(executionId: string): Promise<Execution> {
+    // This is for AgentExecution, not WorkflowExecution
     return this.request(`/api/agent-builder/executions/${executionId}`);
   }
 
@@ -741,6 +744,10 @@ class AgentBuilderAPI {
     
     const query = params.toString();
     return this.request(`/api/agent-builder/workflows/${workflowId}/executions${query ? `?${query}` : ''}`);
+  }
+
+  async getWorkflowExecution(workflowId: string, executionId: string): Promise<any> {
+    return this.request(`/api/agent-builder/workflows/${workflowId}/executions/${executionId}`);
   }
 
   // Dashboard endpoints

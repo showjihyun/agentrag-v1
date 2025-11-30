@@ -3,17 +3,20 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { logger } from '@/lib/logger';
+import { getAccessToken } from '@/lib/auth';
 import { WorkflowEditor } from '@/components/workflow/WorkflowEditor';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { agentBuilderAPI } from '@/lib/api/agent-builder';
-import { ArrowLeft, Edit, Play, Copy, Trash, GitBranch, Clock, CheckCircle, XCircle, Eye } from 'lucide-react';
+import { ArrowLeft, Edit, Play, Copy, Trash, GitBranch, Clock, CheckCircle, XCircle, Eye, FileText, X } from 'lucide-react';
 import type { Node, Edge } from 'reactflow';
 import { useWorkflowExecutionStream } from '@/hooks/useWorkflowExecutionStream';
 import { ExecutionProgress } from '@/components/workflow/ExecutionProgress';
+import { ExecutionLogPanel } from '@/components/workflow/ExecutionLogPanel';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,6 +27,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
@@ -74,16 +86,25 @@ export default function WorkflowViewPage() {
   const [loadingExecutions, setLoadingExecutions] = useState(false);
   const [selectedExecution, setSelectedExecution] = useState<ExecutionRecord | null>(null);
   const [executionDetailsOpen, setExecutionDetailsOpen] = useState(false);
+  const [simulatedNodeStatuses, setSimulatedNodeStatuses] = useState<Record<string, any>>({});
+  const [isSimulation, setIsSimulation] = useState(false);
+  const [executionStartTime, setExecutionStartTime] = useState<number | undefined>(undefined);
+  const [executionEndTime, setExecutionEndTime] = useState<number | undefined>(undefined);
+  const [showExecutionLog, setShowExecutionLog] = useState(false);
+  const [simulatedExecutions, setSimulatedExecutions] = useState<ExecutionRecord[]>([]);
+  const [showInputDialog, setShowInputDialog] = useState(false);
+  const [workflowInput, setWorkflowInput] = useState('');
+  const [aiAgentMessages, setAiAgentMessages] = useState<any[]>([]); // Store AI Agent chat messages
 
   // SSE for real-time execution status
   const {
-    nodeStatuses,
+    nodeStatuses: sseNodeStatuses,
     isConnected,
     isComplete,
   } = useWorkflowExecutionStream({
     workflowId,
     executionId: executionId || undefined,
-    enabled: executing,
+    enabled: executing && !isSimulation,
     onComplete: (status) => {
       logger.log('✅ Workflow execution completed:', status);
       setExecuting(false);
@@ -99,22 +120,30 @@ export default function WorkflowViewPage() {
       toast({
         title: 'Execution Error',
         description: error,
-        variant: 'error',
       });
     },
   });
+  
+  // Use simulated statuses if in simulation mode OR if we have simulated data, otherwise use SSE statuses
+  const nodeStatuses = (isSimulation || Object.keys(simulatedNodeStatuses).length > 0) 
+    ? simulatedNodeStatuses 
+    : sseNodeStatuses;
 
   // Debug: Log SSE connection status and node statuses
   useEffect(() => {
-    logger.log('🔍 SSE Debug:', {
+    logger.log('🔍 Status Update:', {
       executing,
+      isSimulation,
       executionId,
       isConnected,
       isComplete,
       nodeStatusesCount: Object.keys(nodeStatuses).length,
-      nodeStatuses,
+      nodeStatuses: Object.keys(nodeStatuses).map(id => ({
+        id,
+        status: nodeStatuses[id]?.status,
+      })),
     });
-  }, [executing, executionId, isConnected, isComplete, nodeStatuses]);
+  }, [executing, executionId, isConnected, isComplete, nodeStatuses, isSimulation]);
 
   useEffect(() => {
     loadWorkflow();
@@ -148,15 +177,25 @@ export default function WorkflowViewPage() {
         output_data: exec.output_data,
       }));
       
-      setExecutions(executionRecords);
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to load executions',
-      });
+      // Merge with simulated executions
+      const allExecutions = [...simulatedExecutions, ...executionRecords].sort((a, b) => 
+        new Date(b.started_at).getTime() - new Date(a.started_at).getTime()
+      );
       
-      // Fallback to empty array on error
-      setExecutions([]);
+      setExecutions(allExecutions);
+    } catch (error: any) {
+      logger.error('Failed to load executions:', error);
+      
+      // If API fails, show only simulated executions
+      if (simulatedExecutions.length > 0) {
+        setExecutions(simulatedExecutions);
+      } else {
+        toast({
+          title: 'Error',
+          description: error.message || 'Failed to load executions',
+        });
+        setExecutions([]);
+      }
     } finally {
       setLoadingExecutions(false);
     }
@@ -186,25 +225,611 @@ export default function WorkflowViewPage() {
     }
   };
 
+  // Stream workflow execution and update node statuses
+  const streamWorkflowExecution = async (execId: string, inputData: string) => {
+    try {
+      let token = getAccessToken();
+      
+      // In development mode, token should already be set by startExecution
+      // But double-check just in case
+      if (!token && process.env.NODE_ENV === 'development') {
+        logger.warn('⚠️ No token in streamWorkflowExecution, this should not happen after auto-login');
+      }
+      
+      if (!token) {
+        throw new Error('Authentication required. Please log in again.');
+      }
+      
+      // SSE endpoint expects token as query parameter, not header
+      const response = await fetch(
+        `/api/agent-builder/workflows/${workflowId}/execute/stream?input_data=${encodeURIComponent(JSON.stringify({ user_query: inputData }))}&token=${encodeURIComponent(token)}`,
+        {
+          method: 'GET',
+        }
+      );
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Authentication failed. Please log in again.');
+        }
+        const errorText = await response.text();
+        throw new Error(`Failed to stream workflow execution: ${errorText}`);
+      }
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (!reader) {
+        throw new Error('Response body is null');
+      }
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            
+            if (data === '[DONE]') {
+              logger.log('✅ Workflow execution stream completed');
+              setExecuting(false);
+              setExecutionEndTime(Date.now());
+              toast({
+                title: '✅ Execution Complete',
+                description: 'Workflow executed successfully',
+              });
+              return;
+            }
+
+            try {
+              const event = JSON.parse(data);
+              logger.log('📡 Stream event:', event);
+              logger.log(`📊 Event type: ${event.type}, Node: ${event.data?.node_id || 'N/A'}`);
+
+              // Handle different event types
+              if (event.type === 'start') {
+                logger.log('🎬 Workflow execution started');
+              } else if (event.type === 'node_start') {
+                logger.log('🔵 Node start:', event.data);
+                const nodeName = event.data.label || event.data.node_name || event.data.node_type || 'Unknown';
+                logger.log(`📝 Node name: "${nodeName}" (from label: ${event.data.label}, type: ${event.data.node_type})`);
+                
+                setSimulatedNodeStatuses(prev => ({
+                  ...prev,
+                  [event.data.node_id]: {
+                    nodeId: event.data.node_id,
+                    nodeName: nodeName,
+                    nodeType: event.data.node_type,
+                    status: 'running',
+                    startTime: Date.now(),
+                    timestamp: Date.now(),
+                    input: event.data.input,
+                  },
+                }));
+              } else if (event.type === 'node_complete') {
+                logger.log('✅ Node complete:', event.data);
+                setSimulatedNodeStatuses(prev => {
+                  const prevNode: any = prev[event.data.node_id] || {};
+                  const updated: any = {
+                    ...prev,
+                    [event.data.node_id]: {
+                      ...prevNode,
+                      nodeId: event.data.node_id,
+                      nodeName: prevNode.nodeName || event.data.node_type,
+                      nodeType: prevNode.nodeType || event.data.node_type,
+                      status: 'success' as const,
+                      endTime: Date.now(),
+                      output: event.data.output,
+                    },
+                  };
+                  logger.log('📊 Updated node statuses:', Object.keys(updated).map(id => {
+                    const node = updated[id];
+                    return {
+                      id,
+                      status: node?.status,
+                      name: node?.nodeName
+                    };
+                  }));
+                  return updated;
+                });
+                
+                // If it's an AI Agent node, add messages to chat
+                if (event.data.node_type === 'ai_agent' && event.data.output) {
+                  const output = event.data.output;
+                  
+                  // Extract AI Agent config and response
+                  const aiConfig = output.ai_agent_config || {};
+                  const execDetails = output.execution_details || {};
+                  const inputInfo = output.input || {};
+                  
+                  const userMessage = {
+                    id: `user-${Date.now()}`,
+                    role: 'user' as const,
+                    content: inputInfo.processed_task || aiConfig.user_message || event.data.input?.user_query || inputData,
+                    timestamp: new Date(),
+                  };
+                  
+                  // Build detailed assistant message with config info
+                  let responseContent = output.response || output.content || 'No response';
+                  
+                  // Add config info as metadata display
+                  const configInfo = `\n\n---\n**AI Agent Config:**\n- Provider: ${aiConfig.provider || 'unknown'}\n- Model: ${aiConfig.model || 'unknown'}\n- Temperature: ${aiConfig.temperature || 0.7}\n- Max Tokens: ${aiConfig.max_tokens || 2000}\n- Execution Time: ${execDetails.execution_time_ms || 0}ms`;
+                  
+                  const assistantMessage = {
+                    id: `assistant-${Date.now()}`,
+                    role: 'assistant' as const,
+                    content: responseContent,
+                    timestamp: new Date(),
+                    metadata: {
+                      model: aiConfig.model,
+                      provider: aiConfig.provider,
+                      temperature: aiConfig.temperature,
+                      max_tokens: aiConfig.max_tokens,
+                      execution_time_ms: execDetails.execution_time_ms,
+                      memory_type: aiConfig.memory_type,
+                      success: output.success,
+                    },
+                  };
+                  
+                  setAiAgentMessages(prev => [...prev, userMessage, assistantMessage]);
+                  
+                  logger.log('✅ Added AI Agent messages to chat:', { 
+                    userMessage, 
+                    assistantMessage,
+                    config: aiConfig,
+                    executionDetails: execDetails
+                  });
+                }
+              } else if (event.type === 'node_error') {
+                setSimulatedNodeStatuses(prev => ({
+                  ...prev,
+                  [event.data.node_id]: {
+                    ...prev[event.data.node_id],
+                    status: 'failed',
+                    endTime: Date.now(),
+                    error: event.data.error,
+                  },
+                }));
+              } else if (event.type === 'complete') {
+                logger.log('🏁 Workflow execution completed');
+                setExecuting(false);
+                setExecutionEndTime(Date.now());
+                toast({
+                  title: '✅ Execution Complete',
+                  description: 'Workflow executed successfully',
+                });
+              } else if (event.type === 'error') {
+                logger.error('❌ Workflow error:', event.data);
+                throw new Error(event.data.message || 'Workflow execution failed');
+              } else {
+                logger.warn('⚠️ Unknown event type:', event.type);
+              }
+            } catch (e) {
+              logger.error('Failed to parse SSE event:', e);
+            }
+          }
+        }
+      }
+    } catch (error: any) {
+      logger.error('❌ Stream error:', error);
+      setExecuting(false);
+      toast({
+        title: 'Stream Error',
+        description: error.message || 'Failed to stream execution',
+      });
+    }
+  };
+
   const handleExecute = async () => {
+    // Show input dialog first
+    setShowInputDialog(true);
+  };
+  
+  const startExecution = async (inputData: string) => {
     logger.log('🚀 Starting workflow execution:', workflowId);
+    logger.log('📊 Current nodes:', nodes.length);
+    logger.log('📝 Input data:', inputData);
     
-    // Generate execution ID
-    const execId = `exec-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    setExecutionId(execId);
+    // Clear previous execution data
+    setSimulatedNodeStatuses({});
+    setExecutionEndTime(undefined);
+    setAiAgentMessages([]); // Clear AI Agent chat messages
+    
+    // Switch to canvas tab to show execution animation
+    setActiveTab('canvas');
     setExecuting(true);
-    
-    // Stay on current tab - user can manually switch to executions tab if needed
-    // setActiveTab('executions'); // Removed: Don't auto-switch tabs
+    setExecutionStartTime(Date.now());
+    setShowExecutionLog(true); // Auto-show log panel when execution starts
     
     toast({
-      title: 'Executing',
-      description: 'Workflow execution started. Check Executions tab for logs.',
+      title: '🎬 Starting Execution',
+      description: 'Executing workflow with real API calls...',
     });
     
-    // SSE will handle the execution and status updates
-    // The useWorkflowExecutionStream hook will automatically connect
-    // and receive real-time updates
+    try {
+      let token = getAccessToken();
+      
+      logger.log('🔑 Token check:', token ? `Token exists (${token.substring(0, 20)}...)` : 'No token found');
+      
+      // In development mode, auto-login with test account if no token
+      if (!token && process.env.NODE_ENV === 'development') {
+        logger.log('🔧 Development mode: Auto-logging in with test account...');
+        
+        try {
+          const loginResponse = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              email: 'test@example.com',
+              password: 'test123',
+            }),
+          });
+          
+          if (loginResponse.ok) {
+            const loginData = await loginResponse.json();
+            const { setTokens } = await import('@/lib/auth');
+            setTokens(loginData.access_token, loginData.refresh_token || '');
+            token = loginData.access_token;
+            
+            logger.log('✅ Auto-login successful');
+            toast({
+              title: 'Development Mode',
+              description: 'Auto-logged in with test account',
+            });
+          } else {
+            const errorText = await loginResponse.text();
+            logger.error('❌ Auto-login failed:', errorText);
+            
+            // Show detailed error in development
+            toast({
+              title: 'Auto-login Failed',
+              description: 'Check backend server and test user. See console for details.',
+            });
+          }
+        } catch (loginError) {
+          logger.error('❌ Auto-login error:', loginError);
+          toast({
+            title: 'Auto-login Error',
+            description: 'Backend server may not be running. Check console for details.',
+          });
+        }
+      }
+      
+      if (!token) {
+        const errorMessage = 'Authentication required. Please log in again.';
+        
+        toast({
+          title: 'Authentication Required',
+          description: process.env.NODE_ENV === 'development' 
+            ? 'Auto-login failed. Please check backend server.'
+            : 'Please log in to execute workflows.',
+        });
+        
+        // Only redirect to login in production mode
+        if (process.env.NODE_ENV !== 'development') {
+          setTimeout(() => {
+            router.push('/login');
+          }, 2000);
+        }
+        
+        throw new Error(errorMessage);
+      }
+      
+      // Use agentBuilderAPI for consistent authentication
+      const data = await agentBuilderAPI.executeWorkflow(workflowId, {
+        input_data: { user_query: inputData },
+      });
+      
+      const execId = data.execution_id || data.id;
+      
+      logger.log('✅ Workflow execution started:', execId);
+      setExecutionId(execId);
+      
+      // Start listening to execution stream
+      await streamWorkflowExecution(execId, inputData);
+      
+    } catch (error: any) {
+      logger.error('❌ Failed to start execution:', error);
+      toast({
+        title: 'Execution Failed',
+        description: error.message || 'Failed to execute workflow',
+      });
+      setExecuting(false);
+    }
+  };
+  
+  // Generate simulated output based on node type
+  const generateSimulatedOutput = (nodeType: string, nodeName: string, config: any, input?: any) => {
+    switch (nodeType) {
+      case 'start':
+      case 'trigger':
+        return {
+          message: 'Workflow started successfully',
+          timestamp: new Date().toISOString(),
+        };
+      
+      case 'ai_agent':
+        const userQuery = input?.user_query || input?.workflow_input || 'No query provided';
+        const aiResponse = `This is a simulated AI response from ${nodeName}. In production, this would be the actual LLM output based on your query: "${userQuery}"`;
+        
+        // Add to AI Agent chat messages
+        const userMessage = {
+          id: `user-${Date.now()}`,
+          role: 'user' as const,
+          content: userQuery,
+          timestamp: new Date(),
+        };
+        
+        const assistantMessage = {
+          id: `assistant-${Date.now()}`,
+          role: 'assistant' as const,
+          content: aiResponse,
+          timestamp: new Date(),
+          metadata: {
+            model: config?.model || 'unknown',
+            provider: config?.provider || 'unknown',
+          },
+        };
+        
+        // Update AI Agent messages
+        setAiAgentMessages(prev => [...prev, userMessage, assistantMessage]);
+        
+        return {
+          response: aiResponse,
+          model: config?.model || 'unknown',
+          provider: config?.provider || 'unknown',
+          tokens_used: Math.floor(Math.random() * 500) + 100,
+          simulation: true,
+          user_query: userQuery,
+        };
+      
+      case 'http_request':
+        return {
+          status_code: 200,
+          data: { message: 'Simulated HTTP response', success: true },
+          url: config?.url || 'https://example.com',
+          method: config?.method || 'GET',
+          simulation: true,
+        };
+      
+      case 'condition':
+        return {
+          condition_met: true,
+          branch_taken: 'true',
+          evaluation: 'Simulated condition evaluation',
+        };
+      
+      case 'tool':
+        return {
+          tool_output: `Simulated output from ${nodeName}`,
+          tool_id: config?.tool_id || 'unknown',
+          execution_time_ms: Math.floor(Math.random() * 1000) + 100,
+          simulation: true,
+        };
+      
+      case 'end':
+        return {
+          message: 'Workflow completed successfully',
+          final_output: 'All nodes executed',
+          timestamp: new Date().toISOString(),
+        };
+      
+      default:
+        return {
+          message: `Simulated output from ${nodeName}`,
+          node_type: nodeType,
+          processed: true,
+          simulation: true,
+        };
+    }
+  };
+
+  // Simulate execution for testing animation
+  const simulateExecution = (inputData: string = '') => {
+    if (!workflow) {
+      logger.error('❌ No workflow found');
+      return;
+    }
+    
+    if (nodes.length === 0) {
+      logger.error('❌ No nodes found');
+      toast({
+        title: 'No Nodes',
+        description: 'This workflow has no nodes to execute',
+      });
+      setExecuting(false);
+      return;
+    }
+    
+    setIsSimulation(true);
+    
+    const nodeIds = nodes.map(n => n.id);
+    const nodeNames = nodes.map(n => n.data?.name || n.data?.label || n.type || 'Node');
+    const nodeTypes = nodes.map(n => n.type || 'unknown');
+    const nodeConfigs = nodes.map(n => n.data?.config || {});
+    
+    logger.log('🎬 Starting simulation with nodes:', {
+      count: nodeIds.length,
+      ids: nodeIds,
+      names: nodeNames,
+      types: nodeTypes,
+    });
+    
+    // Initialize all nodes as pending
+    const initialStatuses: Record<string, any> = {};
+    nodeIds.forEach((id, idx) => {
+      initialStatuses[id] = {
+        nodeId: id,
+        nodeName: nodeNames[idx],
+        nodeType: nodeTypes[idx],
+        status: 'pending',
+        timestamp: Date.now(),
+        config: nodeConfigs[idx],
+      };
+    });
+    
+    logger.log('📊 Initial statuses:', initialStatuses);
+    setSimulatedNodeStatuses({ ...initialStatuses });
+    
+    // Use a counter that persists across interval calls
+    let currentIndex = 0;
+    
+    // Start simulation after a short delay
+    setTimeout(() => {
+      logger.log('⏰ Starting simulation interval');
+      
+      const simulationInterval = setInterval(() => {
+        logger.log(`⏱️ Interval tick - currentIndex: ${currentIndex}, total: ${nodeIds.length}`);
+        
+        if (currentIndex >= nodeIds.length) {
+          logger.log('🏁 Reached end of nodes, clearing interval');
+          clearInterval(simulationInterval);
+          
+          // Mark last node as success
+          setTimeout(() => {
+            const lastNodeId = nodeIds[nodeIds.length - 1];
+            logger.log('✅ Marking last node as success:', lastNodeId);
+            
+            setSimulatedNodeStatuses(prev => {
+              const updated = {
+                ...prev,
+                [lastNodeId]: {
+                  ...prev[lastNodeId],
+                  status: 'success',
+                  endTime: Date.now(),
+                },
+              };
+              logger.log('✅ Final statuses:', updated);
+              return updated;
+            });
+            
+            setTimeout(() => {
+              logger.log('🎉 Simulation complete, cleaning up');
+              const endTimeMs = Date.now();
+              setExecutionEndTime(endTimeMs);
+              setExecuting(false);
+              setIsSimulation(false);
+              
+              const duration = executionStartTime ? endTimeMs - executionStartTime : 0;
+              const endTime = new Date(endTimeMs);
+              const startTime = new Date(executionStartTime || Date.now());
+              
+              // Create execution record for simulated run
+              const simulatedExecution: ExecutionRecord = {
+                id: executionId || `sim-${Date.now()}`,
+                status: 'success',
+                duration: duration / 1000, // Convert to seconds
+                started_at: startTime.toISOString(),
+                completed_at: endTime.toISOString(),
+                input_data: {},
+                output_data: {
+                  simulation: true,
+                  nodes_executed: nodeIds.length,
+                  node_statuses: Object.keys(simulatedNodeStatuses).map(id => ({
+                    id,
+                    name: simulatedNodeStatuses[id]?.nodeName,
+                    status: simulatedNodeStatuses[id]?.status,
+                  })),
+                },
+              };
+              
+              // Add to simulated executions
+              setSimulatedExecutions(prev => [simulatedExecution, ...prev]);
+              
+              toast({
+                title: '✅ Simulation Complete',
+                description: `Successfully executed ${nodeIds.length} nodes in ${(duration / 1000).toFixed(1)}s!`,
+              });
+              
+              // Reload executions to show the new record
+              if (activeTab === 'executions') {
+                loadExecutions();
+              }
+            }, 1000);
+          }, 1500);
+          
+          return;
+        }
+        
+        const nodeId = nodeIds[currentIndex];
+        const nodeName = nodeNames[currentIndex];
+        
+        logger.log(`🔵 Processing node ${currentIndex + 1}/${nodeIds.length}:`, {
+          id: nodeId,
+          name: nodeName,
+          currentIndex,
+        });
+        
+        setSimulatedNodeStatuses(prev => {
+          const updated = { ...prev };
+          
+          const currentNodeType = nodeTypes[currentIndex];
+          const currentNodeConfig = nodeConfigs[currentIndex];
+          
+          // Generate simulated input/output based on node type
+          const simulatedInput = currentIndex === 0 
+            ? { 
+                workflow_input: inputData || 'No input provided',
+                user_query: inputData || '',
+                timestamp: new Date().toISOString()
+              }
+            : { previous_output: `Output from ${nodeNames[currentIndex - 1]}` };
+          
+          // Set current node to running first
+          updated[nodeId] = {
+            ...updated[nodeId],
+            nodeId,
+            nodeName,
+            nodeType: currentNodeType,
+            status: 'running',
+            startTime: Date.now(),
+            timestamp: Date.now(),
+            input: simulatedInput,
+            config: currentNodeConfig,
+          };
+          
+          // Generate output (this may update AI Agent messages)
+          const simulatedOutput = generateSimulatedOutput(currentNodeType, nodeName, currentNodeConfig, simulatedInput);
+          
+          logger.log(`🔵 Set node ${nodeId} to RUNNING`);
+          
+          // Update previous node to success with output
+          if (currentIndex > 0) {
+            const prevNodeId = nodeIds[currentIndex - 1];
+            const prevNodeType = nodeTypes[currentIndex - 1];
+            const prevNodeConfig = nodeConfigs[currentIndex - 1];
+            const prevInput = updated[prevNodeId]?.input;
+            const prevOutput = generateSimulatedOutput(prevNodeType, nodeNames[currentIndex - 1], prevNodeConfig, prevInput);
+            
+            logger.log(`🟢 Marking previous node ${prevNodeId} as SUCCESS`);
+            updated[prevNodeId] = {
+              ...updated[prevNodeId],
+              status: 'success',
+              endTime: Date.now(),
+              output: prevOutput,
+            };
+          }
+          
+          logger.log('📊 Current statuses:', Object.keys(updated).map(id => ({
+            id,
+            status: updated[id].status,
+          })));
+          
+          return updated;
+        });
+        
+        logger.log(`➡️ Incrementing currentIndex from ${currentIndex} to ${currentIndex + 1}`);
+        currentIndex++; // This will now properly increment
+      }, 2000); // 2 seconds per node
+      
+      logger.log('✅ Simulation interval created');
+    }, 500); // Initial delay
   };
 
   const handleDuplicate = async () => {
@@ -236,7 +861,6 @@ export default function WorkflowViewPage() {
       toast({
         title: '❌ Error',
         description: error.message || 'Failed to duplicate workflow',
-        variant: 'destructive',
       });
     }
   };
@@ -299,16 +923,61 @@ export default function WorkflowViewPage() {
       });
     }
     
+    // Build node data, preserving config for tool nodes
+    const configuration = node.configuration || node.data || {};
+    
+    // Get config and parameters from saved data
+    const savedConfig = configuration.config || {};
+    const savedParameters = configuration.parameters || {};
+    
+    // Build unified config from multiple sources (parameters > config > top-level)
+    const aiAgentConfig = {
+      llm_provider: savedParameters.provider || savedConfig.llm_provider || configuration.llm_provider,
+      model: savedParameters.model || savedConfig.model || configuration.model,
+      system_prompt: savedParameters.system_prompt || savedConfig.system_prompt || configuration.system_prompt,
+      user_message: savedParameters.user_message || savedConfig.user_message || configuration.user_message,
+      temperature: savedParameters.temperature || savedConfig.temperature || configuration.temperature,
+      max_tokens: savedParameters.max_tokens || savedConfig.max_tokens || configuration.max_tokens,
+      memory_type: savedParameters.memory_type || savedConfig.memory_type || configuration.memory_type,
+      api_key: savedParameters.api_key || savedConfig.api_key || configuration.api_key,
+    };
+    
+    // Build parameters for UI compatibility
+    const parameters = {
+      ...savedParameters,
+      provider: savedParameters.provider || savedConfig.llm_provider || configuration.llm_provider,
+      model: savedParameters.model || savedConfig.model || configuration.model,
+      system_prompt: savedParameters.system_prompt || savedConfig.system_prompt || configuration.system_prompt,
+      user_message: savedParameters.user_message || savedConfig.user_message || configuration.user_message,
+      temperature: savedParameters.temperature || savedConfig.temperature || configuration.temperature,
+      max_tokens: savedParameters.max_tokens || savedConfig.max_tokens || configuration.max_tokens,
+      memory_type: savedParameters.memory_type || savedConfig.memory_type || configuration.memory_type,
+      api_key: savedParameters.api_key || savedConfig.api_key || configuration.api_key,
+    };
+    
+    const nodeData = {
+      ...configuration,
+      // Ensure tool_id is preserved
+      tool_id: configuration.tool_id || node.tool_id,
+      // Ensure config is preserved (for AI Agent and other tools)
+      config: aiAgentConfig,
+      // Ensure parameters is preserved for UI
+      parameters: parameters,
+      // Also store at top level for compatibility
+      ...aiAgentConfig,
+    };
+    
     const transformedNode = {
       id: node.id,
       type: nodeType,
       position: node.position || { x: node.position_x || 0, y: node.position_y || 0 },
-      data: node.configuration || node.data || {},
+      data: nodeData,
     };
     
     logger.log('🔄 Node transformation:', {
       original: { id: node.id, type: node.node_type, config: node.configuration },
       transformed: { id: transformedNode.id, type: transformedNode.type, data: transformedNode.data },
+      aiAgentConfig,
     });
     
     return transformedNode;
@@ -361,14 +1030,16 @@ export default function WorkflowViewPage() {
                 Duplicate
               </Button>
               <Button
-                variant="outline"
+                variant="default"
                 onClick={handleExecute}
                 disabled={executing}
+                className="bg-blue-600 hover:bg-blue-700"
               >
                 <Play className="mr-2 h-4 w-4" />
                 {executing ? 'Executing...' : 'Execute'}
               </Button>
               <Button
+                variant="outline"
                 onClick={() => router.push(`/agent-builder/workflows/${workflowId}/edit`)}
               >
                 <Edit className="mr-2 h-4 w-4" />
@@ -411,16 +1082,60 @@ export default function WorkflowViewPage() {
             </TabsList>
           </div>
 
-          <TabsContent value="canvas" className="flex-1 m-0 bg-muted/20 flex flex-col overflow-hidden">
-            {/* Canvas Area - 70% */}
+          <TabsContent value="canvas" className="flex-1 m-0 bg-muted/20 flex overflow-hidden relative">
+            {/* Canvas Area */}
             <div className="flex-1 overflow-hidden">
               <WorkflowEditor
                 workflowId={workflowId}
                 initialNodes={nodes}
                 initialEdges={edges}
                 readOnly={true}
+                executionMode={executing}
+                nodeStatuses={nodeStatuses}
+                isExecutionConnected={isConnected}
+                isExecutionComplete={isComplete}
+                onExecutionStart={handleExecute}
+                onExecutionStop={() => {
+                  setExecuting(false);
+                  setExecutionId(null);
+                }}
+                aiAgentMessages={aiAgentMessages}
               />
             </div>
+            
+            {/* Toggle Button - Show when there are logs */}
+            {Object.keys(nodeStatuses).length > 0 && !showExecutionLog && (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => setShowExecutionLog(true)}
+                className="absolute bottom-4 right-4 z-50 shadow-lg"
+              >
+                <FileText className="mr-2 h-4 w-4" />
+                Show Execution Log
+              </Button>
+            )}
+            
+            {/* Execution Log Panel - Show when toggled on and has logs */}
+            {showExecutionLog && Object.keys(nodeStatuses).length > 0 && (
+              <div className="w-96 border-l bg-background overflow-hidden flex flex-col relative">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowExecutionLog(false)}
+                  className="absolute top-2 right-2 z-10 h-8 w-8"
+                  title="Hide execution log"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+                <ExecutionLogPanel
+                  nodeStatuses={nodeStatuses}
+                  isExecuting={executing}
+                  startTime={executionStartTime}
+                  endTime={executionEndTime}
+                />
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="executions" className="flex-1 m-0 flex flex-col overflow-hidden">
@@ -498,6 +1213,11 @@ export default function WorkflowViewPage() {
                                   >
                                     {exec.status}
                                   </Badge>
+                                  {exec.output_data?.simulation && (
+                                    <Badge variant="outline" className="text-xs">
+                                      Simulation
+                                    </Badge>
+                                  )}
                                 </div>
                                 {exec.status === 'failed' && exec.error_message && (
                                   <div className="text-xs text-destructive truncate max-w-xs" title={exec.error_message}>
@@ -507,7 +1227,15 @@ export default function WorkflowViewPage() {
                               </div>
                             </TableCell>
                             <TableCell className="font-mono text-sm">
-                              {exec.id.substring(0, 8)}...
+                              {exec.id.startsWith('sim-') ? (
+                                <span className="text-muted-foreground" title={exec.id}>
+                                  {exec.id.substring(0, 12)}...
+                                </span>
+                              ) : (
+                                <span title={exec.id}>
+                                  {exec.id.substring(0, 8)}...
+                                </span>
+                              )}
                             </TableCell>
                             <TableCell>{exec.duration.toFixed(2)}s</TableCell>
                             <TableCell>
@@ -686,6 +1414,54 @@ export default function WorkflowViewPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Workflow Input Dialog */}
+      <Dialog open={showInputDialog} onOpenChange={setShowInputDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Workflow Input</DialogTitle>
+            <DialogDescription>
+              Enter the input data for this workflow execution. This will be passed to the first node.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="workflow-input">Input Data</Label>
+              <Textarea
+                id="workflow-input"
+                placeholder="Enter your query or input data here..."
+                value={workflowInput}
+                onChange={(e) => setWorkflowInput(e.target.value)}
+                rows={6}
+                className="resize-none"
+              />
+              <p className="text-xs text-muted-foreground">
+                This input will be available to all nodes in the workflow as the initial data.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowInputDialog(false);
+                setWorkflowInput('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                setShowInputDialog(false);
+                startExecution(workflowInput);
+              }}
+            >
+              <Play className="mr-2 h-4 w-4" />
+              Execute
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

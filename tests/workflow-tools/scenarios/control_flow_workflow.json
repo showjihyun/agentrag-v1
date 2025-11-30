@@ -1,0 +1,140 @@
+{
+  "name": "Control Flow Tools Test Workflow",
+  "description": "Tests control flow tools: Loop, Parallel, Switch, Delay",
+  "nodes": [
+    {
+      "id": "trigger-1",
+      "type": "manual_trigger",
+      "position": { "x": 100, "y": 250 },
+      "data": {
+        "label": "Start",
+        "config": {}
+      }
+    },
+    {
+      "id": "parallel-1",
+      "type": "parallel",
+      "position": { "x": 300, "y": 250 },
+      "data": {
+        "label": "Parallel Tasks",
+        "config": {
+          "branches": 2,
+          "wait_for_all": true
+        }
+      }
+    },
+    {
+      "id": "delay-1",
+      "type": "delay",
+      "position": { "x": 500, "y": 150 },
+      "data": {
+        "label": "Wait 1s",
+        "config": {
+          "delay_ms": 1000,
+          "delay_type": "fixed"
+        }
+      }
+    },
+    {
+      "id": "loop-1",
+      "type": "loop",
+      "position": { "x": 500, "y": 350 },
+      "data": {
+        "label": "Loop 3 times",
+        "config": {
+          "loop_type": "count",
+          "count": 3,
+          "max_iterations": 10
+        }
+      }
+    },
+    {
+      "id": "transform-branch1",
+      "type": "transform",
+      "position": { "x": 700, "y": 150 },
+      "data": {
+        "label": "Branch 1 Result",
+        "config": {
+          "expression": "{ \"branch\": 1, \"delayed\": true }"
+        }
+      }
+    },
+    {
+      "id": "transform-branch2",
+      "type": "transform",
+      "position": { "x": 700, "y": 350 },
+      "data": {
+        "label": "Branch 2 Result",
+        "config": {
+          "expression": "{ \"branch\": 2, \"looped\": true, \"iteration\": $loop.index }"
+        }
+      }
+    },
+    {
+      "id": "merge-1",
+      "type": "merge",
+      "position": { "x": 900, "y": 250 },
+      "data": {
+        "label": "Merge Results",
+        "config": {
+          "mode": "combine",
+          "wait_for_all": true
+        }
+      }
+    },
+    {
+      "id": "switch-1",
+      "type": "switch",
+      "position": { "x": 1100, "y": 250 },
+      "data": {
+        "label": "Check Result",
+        "config": {
+          "field": "branch",
+          "cases": [
+            { "value": 1, "label": "Branch 1" },
+            { "value": 2, "label": "Branch 2" }
+          ],
+          "default": "unknown"
+        }
+      }
+    },
+    {
+      "id": "end-1",
+      "type": "end",
+      "position": { "x": 1300, "y": 150 },
+      "data": { "label": "End Branch 1" }
+    },
+    {
+      "id": "end-2",
+      "type": "end",
+      "position": { "x": 1300, "y": 250 },
+      "data": { "label": "End Branch 2" }
+    },
+    {
+      "id": "end-default",
+      "type": "end",
+      "position": { "x": 1300, "y": 350 },
+      "data": { "label": "End Default" }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "source": "trigger-1", "target": "parallel-1" },
+    { "id": "e2", "source": "parallel-1", "target": "delay-1", "sourceHandle": "branch-0" },
+    { "id": "e3", "source": "parallel-1", "target": "loop-1", "sourceHandle": "branch-1" },
+    { "id": "e4", "source": "delay-1", "target": "transform-branch1" },
+    { "id": "e5", "source": "loop-1", "target": "transform-branch2" },
+    { "id": "e6", "source": "transform-branch1", "target": "merge-1" },
+    { "id": "e7", "source": "transform-branch2", "target": "merge-1" },
+    { "id": "e8", "source": "merge-1", "target": "switch-1" },
+    { "id": "e9", "source": "switch-1", "target": "end-1", "sourceHandle": "case-0" },
+    { "id": "e10", "source": "switch-1", "target": "end-2", "sourceHandle": "case-1" },
+    { "id": "e11", "source": "switch-1", "target": "end-default", "sourceHandle": "default" }
+  ],
+  "test_input": {
+    "initial_value": 0
+  },
+  "expected_output": {
+    "parallel_completed": true,
+    "branches_merged": true
+  }
+}

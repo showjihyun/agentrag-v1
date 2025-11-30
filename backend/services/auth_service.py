@@ -28,6 +28,10 @@ class AuthService:
         Returns:
             Hashed password
         """
+        # Truncate password to 72 bytes for bcrypt compatibility
+        if len(password.encode('utf-8')) > 72:
+            password = password.encode('utf-8')[:72].decode('utf-8', errors='ignore')
+        
         return pwd_context.hash(password)
 
     @staticmethod
@@ -42,7 +46,19 @@ class AuthService:
         Returns:
             True if password matches, False otherwise
         """
-        return pwd_context.verify(plain_password, hashed_password)
+        try:
+            # Truncate password to 72 bytes for bcrypt compatibility
+            if len(plain_password.encode('utf-8')) > 72:
+                plain_password = plain_password.encode('utf-8')[:72].decode('utf-8', errors='ignore')
+            
+            return pwd_context.verify(plain_password, hashed_password)
+        except ValueError as e:
+            # Handle bcrypt errors gracefully
+            logger.error(f"Password verification error: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error during password verification: {e}")
+            return False
 
     @staticmethod
     def create_access_token(

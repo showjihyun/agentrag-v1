@@ -6,8 +6,7 @@ import uuid
 import asyncio
 from typing import AsyncGenerator, Optional, Dict
 from datetime import datetime
-from collections import defaultdict
-from time import time
+
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.responses import StreamingResponse
@@ -42,45 +41,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/query", tags=["query"])
 
 
-# Rate Limiting (메모리 기반)
-class RateLimiter:
-    """간단한 메모리 기반 Rate Limiter"""
-    
-    def __init__(self, requests_per_minute: int = 20):
-        self.requests_per_minute = requests_per_minute
-        self.request_counts: Dict[str, list] = defaultdict(list)
-        self.window = 60  # 60초 윈도우
-    
-    def check_rate_limit(self, client_ip: str) -> bool:
-        """Rate limit 체크. True면 허용, False면 거부"""
-        now = time()
-        
-        # 윈도우 밖의 요청 제거
-        self.request_counts[client_ip] = [
-            t for t in self.request_counts[client_ip] 
-            if now - t < self.window
-        ]
-        
-        # 제한 확인
-        if len(self.request_counts[client_ip]) >= self.requests_per_minute:
-            return False
-        
-        # 요청 기록
-        self.request_counts[client_ip].append(now)
-        return True
-    
-    def get_remaining(self, client_ip: str) -> int:
-        """남은 요청 수 반환"""
-        now = time()
-        self.request_counts[client_ip] = [
-            t for t in self.request_counts[client_ip] 
-            if now - t < self.window
-        ]
-        return max(0, self.requests_per_minute - len(self.request_counts[client_ip]))
-
-
-# Rate Limiter 인스턴스
-rate_limiter = RateLimiter(requests_per_minute=20)
+# Rate Limiting - Use centralized Redis-based rate limiter from core
+# Removed duplicate in-memory RateLimiter class
+# Rate limiting is now handled by middleware in main.py using backend.core.rate_limiter
 
 
 def serialize_for_json(obj):

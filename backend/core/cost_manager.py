@@ -268,7 +268,56 @@ class CostManager:
             }
         )
         
-        # TODO: Send actual notification (email, webhook, etc.)
+        # Send notifications
+        await self._send_budget_notification(user_id, alert_type, current_usage, budget)
+    
+    async def _send_budget_notification(
+        self,
+        user_id: str,
+        alert_type: str,
+        current_usage: Decimal,
+        budget: Decimal
+    ):
+        """Send budget alert notification via multiple channels."""
+        usage_percent = (current_usage / budget) * 100
+        
+        # Prepare notification content
+        subject = f"Budget Alert: {alert_type.replace('_', ' ').title()}"
+        message = (
+            f"Your usage has reached {usage_percent:.1f}% of your budget.\n"
+            f"Current usage: ${current_usage:.2f}\n"
+            f"Budget limit: ${budget:.2f}"
+        )
+        
+        # Try email notification
+        try:
+            from backend.services.notification_service import get_notification_service
+            notification_service = get_notification_service()
+            
+            await notification_service.send_notification(
+                user_id=user_id,
+                title=subject,
+                message=message,
+                notification_type="budget_alert",
+                priority="high" if alert_type == "budget_exceeded" else "medium"
+            )
+        except Exception as e:
+            logger.debug(f"Notification service unavailable: {e}")
+        
+        # Try Slack webhook if configured
+        try:
+            from backend.config import settings
+            import httpx
+            
+            webhook_url = getattr(settings, 'SLACK_WEBHOOK_URL', None)
+            if webhook_url:
+                emoji = "🚨" if alert_type == "budget_exceeded" else "⚠️"
+                async with httpx.AsyncClient(timeout=5.0) as client:
+                    await client.post(webhook_url, json={
+                        "text": f"{emoji} *{subject}*\n{message}"
+                    })
+        except Exception as e:
+            logger.debug(f"Slack notification failed: {e}")
     
     async def set_budget(
         self,

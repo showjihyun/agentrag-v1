@@ -1,7 +1,13 @@
-"""Agent Builder API endpoints for knowledgebase management."""
+"""Agent Builder API endpoints for knowledgebase management.
+
+한글/영어 이중 언어 지원:
+- 한글 형태소 분석 기반 검색
+- 하이브리드 검색 (Vector + BM25)
+- 사용자별 개인화 설정
+"""
 
 import logging
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
 from sqlalchemy.orm import Session
@@ -526,17 +532,30 @@ async def upload_documents(
     "/{kb_id}/search",
     response_model=KnowledgebaseSearchResponse,
     summary="Search knowledgebase",
-    description="Search documents in a knowledgebase using hybrid search.",
+    description="Search documents in a knowledgebase using hybrid search (Vector + BM25).",
 )
 async def search_knowledgebase(
     kb_id: str,
-    query: str = Query(..., description="Search query"),
+    query: str = Query(..., description="Search query (한글/영어 지원)"),
     top_k: int = Query(10, ge=1, le=100, description="Number of results to return"),
+    search_mode: str = Query(
+        "hybrid",
+        description="Search mode: 'vector' (semantic), 'keyword' (BM25), 'hybrid' (both)"
+    ),
+    expand_query: bool = Query(
+        True,
+        description="Expand query with synonyms (동의어 확장)"
+    ),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
-    Search knowledgebase.
+    Search knowledgebase with Korean/English bilingual support.
+    
+    한글/영어 이중 언어 검색 지원:
+    - 한글 형태소 분석 기반 토큰화
+    - 하이브리드 검색 (Vector + BM25)
+    - 쿼리 확장 (동의어, 관련어)
     
     **Requirements:** 31.4
     
@@ -544,11 +563,13 @@ async def search_knowledgebase(
     - kb_id: Knowledgebase UUID
     
     **Query Parameters:**
-    - query: Search query (required)
+    - query: Search query (required, 한글/영어 지원)
     - top_k: Number of results (default: 10, max: 100)
+    - search_mode: 'vector', 'keyword', or 'hybrid' (default: hybrid)
+    - expand_query: Whether to expand query with synonyms (default: true)
     
     **Returns:**
-    - Search results with relevance scores
+    - Search results with relevance scores and source information
     
     **Errors:**
     - 401: Unauthorized
@@ -557,7 +578,18 @@ async def search_knowledgebase(
     - 500: Internal server error
     """
     try:
-        logger.info(f"Searching knowledgebase {kb_id} with query: {query[:50]}")
+        # Validate search_mode
+        valid_modes = ["vector", "keyword", "hybrid"]
+        if search_mode not in valid_modes:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid search_mode. Must be one of: {valid_modes}"
+            )
+        
+        logger.info(
+            f"Searching knowledgebase {kb_id} with query: {query[:50]} "
+            f"(mode={search_mode}, expand={expand_query})"
+        )
         
         kb_service = KnowledgebaseService(db)
         
@@ -576,8 +608,14 @@ async def search_knowledgebase(
                 detail="You don't have permission to search this knowledgebase"
             )
         
-        # Search knowledgebase
-        results = await kb_service.search_knowledgebase(kb_id, query, top_k)
+        # Search knowledgebase with Korean/English support
+        results = await kb_service.search_knowledgebase(
+            kb_id=kb_id,
+            query=query,
+            top_k=top_k,
+            search_mode=search_mode,
+            expand_query=expand_query
+        )
         
         logger.info(f"Found {len(results)} results in knowledgebase {kb_id}")
         return KnowledgebaseSearchResponse(
@@ -805,4 +843,323 @@ async def get_document_status(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get document status"
+        )
+
+
+# ============================================================================
+# User Settings Endpoints (사용자 개인화 설정)
+# ============================================================================
+
+@router.get(
+    "/settings/user",
+    summary="Get user knowledgebase settings",
+    description="Get user's personalized knowledgebase settings (한글/영어 설정 포함).",
+)
+async def get_user_knowledgebase_settings(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Get user's knowledgebase settings.
+    
+    사용자별 개인화 설정:
+    - 선호 언어 (한글/영어/자동)
+    - 기본 검색 모드 (vector/keyword/hybrid)
+    - 청킹 설정
+    - 검색 가중치 설정
+    
+    **Returns:**
+    - User settings object
+    
+    **Errors:**
+    - 401: Unauthorized
+    - 500: Internal server error
+    """
+    try:
+        from backend.services.agent_builder.knowledgebase_user_settings import (
+            get_knowledgebase_user_settings_service
+        )
+        
+        settings_service = get_knowledgebase_user_settings_service(db)
+        settings = settings_service.get_user_settings(str(current_user.id))
+        
+        return settings.to_dict()
+        
+    except Exception as e:
+        logger.error(f"Failed to get user settings: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get user settings"
+        )
+
+
+@router.put(
+    "/settings/user",
+    summary="Update user knowledgebase settings",
+    description="Update user's personalized knowledgebase settings.",
+)
+async def update_user_knowledgebase_settings(
+    settings: Dict[str, Any],
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Update user's knowledgebase settings.
+    
+    **Request Body:**
+    - preferred_language: "ko", "en", or "auto"
+    - default_search_mode: "vector", "keyword", or "hybrid"
+    - default_top_k: 1-100
+    - expand_query_by_default: boolean
+    - min_score_threshold: 0.0-1.0
+    - default_chunk_size: 100-2000
+    - default_chunk_overlap: 0-500
+    - vector_weight: 0.0-1.0
+    - bm25_weight: 0.0-1.0
+    - enable_reranking: boolean
+    - embedding_model: string
+    
+    **Returns:**
+    - Updated settings object
+    
+    **Errors:**
+    - 400: Invalid settings
+    - 401: Unauthorized
+    - 500: Internal server error
+    """
+    try:
+        from backend.services.agent_builder.knowledgebase_user_settings import (
+            get_knowledgebase_user_settings_service,
+            KnowledgebaseUserSettings
+        )
+        
+        settings_service = get_knowledgebase_user_settings_service(db)
+        
+        # Validate settings
+        is_valid, error_msg = settings_service.validate_settings(settings)
+        if not is_valid:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=error_msg
+            )
+        
+        # Get current settings and merge
+        current_settings = settings_service.get_user_settings(str(current_user.id))
+        current_dict = current_settings.to_dict()
+        current_dict.update(settings)
+        
+        # Create new settings object
+        new_settings = KnowledgebaseUserSettings.from_dict(current_dict)
+        
+        # Update
+        updated_settings = settings_service.update_user_settings(
+            str(current_user.id),
+            new_settings
+        )
+        
+        logger.info(f"Updated knowledgebase settings for user {current_user.id}")
+        
+        return updated_settings.to_dict()
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to update user settings: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update user settings"
+        )
+
+
+@router.post(
+    "/settings/user/reset",
+    summary="Reset user knowledgebase settings",
+    description="Reset user's knowledgebase settings to defaults.",
+)
+async def reset_user_knowledgebase_settings(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Reset user's knowledgebase settings to defaults.
+    
+    **Returns:**
+    - Default settings object
+    
+    **Errors:**
+    - 401: Unauthorized
+    - 500: Internal server error
+    """
+    try:
+        from backend.services.agent_builder.knowledgebase_user_settings import (
+            get_knowledgebase_user_settings_service
+        )
+        
+        settings_service = get_knowledgebase_user_settings_service(db)
+        default_settings = settings_service.reset_user_settings(str(current_user.id))
+        
+        logger.info(f"Reset knowledgebase settings for user {current_user.id}")
+        
+        return default_settings.to_dict()
+        
+    except Exception as e:
+        logger.error(f"Failed to reset user settings: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to reset user settings"
+        )
+
+
+# ============================================================================
+# Language Detection & Analysis Endpoints
+# ============================================================================
+
+@router.post(
+    "/analyze/text",
+    summary="Analyze text for language and keywords",
+    description="Analyze text to detect language and extract keywords (한글/영어 지원).",
+)
+async def analyze_text(
+    text: str = Query(..., description="Text to analyze"),
+    extract_keywords: bool = Query(True, description="Extract keywords"),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Analyze text for language detection and keyword extraction.
+    
+    한글/영어 텍스트 분석:
+    - 언어 감지
+    - 키워드 추출
+    - 토큰화
+    
+    **Query Parameters:**
+    - text: Text to analyze
+    - extract_keywords: Whether to extract keywords (default: true)
+    
+    **Returns:**
+    - Analysis results including language, tokens, keywords
+    
+    **Errors:**
+    - 400: Invalid text
+    - 401: Unauthorized
+    - 500: Internal server error
+    """
+    try:
+        if not text or not text.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Text cannot be empty"
+            )
+        
+        from backend.services.agent_builder.knowledgebase_korean_processor import (
+            get_knowledgebase_korean_processor
+        )
+        
+        processor = get_knowledgebase_korean_processor()
+        
+        # Detect language
+        language = processor.detect_language(text)
+        
+        # Tokenize
+        tokens, _ = processor.tokenize(text, extract_nouns=True)
+        
+        # Extract keywords
+        keywords = []
+        if extract_keywords:
+            keyword_scores = processor.extract_keywords(text, top_k=10)
+            keywords = [{"keyword": kw, "score": score} for kw, score in keyword_scores]
+        
+        # Preprocess
+        processed_text = processor.preprocess_text(text)
+        
+        return {
+            "original_text": text,
+            "processed_text": processed_text,
+            "language": language.value,
+            "tokens": tokens,
+            "token_count": len(tokens),
+            "keywords": keywords,
+            "character_count": len(text),
+            "word_count": len(text.split())
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to analyze text: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to analyze text"
+        )
+
+
+@router.post(
+    "/analyze/query",
+    summary="Analyze and expand search query",
+    description="Analyze search query and generate expanded queries (쿼리 확장).",
+)
+async def analyze_query(
+    query: str = Query(..., description="Search query to analyze"),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Analyze and expand search query.
+    
+    쿼리 분석 및 확장:
+    - 언어 감지
+    - 동의어 확장
+    - 관련어 추가
+    
+    **Query Parameters:**
+    - query: Search query to analyze
+    
+    **Returns:**
+    - Original query, expanded queries, language info
+    
+    **Errors:**
+    - 400: Invalid query
+    - 401: Unauthorized
+    - 500: Internal server error
+    """
+    try:
+        if not query or not query.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Query cannot be empty"
+            )
+        
+        from backend.services.agent_builder.knowledgebase_korean_processor import (
+            get_knowledgebase_korean_processor
+        )
+        
+        processor = get_knowledgebase_korean_processor()
+        
+        # Detect language
+        language = processor.detect_language(query)
+        
+        # Preprocess
+        processed_query = processor.preprocess_query(query)
+        
+        # Expand query
+        expanded_queries = processor.expand_query(processed_query)
+        
+        # Tokenize
+        tokens, _ = processor.tokenize(processed_query, extract_nouns=True)
+        
+        return {
+            "original_query": query,
+            "processed_query": processed_query,
+            "language": language.value,
+            "tokens": tokens,
+            "expanded_queries": expanded_queries,
+            "expansion_count": len(expanded_queries)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to analyze query: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to analyze query"
         )

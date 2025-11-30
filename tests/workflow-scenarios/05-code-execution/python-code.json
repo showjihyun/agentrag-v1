@@ -1,0 +1,90 @@
+{
+  "name": "Python Code - Execution Test",
+  "description": "Test Python code execution with various operations",
+  "category": "code-execution",
+  "workflow": {
+    "nodes": [
+      {
+        "id": "start_1",
+        "type": "start",
+        "position": { "x": 100, "y": 100 },
+        "data": {
+          "label": "Start"
+        }
+      },
+      {
+        "id": "python_1",
+        "type": "tool",
+        "position": { "x": 300, "y": 100 },
+        "data": {
+          "label": "Process Data",
+          "tool_id": "python_code",
+          "parameters": {
+            "code": "import json\nimport math\n\ndef main(input, context):\n    numbers = input.get('numbers', [])\n    \n    result = {\n        'sum': sum(numbers),\n        'average': sum(numbers) / len(numbers) if numbers else 0,\n        'max': max(numbers) if numbers else 0,\n        'min': min(numbers) if numbers else 0,\n        'count': len(numbers),\n        'squared': [n**2 for n in numbers]\n    }\n    \n    return result\n\nreturn main(input, context)",
+            "timeout": 5,
+            "allow_imports": true
+          }
+        }
+      },
+      {
+        "id": "end_1",
+        "type": "end",
+        "position": { "x": 500, "y": 100 },
+        "data": {
+          "label": "End"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "e1",
+        "source": "start_1",
+        "target": "python_1"
+      },
+      {
+        "id": "e2",
+        "source": "python_1",
+        "target": "end_1"
+      }
+    ]
+  },
+  "test_cases": [
+    {
+      "name": "Process simple numbers",
+      "input": {
+        "numbers": [1, 2, 3, 4, 5]
+      },
+      "expected_output": {
+        "sum": 15,
+        "average": 3,
+        "max": 5,
+        "min": 1,
+        "count": 5
+      }
+    },
+    {
+      "name": "Process larger dataset",
+      "input": {
+        "numbers": [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+      },
+      "expected_output": {
+        "sum": 550,
+        "average": 55,
+        "count": 10
+      }
+    }
+  ],
+  "assertions": [
+    {
+      "type": "response_time",
+      "max_seconds": 2
+    },
+    {
+      "type": "no_errors"
+    },
+    {
+      "type": "output_has_keys",
+      "keys": ["sum", "average", "max", "min", "count"]
+    }
+  ]
+}

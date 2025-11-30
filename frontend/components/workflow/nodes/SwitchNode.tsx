@@ -26,7 +26,7 @@ export default function SwitchNode({ data, selected }: NodeProps<SwitchNodeData>
         selected ? 'border-blue-500' : 'border-gray-300'
       }`}
     >
-      <Handle type="target" position={Position.Left} className="w-3 h-3" />
+      <Handle type="target" position={Position.Left} className="w-3 h-3" id="input" />
       
       <div className="p-4">
         <div className="flex items-center gap-2 mb-2">

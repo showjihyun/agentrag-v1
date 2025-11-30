@@ -1,0 +1,190 @@
+{
+  "name": "Complex Workflow - Data Processing Pipeline",
+  "description": "HTTP fetch → Python transform → Parallel processing → Merge → Store",
+  "category": "complex-workflows",
+  "workflow": {
+    "nodes": [
+      {
+        "id": "start_1",
+        "type": "start",
+        "position": { "x": 100, "y": 300 },
+        "data": {
+          "label": "Start"
+        }
+      },
+      {
+        "id": "http_1",
+        "type": "tool",
+        "position": { "x": 300, "y": 300 },
+        "data": {
+          "label": "Fetch Data",
+          "tool_id": "http_request",
+          "parameters": {
+            "method": "GET",
+            "url": "https://jsonplaceholder.typicode.com/posts",
+            "headers": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "python_filter",
+        "type": "tool",
+        "position": { "x": 500, "y": 300 },
+        "data": {
+          "label": "Filter & Clean",
+          "tool_id": "python_code",
+          "parameters": {
+            "code": "import json\n\ndef main(input, context):\n    posts = input.get('body', [])\n    # Filter posts with userId 1\n    filtered = [p for p in posts if p.get('userId') == 1]\n    return {'posts': filtered[:5], 'count': len(filtered)}\n\nreturn main(input, context)"
+          }
+        }
+      },
+      {
+        "id": "parallel_1",
+        "type": "parallel",
+        "position": { "x": 700, "y": 300 },
+        "data": {
+          "label": "Process in Parallel"
+        }
+      },
+      {
+        "id": "python_stats",
+        "type": "tool",
+        "position": { "x": 900, "y": 150 },
+        "data": {
+          "label": "Calculate Stats",
+          "tool_id": "python_code",
+          "parameters": {
+            "code": "posts = input.get('posts', [])\nreturn {\n    'total': len(posts),\n    'avg_title_length': sum(len(p.get('title', '')) for p in posts) / len(posts) if posts else 0\n}"
+          }
+        }
+      },
+      {
+        "id": "python_summary",
+        "type": "tool",
+        "position": { "x": 900, "y": 300 },
+        "data": {
+          "label": "Generate Summary",
+          "tool_id": "python_code",
+          "parameters": {
+            "code": "posts = input.get('posts', [])\ntitles = [p.get('title', '') for p in posts]\nreturn {'summary': ', '.join(titles[:3])}"
+          }
+        }
+      },
+      {
+        "id": "python_validate",
+        "type": "tool",
+        "position": { "x": 900, "y": 450 },
+        "data": {
+          "label": "Validate Data",
+          "tool_id": "python_code",
+          "parameters": {
+            "code": "posts = input.get('posts', [])\nvalid = all('title' in p and 'body' in p for p in posts)\nreturn {'valid': valid, 'checked': len(posts)}"
+          }
+        }
+      },
+      {
+        "id": "merge_1",
+        "type": "merge",
+        "position": { "x": 1100, "y": 300 },
+        "data": {
+          "label": "Merge Results",
+          "parameters": {
+            "mode": "wait_all",
+            "input_count": 3
+          }
+        }
+      },
+      {
+        "id": "end_1",
+        "type": "end",
+        "position": { "x": 1300, "y": 300 },
+        "data": {
+          "label": "End"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "e1",
+        "source": "start_1",
+        "target": "http_1"
+      },
+      {
+        "id": "e2",
+        "source": "http_1",
+        "target": "python_filter"
+      },
+      {
+        "id": "e3",
+        "source": "python_filter",
+        "target": "parallel_1"
+      },
+      {
+        "id": "e4",
+        "source": "parallel_1",
+        "target": "python_stats"
+      },
+      {
+        "id": "e5",
+        "source": "parallel_1",
+        "target": "python_summary"
+      },
+      {
+        "id": "e6",
+        "source": "parallel_1",
+        "target": "python_validate"
+      },
+      {
+        "id": "e7",
+        "source": "python_stats",
+        "target": "merge_1"
+      },
+      {
+        "id": "e8",
+        "source": "python_summary",
+        "target": "merge_1"
+      },
+      {
+        "id": "e9",
+        "source": "python_validate",
+        "target": "merge_1"
+      },
+      {
+        "id": "e10",
+        "source": "merge_1",
+        "target": "end_1"
+      }
+    ]
+  },
+  "test_cases": [
+    {
+      "name": "Full pipeline execution",
+      "input": {},
+      "expected_output": {
+        "stats_present": true,
+        "summary_present": true,
+        "validation_present": true
+      }
+    }
+  ],
+  "assertions": [
+    {
+      "type": "response_time",
+      "max_seconds": 10
+    },
+    {
+      "type": "all_parallel_branches_executed"
+    },
+    {
+      "type": "merge_successful"
+    },
+    {
+      "type": "no_errors"
+    }
+  ]
+}

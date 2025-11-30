@@ -234,6 +234,44 @@ async def get_optional_user(
         return None
 
 
+async def require_admin(current_user: User = Depends(get_current_user)) -> User:
+    """
+    Dependency to check if user has admin role.
+
+    This is a convenience wrapper around require_role("admin").
+
+    Args:
+        current_user: Authenticated user from get_current_user
+
+    Returns:
+        User object if user is admin
+
+    Raises:
+        HTTPException: 403 Forbidden if user is not admin
+
+    Usage:
+        @app.delete("/admin/users/{user_id}")
+        async def delete_user(
+            user_id: UUID,
+            current_user: User = Depends(require_admin)
+        ):
+            # Only admins can access this endpoint
+            return {"message": "User deleted"}
+    """
+    if current_user.role != "admin":
+        logger.warning(
+            f"User {current_user.email} (role={current_user.role}) "
+            f"attempted to access admin-only endpoint"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This endpoint requires admin privileges",
+        )
+
+    logger.debug(f"Admin access granted for user: {current_user.email}")
+    return current_user
+
+
 def require_role(required_role: str) -> Callable:
     """
     Dependency factory to check if user has required role.

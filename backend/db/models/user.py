@@ -79,6 +79,12 @@ class User(Base):
     bookmarks = relationship(
         "Bookmark", back_populates="user", cascade="all, delete-orphan"
     )
+    shared_sessions = relationship(
+        "ConversationShare",
+        foreign_keys="ConversationShare.user_id",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
 
     # Database Constraints for data integrity
     __table_args__ = (

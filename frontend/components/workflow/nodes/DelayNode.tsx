@@ -64,7 +64,7 @@ export const DelayNode = memo(({ data, selected }: NodeProps<DelayNodeData>) => 
         id="input"
         isConnectable={true}
         className="!w-8 !h-8 !bg-slate-500 !border-4 !border-white hover:!w-10 hover:!h-10 hover:!border-slate-300 transition-all cursor-pointer shadow-lg"
-        style={{ top: -16 }}
+        style={{ top: -16 }} id="input"
       />
 
       {/* Node Content */}

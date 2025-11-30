@@ -639,7 +639,14 @@ class WorkflowNode(Base):
     # Constraints
     __table_args__ = (
         CheckConstraint(
-            "node_type IN ('agent', 'block', 'control')",
+            """node_type IN (
+                'start', 'end', 'agent', 'block', 'condition', 'switch',
+                'loop', 'parallel', 'delay', 'merge', 'http_request', 'code',
+                'slack', 'discord', 'email', 'google_drive', 's3', 'database',
+                'memory', 'human_approval', 'consensus', 'manager_agent',
+                'webhook_trigger', 'schedule_trigger', 'webhook_response',
+                'trigger', 'try_catch', 'control', 'tool', 'ai_agent'
+            )""",
             name="check_node_type_valid",
         ),
     )
@@ -750,7 +757,7 @@ class WorkflowExecution(Base):
         Index("ix_workflow_executions_user_status", "user_id", "status"),
         Index("ix_workflow_executions_workflow_started", "workflow_id", "started_at"),
         CheckConstraint(
-            "status IN ('running', 'completed', 'failed', 'timeout', 'cancelled')",
+            "status IN ('running', 'completed', 'failed', 'timeout', 'cancelled', 'waiting_approval')",
             name="check_workflow_execution_status_valid",
         ),
         CheckConstraint("duration_ms >= 0", name="check_workflow_duration_positive"),

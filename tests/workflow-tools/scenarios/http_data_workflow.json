@@ -1,0 +1,89 @@
+{
+  "name": "HTTP & Data Tools Test Workflow",
+  "description": "Tests HTTP request and data transformation tools",
+  "nodes": [
+    {
+      "id": "trigger-1",
+      "type": "manual_trigger",
+      "position": { "x": 100, "y": 200 },
+      "data": {
+        "label": "Manual Trigger",
+        "config": {}
+      }
+    },
+    {
+      "id": "http-1",
+      "type": "tool",
+      "position": { "x": 350, "y": 200 },
+      "data": {
+        "label": "Fetch Data",
+        "tool_id": "http_request",
+        "config": {
+          "url": "https://jsonplaceholder.typicode.com/posts/1",
+          "method": "GET",
+          "headers": {
+            "Accept": "application/json"
+          },
+          "timeout": 30
+        }
+      }
+    },
+    {
+      "id": "json-transform-1",
+      "type": "json_transform",
+      "position": { "x": 600, "y": 200 },
+      "data": {
+        "label": "Extract Fields",
+        "config": {
+          "expression": "{ \"title\": $input.body.title, \"userId\": $input.body.userId }"
+        }
+      }
+    },
+    {
+      "id": "condition-1",
+      "type": "condition",
+      "position": { "x": 850, "y": 200 },
+      "data": {
+        "label": "Check User ID",
+        "config": {
+          "conditions": [
+            {
+              "field": "userId",
+              "operator": "equals",
+              "value": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "success-end",
+      "type": "end",
+      "position": { "x": 1100, "y": 100 },
+      "data": {
+        "label": "Success"
+      }
+    },
+    {
+      "id": "failure-end",
+      "type": "end",
+      "position": { "x": 1100, "y": 300 },
+      "data": {
+        "label": "Failure"
+      }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "source": "trigger-1", "target": "http-1" },
+    { "id": "e2", "source": "http-1", "target": "json-transform-1" },
+    { "id": "e3", "source": "json-transform-1", "target": "condition-1" },
+    { "id": "e4", "source": "condition-1", "target": "success-end", "sourceHandle": "true" },
+    { "id": "e5", "source": "condition-1", "target": "failure-end", "sourceHandle": "false" }
+  ],
+  "test_input": {},
+  "expected_output": {
+    "status_code": 200,
+    "has_title": true,
+    "userId": 1
+  }
+}

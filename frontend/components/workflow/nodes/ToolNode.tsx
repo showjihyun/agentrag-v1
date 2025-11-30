@@ -45,7 +45,7 @@ export const ToolNode = memo(({ data, selected }: NodeProps<ToolNodeData>) => {
 
   return (
     <>
-      <Handle type="target" position={Position.Top} className="w-3 h-3" />
+      <Handle type="target" position={Position.Top} id="input" className="w-3 h-3" />
       
       <Card
         className={cn(
@@ -128,7 +128,7 @@ export const ToolNode = memo(({ data, selected }: NodeProps<ToolNodeData>) => {
         </div>
       </Card>
 
-      <Handle type="source" position={Position.Bottom} className="w-3 h-3" />
+      <Handle type="source" position={Position.Bottom} id="output" className="w-3 h-3" />
     </>
   );
 });

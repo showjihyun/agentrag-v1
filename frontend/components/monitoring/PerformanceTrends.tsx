@@ -7,6 +7,8 @@
 
 import React, { useState, useEffect } from 'react';
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
 interface PerformanceTrendsProps {
   autoRefresh: boolean;
   refreshInterval: number;
@@ -30,7 +32,7 @@ export default function PerformanceTrends({ autoRefresh, refreshInterval }: Perf
       
       // Fetch latency time series
       const latencyResponse = await fetch(
-        `http://localhost:8000/api/metrics/adaptive/timeseries?metric=latency&hours=${timeRange}`
+        `${API_BASE_URL}/api/metrics/adaptive/timeseries?metric=latency&hours=${timeRange}`
       );
       if (!latencyResponse.ok) throw new Error('Failed to fetch latency data');
       const latencyJson = await latencyResponse.json();
@@ -38,7 +40,7 @@ export default function PerformanceTrends({ autoRefresh, refreshInterval }: Perf
       
       // Fetch mode distribution time series
       const modeResponse = await fetch(
-        `http://localhost:8000/api/metrics/adaptive/timeseries?metric=mode_distribution&hours=${timeRange}`
+        `${API_BASE_URL}/api/metrics/adaptive/timeseries?metric=mode_distribution&hours=${timeRange}`
       );
       if (!modeResponse.ok) throw new Error('Failed to fetch mode distribution data');
       const modeJson = await modeResponse.json();

@@ -4,7 +4,7 @@ Statistics Aggregation Service
 """
 
 from datetime import date, datetime, timedelta
-from sqlalchemy import func
+from sqlalchemy import func, case
 from sqlalchemy.orm import Session
 import logging
 
@@ -50,13 +50,13 @@ class StatsAggregationService:
                 AgentExecution.user_id,
                 func.count(AgentExecution.id).label('execution_count'),
                 func.sum(
-                    func.case((AgentExecution.status == 'completed', 1), else_=0)
+                    case((AgentExecution.status == 'completed', 1), else_=0)
                 ).label('success_count'),
                 func.sum(
-                    func.case((AgentExecution.status == 'failed', 1), else_=0)
+                    case((AgentExecution.status == 'failed', 1), else_=0)
                 ).label('failed_count'),
                 func.sum(
-                    func.case((AgentExecution.status == 'cancelled', 1), else_=0)
+                    case((AgentExecution.status == 'cancelled', 1), else_=0)
                 ).label('cancelled_count'),
                 func.avg(AgentExecution.duration_ms).label('avg_duration_ms'),
                 func.min(AgentExecution.duration_ms).label('min_duration_ms'),
@@ -142,10 +142,10 @@ class StatsAggregationService:
                 WorkflowExecution.user_id,
                 func.count(WorkflowExecution.id).label('execution_count'),
                 func.sum(
-                    func.case((WorkflowExecution.status == 'completed', 1), else_=0)
+                    case((WorkflowExecution.status == 'completed', 1), else_=0)
                 ).label('success_count'),
                 func.sum(
-                    func.case((WorkflowExecution.status == 'failed', 1), else_=0)
+                    case((WorkflowExecution.status == 'failed', 1), else_=0)
                 ).label('failed_count'),
                 func.avg(WorkflowExecution.duration_ms).label('avg_duration_ms')
             )\

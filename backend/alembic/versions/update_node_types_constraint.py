@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = 'update_node_types_001'
-down_revision = 'b667d05f8afb'
+down_revision = 'f4047f0a290f'
 branch_labels = None
 depends_on = None
 
@@ -32,7 +32,7 @@ def upgrade():
             'slack', 'discord', 'email', 'google_drive', 's3', 'database',
             'memory', 'human_approval', 'consensus', 'manager_agent',
             'webhook_trigger', 'schedule_trigger', 'webhook_response',
-            'trigger', 'try_catch', 'control'
+            'trigger', 'try_catch', 'control', 'tool', 'ai_agent'
         )"""
     )
     

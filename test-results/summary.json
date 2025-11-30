@@ -1,0 +1,19 @@
+{
+  "timestamp": "2025-11-23T22:40:05.538071",
+  "summary": {
+    "total_scenarios": 1,
+    "passed_scenarios": 0,
+    "failed_scenarios": 1,
+    "total_tests": 0,
+    "passed_tests": 0,
+    "failed_tests": 0,
+    "errors": 0
+  },
+  "results": [
+    {
+      "scenario": "Python Code - Execution Test",
+      "passed": false,
+      "error": "500 Server Error: Internal Server Error for url: http://localhost:8000/api/agent-builder/workflows"
+    }
+  ]
+}

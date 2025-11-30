@@ -557,15 +557,32 @@ class AIAgentExecutor(BaseToolExecutor):
             "Content-Type": "application/json"
         }
         
+        # Determine if model uses new API parameters (GPT-5, O3, O1, etc.)
+        is_reasoning_model = any(m in model.lower() for m in [
+            'gpt-5', 'o3', 'o1', 'o-1'  # Reasoning models with restricted parameters
+        ])
+        
+        uses_max_completion_tokens = is_reasoning_model or 'gpt-4o-2024-08-06' in model.lower()
+        
         payload = {
             "model": model,
             "messages": messages,
-            "temperature": temperature,
-            "max_tokens": max_tokens,
-            "top_p": top_p,
-            "frequency_penalty": frequency_penalty,
-            "presence_penalty": presence_penalty
         }
+        
+        # Reasoning models (GPT-5, O3, O1) only support temperature=1
+        if is_reasoning_model:
+            payload["temperature"] = 1
+        else:
+            payload["temperature"] = temperature
+            payload["top_p"] = top_p
+            payload["frequency_penalty"] = frequency_penalty
+            payload["presence_penalty"] = presence_penalty
+        
+        # Add max_tokens or max_completion_tokens based on model
+        if uses_max_completion_tokens:
+            payload["max_completion_tokens"] = max_tokens
+        else:
+            payload["max_tokens"] = max_tokens
         
         # Add response format if specified
         response_format = params.get("response_format")

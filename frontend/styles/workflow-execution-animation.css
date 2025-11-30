@@ -1,0 +1,428 @@
+/* Workflow Execution Animation Styles */
+
+/* ============================================
+   KEYFRAME ANIMATIONS
+   ============================================ */
+
+/* Pulsing animation for running nodes */
+@keyframes node-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.9);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 0 20px rgba(59, 130, 246, 0);
+    transform: scale(1.05);
+  }
+}
+
+/* Glow animation */
+@keyframes node-glow {
+  0%, 100% {
+    box-shadow: 0 0 30px rgba(59, 130, 246, 0.6), 0 0 60px rgba(59, 130, 246, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 50px rgba(59, 130, 246, 1), 0 0 100px rgba(59, 130, 246, 0.5);
+  }
+}
+
+/* Shimmer effect */
+@keyframes shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+/* Success celebration */
+@keyframes node-success {
+  0% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 1);
+    transform: scale(1);
+  }
+  25% {
+    box-shadow: 0 0 0 10px rgba(34, 197, 94, 0.5);
+    transform: scale(1.08);
+  }
+  50% {
+    box-shadow: 0 0 0 20px rgba(34, 197, 94, 0);
+    transform: scale(1);
+  }
+  75% {
+    transform: scale(1.04);
+  }
+  100% {
+    box-shadow: 0 0 20px rgba(34, 197, 94, 0.4);
+    transform: scale(1);
+  }
+}
+
+/* Error shake */
+@keyframes node-shake {
+  0%, 100% {
+    transform: translateX(0) rotate(0deg);
+  }
+  10%, 30%, 50%, 70%, 90% {
+    transform: translateX(-8px) rotate(-2deg);
+  }
+  20%, 40%, 60%, 80% {
+    transform: translateX(8px) rotate(2deg);
+  }
+}
+
+/* Error flash */
+@keyframes error-flash {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(239, 68, 68, 0.8), 0 0 80px rgba(239, 68, 68, 0.4);
+  }
+}
+
+/* Waiting breathing */
+@keyframes node-waiting {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 0 15px rgba(245, 158, 11, 0.4);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(0.98);
+    box-shadow: 0 0 25px rgba(245, 158, 11, 0.6);
+  }
+}
+
+/* Pending fade */
+@keyframes pending-fade {
+  0%, 100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+/* Badge pulse */
+@keyframes badge-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.8), 0 0 40px rgba(59, 130, 246, 0.4);
+  }
+  50% {
+    transform: scale(1.2);
+    box-shadow: 0 0 30px rgba(59, 130, 246, 1), 0 0 60px rgba(59, 130, 246, 0.6);
+  }
+}
+
+/* Badge rotate */
+@keyframes badge-rotate {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    transform: rotate(180deg) scale(1.1);
+  }
+  100% {
+    transform: rotate(360deg) scale(1);
+  }
+}
+
+/* Checkmark pop */
+@keyframes checkmark-pop {
+  0% {
+    transform: scale(0) rotate(-180deg);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.3) rotate(10deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+/* Error badge shake */
+@keyframes error-badge-shake {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-15deg) scale(1.1);
+  }
+  75% {
+    transform: rotate(15deg) scale(1.1);
+  }
+}
+
+/* Hourglass spin */
+@keyframes hourglass-spin {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(180deg);
+  }
+}
+
+/* Edge flow */
+@keyframes edge-flow {
+  0% {
+    stroke-dashoffset: 20;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Edge glow */
+@keyframes edge-glow {
+  0%, 100% {
+    filter: drop-shadow(0 0 8px rgba(59, 130, 246, 1)) drop-shadow(0 0 16px rgba(59, 130, 246, 0.6));
+  }
+  50% {
+    filter: drop-shadow(0 0 12px rgba(59, 130, 246, 1)) drop-shadow(0 0 24px rgba(59, 130, 246, 0.8));
+  }
+}
+
+/* Success pulse */
+@keyframes success-pulse {
+  0% {
+    stroke-width: 2;
+    opacity: 0.5;
+  }
+  50% {
+    stroke-width: 6;
+    opacity: 1;
+  }
+  100% {
+    stroke-width: 4;
+    opacity: 1;
+  }
+}
+
+/* ============================================
+   NODE EXECUTION STATES
+   ============================================ */
+
+/* Running node - most important, needs to be very visible */
+div.node-running,
+.react-flow__node.node-running,
+[class*="node-running"] {
+  border: 4px solid #3b82f6 !important;
+  background: linear-gradient(
+    135deg,
+    rgba(59, 130, 246, 0.3) 0%,
+    rgba(37, 99, 235, 0.2) 50%,
+    rgba(59, 130, 246, 0.3) 100%
+  ) !important;
+  background-size: 200% 200% !important;
+  animation: node-pulse 1.5s ease-in-out infinite, 
+             node-glow 2s ease-in-out infinite,
+             shimmer 3s linear infinite !important;
+  position: relative !important;
+  z-index: 10 !important;
+  overflow: visible !important;
+}
+
+/* Running node badge */
+div.node-running::after,
+.react-flow__node.node-running::after,
+[class*="node-running"]::after {
+  content: '⚡' !important;
+  position: absolute !important;
+  top: -16px !important;
+  right: -16px !important;
+  width: 36px !important;
+  height: 36px !important;
+  background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 18px !important;
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.8), 0 0 40px rgba(59, 130, 246, 0.4) !important;
+  animation: badge-pulse 1s ease-in-out infinite, badge-rotate 2s linear infinite !important;
+  z-index: 1000 !important;
+}
+
+/* Success node */
+div.node-success,
+.react-flow__node.node-success,
+[class*="node-success"] {
+  border: 4px solid #22c55e !important;
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.2) 0%, rgba(34, 197, 94, 0.1) 100%) !important;
+  animation: node-success 1s ease-out !important;
+}
+
+/* Success node badge */
+div.node-success::after,
+.react-flow__node.node-success::after,
+[class*="node-success"]::after {
+  content: '✓' !important;
+  position: absolute !important;
+  top: -16px !important;
+  right: -16px !important;
+  width: 36px !important;
+  height: 36px !important;
+  background: linear-gradient(135deg, #22c55e, #16a34a) !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 20px !important;
+  color: white !important;
+  font-weight: bold !important;
+  box-shadow: 0 0 20px rgba(34, 197, 94, 0.6), 0 0 40px rgba(34, 197, 94, 0.3) !important;
+  animation: checkmark-pop 0.6s ease-out !important;
+  z-index: 1000 !important;
+}
+
+/* Error node */
+div.node-error,
+.react-flow__node.node-error,
+[class*="node-error"] {
+  border: 4px solid #ef4444 !important;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.3) 0%, rgba(239, 68, 68, 0.15) 100%) !important;
+  animation: node-shake 0.5s ease-in-out, error-flash 1.5s ease-in-out infinite !important;
+  box-shadow: 0 0 30px rgba(239, 68, 68, 0.6) !important;
+}
+
+/* Error node badge */
+div.node-error::after,
+.react-flow__node.node-error::after,
+[class*="node-error"]::after {
+  content: '✕' !important;
+  position: absolute !important;
+  top: -16px !important;
+  right: -16px !important;
+  width: 36px !important;
+  height: 36px !important;
+  background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 20px !important;
+  color: white !important;
+  font-weight: bold !important;
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.8), 0 0 40px rgba(239, 68, 68, 0.4) !important;
+  animation: error-badge-shake 0.5s ease-in-out !important;
+  z-index: 1000 !important;
+}
+
+/* Waiting node */
+div.node-waiting,
+.react-flow__node.node-waiting,
+[class*="node-waiting"] {
+  border: 3px solid #f59e0b !important;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.25) 0%, rgba(245, 158, 11, 0.15) 100%) !important;
+  animation: node-waiting 2s ease-in-out infinite !important;
+}
+
+/* Waiting node badge */
+div.node-waiting::after,
+.react-flow__node.node-waiting::after,
+[class*="node-waiting"]::after {
+  content: '⏳' !important;
+  position: absolute !important;
+  top: -16px !important;
+  right: -16px !important;
+  width: 36px !important;
+  height: 36px !important;
+  background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 18px !important;
+  box-shadow: 0 0 20px rgba(245, 158, 11, 0.6) !important;
+  animation: hourglass-spin 2s linear infinite !important;
+  z-index: 1000 !important;
+}
+
+/* Pending node */
+div.node-pending,
+.react-flow__node.node-pending,
+[class*="node-pending"] {
+  border: 2px solid #6b7280 !important;
+  opacity: 0.7 !important;
+  animation: pending-fade 3s ease-in-out infinite !important;
+}
+
+/* Skipped node */
+div.node-skipped,
+.react-flow__node.node-skipped,
+[class*="node-skipped"] {
+  opacity: 0.5 !important;
+  filter: grayscale(0.5) !important;
+}
+
+/* ============================================
+   EDGE EXECUTION STATES
+   ============================================ */
+
+/* Active edge */
+.edge-active path,
+.edge-active .react-flow__edge-path,
+.react-flow__edge.edge-active path {
+  stroke: #3b82f6 !important;
+  stroke-width: 5 !important;
+  stroke-dasharray: 12 8 !important;
+  stroke-linecap: round !important;
+  animation: edge-flow 0.8s linear infinite, edge-glow 1.5s ease-in-out infinite !important;
+  filter: drop-shadow(0 0 8px rgba(59, 130, 246, 1)) drop-shadow(0 0 16px rgba(59, 130, 246, 0.6)) !important;
+}
+
+/* Success edge */
+.edge-success path,
+.edge-success .react-flow__edge-path,
+.react-flow__edge.edge-success path {
+  stroke: #22c55e !important;
+  stroke-width: 4 !important;
+  opacity: 1 !important;
+  filter: drop-shadow(0 0 6px rgba(34, 197, 94, 0.7)) !important;
+  animation: success-pulse 1s ease-out !important;
+}
+
+/* Error edge */
+.edge-error path,
+.edge-error .react-flow__edge-path,
+.react-flow__edge.edge-error path {
+  stroke: #ef4444 !important;
+  stroke-width: 3 !important;
+  opacity: 0.9 !important;
+  filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.6)) !important;
+}
+
+/* ============================================
+   EXECUTION MODE OVERLAY
+   ============================================ */
+
+.workflow-execution-mode {
+  position: relative;
+}
+
+.workflow-execution-mode::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(59, 130, 246, 0.02);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.workflow-execution-mode .react-flow__node {
+  cursor: pointer;
+}
+
+.workflow-execution-mode .react-flow__node:hover {
+  filter: brightness(1.05);
+}

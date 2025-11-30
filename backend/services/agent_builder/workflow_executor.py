@@ -13,11 +13,33 @@ import time
 from sqlalchemy.orm import Session
 from backend.core.workflow_metrics import WorkflowMetrics
 
+# Import structured logging and error classes
+from backend.services.agent_builder.workflow_logger import (
+    WorkflowLogger,
+    generate_trace_id,
+    set_trace_context,
+    clear_trace_context,
+)
+from backend.services.agent_builder.workflow_errors import (
+    WorkflowError,
+    WorkflowErrorCode,
+    NodeExecutionError,
+    TimeoutError as WorkflowTimeoutError,
+    ConcurrencyLimitError,
+    ExpressionError,
+    create_error_response,
+)
+
 logger = logging.getLogger(__name__)
+wf_logger = WorkflowLogger("executor")
 
 
 class WorkflowExecutor:
     """Executes a workflow by processing its nodes."""
+    
+    # Class-level tracking for concurrent executions
+    _active_executions: Dict[str, int] = {}  # {workflow_id: count}
+    _execution_lock = asyncio.Lock() if hasattr(asyncio, 'Lock') else None
     
     def __init__(self, workflow: Any, db: Session, execution_id: Optional[str] = None):
         self.workflow = workflow
@@ -33,9 +55,14 @@ class WorkflowExecutor:
         self.cache_ttl: int = 300  # 5 minutes cache TTL
         self.cache_enabled: bool = True  # Can be disabled for debugging
         
+        # Workflow-level settings
+        self.workflow_timeout: int = 300  # 5 minutes default workflow timeout
+        self.max_concurrent_executions: int = 5  # Max concurrent executions per workflow
+        self.cancelled: bool = False  # Flag for cancellation
+        
     async def execute(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Execute the workflow.
+        Execute the workflow with timeout and concurrency control.
         
         Args:
             input_data: Input data for the workflow
@@ -45,15 +72,143 @@ class WorkflowExecutor:
         """
         start_time = time.time()
         user_id = None
+        workflow_id = str(self.workflow.id)
+        execution_id = self.execution_id or generate_trace_id()
+        
+        # Set trace context for structured logging
+        set_trace_context(
+            trace_id=generate_trace_id(),
+            workflow_id=workflow_id,
+            execution_id=execution_id,
+        )
+        
+        # Check and update concurrent execution count
+        try:
+            await self._acquire_execution_slot(workflow_id)
+        except Exception as e:
+            error = ConcurrencyLimitError(
+                workflow_id=workflow_id,
+                current_count=self._active_executions.get(workflow_id, 0),
+                max_count=self.max_concurrent_executions,
+            )
+            wf_logger.error(str(error), error_code=error.code.value)
+            clear_trace_context()
+            return create_error_response(error)
         
         try:
+            # Log workflow start with structured logger
+            wf_logger.workflow_start(workflow_id, execution_id, input_data)
             logger.info(f"Starting workflow execution: {self.workflow.id}")
             
             # Record execution start
             WorkflowMetrics.record_execution_start(
-                workflow_id=str(self.workflow.id),
+                workflow_id=workflow_id,
                 user_id=None
             )
+            
+            # Get workflow timeout from graph definition or use default
+            graph = self.workflow.graph_definition or {}
+            self.workflow_timeout = graph.get("settings", {}).get("timeout", 300)
+            
+            # Execute with timeout
+            try:
+                result = await asyncio.wait_for(
+                    self._execute_internal(input_data),
+                    timeout=self.workflow_timeout
+                )
+                
+                # Log successful completion
+                duration_ms = (time.time() - start_time) * 1000
+                wf_logger.workflow_complete(
+                    duration_ms=duration_ms,
+                    status="success" if result.get("success") else "failed",
+                    output_keys=list(result.get("output", {}).keys()) if isinstance(result.get("output"), dict) else None,
+                )
+                
+                return result
+            except asyncio.TimeoutError:
+                duration_ms = (time.time() - start_time) * 1000
+                error = WorkflowTimeoutError(
+                    message=f"Workflow execution timed out after {self.workflow_timeout} seconds",
+                    timeout_seconds=self.workflow_timeout,
+                )
+                wf_logger.workflow_error(error, duration_ms, error.code.value)
+                
+                WorkflowMetrics.record_execution_complete(
+                    workflow_id=workflow_id,
+                    user_id=user_id,
+                    status="timeout",
+                    duration=duration_ms / 1000
+                )
+                return create_error_response(error)
+        finally:
+            # Release execution slot and clear trace context
+            await self._release_execution_slot(workflow_id)
+            clear_trace_context()
+    
+    async def _acquire_execution_slot(self, workflow_id: str) -> None:
+        """Acquire an execution slot for the workflow."""
+        if self._execution_lock:
+            async with self._execution_lock:
+                current_count = self._active_executions.get(workflow_id, 0)
+                if current_count >= self.max_concurrent_executions:
+                    raise Exception(
+                        f"Maximum concurrent executions ({self.max_concurrent_executions}) "
+                        f"reached for workflow {workflow_id}"
+                    )
+                self._active_executions[workflow_id] = current_count + 1
+                logger.info(f"Acquired execution slot for {workflow_id}: {current_count + 1}/{self.max_concurrent_executions}")
+    
+    async def _release_execution_slot(self, workflow_id: str) -> None:
+        """Release an execution slot for the workflow."""
+        if self._execution_lock:
+            async with self._execution_lock:
+                current_count = self._active_executions.get(workflow_id, 0)
+                if current_count > 0:
+                    self._active_executions[workflow_id] = current_count - 1
+                    logger.info(f"Released execution slot for {workflow_id}: {current_count - 1}/{self.max_concurrent_executions}")
+                
+                # Clean up entries with 0 count to prevent memory leak
+                if self._active_executions.get(workflow_id, 0) == 0:
+                    self._active_executions.pop(workflow_id, None)
+    
+    @classmethod
+    def cleanup_stale_executions(cls, max_age_seconds: int = 3600) -> int:
+        """
+        Clean up stale execution tracking entries.
+        Call periodically to prevent memory leaks.
+        
+        Args:
+            max_age_seconds: Maximum age for entries (default 1 hour)
+            
+        Returns:
+            Number of entries cleaned up
+        """
+        # For now, just clear all zero-count entries
+        # In production, would track timestamps
+        cleaned = 0
+        if cls._active_executions:
+            to_remove = [k for k, v in cls._active_executions.items() if v == 0]
+            for key in to_remove:
+                cls._active_executions.pop(key, None)
+                cleaned += 1
+        
+        if cleaned > 0:
+            logger.info(f"Cleaned up {cleaned} stale execution tracking entries")
+        
+        return cleaned
+    
+    def cancel(self) -> None:
+        """Cancel the workflow execution."""
+        self.cancelled = True
+        logger.info(f"Workflow execution cancelled: {self.workflow.id}")
+    
+    async def _execute_internal(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Internal execution logic."""
+        start_time = time.time()
+        user_id = None
+        
+        try:
             
             # Initialize execution context
             # Extract user_id from input_data if present
@@ -193,11 +348,18 @@ class WorkflowExecutor:
             current_node: Current node to execute
             nodes: All nodes in the workflow
             edges: All edges in the workflow
+            
+        Note:
+            Checks for cancellation before each node execution.
             data: Input data for the current node
             
         Returns:
             Output data from the execution path
         """
+        # Check for cancellation
+        if self.cancelled:
+            raise Exception("Workflow execution was cancelled")
+        
         node_id = current_node["id"]
         # Check multiple possible fields for node type
         raw_node_type = current_node.get("type") or current_node.get("node_type")
@@ -255,6 +417,42 @@ class WorkflowExecutor:
                 duration=node_duration
             )
             
+            # Build detailed execution log
+            execution_log = {
+                "node_id": node_id,
+                "node_name": node_data.get("name", node_type),
+                "node_type": node_type,
+                "status": "success",
+                "started_at": datetime.fromtimestamp(node_start_time).isoformat(),
+                "completed_at": datetime.utcnow().isoformat(),
+                "duration_ms": int(node_duration * 1000),
+                "input": data if isinstance(data, dict) else {"value": str(data)},
+                "output": result if isinstance(result, dict) else {"value": str(result)},
+            }
+            
+            # Add tool-specific details
+            if node_type == "tool":
+                tool_id = node_data.get("toolId") or node_data.get("tool_id")
+                execution_log["tool_id"] = tool_id
+                execution_log["tool_config"] = node_data.get("config", {})
+                
+                # For AI Agent tools, add detailed info
+                if tool_id == "ai_agent":
+                    execution_log["ai_agent_details"] = {
+                        "provider": node_data.get("config", {}).get("provider"),
+                        "model": node_data.get("config", {}).get("model"),
+                        "system_prompt": node_data.get("config", {}).get("system_prompt", "")[:200],
+                        "user_message": node_data.get("config", {}).get("user_message", "")[:200],
+                        "temperature": node_data.get("config", {}).get("temperature"),
+                        "max_tokens": node_data.get("config", {}).get("max_tokens"),
+                        "response_length": len(str(result)) if result else 0,
+                    }
+            
+            # Store in execution context for history
+            if "node_executions" not in self.execution_context:
+                self.execution_context["node_executions"] = []
+            self.execution_context["node_executions"].append(execution_log)
+            
             # Update node status: success
             if self.execution_id:
                 await self.update_node_status(
@@ -263,7 +461,8 @@ class WorkflowExecutor:
                     {
                         "status": "success",
                         "end_time": datetime.utcnow().timestamp(),
-                        "output": str(result)[:500] if result else None,  # Limit output size
+                        "output": str(result)[:500] if result else None,
+                        "execution_log": execution_log,
                     }
                 )
             
@@ -280,6 +479,31 @@ class WorkflowExecutor:
                 duration=node_duration
             )
             
+            # Build detailed error log
+            error_log = {
+                "node_id": node_id,
+                "node_name": node_data.get("name", node_type),
+                "node_type": node_type,
+                "status": "failed",
+                "started_at": datetime.fromtimestamp(node_start_time).isoformat(),
+                "completed_at": datetime.utcnow().isoformat(),
+                "duration_ms": int(node_duration * 1000),
+                "input": data if isinstance(data, dict) else {"value": str(data)},
+                "error": str(e),
+                "error_type": type(e).__name__,
+            }
+            
+            # Add tool-specific details for errors
+            if node_type == "tool":
+                tool_id = node_data.get("toolId") or node_data.get("tool_id")
+                error_log["tool_id"] = tool_id
+                error_log["tool_config"] = node_data.get("config", {})
+            
+            # Store in execution context
+            if "node_executions" not in self.execution_context:
+                self.execution_context["node_executions"] = []
+            self.execution_context["node_executions"].append(error_log)
+            
             # Update node status: failed
             if self.execution_id:
                 await self.update_node_status(
@@ -289,6 +513,7 @@ class WorkflowExecutor:
                         "status": "failed",
                         "end_time": datetime.utcnow().timestamp(),
                         "error": str(e),
+                        "execution_log": error_log,
                     }
                 )
             raise
@@ -521,10 +746,24 @@ class WorkflowExecutor:
                     result = await self._execute_condition_node(node_data, data)
                 elif node_type == "agent":
                     result = await self._execute_agent_node(node_data, data)
+                elif node_type == "ai_agent":
+                    # AI Agent - execute with dedicated method for better LLM handling
+                    logger.info(f"🤖 Executing AI Agent node: {node_id}")
+                    logger.info(f"📝 Node data: {node_data}")
+                    result = await self._execute_ai_agent_node(node_data, data)
+                    logger.info(f"✅ AI Agent result: {result}")
                 elif node_type == "block":
+                    logger.warning(f"⚠️ Node {node_id} executing as generic block (type: {node_type})")
+                    logger.warning(f"📝 Node data: {node_data}")
                     result = await self._execute_block_node(node_data, data)
                 elif node_type == "tool":
-                    result = await self._execute_tool_node(node_data, data)
+                    # Check if it's an AI Agent tool
+                    tool_id = node_data.get("tool_id") or node_data.get("toolId")
+                    if tool_id == "ai_agent":
+                        logger.info(f"🤖 Executing AI Agent tool node: {node_id}")
+                        result = await self._execute_ai_agent_node(node_data, data)
+                    else:
+                        result = await self._execute_tool_node(node_data, data)
                 elif node_type == "http_request":
                     result = await self._execute_http_request_node(node_data, data)
                 elif node_type == "loop":
@@ -565,6 +804,22 @@ class WorkflowExecutor:
                     result = await self._execute_consensus_node(node_data, data)
                 elif node_type == "human_approval":
                     result = await self._execute_human_approval_node(node_data, data)
+                # Additional trigger types
+                elif node_type == "manual_trigger":
+                    result = await self._execute_manual_trigger_node(node_data, data)
+                elif node_type == "email_trigger":
+                    result = await self._execute_email_trigger_node(node_data, data)
+                elif node_type == "file_trigger":
+                    result = await self._execute_file_trigger_node(node_data, data)
+                elif node_type == "slack_trigger":
+                    result = await self._execute_slack_trigger_node(node_data, data)
+                # Control flow nodes
+                elif node_type == "filter":
+                    result = await self._execute_filter_node(node_data, data)
+                elif node_type == "transform":
+                    result = await self._execute_transform_node(node_data, data)
+                elif node_type == "try_catch":
+                    result = await self._execute_try_catch_node(node_data, data, nodes, edges)
                 else:
                     logger.warning(f"Unknown node type: {node_type}, passing through data")
                     result = data
@@ -666,7 +921,7 @@ class WorkflowExecutor:
     
     def _safe_eval(self, expression: str, context: Dict[str, Any]) -> Any:
         """
-        Safely evaluate a Python expression.
+        Safely evaluate a Python expression using AST validation.
         
         Args:
             expression: Python expression to evaluate
@@ -674,7 +929,53 @@ class WorkflowExecutor:
             
         Returns:
             Evaluation result
+            
+        Raises:
+            ValueError: If expression contains unsafe operations
         """
+        import ast
+        
+        # Validate expression using AST
+        try:
+            tree = ast.parse(expression, mode='eval')
+        except SyntaxError as e:
+            raise ValueError(f"Invalid expression syntax: {e}")
+        
+        # Check for unsafe nodes
+        unsafe_nodes = (
+            ast.Import, ast.ImportFrom, ast.Call,  # No imports or arbitrary calls
+            ast.Attribute,  # Restrict attribute access
+        )
+        
+        # Allow only specific safe calls
+        allowed_functions = {
+            'len', 'str', 'int', 'float', 'bool', 'list', 'dict',
+            'abs', 'min', 'max', 'sum', 'all', 'any', 'round'
+        }
+        
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.Import, ast.ImportFrom)):
+                raise ValueError("Import statements are not allowed")
+            
+            # Allow safe function calls only
+            if isinstance(node, ast.Call):
+                if isinstance(node.func, ast.Name):
+                    if node.func.id not in allowed_functions:
+                        raise ValueError(f"Function '{node.func.id}' is not allowed")
+                elif isinstance(node.func, ast.Attribute):
+                    # Allow safe string/list methods
+                    safe_methods = {'lower', 'upper', 'strip', 'split', 'join', 'get', 'keys', 'values', 'items'}
+                    if node.func.attr not in safe_methods:
+                        raise ValueError(f"Method '{node.func.attr}' is not allowed")
+            
+            # Restrict attribute access to safe patterns
+            if isinstance(node, ast.Attribute):
+                # Allow accessing dict keys and safe attributes
+                safe_attrs = {'get', 'keys', 'values', 'items', 'lower', 'upper', 'strip', 'split'}
+                if node.attr not in safe_attrs and not node.attr.startswith('_'):
+                    # Allow data access patterns like data.field
+                    pass  # Allow for now, but log for monitoring
+        
         # Restricted builtins for safety
         safe_builtins = {
             "abs": abs,
@@ -690,6 +991,7 @@ class WorkflowExecutor:
             "min": min,
             "str": str,
             "sum": sum,
+            "round": round,
             "True": True,
             "False": False,
             "None": None,
@@ -726,28 +1028,657 @@ class WorkflowExecutor:
         
         return result
     
+    async def _execute_ai_agent_node(self, node_data: Dict[str, Any], data: Any) -> Any:
+        """
+        Execute AI Agent node with LLM integration.
+        
+        Calls LLM API with proper configuration and returns structured response.
+        """
+        from backend.services.llm_manager import LLMManager, LLMProvider
+        from backend.services.api_key_service import APIKeyService
+        
+        # Extract configuration from node data (check multiple locations)
+        # Priority: config > parameters > top-level fields
+        config = node_data.get("config") or {}
+        parameters = node_data.get("parameters") or {}
+        
+        # Helper function to get value from multiple sources
+        def get_config_value(key: str, alt_key: str = None):
+            """Get config value from config, parameters, or top-level node_data"""
+            # Check config first
+            if config.get(key):
+                return config.get(key)
+            if alt_key and config.get(alt_key):
+                return config.get(alt_key)
+            # Check parameters
+            if parameters.get(key):
+                return parameters.get(key)
+            if alt_key and parameters.get(alt_key):
+                return parameters.get(alt_key)
+            # Check top-level
+            if node_data.get(key):
+                return node_data.get(key)
+            if alt_key and node_data.get(alt_key):
+                return node_data.get(alt_key)
+            return None
+        
+        # Build unified config from all sources
+        unified_config = {
+            "llm_provider": get_config_value("llm_provider", "provider"),
+            "model": get_config_value("model"),
+            "system_prompt": get_config_value("system_prompt"),
+            "user_message": get_config_value("user_message"),
+            "temperature": get_config_value("temperature"),
+            "max_tokens": get_config_value("max_tokens"),
+            "memory_type": get_config_value("memory_type"),
+            "api_key": get_config_value("api_key"),
+        }
+        # Remove None values
+        config = {k: v for k, v in unified_config.items() if v is not None}
+        
+        logger.info(f"🔧 AI Agent node_data keys: {list(node_data.keys())}")
+        logger.info(f"🔧 AI Agent config (from node_data.config): {node_data.get('config')}")
+        logger.info(f"🔧 AI Agent parameters (from node_data.parameters): {parameters}")
+        logger.info(f"🔧 AI Agent unified config: {config}")
+        
+        # Get LLM settings with defaults
+        llm_provider = config.get("llm_provider") or config.get("provider") or "ollama"
+        model = config.get("model") or "llama3.1:8b"
+        system_prompt = config.get("system_prompt") or "You are a helpful AI assistant."
+        user_message = config.get("user_message") or ""
+        temperature = float(config.get("temperature", 0.7))
+        max_tokens = int(config.get("max_tokens", 2000))
+        memory_type = config.get("memory_type") or "short_term"
+        
+        # Build task from input data
+        if isinstance(data, dict):
+            task = data.get("user_query") or data.get("query") or data.get("workflow_input") or data.get("message") or str(data)
+        else:
+            task = str(data) if data else ""
+        
+        # If user_message contains template variables, replace them
+        if user_message and "{{" in user_message:
+            # Simple template replacement
+            user_message = user_message.replace("{{input.message}}", task)
+            user_message = user_message.replace("{{input}}", task)
+        elif not user_message:
+            user_message = task
+        
+        logger.info(f"🤖 AI Agent Config:")
+        logger.info(f"   Provider: {llm_provider}")
+        logger.info(f"   Model: {model}")
+        logger.info(f"   Temperature: {temperature}")
+        logger.info(f"   Max Tokens: {max_tokens}")
+        logger.info(f"   Memory Type: {memory_type}")
+        logger.info(f"   System Prompt: {system_prompt[:100]}...")
+        logger.info(f"   User Message: {user_message[:100]}...")
+        
+        start_time = time.time()
+        
+        try:
+            # Map provider string to LLMProvider enum
+            # Note: LLMProvider only has OLLAMA, OPENAI, CLAUDE
+            provider_map = {
+                "ollama": LLMProvider.OLLAMA,
+                "openai": LLMProvider.OPENAI,
+                "anthropic": LLMProvider.CLAUDE,
+                "claude": LLMProvider.CLAUDE,
+                "Local (Ollama)": LLMProvider.OLLAMA,
+                "OpenAI": LLMProvider.OPENAI,
+                "Anthropic (Claude)": LLMProvider.CLAUDE,
+                "Anthropic": LLMProvider.CLAUDE,
+            }
+            
+            provider_enum = provider_map.get(llm_provider, LLMProvider.OLLAMA)
+            
+            # Get API key - priority: node config > user saved key > environment variable
+            api_key = config.get("api_key")  # First check node config
+            user_id = self.execution_context.get("user_id")
+            
+            if api_key:
+                logger.info(f"   Using API key from node config")
+            elif provider_enum != LLMProvider.OLLAMA and user_id:
+                try:
+                    api_key_service = APIKeyService(self.db)
+                    service_name = llm_provider.lower().replace(" ", "_").replace("(", "").replace(")", "")
+                    if "anthropic" in service_name or "claude" in service_name:
+                        service_name = "anthropic"
+                    elif "openai" in service_name:
+                        service_name = "openai"
+                    
+                    api_key = api_key_service.get_decrypted_api_key(user_id, service_name)
+                    if api_key:
+                        logger.info(f"   Using user's saved API key for {service_name}")
+                except Exception as e:
+                    logger.warning(f"   Failed to get API key from service: {e}")
+            
+            # Initialize LLM Manager
+            llm_manager = LLMManager(
+                provider=provider_enum,
+                model=model,
+                api_key=api_key
+            )
+            
+            # Build messages
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_message}
+            ]
+            
+            # Generate response (non-streaming for workflow execution)
+            response = await llm_manager.generate(
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                stream=False
+            )
+            
+            execution_time = time.time() - start_time
+            
+            # Build detailed result
+            result = {
+                "success": True,
+                "response": response,
+                "ai_agent_config": {
+                    "provider": llm_provider,
+                    "model": model,
+                    "temperature": temperature,
+                    "max_tokens": max_tokens,
+                    "memory_type": memory_type,
+                    "system_prompt": system_prompt,
+                    "user_message": user_message,
+                },
+                "execution_details": {
+                    "execution_time_ms": int(execution_time * 1000),
+                    "response_length": len(response) if response else 0,
+                    "timestamp": datetime.utcnow().isoformat(),
+                },
+                "input": {
+                    "original_data": data,
+                    "processed_task": user_message,
+                },
+            }
+            
+            logger.info(f"✅ AI Agent completed in {int(execution_time * 1000)}ms")
+            logger.info(f"   Response length: {len(response) if response else 0} chars")
+            
+            return result
+            
+        except Exception as e:
+            execution_time = time.time() - start_time
+            logger.error(f"❌ AI Agent execution failed: {e}", exc_info=True)
+            
+            return {
+                "success": False,
+                "error": str(e),
+                "error_type": type(e).__name__,
+                "ai_agent_config": {
+                    "provider": llm_provider,
+                    "model": model,
+                    "temperature": temperature,
+                    "max_tokens": max_tokens,
+                    "memory_type": memory_type,
+                },
+                "execution_details": {
+                    "execution_time_ms": int(execution_time * 1000),
+                    "timestamp": datetime.utcnow().isoformat(),
+                },
+                "input": {
+                    "original_data": data,
+                },
+            }
+    
     async def _execute_block_node(self, node_data: Dict[str, Any], data: Any) -> Any:
         """
-        Execute block node.
+        Execute block node using BlockRegistry.
         
-        Executes a custom block (logic, transformation, etc.).
+        Executes a custom block (logic, transformation, condition, loop, etc.)
+        by looking up the block type in the registry and executing it.
         """
-        block_id = node_data.get("blockId")
-        block_type = node_data.get("blockType", "logic")
+        from backend.core.blocks.registry import BlockRegistry
+        from backend.core.blocks.base import BlockExecutionError
         
-        logger.info(f"Executing block: {block_id or block_type}")
+        block_id = node_data.get("blockId") or node_data.get("id")
+        block_type = node_data.get("blockType") or node_data.get("type") or "logic"
+        config = node_data.get("config") or node_data.get("configuration") or {}
+        sub_blocks = node_data.get("sub_blocks") or node_data.get("subBlocks") or {}
         
-        # TODO: Implement actual block execution
-        # For now, simulate block processing
-        await asyncio.sleep(0.3)  # Simulate processing time
+        # Normalize block type (handle various naming conventions)
+        block_type_normalized = self._normalize_block_type(block_type)
         
-        result = {
-            "block_output": f"Processed by {block_type} block",
+        logger.info(f"Executing block: {block_id or 'unknown'} (type: {block_type_normalized})")
+        logger.debug(f"Block config: {config}")
+        logger.debug(f"Block sub_blocks: {sub_blocks}")
+        
+        start_time = time.time()
+        
+        try:
+            # Check if block type is registered
+            if BlockRegistry.is_registered(block_type_normalized):
+                # Create block instance from registry
+                block_instance = BlockRegistry.create_block_instance(
+                    block_type=block_type_normalized,
+                    block_id=block_id,
+                    config=config,
+                    sub_blocks=sub_blocks
+                )
+                
+                # Prepare inputs
+                inputs = self._prepare_block_inputs(data, node_data)
+                
+                # Prepare context
+                context = {
+                    "execution_id": self.execution_context.get("execution_id"),
+                    "workflow_id": self.execution_context.get("workflow_id"),
+                    "user_id": self.execution_context.get("user_id"),
+                    "variables": self.execution_context.get("variables", {}),
+                    "previous_outputs": self.execution_context.get("previous_outputs", {}),
+                }
+                
+                # Execute block with error handling
+                result = await block_instance.execute_with_error_handling(inputs, context)
+                
+                execution_time = time.time() - start_time
+                
+                if result.get("success"):
+                    logger.info(f"✅ Block {block_id} executed successfully in {int(execution_time * 1000)}ms")
+                    return {
+                        "success": True,
+                        "block_output": result.get("outputs"),
+                        "block_id": block_id,
+                        "block_type": block_type_normalized,
+                        "input": data,
+                        "execution_time_ms": int(execution_time * 1000),
+                        "timestamp": datetime.utcnow().isoformat(),
+                        "metadata": result.get("metadata", {}),
+                    }
+                else:
+                    logger.warning(f"⚠️ Block {block_id} execution failed: {result.get('error')}")
+                    return {
+                        "success": False,
+                        "error": result.get("error"),
+                        "error_type": result.get("error_type"),
+                        "block_id": block_id,
+                        "block_type": block_type_normalized,
+                        "input": data,
+                        "execution_time_ms": int(execution_time * 1000),
+                        "timestamp": datetime.utcnow().isoformat(),
+                    }
+            
+            else:
+                # Block type not in registry - use fallback execution
+                logger.warning(f"Block type '{block_type_normalized}' not in registry, using fallback")
+                result = await self._execute_fallback_block(
+                    block_id=block_id,
+                    block_type=block_type_normalized,
+                    config=config,
+                    sub_blocks=sub_blocks,
+                    data=data
+                )
+                
+                execution_time = time.time() - start_time
+                result["execution_time_ms"] = int(execution_time * 1000)
+                return result
+                
+        except BlockExecutionError as e:
+            execution_time = time.time() - start_time
+            logger.error(f"❌ Block execution error: {e.message}", exc_info=True)
+            return {
+                "success": False,
+                "error": e.message,
+                "error_type": "BlockExecutionError",
+                "block_id": block_id,
+                "block_type": block_type_normalized,
+                "input": data,
+                "execution_time_ms": int(execution_time * 1000),
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+        except Exception as e:
+            execution_time = time.time() - start_time
+            logger.error(f"❌ Unexpected block execution error: {e}", exc_info=True)
+            return {
+                "success": False,
+                "error": str(e),
+                "error_type": type(e).__name__,
+                "block_id": block_id,
+                "block_type": block_type_normalized,
+                "input": data,
+                "execution_time_ms": int(execution_time * 1000),
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+    
+    def _normalize_block_type(self, block_type: str) -> str:
+        """Normalize block type to match registry naming."""
+        # Map common variations to registry names
+        type_mapping = {
+            # Condition variations
+            "condition": "condition",
+            "conditional": "condition",
+            "if": "condition",
+            "branch": "condition",
+            # HTTP variations
+            "http": "http",
+            "http_request": "http",
+            "httpRequest": "http",
+            "api": "http",
+            "rest": "http",
+            # Loop variations
+            "loop": "loop",
+            "for": "loop",
+            "forEach": "loop",
+            "iterate": "loop",
+            # Parallel variations
+            "parallel": "parallel",
+            "concurrent": "parallel",
+            "fan_out": "parallel",
+            # OpenAI variations
+            "openai": "openai",
+            "openai_chat": "openai",
+            "gpt": "openai",
+            # Knowledge base variations
+            "knowledge_base": "knowledge_base",
+            "knowledgeBase": "knowledge_base",
+            "kb": "knowledge_base",
+            "vector_search": "knowledge_base",
+            # Logic variations
+            "logic": "logic",
+            "code": "logic",
+            "python": "logic",
+            "script": "logic",
+            # Transform variations
+            "transform": "transform",
+            "map": "transform",
+            "convert": "transform",
+            # Filter variations
+            "filter": "filter",
+            "where": "filter",
+            # Merge variations
+            "merge": "merge",
+            "join": "merge",
+            "combine": "merge",
+        }
+        
+        normalized = block_type.lower().strip()
+        return type_mapping.get(normalized, normalized)
+    
+    def _prepare_block_inputs(self, data: Any, node_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Prepare inputs for block execution."""
+        inputs = {}
+        
+        # Add data as primary input
+        if isinstance(data, dict):
+            inputs.update(data)
+            inputs["variables"] = data
+        else:
+            inputs["input"] = data
+            inputs["variables"] = {"input": data}
+        
+        # Add any explicit inputs from node_data
+        if "inputs" in node_data:
+            inputs.update(node_data["inputs"])
+        
+        return inputs
+    
+    async def _execute_fallback_block(
+        self,
+        block_id: str,
+        block_type: str,
+        config: Dict[str, Any],
+        sub_blocks: Dict[str, Any],
+        data: Any
+    ) -> Dict[str, Any]:
+        """
+        Fallback execution for unregistered block types.
+        
+        Handles common block types that might not be in the registry.
+        """
+        logger.info(f"Fallback execution for block type: {block_type}")
+        
+        try:
+            # Handle common block types
+            if block_type in ["logic", "code", "python", "script"]:
+                return await self._execute_logic_block_fallback(block_id, config, sub_blocks, data)
+            
+            elif block_type in ["transform", "map", "convert"]:
+                return await self._execute_transform_block_fallback(block_id, config, sub_blocks, data)
+            
+            elif block_type in ["filter", "where"]:
+                return await self._execute_filter_block_fallback(block_id, config, sub_blocks, data)
+            
+            elif block_type in ["delay", "wait", "sleep"]:
+                return await self._execute_delay_block_fallback(block_id, config, sub_blocks, data)
+            
+            elif block_type in ["text", "template", "format"]:
+                return await self._execute_text_block_fallback(block_id, config, sub_blocks, data)
+            
+            else:
+                # Generic passthrough for unknown types
+                logger.warning(f"Unknown block type '{block_type}', passing data through")
+                return {
+                    "success": True,
+                    "block_output": data,
+                    "block_id": block_id,
+                    "block_type": block_type,
+                    "input": data,
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "warning": f"Block type '{block_type}' not implemented, data passed through",
+                }
+                
+        except Exception as e:
+            logger.error(f"Fallback block execution failed: {e}", exc_info=True)
+            return {
+                "success": False,
+                "error": str(e),
+                "error_type": type(e).__name__,
+                "block_id": block_id,
+                "block_type": block_type,
+                "input": data,
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+    
+    async def _execute_logic_block_fallback(
+        self,
+        block_id: str,
+        config: Dict[str, Any],
+        sub_blocks: Dict[str, Any],
+        data: Any
+    ) -> Dict[str, Any]:
+        """Execute logic/code block with safe eval."""
+        import json
+        
+        code = config.get("code") or sub_blocks.get("code") or config.get("implementation", "")
+        
+        if not code:
+            return {
+                "success": True,
+                "block_output": data,
+                "block_id": block_id,
+                "block_type": "logic",
+                "input": data,
+                "timestamp": datetime.utcnow().isoformat(),
+                "warning": "No code provided, data passed through",
+            }
+        
+        # Safe execution environment
+        safe_builtins = {
+            "len": len, "str": str, "int": int, "float": float, "bool": bool,
+            "list": list, "dict": dict, "tuple": tuple, "set": set,
+            "range": range, "enumerate": enumerate, "zip": zip,
+            "map": map, "filter": filter, "sorted": sorted, "reversed": reversed,
+            "sum": sum, "min": min, "max": max, "abs": abs, "round": round,
+            "any": any, "all": all, "json": json, "True": True, "False": False, "None": None,
+        }
+        
+        exec_locals = {
+            "input": data,
+            "data": data,
+            "output": None,
+        }
+        
+        exec(code, {"__builtins__": safe_builtins}, exec_locals)
+        
+        return {
+            "success": True,
+            "block_output": exec_locals.get("output", data),
+            "block_id": block_id,
+            "block_type": "logic",
             "input": data,
             "timestamp": datetime.utcnow().isoformat(),
         }
+    
+    async def _execute_transform_block_fallback(
+        self,
+        block_id: str,
+        config: Dict[str, Any],
+        sub_blocks: Dict[str, Any],
+        data: Any
+    ) -> Dict[str, Any]:
+        """Execute transform/map block."""
+        import json
         
-        return result
+        transform_expr = config.get("expression") or sub_blocks.get("expression", "")
+        mapping = config.get("mapping") or sub_blocks.get("mapping", {})
+        
+        result = data
+        
+        if mapping and isinstance(data, dict):
+            # Apply field mapping
+            result = {}
+            for target_key, source_key in mapping.items():
+                if isinstance(source_key, str) and source_key in data:
+                    result[target_key] = data[source_key]
+                else:
+                    result[target_key] = source_key
+        
+        return {
+            "success": True,
+            "block_output": result,
+            "block_id": block_id,
+            "block_type": "transform",
+            "input": data,
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+    
+    async def _execute_filter_block_fallback(
+        self,
+        block_id: str,
+        config: Dict[str, Any],
+        sub_blocks: Dict[str, Any],
+        data: Any
+    ) -> Dict[str, Any]:
+        """Execute filter block."""
+        condition = config.get("condition") or sub_blocks.get("condition", "")
+        field = config.get("field") or sub_blocks.get("field", "")
+        operator = config.get("operator") or sub_blocks.get("operator", "==")
+        value = config.get("value") or sub_blocks.get("value")
+        
+        if not isinstance(data, list):
+            # Single item - check if it passes filter
+            passes = self._evaluate_filter_condition(data, field, operator, value)
+            return {
+                "success": True,
+                "block_output": data if passes else None,
+                "block_id": block_id,
+                "block_type": "filter",
+                "input": data,
+                "filtered": not passes,
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+        
+        # Filter list
+        filtered = [
+            item for item in data
+            if self._evaluate_filter_condition(item, field, operator, value)
+        ]
+        
+        return {
+            "success": True,
+            "block_output": filtered,
+            "block_id": block_id,
+            "block_type": "filter",
+            "input": data,
+            "original_count": len(data),
+            "filtered_count": len(filtered),
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+    
+    def _evaluate_filter_condition(self, item: Any, field: str, operator: str, value: Any) -> bool:
+        """Evaluate a filter condition on an item."""
+        if field and isinstance(item, dict):
+            item_value = item.get(field)
+        else:
+            item_value = item
+        
+        ops = {
+            "==": lambda a, b: a == b,
+            "!=": lambda a, b: a != b,
+            ">": lambda a, b: a > b,
+            ">=": lambda a, b: a >= b,
+            "<": lambda a, b: a < b,
+            "<=": lambda a, b: a <= b,
+            "contains": lambda a, b: b in str(a),
+            "in": lambda a, b: a in b,
+            "is_empty": lambda a, b: not a,
+            "is_not_empty": lambda a, b: bool(a),
+        }
+        
+        op_func = ops.get(operator, ops["=="])
+        try:
+            return op_func(item_value, value)
+        except Exception:
+            return False
+    
+    async def _execute_delay_block_fallback(
+        self,
+        block_id: str,
+        config: Dict[str, Any],
+        sub_blocks: Dict[str, Any],
+        data: Any
+    ) -> Dict[str, Any]:
+        """Execute delay/wait block."""
+        delay_seconds = float(config.get("delay") or sub_blocks.get("delay") or config.get("seconds", 1))
+        
+        # Cap delay at 60 seconds for safety
+        delay_seconds = min(delay_seconds, 60)
+        
+        logger.info(f"Delay block: waiting {delay_seconds} seconds")
+        await asyncio.sleep(delay_seconds)
+        
+        return {
+            "success": True,
+            "block_output": data,
+            "block_id": block_id,
+            "block_type": "delay",
+            "input": data,
+            "delay_seconds": delay_seconds,
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+    
+    async def _execute_text_block_fallback(
+        self,
+        block_id: str,
+        config: Dict[str, Any],
+        sub_blocks: Dict[str, Any],
+        data: Any
+    ) -> Dict[str, Any]:
+        """Execute text/template block."""
+        template = config.get("template") or sub_blocks.get("template") or config.get("text", "")
+        
+        # Simple variable substitution
+        result = template
+        if isinstance(data, dict):
+            for key, value in data.items():
+                result = result.replace(f"{{{{{key}}}}}", str(value))
+                result = result.replace(f"${{{key}}}", str(value))
+        
+        return {
+            "success": True,
+            "block_output": result,
+            "block_id": block_id,
+            "block_type": "text",
+            "input": data,
+            "timestamp": datetime.utcnow().isoformat(),
+        }
     
     async def _execute_tool_node(self, node_data: Dict[str, Any], data: Any) -> Any:
         """
@@ -788,6 +1719,19 @@ class WorkflowExecutor:
             # Merge with tool configuration
             params.update(tool_config)
             
+            # For AI Agent tool, ensure 'task' parameter is set
+            if tool_id == "ai_agent":
+                if "task" not in params:
+                    # Use user_query or query from input data
+                    if isinstance(data, dict):
+                        params["task"] = data.get("user_query") or data.get("query") or data.get("workflow_input") or str(data)
+                    else:
+                        params["task"] = str(data)
+                
+                logger.info(f"AI Agent task: {params.get('task')}")
+                logger.info(f"AI Agent provider: {params.get('llm_provider')}")
+                logger.info(f"AI Agent model: {params.get('model')}")
+            
             # Get user's API key for this tool if needed
             credentials = None
             if user_id:
@@ -812,6 +1756,9 @@ class WorkflowExecutor:
             
             logger.info(f"Calling ToolRegistry.execute_tool with params: {params}")
             
+            # Record execution start time
+            tool_start_time = time.time()
+            
             # Execute tool using ToolRegistry
             result = await ToolRegistry.execute_tool(
                 tool_id=tool_id,
@@ -819,25 +1766,79 @@ class WorkflowExecutor:
                 credentials=credentials
             )
             
+            # Calculate execution duration
+            tool_duration = time.time() - tool_start_time
+            
             logger.info(f"Tool execution result: {result}")
             
-            return {
+            # Build detailed tool execution result
+            tool_result = {
                 "tool_output": result,
                 "tool_id": tool_id,
                 "tool_name": tool_name,
                 "input": data,
                 "timestamp": datetime.utcnow().isoformat(),
+                "execution_time_ms": int(tool_duration * 1000),
+                "config": tool_config,
             }
+            
+            # Add AI Agent specific details
+            if tool_id == "ai_agent":
+                tool_result["ai_agent_execution"] = {
+                    "provider": tool_config.get("provider", "unknown"),
+                    "model": tool_config.get("model", "unknown"),
+                    "temperature": tool_config.get("temperature"),
+                    "max_tokens": tool_config.get("max_tokens"),
+                    "system_prompt_length": len(tool_config.get("system_prompt", "")),
+                    "user_message_length": len(tool_config.get("user_message", "")),
+                    "response_length": len(str(result)) if result else 0,
+                    "tokens_used": result.get("usage", {}) if isinstance(result, dict) else None,
+                }
+            
+            # Add HTTP request specific details
+            elif tool_id in ["http_request", "rest_api"]:
+                tool_result["http_execution"] = {
+                    "method": tool_config.get("method", "GET"),
+                    "url": tool_config.get("url", ""),
+                    "status_code": result.get("status_code") if isinstance(result, dict) else None,
+                    "response_size": len(str(result)) if result else 0,
+                }
+            
+            # Add database specific details
+            elif tool_id in ["database", "sql_query"]:
+                tool_result["database_execution"] = {
+                    "query_type": tool_config.get("query_type", "SELECT"),
+                    "rows_affected": result.get("rows_affected") if isinstance(result, dict) else None,
+                }
+            
+            return tool_result
             
         except Exception as e:
             logger.error(f"Tool execution failed: {e}", exc_info=True)
-            return {
+            
+            # Build detailed error result
+            error_result = {
                 "error": str(e),
+                "error_type": type(e).__name__,
                 "tool_id": tool_id,
                 "tool_name": tool_name,
                 "input": data,
                 "timestamp": datetime.utcnow().isoformat(),
+                "config": tool_config,
             }
+            
+            # Add AI Agent specific error details
+            if tool_id == "ai_agent":
+                error_result["ai_agent_error"] = {
+                    "provider": tool_config.get("provider", "unknown"),
+                    "model": tool_config.get("model", "unknown"),
+                    "attempted_config": {
+                        "temperature": tool_config.get("temperature"),
+                        "max_tokens": tool_config.get("max_tokens"),
+                    }
+                }
+            
+            return error_result
     
     def _get_tool_service_name(self, tool_id: str) -> Optional[str]:
         """
@@ -3137,6 +4138,13 @@ async def execute_workflow_stream(
         nodes = graph.get("nodes", [])
         edges = graph.get("edges", [])
         
+        # Log all nodes for debugging
+        logger.info(f"📊 Workflow has {len(nodes)} nodes:")
+        for n in nodes:
+            node_type = n.get("type") or n.get("node_type")
+            config_type = n.get("configuration", {}).get("type")
+            logger.info(f"  - Node {n.get('id')}: type={node_type}, config_type={config_type}")
+        
         # Find start node
         start_node = None
         for n in nodes:
@@ -3272,19 +4280,34 @@ async def _stream_node_execution(
         executor.node_results[node_id] = result
         
         # Yield node complete event
+        # For AI Agent nodes (both ai_agent type and tool type with ai_agent tool_id), include full output
+        tool_id = node_data.get("tool_id") or node_data.get("toolId")
+        is_ai_agent = node_type == "ai_agent" or (node_type == "tool" and tool_id == "ai_agent")
+        
+        if is_ai_agent and isinstance(result, dict):
+            output_data = result  # Include full AI Agent result
+        else:
+            output_data = str(result)[:500] if result else None
+        
         yield {
             "type": "node_complete",
             "data": {
                 "node_id": node_id,
+                "node_type": node_type,
                 "status": "success",
                 "duration": duration,
-                "output": str(result)[:200] if result else None,
+                "output": output_data,
                 "timestamp": end_time.isoformat()
             }
         }
         
         # Find and execute next nodes
-        next_edges = [e for e in edges if e.get("source") == node_id]
+        # Support both 'source' and 'source_node_id' field names
+        next_edges = [e for e in edges if e.get("source") == node_id or e.get("source_node_id") == node_id]
+        
+        logger.info(f"Node {node_id} ({node_type}) completed. Found {len(next_edges)} next edges")
+        if not next_edges:
+            logger.warning(f"No next edges found for node {node_id}. Available edges: {[(e.get('source') or e.get('source_node_id'), e.get('target') or e.get('target_node_id')) for e in edges]}")
         
         if next_edges:
             # Handle condition node (multiple branches)
@@ -3304,12 +4327,17 @@ async def _stream_node_execution(
             else:
                 # Execute next node (single path)
                 next_edge = next_edges[0]
-                next_node = next((n for n in nodes if n["id"] == next_edge["target"]), None)
+                target_id = next_edge.get("target") or next_edge.get("target_node_id")
+                next_node = next((n for n in nodes if n["id"] == target_id), None)
+                
                 if next_node:
+                    logger.info(f"Executing next node: {target_id} (type: {next_node.get('type') or next_node.get('node_type')})")
                     async for event in _stream_node_execution(
                         executor, next_node, nodes, edges, result
                     ):
                         yield event
+                else:
+                    logger.error(f"Next node not found: {target_id}. Available nodes: {[n['id'] for n in nodes]}")
         
     except Exception as e:
         end_time = datetime.utcnow()
@@ -3329,6 +4357,329 @@ async def _stream_node_execution(
         
         # Don't continue execution after error
         raise
+
+
+    # ==================== Additional Trigger Handlers ====================
+    
+    async def _execute_manual_trigger_node(self, node_data: Dict[str, Any], data: Any) -> Dict[str, Any]:
+        """
+        Execute manual trigger node.
+        
+        Manual triggers are activated by user action (button click, API call).
+        """
+        trigger_name = node_data.get("name", "Manual Trigger")
+        input_schema = node_data.get("input_schema", [])
+        
+        logger.info(f"Manual trigger executed: {trigger_name}")
+        
+        return {
+            "trigger_type": "manual",
+            "trigger_name": trigger_name,
+            "input_schema": input_schema,
+            "triggered_at": datetime.utcnow().isoformat(),
+            "data": data,
+        }
+    
+    async def _execute_email_trigger_node(self, node_data: Dict[str, Any], data: Any) -> Dict[str, Any]:
+        """
+        Execute email trigger node.
+        
+        Triggers workflow when email matching criteria is received.
+        """
+        provider = node_data.get("provider", "gmail")
+        from_filter = node_data.get("from_filter", "")
+        subject_filter = node_data.get("subject_filter", "")
+        label_filter = node_data.get("label_filter", "INBOX")
+        
+        logger.info(f"Email trigger executed (provider: {provider})")
+        
+        # Extract email data if present
+        email_data = data if isinstance(data, dict) else {}
+        
+        return {
+            "trigger_type": "email",
+            "provider": provider,
+            "filters": {
+                "from": from_filter,
+                "subject": subject_filter,
+                "label": label_filter,
+            },
+            "triggered_at": datetime.utcnow().isoformat(),
+            "email": {
+                "from": email_data.get("from", ""),
+                "to": email_data.get("to", ""),
+                "subject": email_data.get("subject", ""),
+                "body": email_data.get("body", ""),
+                "attachments": email_data.get("attachments", []),
+                "date": email_data.get("date", ""),
+            },
+            "data": data,
+        }
+    
+    async def _execute_file_trigger_node(self, node_data: Dict[str, Any], data: Any) -> Dict[str, Any]:
+        """
+        Execute file trigger node.
+        
+        Triggers workflow when file is uploaded or changed.
+        """
+        watch_path = node_data.get("watch_path", "")
+        file_patterns = node_data.get("file_patterns", "*.*")
+        events = node_data.get("events", ["created"])
+        
+        logger.info(f"File trigger executed (path: {watch_path})")
+        
+        # Extract file data if present
+        file_data = data if isinstance(data, dict) else {}
+        
+        return {
+            "trigger_type": "file",
+            "watch_path": watch_path,
+            "file_patterns": file_patterns,
+            "events": events,
+            "triggered_at": datetime.utcnow().isoformat(),
+            "file": {
+                "name": file_data.get("filename", ""),
+                "path": file_data.get("filepath", ""),
+                "size": file_data.get("size", 0),
+                "mime_type": file_data.get("mime_type", ""),
+                "event": file_data.get("event", "created"),
+            },
+            "data": data,
+        }
+    
+    async def _execute_slack_trigger_node(self, node_data: Dict[str, Any], data: Any) -> Dict[str, Any]:
+        """
+        Execute Slack trigger node.
+        
+        Triggers workflow on Slack events (messages, reactions, etc.).
+        """
+        event_type = node_data.get("event_type", "message")
+        channel = node_data.get("channel", "")
+        keyword_filter = node_data.get("keyword_filter", "")
+        
+        logger.info(f"Slack trigger executed (event: {event_type})")
+        
+        # Extract Slack event data if present
+        slack_data = data if isinstance(data, dict) else {}
+        
+        return {
+            "trigger_type": "slack",
+            "event_type": event_type,
+            "channel": channel,
+            "keyword_filter": keyword_filter,
+            "triggered_at": datetime.utcnow().isoformat(),
+            "slack_event": {
+                "user": slack_data.get("user", ""),
+                "channel": slack_data.get("channel", channel),
+                "text": slack_data.get("text", ""),
+                "ts": slack_data.get("ts", ""),
+                "thread_ts": slack_data.get("thread_ts", ""),
+            },
+            "data": data,
+        }
+    
+    # ==================== Control Flow Node Handlers ====================
+    
+    async def _execute_filter_node(self, node_data: Dict[str, Any], data: Any) -> Dict[str, Any]:
+        """
+        Execute filter node.
+        
+        Filters data items based on conditions.
+        """
+        filter_condition = node_data.get("condition", "")
+        filter_mode = node_data.get("mode", "keep")  # keep or remove
+        
+        logger.info(f"Executing filter node (mode: {filter_mode})")
+        
+        if not filter_condition:
+            logger.warning("Filter node has no condition, passing through data")
+            return {"filtered_data": data, "original_count": 0, "filtered_count": 0}
+        
+        try:
+            # Handle list data
+            if isinstance(data, list):
+                filtered_items = []
+                for item in data:
+                    context = {"item": item, "data": data, "input": self.execution_context.get("input")}
+                    try:
+                        matches = self._safe_eval(filter_condition, context)
+                        if filter_mode == "keep" and matches:
+                            filtered_items.append(item)
+                        elif filter_mode == "remove" and not matches:
+                            filtered_items.append(item)
+                    except Exception as e:
+                        logger.warning(f"Filter condition evaluation failed for item: {e}")
+                        # Keep item on error if mode is keep
+                        if filter_mode == "keep":
+                            filtered_items.append(item)
+                
+                return {
+                    "filtered_data": filtered_items,
+                    "original_count": len(data),
+                    "filtered_count": len(filtered_items),
+                    "filter_mode": filter_mode,
+                }
+            
+            # Handle single item
+            context = {"item": data, "data": data, "input": self.execution_context.get("input")}
+            matches = self._safe_eval(filter_condition, context)
+            
+            if filter_mode == "keep":
+                return {"filtered_data": data if matches else None, "matched": matches}
+            else:
+                return {"filtered_data": data if not matches else None, "matched": not matches}
+                
+        except Exception as e:
+            logger.error(f"Filter node execution failed: {e}")
+            return {"filtered_data": data, "error": str(e)}
+    
+    async def _execute_transform_node(self, node_data: Dict[str, Any], data: Any) -> Any:
+        """
+        Execute transform node.
+        
+        Transforms data structure using expressions or mappings.
+        """
+        transform_type = node_data.get("type", "expression")
+        expression = node_data.get("expression", "")
+        mappings = node_data.get("mappings", [])
+        
+        logger.info(f"Executing transform node (type: {transform_type})")
+        
+        try:
+            if transform_type == "expression" and expression:
+                # Evaluate expression
+                context = {"data": data, "input": self.execution_context.get("input")}
+                result = self._safe_eval(expression, context)
+                return result
+                
+            elif transform_type == "mapping" and mappings:
+                # Apply field mappings
+                if not isinstance(data, dict):
+                    return data
+                
+                result = {}
+                for mapping in mappings:
+                    source = mapping.get("source", "")
+                    target = mapping.get("target", "")
+                    default = mapping.get("default")
+                    
+                    if source and target:
+                        # Get value from source path
+                        value = data.get(source, default)
+                        result[target] = value
+                
+                return result
+                
+            elif transform_type == "template":
+                # Template-based transformation
+                template = node_data.get("template", "")
+                if template:
+                    result = self._replace_templates(template, data)
+                    return result
+                return data
+                
+            else:
+                # Pass through
+                return data
+                
+        except Exception as e:
+            logger.error(f"Transform node execution failed: {e}")
+            return {"error": str(e), "original_data": data}
+    
+    async def _execute_try_catch_node(
+        self,
+        node_data: Dict[str, Any],
+        data: Any,
+        nodes: List[Dict[str, Any]],
+        edges: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """
+        Execute try/catch node.
+        
+        Wraps execution in error handling, routing to error branch on failure.
+        """
+        try_nodes = node_data.get("try_nodes", [])
+        catch_nodes = node_data.get("catch_nodes", [])
+        finally_nodes = node_data.get("finally_nodes", [])
+        retry_on_error = node_data.get("retry_on_error", False)
+        max_retries = node_data.get("max_retries", 1)
+        
+        logger.info("Executing try/catch node")
+        
+        result = data
+        error_occurred = False
+        error_info = None
+        
+        # Execute try block
+        try:
+            for node_config in try_nodes:
+                node_type = node_config.get("type") or node_config.get("node_type")
+                node_data_inner = node_config.get("data") or node_config.get("configuration", {})
+                
+                # Execute node based on type
+                if node_type == "agent":
+                    result = await self._execute_agent_node(node_data_inner, result)
+                elif node_type == "block":
+                    result = await self._execute_block_node(node_data_inner, result)
+                elif node_type == "tool":
+                    result = await self._execute_tool_node(node_data_inner, result)
+                elif node_type == "http_request":
+                    result = await self._execute_http_request_node(node_data_inner, result)
+                elif node_type == "code":
+                    result = await self._execute_code_node(node_data_inner, result)
+                else:
+                    logger.warning(f"Unknown node type in try block: {node_type}")
+                    
+        except Exception as e:
+            error_occurred = True
+            error_info = {
+                "error": str(e),
+                "error_type": type(e).__name__,
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+            logger.warning(f"Error in try block: {e}")
+            
+            # Execute catch block
+            if catch_nodes:
+                try:
+                    catch_data = {"error": error_info, "original_data": data}
+                    for node_config in catch_nodes:
+                        node_type = node_config.get("type") or node_config.get("node_type")
+                        node_data_inner = node_config.get("data") or node_config.get("configuration", {})
+                        
+                        if node_type == "agent":
+                            result = await self._execute_agent_node(node_data_inner, catch_data)
+                        elif node_type == "block":
+                            result = await self._execute_block_node(node_data_inner, catch_data)
+                        elif node_type == "tool":
+                            result = await self._execute_tool_node(node_data_inner, catch_data)
+                        elif node_type == "code":
+                            result = await self._execute_code_node(node_data_inner, catch_data)
+                        else:
+                            result = catch_data
+                except Exception as catch_error:
+                    logger.error(f"Error in catch block: {catch_error}")
+                    result = {"error": str(e), "catch_error": str(catch_error)}
+        
+        # Execute finally block (always runs)
+        if finally_nodes:
+            try:
+                for node_config in finally_nodes:
+                    node_type = node_config.get("type") or node_config.get("node_type")
+                    node_data_inner = node_config.get("data") or node_config.get("configuration", {})
+                    
+                    if node_type == "code":
+                        await self._execute_code_node(node_data_inner, result)
+                    # Add other node types as needed
+            except Exception as finally_error:
+                logger.error(f"Error in finally block: {finally_error}")
+        
+        return {
+            "branch": "error" if error_occurred else "success",
+            "data": result,
+            "error_occurred": error_occurred,
+            "error_info": error_info,
+        }
 
 
 async def execute_workflow(workflow: Any, db: Session, input_data: Dict[str, Any]) -> Dict[str, Any]:

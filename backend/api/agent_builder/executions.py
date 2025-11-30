@@ -659,7 +659,21 @@ async def get_execution(
                 detail="Access denied"
             )
         
-        return execution
+        # Convert UUID fields to strings for response
+        return ExecutionResponse(
+            id=str(execution.id),
+            agent_id=str(execution.agent_id),
+            user_id=str(execution.user_id),
+            session_id=execution.session_id,
+            input_data=execution.input_data or {},
+            output_data=execution.output_data,
+            execution_context=execution.execution_context or {},
+            status=execution.status,
+            error_message=execution.error_message,
+            started_at=execution.started_at,
+            completed_at=execution.completed_at,
+            duration_ms=execution.duration_ms,
+        )
         
     except HTTPException:
         raise

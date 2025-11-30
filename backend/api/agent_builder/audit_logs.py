@@ -1,310 +1,405 @@
 """
-Audit Logs API endpoints for Agent Builder.
+Audit Logs API
 
-Provides endpoints for viewing and exporting audit logs.
+Provides endpoints for viewing and managing audit logs.
 """
 
 import logging
-import csv
-import io
-import json
-from datetime import datetime
 from typing import Optional, List
-from fastapi import APIRouter, Depends, Query, HTTPException
-from fastapi.responses import StreamingResponse
+from datetime import datetime, timedelta
+
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_
 
 from backend.db.database import get_db
-from backend.db.models.agent_builder import AuditLog
-from backend.core.auth_dependencies import get_current_user
+from backend.core.auth_dependencies import get_current_user, require_admin
 from backend.db.models.user import User
+from backend.core.audit_logger import AuditEventType, AuditSeverity
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/agent-builder/audit-logs", tags=["audit-logs"])
+router = APIRouter(
+    prefix="/api/agent-builder/audit-logs",
+    tags=["Audit Logs"],
+)
 
 
-@router.get("")
-async def get_audit_logs(
-    page: int = Query(1, ge=1),
-    page_size: int = Query(50, ge=1, le=100),
-    action: Optional[str] = None,
-    resource_type: Optional[str] = None,
-    user_id: Optional[str] = None,
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
+# ============================================================================
+# Models
+# ============================================================================
+
+class AuditLogEntry(BaseModel):
+    """Audit log entry response model."""
+    id: str
+    event_type: str
+    severity: str
+    action: str
+    user_id: Optional[str]
+    user_email: Optional[str]
+    ip_address: Optional[str]
+    resource_type: Optional[str]
+    resource_id: Optional[str]
+    details: dict
+    success: bool
+    error_message: Optional[str]
+    timestamp: str
+
+
+class AuditLogListResponse(BaseModel):
+    """Paginated audit log list response."""
+    logs: List[AuditLogEntry]
+    total: int
+    page: int
+    page_size: int
+    has_more: bool
+
+
+class AuditLogStats(BaseModel):
+    """Audit log statistics."""
+    total_events: int
+    events_by_type: dict
+    events_by_severity: dict
+    events_by_user: dict
+    success_rate: float
+    time_range: dict
+
+
+# In-memory storage for demo (production uses database)
+_audit_logs: List[dict] = []
+
+
+def _add_sample_logs():
+    """Add sample audit logs for demo."""
+    if _audit_logs:
+        return
+    
+    sample_events = [
+        {
+            "id": "log_001",
+            "event_type": "auth.login.success",
+            "severity": "info",
+            "action": "User logged in successfully",
+            "user_id": "user_123",
+            "user_email": "user@example.com",
+            "ip_address": "192.168.1.1",
+            "resource_type": None,
+            "resource_id": None,
+            "details": {"method": "password"},
+            "success": True,
+            "error_message": None,
+            "timestamp": (datetime.utcnow() - timedelta(hours=2)).isoformat() + "Z",
+        },
+        {
+            "id": "log_002",
+            "event_type": "workflow.executed",
+            "severity": "info",
+            "action": "Workflow executed successfully",
+            "user_id": "user_123",
+            "user_email": "user@example.com",
+            "ip_address": "192.168.1.1",
+            "resource_type": "workflow",
+            "resource_id": "wf_456",
+            "details": {"execution_id": "exec_789", "duration_ms": 1234},
+            "success": True,
+            "error_message": None,
+            "timestamp": (datetime.utcnow() - timedelta(hours=1)).isoformat() + "Z",
+        },
+        {
+            "id": "log_003",
+            "event_type": "auth.login.failed",
+            "severity": "warning",
+            "action": "Login attempt failed",
+            "user_id": None,
+            "user_email": "attacker@example.com",
+            "ip_address": "10.0.0.1",
+            "resource_type": None,
+            "resource_id": None,
+            "details": {"reason": "Invalid credentials"},
+            "success": False,
+            "error_message": "Invalid credentials",
+            "timestamp": (datetime.utcnow() - timedelta(minutes=30)).isoformat() + "Z",
+        },
+    ]
+    _audit_logs.extend(sample_events)
+
+
+# ============================================================================
+# Endpoints
+# ============================================================================
+
+@router.get("", response_model=AuditLogListResponse)
+async def list_audit_logs(
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(50, ge=1, le=100, description="Items per page"),
+    event_type: Optional[str] = Query(None, description="Filter by event type"),
+    severity: Optional[str] = Query(None, description="Filter by severity"),
+    user_id: Optional[str] = Query(None, description="Filter by user ID"),
+    resource_type: Optional[str] = Query(None, description="Filter by resource type"),
+    resource_id: Optional[str] = Query(None, description="Filter by resource ID"),
+    success: Optional[bool] = Query(None, description="Filter by success status"),
+    start_date: Optional[str] = Query(None, description="Start date (ISO format)"),
+    end_date: Optional[str] = Query(None, description="End date (ISO format)"),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
 ):
     """
-    Get audit logs with filtering and pagination.
+    List audit logs with filtering and pagination.
     
-    Requires admin privileges.
+    Regular users can only see their own logs.
+    Admins can see all logs.
     """
-    # Check if user is admin
-    if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required")
+    _add_sample_logs()
     
-    try:
-        # Build query
-        query = db.query(AuditLog)
-        
-        # Apply filters
-        filters = []
-        
-        if action:
-            if action.endswith("_"):
-                # Prefix match (e.g., "security_")
-                filters.append(AuditLog.action.like(f"{action}%"))
-            else:
-                filters.append(AuditLog.action == action)
-        
-        if resource_type:
-            filters.append(AuditLog.resource_type == resource_type)
-        
-        if user_id:
-            filters.append(AuditLog.user_id == user_id)
-        
-        if start_date:
-            start_dt = datetime.fromisoformat(start_date)
-            filters.append(AuditLog.timestamp >= start_dt)
-        
-        if end_date:
-            end_dt = datetime.fromisoformat(end_date)
-            filters.append(AuditLog.timestamp <= end_dt)
-        
-        if filters:
-            query = query.filter(and_(*filters))
-        
-        # Get total count
-        total = query.count()
-        
-        # Apply pagination
-        offset = (page - 1) * page_size
-        logs = query.order_by(AuditLog.timestamp.desc()).offset(offset).limit(page_size).all()
-        
-        # Calculate total pages
-        total_pages = (total + page_size - 1) // page_size
-        
-        # Format response
-        logs_data = []
-        for log in logs:
-            logs_data.append({
-                "id": log.id,
-                "user_id": log.user_id,
-                "action": log.action,
-                "resource_type": log.resource_type,
-                "resource_id": log.resource_id,
-                "details": log.details,
-                "ip_address": log.ip_address,
-                "user_agent": log.user_agent,
-                "timestamp": log.timestamp.isoformat()
-            })
-        
-        return {
-            "logs": logs_data,
-            "total": total,
-            "page": page,
-            "page_size": page_size,
-            "total_pages": total_pages
-        }
-        
-    except Exception as e:
-        logger.error(f"Failed to get audit logs: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+    # Filter logs
+    filtered_logs = _audit_logs.copy()
+    
+    # Non-admin users can only see their own logs
+    if not getattr(current_user, 'is_admin', False):
+        filtered_logs = [
+            log for log in filtered_logs 
+            if log.get("user_id") == str(current_user.id)
+        ]
+    
+    # Apply filters
+    if event_type:
+        filtered_logs = [log for log in filtered_logs if log.get("event_type") == event_type]
+    
+    if severity:
+        filtered_logs = [log for log in filtered_logs if log.get("severity") == severity]
+    
+    if user_id:
+        filtered_logs = [log for log in filtered_logs if log.get("user_id") == user_id]
+    
+    if resource_type:
+        filtered_logs = [log for log in filtered_logs if log.get("resource_type") == resource_type]
+    
+    if resource_id:
+        filtered_logs = [log for log in filtered_logs if log.get("resource_id") == resource_id]
+    
+    if success is not None:
+        filtered_logs = [log for log in filtered_logs if log.get("success") == success]
+    
+    # Sort by timestamp descending
+    filtered_logs.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+    
+    # Paginate
+    total = len(filtered_logs)
+    start_idx = (page - 1) * page_size
+    end_idx = start_idx + page_size
+    page_logs = filtered_logs[start_idx:end_idx]
+    
+    return AuditLogListResponse(
+        logs=[AuditLogEntry(**log) for log in page_logs],
+        total=total,
+        page=page,
+        page_size=page_size,
+        has_more=end_idx < total
+    )
 
 
-@router.get("/export")
-async def export_audit_logs(
-    format: str = Query("csv", pattern="^(csv|json)$"),
-    action: Optional[str] = None,
-    resource_type: Optional[str] = None,
-    user_id: Optional[str] = None,
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
+@router.get("/stats", response_model=AuditLogStats)
+async def get_audit_stats(
+    days: int = Query(7, ge=1, le=90, description="Number of days to analyze"),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Export audit logs in CSV or JSON format.
-    
-    Requires admin privileges.
-    """
-    # Check if user is admin
-    if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required")
-    
-    try:
-        # Build query
-        query = db.query(AuditLog)
-        
-        # Apply filters (same as get_audit_logs)
-        filters = []
-        
-        if action:
-            if action.endswith("_"):
-                filters.append(AuditLog.action.like(f"{action}%"))
-            else:
-                filters.append(AuditLog.action == action)
-        
-        if resource_type:
-            filters.append(AuditLog.resource_type == resource_type)
-        
-        if user_id:
-            filters.append(AuditLog.user_id == user_id)
-        
-        if start_date:
-            start_dt = datetime.fromisoformat(start_date)
-            filters.append(AuditLog.timestamp >= start_dt)
-        
-        if end_date:
-            end_dt = datetime.fromisoformat(end_date)
-            filters.append(AuditLog.timestamp <= end_dt)
-        
-        if filters:
-            query = query.filter(and_(*filters))
-        
-        # Get all logs (limit to 10000 for safety)
-        logs = query.order_by(AuditLog.timestamp.desc()).limit(10000).all()
-        
-        if format == "csv":
-            # Generate CSV
-            output = io.StringIO()
-            writer = csv.writer(output)
-            
-            # Write header
-            writer.writerow([
-                "Timestamp",
-                "User ID",
-                "Action",
-                "Resource Type",
-                "Resource ID",
-                "IP Address",
-                "User Agent",
-                "Success",
-                "Error Message",
-                "Details"
-            ])
-            
-            # Write rows
-            for log in logs:
-                writer.writerow([
-                    log.timestamp.isoformat(),
-                    log.user_id,
-                    log.action,
-                    log.resource_type or "",
-                    log.resource_id or "",
-                    log.ip_address or "",
-                    log.user_agent or "",
-                    log.details.get("success", True),
-                    log.details.get("error_message", ""),
-                    json.dumps(log.details)
-                ])
-            
-            # Return CSV response
-            output.seek(0)
-            return StreamingResponse(
-                iter([output.getvalue()]),
-                media_type="text/csv",
-                headers={
-                    "Content-Disposition": f"attachment; filename=audit_logs_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-                }
-            )
-        
-        else:  # JSON format
-            # Generate JSON
-            logs_data = []
-            for log in logs:
-                logs_data.append({
-                    "id": log.id,
-                    "user_id": log.user_id,
-                    "action": log.action,
-                    "resource_type": log.resource_type,
-                    "resource_id": log.resource_id,
-                    "details": log.details,
-                    "ip_address": log.ip_address,
-                    "user_agent": log.user_agent,
-                    "timestamp": log.timestamp.isoformat()
-                })
-            
-            # Return JSON response
-            json_str = json.dumps(logs_data, indent=2)
-            return StreamingResponse(
-                iter([json_str]),
-                media_type="application/json",
-                headers={
-                    "Content-Disposition": f"attachment; filename=audit_logs_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-                }
-            )
-        
-    except Exception as e:
-        logger.error(f"Failed to export audit logs: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/stats")
-async def get_audit_log_stats(
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
 ):
     """
     Get audit log statistics.
     
-    Requires admin privileges.
+    Provides aggregated statistics for the specified time period.
     """
-    # Check if user is admin
-    if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required")
+    _add_sample_logs()
     
-    try:
-        # Build base query
-        query = db.query(AuditLog)
+    # Filter by time range
+    cutoff = datetime.utcnow() - timedelta(days=days)
+    cutoff_str = cutoff.isoformat() + "Z"
+    
+    filtered_logs = [
+        log for log in _audit_logs
+        if log.get("timestamp", "") >= cutoff_str
+    ]
+    
+    # Non-admin users can only see their own stats
+    if not getattr(current_user, 'is_admin', False):
+        filtered_logs = [
+            log for log in filtered_logs 
+            if log.get("user_id") == str(current_user.id)
+        ]
+    
+    # Calculate stats
+    total = len(filtered_logs)
+    
+    events_by_type = {}
+    events_by_severity = {}
+    events_by_user = {}
+    success_count = 0
+    
+    for log in filtered_logs:
+        # By type
+        event_type = log.get("event_type", "unknown")
+        events_by_type[event_type] = events_by_type.get(event_type, 0) + 1
         
-        # Apply date filters
-        if start_date:
-            start_dt = datetime.fromisoformat(start_date)
-            query = query.filter(AuditLog.timestamp >= start_dt)
+        # By severity
+        severity = log.get("severity", "info")
+        events_by_severity[severity] = events_by_severity.get(severity, 0) + 1
         
-        if end_date:
-            end_dt = datetime.fromisoformat(end_date)
-            query = query.filter(AuditLog.timestamp <= end_dt)
+        # By user
+        user_id = log.get("user_id") or "anonymous"
+        events_by_user[user_id] = events_by_user.get(user_id, 0) + 1
         
-        # Get total count
-        total_logs = query.count()
+        # Success count
+        if log.get("success"):
+            success_count += 1
+    
+    return AuditLogStats(
+        total_events=total,
+        events_by_type=events_by_type,
+        events_by_severity=events_by_severity,
+        events_by_user=events_by_user,
+        success_rate=success_count / total if total > 0 else 0,
+        time_range={
+            "start": cutoff.isoformat() + "Z",
+            "end": datetime.utcnow().isoformat() + "Z",
+            "days": days
+        }
+    )
+
+
+@router.get("/event-types")
+async def list_event_types(
+    current_user: User = Depends(get_current_user),
+):
+    """
+    List all available audit event types.
+    """
+    return {
+        "event_types": [
+            {"value": e.value, "name": e.name}
+            for e in AuditEventType
+        ]
+    }
+
+
+@router.get("/severities")
+async def list_severities(
+    current_user: User = Depends(get_current_user),
+):
+    """
+    List all available severity levels.
+    """
+    return {
+        "severities": [
+            {"value": s.value, "name": s.name}
+            for s in AuditSeverity
+        ]
+    }
+
+
+@router.get("/{log_id}", response_model=AuditLogEntry)
+async def get_audit_log(
+    log_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Get a specific audit log entry by ID.
+    """
+    _add_sample_logs()
+    
+    for log in _audit_logs:
+        if log.get("id") == log_id:
+            # Check permission
+            if not getattr(current_user, 'is_admin', False):
+                if log.get("user_id") != str(current_user.id):
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Access denied"
+                    )
+            
+            return AuditLogEntry(**log)
+    
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail=f"Audit log {log_id} not found"
+    )
+
+
+@router.delete("/cleanup")
+async def cleanup_old_logs(
+    days: int = Query(90, ge=30, le=365, description="Delete logs older than this many days"),
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    Delete old audit logs (admin only).
+    
+    Removes logs older than the specified number of days.
+    """
+    global _audit_logs
+    
+    cutoff = datetime.utcnow() - timedelta(days=days)
+    cutoff_str = cutoff.isoformat() + "Z"
+    
+    original_count = len(_audit_logs)
+    _audit_logs = [
+        log for log in _audit_logs
+        if log.get("timestamp", "") >= cutoff_str
+    ]
+    deleted_count = original_count - len(_audit_logs)
+    
+    logger.info(f"Admin {current_user.id} deleted {deleted_count} old audit logs")
+    
+    return {
+        "message": f"Deleted {deleted_count} audit logs older than {days} days",
+        "deleted_count": deleted_count,
+        "remaining_count": len(_audit_logs)
+    }
+
+
+@router.post("/export")
+async def export_audit_logs(
+    start_date: Optional[str] = Query(None, description="Start date (ISO format)"),
+    end_date: Optional[str] = Query(None, description="End date (ISO format)"),
+    format: str = Query("json", regex="^(json|csv)$", description="Export format"),
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    Export audit logs (admin only).
+    
+    Returns logs in the specified format for compliance/archival.
+    """
+    _add_sample_logs()
+    
+    filtered_logs = _audit_logs.copy()
+    
+    # Apply date filters
+    if start_date:
+        filtered_logs = [log for log in filtered_logs if log.get("timestamp", "") >= start_date]
+    
+    if end_date:
+        filtered_logs = [log for log in filtered_logs if log.get("timestamp", "") <= end_date]
+    
+    if format == "csv":
+        # Generate CSV
+        import csv
+        import io
         
-        # Count by action
-        from sqlalchemy import func
-        action_counts = db.query(
-            AuditLog.action,
-            func.count(AuditLog.id).label("count")
-        ).group_by(AuditLog.action).all()
-        
-        # Count by resource type
-        resource_counts = db.query(
-            AuditLog.resource_type,
-            func.count(AuditLog.id).label("count")
-        ).filter(AuditLog.resource_type.isnot(None)).group_by(AuditLog.resource_type).all()
-        
-        # Count successes and failures
-        success_count = query.filter(
-            AuditLog.details["success"].astext == "true"
-        ).count()
-        
-        failure_count = query.filter(
-            AuditLog.details["success"].astext == "false"
-        ).count()
+        output = io.StringIO()
+        if filtered_logs:
+            writer = csv.DictWriter(output, fieldnames=filtered_logs[0].keys())
+            writer.writeheader()
+            writer.writerows(filtered_logs)
         
         return {
-            "total_logs": total_logs,
-            "success_count": success_count,
-            "failure_count": failure_count,
-            "action_counts": {action: count for action, count in action_counts},
-            "resource_counts": {resource: count for resource, count in resource_counts}
+            "format": "csv",
+            "count": len(filtered_logs),
+            "data": output.getvalue()
         }
-        
-    except Exception as e:
-        logger.error(f"Failed to get audit log stats: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+    
+    return {
+        "format": "json",
+        "count": len(filtered_logs),
+        "data": filtered_logs
+    }

@@ -350,8 +350,9 @@ export class RAGApiClient {
           }
           try {
             yield JSON.parse(data) as StreamChunk;
-          } catch (e) {
-            console.error('Failed to parse chunk:', data, e);
+          } catch {
+            // Skip malformed JSON chunks - this can happen with partial data
+            console.warn('Failed to parse stream chunk, skipping:', data.substring(0, 100));
           }
         }
       }

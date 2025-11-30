@@ -243,7 +243,11 @@ class WorkflowExecutor:
     
     async def load_env_vars(self, user_id: str) -> Dict[str, Any]:
         """
-        Load environment variables for user.
+        Load environment variables for user from Variable model.
+        
+        Loads variables in order of precedence:
+        1. Global variables
+        2. User-specific variables (override global)
         
         Args:
             user_id: User identifier
@@ -251,9 +255,70 @@ class WorkflowExecutor:
         Returns:
             Dictionary of environment variables
         """
-        # TODO: Implement loading from Variable model
-        # For now, return empty dict
-        return {}
+        from backend.db.models.agent_builder import Variable
+        from backend.utils.encryption import encryption_service
+        import json
+        
+        env_vars = {}
+        
+        try:
+            # Load global variables first
+            global_vars = self.db_session.query(Variable).filter(
+                Variable.scope == "global",
+                Variable.deleted_at.is_(None)
+            ).all()
+            
+            for var in global_vars:
+                env_vars[var.name] = self._parse_variable_value(var)
+            
+            # Load user-specific variables (override global)
+            if user_id:
+                user_vars = self.db_session.query(Variable).filter(
+                    Variable.scope == "user",
+                    Variable.scope_id == user_id,
+                    Variable.deleted_at.is_(None)
+                ).all()
+                
+                for var in user_vars:
+                    env_vars[var.name] = self._parse_variable_value(var)
+            
+            logger.debug(f"Loaded {len(env_vars)} environment variables for user {user_id}")
+            
+        except Exception as e:
+            logger.warning(f"Failed to load environment variables: {e}")
+        
+        return env_vars
+    
+    def _parse_variable_value(self, var) -> Any:
+        """Parse variable value based on its type."""
+        from backend.utils.encryption import encryption_service
+        import json
+        
+        value = var.value
+        
+        # Decrypt if secret
+        if var.is_secret and var.secret:
+            try:
+                value = encryption_service.decrypt(var.secret.encrypted_value)
+            except Exception as e:
+                logger.warning(f"Failed to decrypt secret variable {var.name}: {e}")
+                return None
+        
+        # Parse based on type
+        if var.value_type == "number":
+            try:
+                return float(value) if "." in str(value) else int(value)
+            except (ValueError, TypeError):
+                return value
+        elif var.value_type == "boolean":
+            return str(value).lower() in ("true", "1", "yes")
+        elif var.value_type == "json":
+            try:
+                return json.loads(value)
+            except (json.JSONDecodeError, TypeError):
+                return value
+        else:
+            return value
     
     async def find_start_blocks(
         self,

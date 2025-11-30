@@ -83,10 +83,29 @@ class Settings(BaseSettings):
         return [url.strip() for url in self.READ_REPLICA_URLS.split(',') if url.strip()]
 
     # Authentication Configuration (Phase 5)
-    JWT_SECRET_KEY: str = "your_jwt_secret_key_here_min_32_chars_change_in_production"
+    # JWT_SECRET_KEY must be set via environment variable in production
+    JWT_SECRET_KEY: str = Field(
+        default="dev_secret_key_change_in_production_min_32_chars",
+        env="JWT_SECRET_KEY",
+        min_length=32,
+        description="JWT secret key - MUST be set via JWT_SECRET_KEY env var in production"
+    )
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRE_HOURS: int = 24
     JWT_REFRESH_EXPIRE_DAYS: int = 7
+    
+    @model_validator(mode='after')
+    def validate_secrets(self):
+        """Validate that secrets are properly configured in production."""
+        if not self.DEBUG:
+            # In production, ensure JWT_SECRET_KEY is not the default
+            default_key = "dev_secret_key_change_in_production_min_32_chars"
+            if self.JWT_SECRET_KEY == default_key:
+                logger.warning(
+                    "⚠️  SECURITY WARNING: Using default JWT_SECRET_KEY in non-DEBUG mode! "
+                    "Set JWT_SECRET_KEY environment variable for production."
+                )
+        return self
 
     # File Storage Configuration (Phase 5)
     FILE_STORAGE_BACKEND: str = "local"  # local | s3 | minio

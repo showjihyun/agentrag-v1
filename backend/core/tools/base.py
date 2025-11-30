@@ -164,6 +164,11 @@ class BaseTool(ABC):
         Raises:
             ToolExecutionError: If validation fails
         """
+        # Apply default values for missing parameters
+        for param_name, param_config in self.config.params.items():
+            if param_name not in params and param_config.default is not None:
+                params[param_name] = param_config.default
+        
         # Check required parameters
         missing_params = []
         for param_name, param_config in self.config.params.items():

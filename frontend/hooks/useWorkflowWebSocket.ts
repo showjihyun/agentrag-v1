@@ -136,7 +136,8 @@ export function useWorkflowWebSocket(
     return () => {
       disconnect();
     };
-  }, [connect, disconnect]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workflowId]); // Only reconnect when workflowId changes
 
   return {
     status,

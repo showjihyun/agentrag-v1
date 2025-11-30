@@ -1,0 +1,93 @@
+{
+  "name": "HTTP Request - GET Test",
+  "description": "Test HTTP GET request to public API",
+  "category": "api-integration",
+  "workflow": {
+    "nodes": [
+      {
+        "id": "start_1",
+        "type": "start",
+        "position": { "x": 100, "y": 100 },
+        "data": {
+          "label": "Start"
+        }
+      },
+      {
+        "id": "http_1",
+        "type": "tool",
+        "position": { "x": 300, "y": 100 },
+        "data": {
+          "label": "Fetch User Data",
+          "tool_id": "http_request",
+          "parameters": {
+            "method": "GET",
+            "url": "https://jsonplaceholder.typicode.com/users/{{input.user_id}}",
+            "headers": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "query_params": [],
+            "timeout": 10
+          }
+        }
+      },
+      {
+        "id": "end_1",
+        "type": "end",
+        "position": { "x": 500, "y": 100 },
+        "data": {
+          "label": "End"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "e1",
+        "source": "start_1",
+        "target": "http_1"
+      },
+      {
+        "id": "e2",
+        "source": "http_1",
+        "target": "end_1"
+      }
+    ]
+  },
+  "test_cases": [
+    {
+      "name": "Fetch user 1",
+      "input": {
+        "user_id": 1
+      },
+      "expected_output": {
+        "status_code": 200,
+        "body_contains": ["name", "email", "address"]
+      }
+    },
+    {
+      "name": "Fetch user 5",
+      "input": {
+        "user_id": 5
+      },
+      "expected_output": {
+        "status_code": 200,
+        "body_contains": ["name", "email"]
+      }
+    }
+  ],
+  "assertions": [
+    {
+      "type": "response_time",
+      "max_seconds": 3
+    },
+    {
+      "type": "http_status_code",
+      "expected": 200
+    },
+    {
+      "type": "json_response"
+    }
+  ]
+}

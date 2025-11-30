@@ -85,8 +85,7 @@ function CustomNode({ data, selected }: { data: NodeData; selected: boolean }) {
         getStatusColor(data.status),
         selected && 'ring-2 ring-primary ring-offset-2'
       )}
-      onClick={(e) => {
-        console.log('🎯 CustomNode div clicked!', data);
+      onClick={() => {
         // Don't stop propagation - let it bubble up to ReactFlow
       }}
     >
@@ -150,15 +149,7 @@ export function ImprovedWorkflowCanvas({
     [setEdges]
   );
 
-  const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
-    console.log('='.repeat(50));
-    console.log('🖱️ NODE CLICKED!');
-    console.log('Event:', event);
-    console.log('Node ID:', node.id);
-    console.log('Node Type:', node.type);
-    console.log('Node Data:', node.data);
-    console.log('Full Node:', node);
-    console.log('='.repeat(50));
+  const onNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
     setSelectedNode(node);
   }, []);
 

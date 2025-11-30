@@ -40,8 +40,8 @@ export function AIAgentConfig({
   onSave,
   onCancel,
 }: AIAgentConfigProps) {
-  // Core settings
-  const [provider, setProvider] = useState(initialConfig.provider || "ollama");
+  // Core settings (handle both frontend and backend field names)
+  const [provider, setProvider] = useState(initialConfig.llm_provider || initialConfig.provider || "ollama");
   const [model, setModel] = useState(initialConfig.model || "llama3.3:70b");
   const [systemPrompt, setSystemPrompt] = useState(initialConfig.system_prompt || "");
   const [userMessage, setUserMessage] = useState(initialConfig.user_message || "");
@@ -87,25 +87,33 @@ export function AIAgentConfig({
 
   const handleSave = () => {
     const config = {
-      provider,
-      model,
-      system_prompt: systemPrompt,
+      // Backend expects these field names (all required fields must be present)
+      llm_provider: provider || "ollama",
+      model: model || "llama3.1:8b",
+      memory_type: memoryType || "short_term",
+      system_prompt: systemPrompt || "You are a helpful AI assistant.",
       user_message: userMessage,
       enable_chat_ui: enableChatUI,
       chat_ui_position: chatUIPosition,
       enable_memory: enableMemory,
-      memory_type: memoryType,
-      memory_window: memoryWindow,
+      memory_window: parseInt(memoryWindow) || 10,
       session_id: sessionId,
-      temperature,
-      max_tokens: maxTokens,
-      top_p: topP,
-      frequency_penalty: frequencyPenalty,
-      presence_penalty: presencePenalty,
-      response_format: responseFormat,
-      timeout,
-      extract_json: extractJson,
-      return_metadata: returnMetadata,
+      temperature: parseFloat(temperature.toString()) || 0.7,
+      max_tokens: parseInt(maxTokens.toString()) || 2000,
+      top_p: parseFloat(topP.toString()) || 1.0,
+      frequency_penalty: parseFloat(frequencyPenalty.toString()) || 0,
+      presence_penalty: parseFloat(presencePenalty.toString()) || 0,
+      response_format: responseFormat || "text",
+      timeout: parseInt(timeout) || 60,
+      extract_json: extractJson || false,
+      return_metadata: returnMetadata ?? true,
+      enable_web_search: true,
+      enable_vector_search: true,
+      max_iterations: 10,
+      // Also keep frontend field names for compatibility
+      provider: provider || "ollama",
+      // Include API key in config for workflow execution
+      ...(selectedProvider?.requiresApiKey && apiKey ? { api_key: apiKey } : {}),
     };
 
     const credentials = selectedProvider?.requiresApiKey

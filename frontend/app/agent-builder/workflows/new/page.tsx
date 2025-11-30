@@ -3,7 +3,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { WorkflowEditor } from '@/components/workflow/WorkflowEditor';
-import { BlockPalette, BlockConfig } from '@/components/workflow/BlockPalette';
+import { ImprovedBlockPalette } from '@/components/workflow/ImprovedBlockPalette';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -44,7 +44,6 @@ export default function NewWorkflowPage() {
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [saving, setSaving] = useState(false);
-  const [blocks, setBlocks] = useState<BlockConfig[]>([]);
   const [loadingBlocks, setLoadingBlocks] = useState(true);
 
   // Load template if specified
@@ -76,192 +75,14 @@ export default function NewWorkflowPage() {
   const loadBlocksAndTools = async () => {
     try {
       setLoadingBlocks(true);
-      const [blocksData, toolsData, agentsResponse] = await Promise.all([
+      // Just load data for validation, ImprovedBlockPalette has its own data
+      await Promise.all([
         agentBuilderAPI.getBlocks(),
         agentBuilderAPI.getTools(),
         agentBuilderAPI.getAgents().catch(() => []),
       ]);
-
-      // Handle agents response (could be array or object with agents property)
-      const agentsData = Array.isArray(agentsResponse) 
-        ? agentsResponse 
-        : (agentsResponse as any)?.agents || [];
-
-      // Convert blocks to BlockConfig format
-      const blockConfigs: BlockConfig[] = [
-        // Control flow nodes
-        {
-          type: 'start',
-          name: 'Start',
-          description: 'Workflow starting point',
-          category: 'control' as const,
-          bg_color: '#10b981',
-          icon: '▶️',
-          nodeType: 'start',
-        },
-        {
-          type: 'end',
-          name: 'End',
-          description: 'Workflow ending point',
-          category: 'control' as const,
-          bg_color: '#ef4444',
-          icon: '🏁',
-          nodeType: 'end',
-        },
-        {
-          type: 'condition',
-          name: 'Condition',
-          description: 'Branch based on condition',
-          category: 'control' as const,
-          bg_color: '#f59e0b',
-          icon: '◆',
-          nodeType: 'condition',
-        },
-        {
-          type: 'loop',
-          name: 'Loop',
-          description: 'Iterate over items',
-          category: 'control' as const,
-          bg_color: '#8b5cf6',
-          icon: '🔁',
-          nodeType: 'loop',
-        },
-        {
-          type: 'parallel',
-          name: 'Parallel',
-          description: 'Execute branches in parallel',
-          category: 'control' as const,
-          bg_color: '#ec4899',
-          icon: '⚡',
-          nodeType: 'parallel',
-        },
-        {
-          type: 'delay',
-          name: 'Delay',
-          description: 'Pause execution',
-          category: 'control' as const,
-          bg_color: '#6366f1',
-          icon: '⏱️',
-          nodeType: 'delay',
-        },
-        {
-          type: 'http_request',
-          name: 'HTTP Request',
-          description: 'Make HTTP API calls',
-          category: 'tools' as const,
-          bg_color: '#0ea5e9',
-          icon: '🌐',
-          nodeType: 'http_request',
-        },
-        // Trigger nodes
-        {
-          type: 'trigger_manual',
-          name: 'Manual Trigger',
-          description: 'Start workflow manually',
-          category: 'triggers' as const,
-          bg_color: '#eab308',
-          icon: '⚡',
-          nodeType: 'trigger',
-          triggerType: 'manual',
-        },
-        {
-          type: 'trigger_schedule',
-          name: 'Schedule Trigger',
-          description: 'Run on a schedule (cron)',
-          category: 'triggers' as const,
-          bg_color: '#3b82f6',
-          icon: '🕐',
-          nodeType: 'trigger',
-          triggerType: 'schedule',
-        },
-        {
-          type: 'trigger_webhook',
-          name: 'Webhook Trigger',
-          description: 'Trigger via HTTP webhook',
-          category: 'triggers' as const,
-          bg_color: '#a855f7',
-          icon: '🔗',
-          nodeType: 'trigger',
-          triggerType: 'webhook',
-        },
-        {
-          type: 'trigger_email',
-          name: 'Email Trigger',
-          description: 'Trigger when email received',
-          category: 'triggers' as const,
-          bg_color: '#10b981',
-          icon: '📧',
-          nodeType: 'trigger',
-          triggerType: 'email',
-        },
-        {
-          type: 'trigger_event',
-          name: 'Event Trigger',
-          description: 'Trigger on system event',
-          category: 'triggers' as const,
-          bg_color: '#ef4444',
-          icon: '📅',
-          nodeType: 'trigger',
-          triggerType: 'event',
-        },
-        {
-          type: 'trigger_database',
-          name: 'Database Trigger',
-          description: 'Trigger on database change',
-          category: 'triggers' as const,
-          bg_color: '#6366f1',
-          icon: '💾',
-          nodeType: 'trigger',
-          triggerType: 'database',
-        },
-        // Agents
-        ...agentsData.map((agent: any) => ({
-          type: `agent_${agent.id}`,
-          name: agent.name,
-          description: agent.description || 'AI Agent',
-          category: 'agents' as const,
-          bg_color: '#a855f7',
-          icon: '🤖',
-          agentId: agent.id,
-          nodeType: 'agent',
-        })),
-        // Blocks
-        ...blocksData.map((block: any) => ({
-          type: `block_${block.id}`,
-          name: block.name,
-          description: block.description || '',
-          category: 'blocks' as const,
-          bg_color: '#3b82f6',
-          icon: block.block_type?.substring(0, 2).toUpperCase() || 'BL',
-          inputs: block.input_schema,
-          outputs: block.output_schema,
-        })),
-        // Tools
-        ...toolsData.map((tool: any) => ({
-          type: `tool_${tool.id}`,
-          name: tool.name,
-          description: tool.description || '',
-          category: 'tools' as const,
-          bg_color: '#10b981',
-          icon: '🔧',
-          inputs: tool.input_schema,
-          outputs: tool.output_schema,
-        })),
-      ];
-
-      logger.log('Loaded blocks:', blocksData.length);
-      logger.log('Loaded tools:', toolsData.length);
-      logger.log('Loaded agents:', agentsData.length);
-      logger.log('Total blockConfigs:', blockConfigs.length);
-      logger.log('BlockConfigs by category:', {
-        control: blockConfigs.filter(b => b.category === 'control').length,
-        triggers: blockConfigs.filter(b => b.category === 'triggers').length,
-        agents: blockConfigs.filter(b => b.category === 'agents').length,
-        blocks: blockConfigs.filter(b => b.category === 'blocks').length,
-        tools: blockConfigs.filter(b => b.category === 'tools').length,
-      });
-
-      setBlocks(blockConfigs);
+      
+      logger.log('Blocks and tools loaded successfully');
     } catch (error: any) {
       console.error('Error loading blocks and tools:', error);
       toast({
@@ -277,16 +98,16 @@ export default function NewWorkflowPage() {
     logger.log('🔄 Nodes changed:', updatedNodes.length);
     setNodes(updatedNodes);
     // Validate on change
-    const errors = validateWorkflow(updatedNodes, edges);
-    setValidationErrors(errors);
+    const result = validateWorkflow(updatedNodes, edges);
+    setValidationErrors([...result.errors, ...result.warnings]);
   }, [edges]);
 
   const handleEdgesChange = useCallback((updatedEdges: Edge[]) => {
     logger.log('🔗 Edges changed:', updatedEdges.length);
     setEdges(updatedEdges);
     // Validate on change
-    const errors = validateWorkflow(nodes, updatedEdges);
-    setValidationErrors(errors);
+    const result = validateWorkflow(nodes, updatedEdges);
+    setValidationErrors([...result.errors, ...result.warnings]);
   }, [nodes]);
 
   // Keyboard shortcuts
@@ -461,24 +282,19 @@ export default function NewWorkflowPage() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar - Block Palette */}
-        <div className="w-80 border-r bg-background overflow-y-auto">
-          <div className="p-4 space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Workflow Details</CardTitle>
-                <CardDescription>Basic information</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Name *</Label>
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Top Bar - Workflow Name & Description */}
+        <div className="border-b bg-background p-4">
+          <div className="flex gap-4 items-start">
+            <div className="flex-1 space-y-3">
+              <div className="flex gap-4">
+                <div className="flex-1">
                   <Input
                     id="name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="My Workflow"
-                    className={!name.trim() && saving ? 'border-red-500 focus-visible:ring-red-500' : ''}
+                    placeholder="Workflow Name *"
+                    className={`text-lg font-semibold ${!name.trim() && saving ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
                     required
                   />
                   {!name.trim() && saving && (
@@ -488,65 +304,39 @@ export default function NewWorkflowPage() {
                     </p>
                   )}
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea
+                <div className="flex-1">
+                  <Input
                     id="description"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Describe what this workflow does..."
-                    rows={3}
+                    placeholder="Description (optional)"
+                    className="text-sm"
                   />
                 </div>
-              </CardContent>
-            </Card>
-
-            <BlockPalette blocks={blocks} />
-            
-            {/* Validation Errors */}
-            {validationErrors.length > 0 && (
-              <div className="mt-4">
-                {validationErrors.filter(e => e.type === 'error').length > 0 && (
-                  <Alert variant="destructive" className="mb-2">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertTitle>Errors</AlertTitle>
-                    <AlertDescription>
-                      <ul className="list-disc list-inside text-sm mt-2">
-                        {validationErrors
-                          .filter(e => e.type === 'error')
-                          .map((error, i) => (
-                            <li key={i}>{error.message}</li>
-                          ))}
-                      </ul>
-                    </AlertDescription>
-                  </Alert>
-                )}
-                
-                {validationErrors.filter(e => e.type === 'warning').length > 0 && (
-                  <Alert className="border-yellow-500 bg-yellow-50">
-                    <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                    <AlertTitle className="text-yellow-800">Warnings</AlertTitle>
-                    <AlertDescription className="text-yellow-700">
-                      <ul className="list-disc list-inside text-sm mt-2">
-                        {validationErrors
-                          .filter(e => e.type === 'warning')
-                          .slice(0, 3)
-                          .map((error, i) => (
-                            <li key={i}>{error.message}</li>
-                          ))}
-                        {validationErrors.filter(e => e.type === 'warning').length > 3 && (
-                          <li>+{validationErrors.filter(e => e.type === 'warning').length - 3} more warnings</li>
-                        )}
-                      </ul>
-                    </AlertDescription>
-                  </Alert>
-                )}
               </div>
-            )}
+              
+              {/* Validation Errors - Compact */}
+              {validationErrors.length > 0 && (
+                <div className="flex gap-2 text-xs">
+                  {validationErrors.filter(e => e.severity === 'error').length > 0 && (
+                    <div className="flex items-center gap-1 text-red-600">
+                      <AlertCircle className="h-3 w-3" />
+                      <span>{validationErrors.filter(e => e.severity === 'error').length} error(s)</span>
+                    </div>
+                  )}
+                  {validationErrors.filter(e => e.severity === 'warning').length > 0 && (
+                    <div className="flex items-center gap-1 text-yellow-600">
+                      <AlertTriangle className="h-3 w-3" />
+                      <span>{validationErrors.filter(e => e.severity === 'warning').length} warning(s)</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Center - Workflow Canvas */}
+        {/* Canvas Area */}
         <div className="flex-1 bg-muted/20">
           <WorkflowEditor
             initialNodes={nodes}
