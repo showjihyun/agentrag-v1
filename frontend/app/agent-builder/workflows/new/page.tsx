@@ -4,14 +4,16 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { WorkflowEditor } from '@/components/workflow/WorkflowEditor';
 import { ImprovedBlockPalette } from '@/components/workflow/ImprovedBlockPalette';
+import { NLPWorkflowGenerator } from '@/components/workflow/NLPWorkflowGenerator';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { agentBuilderAPI } from '@/lib/api/agent-builder';
-import { ArrowLeft, Save, AlertCircle, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Save, AlertCircle, AlertTriangle, Sparkles, Wand2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { Node, Edge } from 'reactflow';
 import { validateWorkflow, getValidationSummary, type ValidationError } from '@/lib/workflow-validation';
@@ -45,6 +47,7 @@ export default function NewWorkflowPage() {
   const [edges, setEdges] = useState<Edge[]>([]);
   const [saving, setSaving] = useState(false);
   const [loadingBlocks, setLoadingBlocks] = useState(true);
+  const [showAIGenerator, setShowAIGenerator] = useState(false);
 
   // Load template if specified
   useEffect(() => {
@@ -93,6 +96,166 @@ export default function NewWorkflowPage() {
       setLoadingBlocks(false);
     }
   };
+
+  // Map backend node types to frontend ReactFlow node types
+  const mapNodeType = (backendType: string): string => {
+    const typeMapping: Record<string, string> = {
+      // Triggers
+      'manual_trigger': 'trigger',
+      'schedule_trigger': 'trigger',
+      'webhook_trigger': 'trigger',
+      // AI
+      'openai_chat': 'tool',
+      'anthropic_claude': 'tool',
+      'ai_agent': 'ai_agent',
+      // Search
+      'tavily_search': 'tool',
+      'wikipedia_search': 'tool',
+      'arxiv_search': 'tool',
+      'youtube_search': 'tool',
+      // Data
+      'http_request': 'http_request',
+      'postgresql_query': 'database',
+      'mongodb_query': 'database',
+      'redis_operation': 'database',
+      'vector_search': 'tool',
+      // Communication
+      'slack': 'slack',
+      'sendgrid': 'email',
+      'discord': 'discord',
+      // Transform
+      'transform': 'code',
+      'filter': 'condition',
+      'json_transform': 'code',
+      // Control Flow
+      'condition': 'condition',
+      'switch': 'switch',
+      'loop': 'loop',
+      'parallel': 'parallel',
+      'merge': 'merge',
+      'delay': 'delay',
+      'end': 'end',
+      'start': 'start',
+    };
+    return typeMapping[backendType] || 'tool';
+  };
+
+  // Get display label for node type
+  const getNodeLabel = (backendType: string, dataLabel?: string): string => {
+    if (dataLabel) return dataLabel;
+    const labelMapping: Record<string, string> = {
+      'manual_trigger': '수동 시작',
+      'schedule_trigger': '스케줄 트리거',
+      'webhook_trigger': '웹훅 트리거',
+      'openai_chat': 'OpenAI GPT',
+      'anthropic_claude': 'Claude AI',
+      'ai_agent': 'AI 에이전트',
+      'tavily_search': 'Tavily 검색',
+      'wikipedia_search': '위키피디아 검색',
+      'arxiv_search': 'arXiv 검색',
+      'youtube_search': 'YouTube 검색',
+      'http_request': 'HTTP 요청',
+      'postgresql_query': 'PostgreSQL',
+      'mongodb_query': 'MongoDB',
+      'redis_operation': 'Redis',
+      'vector_search': '벡터 검색',
+      'slack': 'Slack',
+      'sendgrid': '이메일',
+      'discord': 'Discord',
+      'transform': '데이터 변환',
+      'filter': '필터',
+      'json_transform': 'JSON 변환',
+      'condition': '조건 분기',
+      'switch': '다중 분기',
+      'loop': '반복',
+      'parallel': '병렬 실행',
+      'merge': '병합',
+      'delay': '지연',
+      'end': '종료',
+      'start': '시작',
+    };
+    return labelMapping[backendType] || backendType;
+  };
+
+  // Handle AI-generated workflow application to canvas
+  const handleApplyAIWorkflow = useCallback((graphDefinition: any, workflowName: string) => {
+    console.log('🤖 [AI Workflow] Received graphDefinition:', JSON.stringify(graphDefinition, null, 2));
+    console.log('🤖 [AI Workflow] Workflow name:', workflowName);
+    logger.log('🤖 Applying AI-generated workflow:', { workflowName, graphDefinition });
+    
+    if (!graphDefinition?.nodes || !graphDefinition?.edges) {
+      console.error('🤖 [AI Workflow] Invalid definition - missing nodes or edges');
+      toast({
+        title: 'Error',
+        description: 'Invalid workflow definition',
+      });
+      return;
+    }
+    
+    console.log('🤖 [AI Workflow] Nodes count:', graphDefinition.nodes.length);
+    console.log('🤖 [AI Workflow] Edges count:', graphDefinition.edges.length);
+
+    // Convert AI-generated nodes to ReactFlow format with proper positioning
+    const convertedNodes: Node[] = graphDefinition.nodes.map((node: any, index: number) => {
+      // Calculate position in a better flow layout
+      const position = node.position || {
+        x: 250,
+        y: 100 + index * 150,
+      };
+
+      const backendType = node.type || 'tool';
+      const frontendType = mapNodeType(backendType);
+
+      return {
+        id: node.id || generateUUID(),
+        type: frontendType,
+        position,
+        data: {
+          ...node.data,
+          label: getNodeLabel(backendType, node.data?.label),
+          name: getNodeLabel(backendType, node.data?.label),
+          tool_id: node.data?.tool_id || backendType,
+          tool_name: node.data?.tool_name || getNodeLabel(backendType),
+          nodeType: backendType,
+          blockType: frontendType,
+          parameters: node.data?.parameters || node.data?.config || {},
+          configuration: node.data?.configuration || node.data?.config || {},
+        },
+      };
+    });
+
+    console.log('🤖 [AI Workflow] Converted nodes:', convertedNodes);
+
+    // Convert AI-generated edges to ReactFlow format
+    const convertedEdges: Edge[] = graphDefinition.edges.map((edge: any) => ({
+      id: edge.id || generateUUID(),
+      source: edge.source,
+      target: edge.target,
+      sourceHandle: edge.sourceHandle || null,
+      targetHandle: edge.targetHandle || null,
+      type: 'custom',
+    }));
+
+    console.log('🤖 [AI Workflow] Converted edges:', convertedEdges);
+    console.log('🤖 [AI Workflow] Setting nodes and edges to state...');
+
+    // Update state
+    setName(workflowName);
+    setNodes(convertedNodes);
+    setEdges(convertedEdges);
+    setShowAIGenerator(false);
+    
+    console.log('🤖 [AI Workflow] State updated successfully');
+
+    // Validate the generated workflow
+    const result = validateWorkflow(convertedNodes, convertedEdges);
+    setValidationErrors([...result.errors, ...result.warnings]);
+
+    toast({
+      title: '✨ AI 워크플로우 적용됨',
+      description: `${convertedNodes.length}개 노드, ${convertedEdges.length}개 연결이 캔버스에 추가되었습니다`,
+    });
+  }, [toast]);
 
   const handleNodesChange = useCallback((updatedNodes: Node[]) => {
     logger.log('🔄 Nodes changed:', updatedNodes.length);
@@ -268,16 +431,40 @@ export default function NewWorkflowPage() {
               </p>
             </div>
           </div>
-          <Button 
-            onClick={handleSave} 
-            disabled={saving || !name.trim()}
-            className={!name.trim() ? 'opacity-50 cursor-not-allowed' : ''}
-          >
-            <Save className="mr-2 h-4 w-4" />
-            {saving ? 'Saving...' : 
-             !name.trim() ? 'Enter Name First' : 
-             'Save Workflow'}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Dialog open={showAIGenerator} onOpenChange={setShowAIGenerator}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 border-purple-300 hover:border-purple-400">
+                  <Sparkles className="mr-2 h-4 w-4 text-purple-500" />
+                  AI 워크플로우 생성
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Wand2 className="h-5 w-5 text-purple-500" />
+                    AI 워크플로우 생성기
+                  </DialogTitle>
+                </DialogHeader>
+                <NLPWorkflowGenerator
+                  onApply={handleApplyAIWorkflow}
+                  onGenerate={(workflow) => {
+                    logger.log('AI workflow generated:', workflow);
+                  }}
+                />
+              </DialogContent>
+            </Dialog>
+            <Button 
+              onClick={handleSave} 
+              disabled={saving || !name.trim()}
+              className={!name.trim() ? 'opacity-50 cursor-not-allowed' : ''}
+            >
+              <Save className="mr-2 h-4 w-4" />
+              {saving ? 'Saving...' : 
+               !name.trim() ? 'Enter Name First' : 
+               'Save Workflow'}
+            </Button>
+          </div>
         </div>
       </div>
 

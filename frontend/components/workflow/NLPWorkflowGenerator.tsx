@@ -102,6 +102,7 @@ export const NLPWorkflowGenerator: React.FC<NLPWorkflowGeneratorProps> = ({
   const [useLLM, setUseLLM] = useState(true);
   const [refinementInput, setRefinementInput] = useState('');
   const [history, setHistory] = useState<GeneratedWorkflow[]>([]);
+  const [activeTab, setActiveTab] = useState('generate');
 
   const handleGenerate = useCallback(async () => {
     if (!prompt.trim() || prompt.length < 10) {
@@ -131,11 +132,15 @@ export const NLPWorkflowGenerator: React.FC<NLPWorkflowGeneratorProps> = ({
       }
 
       const data = await response.json();
+      console.log('AI workflow generated: ', data);
       setResult(data);
       setWorkflowName(data.workflow_name);
       
       // Add to history
       setHistory(prev => [data, ...prev.slice(0, 4)]);
+      
+      // 자동으로 결과 탭으로 전환
+      setActiveTab('result');
       
       onGenerate?.(data);
     } catch (err) {
@@ -183,8 +188,19 @@ export const NLPWorkflowGenerator: React.FC<NLPWorkflowGeneratorProps> = ({
   }, [result, refinementInput, onGenerate]);
 
   const handleApply = useCallback(() => {
+    console.log('🎯 [NLPWorkflowGenerator] handleApply called');
+    console.log('🎯 [NLPWorkflowGenerator] result:', result);
+    console.log('🎯 [NLPWorkflowGenerator] graph_definition:', result?.graph_definition);
+    
     if (result?.graph_definition) {
+      console.log('🎯 [NLPWorkflowGenerator] Calling onApply with:', {
+        nodes: result.graph_definition.nodes,
+        edges: result.graph_definition.edges,
+        workflowName: workflowName || result.workflow_name,
+      });
       onApply?.(result.graph_definition, workflowName || result.workflow_name);
+    } else {
+      console.error('🎯 [NLPWorkflowGenerator] No graph_definition available');
     }
   }, [result, workflowName, onApply]);
 
@@ -219,7 +235,7 @@ export const NLPWorkflowGenerator: React.FC<NLPWorkflowGeneratorProps> = ({
         </div>
       </div>
 
-      <Tabs defaultValue="generate" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="generate">생성</TabsTrigger>
           <TabsTrigger value="result" disabled={!result}>결과</TabsTrigger>
@@ -302,30 +318,44 @@ export const NLPWorkflowGenerator: React.FC<NLPWorkflowGeneratorProps> = ({
         <TabsContent value="result" className="space-y-4">
           {result && (
             <>
-              <Card className="border-2 border-purple-200">
-                <CardHeader>
+              <Card className="border border-purple-500/30 bg-gradient-to-br from-slate-900/50 to-purple-900/20">
+                <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
-                    <div className="space-y-1">
+                    <div className="space-y-1 flex-1">
                       <CardTitle className="flex items-center gap-2">
                         {result.success ? (
-                          <CheckCircle className="h-5 w-5 text-green-500" />
+                          <div className="p-1 rounded-full bg-green-500/20">
+                            <CheckCircle className="h-5 w-5 text-green-400" />
+                          </div>
                         ) : (
-                          <AlertCircle className="h-5 w-5 text-red-500" />
+                          <div className="p-1 rounded-full bg-red-500/20">
+                            <AlertCircle className="h-5 w-5 text-red-400" />
+                          </div>
                         )}
                         <Input
                           value={workflowName}
                           onChange={(e) => setWorkflowName(e.target.value)}
-                          className="text-lg font-semibold border-none p-0 h-auto focus-visible:ring-0"
+                          className="text-lg font-semibold border-none bg-transparent p-0 h-auto focus-visible:ring-0 text-slate-100"
                           placeholder="워크플로우 이름"
                         />
                       </CardTitle>
-                      <p className="text-sm text-muted-foreground">{result.workflow_description}</p>
+                      <p className="text-sm text-slate-400">{result.workflow_description}</p>
                     </div>
                     <div className="flex flex-col items-end gap-1">
-                      <Badge className={cn("text-xs", getConfidenceColor(result.confidence))}>
+                      <Badge className={cn(
+                        "text-xs border-0",
+                        result.confidence >= 0.8 ? "bg-green-500/20 text-green-400" :
+                        result.confidence >= 0.6 ? "bg-yellow-500/20 text-yellow-400" :
+                        "bg-red-500/20 text-red-400"
+                      )}>
                         신뢰도 {Math.round(result.confidence * 100)}%
                       </Badge>
-                      <Badge className={cn("text-xs", COMPLEXITY_COLORS[result.complexity as keyof typeof COMPLEXITY_COLORS])}>
+                      <Badge className={cn(
+                        "text-xs border-0",
+                        result.complexity === 'simple' ? "bg-green-500/20 text-green-400" :
+                        result.complexity === 'moderate' ? "bg-yellow-500/20 text-yellow-400" :
+                        "bg-red-500/20 text-red-400"
+                      )}>
                         {COMPLEXITY_LABELS[result.complexity as keyof typeof COMPLEXITY_LABELS]}
                       </Badge>
                     </div>
@@ -333,47 +363,55 @@ export const NLPWorkflowGenerator: React.FC<NLPWorkflowGeneratorProps> = ({
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {/* Stats */}
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
-                      <Zap className="h-4 w-4 text-blue-500" />
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="flex items-center gap-2 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                      <div className="p-1.5 rounded-md bg-blue-500/20">
+                        <Zap className="h-4 w-4 text-blue-400" />
+                      </div>
                       <div>
-                        <div className="text-xs text-muted-foreground">노드</div>
-                        <div className="font-medium">{result.graph_definition.nodes.length}개</div>
+                        <div className="text-xs text-slate-500">노드</div>
+                        <div className="font-semibold text-slate-200">{result.graph_definition.nodes.length}개</div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
-                      <ArrowRight className="h-4 w-4 text-green-500" />
+                    <div className="flex items-center gap-2 p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+                      <div className="p-1.5 rounded-md bg-green-500/20">
+                        <ArrowRight className="h-4 w-4 text-green-400" />
+                      </div>
                       <div>
-                        <div className="text-xs text-muted-foreground">연결</div>
-                        <div className="font-medium">{result.graph_definition.edges.length}개</div>
+                        <div className="text-xs text-slate-500">연결</div>
+                        <div className="font-semibold text-slate-200">{result.graph_definition.edges.length}개</div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
-                      <Clock className="h-4 w-4 text-orange-500" />
+                    <div className="flex items-center gap-2 p-3 bg-orange-500/10 border border-orange-500/20 rounded-lg">
+                      <div className="p-1.5 rounded-md bg-orange-500/20">
+                        <Clock className="h-4 w-4 text-orange-400" />
+                      </div>
                       <div>
-                        <div className="text-xs text-muted-foreground">예상 시간</div>
-                        <div className="font-medium">{result.estimated_execution_time}</div>
+                        <div className="text-xs text-slate-500">예상 시간</div>
+                        <div className="font-semibold text-slate-200">{result.estimated_execution_time}</div>
                       </div>
                     </div>
                   </div>
 
                   {/* Explanation */}
-                  <div className="p-3 bg-muted/50 rounded-lg">
-                    <p className="text-sm">{result.explanation}</p>
-                  </div>
+                  {result.explanation && (
+                    <div className="p-3 bg-slate-800/50 border border-slate-700/50 rounded-lg">
+                      <p className="text-sm text-slate-300">{result.explanation}</p>
+                    </div>
+                  )}
 
                   {/* Generated Nodes */}
                   <div className="space-y-2">
-                    <h4 className="text-sm font-medium">생성된 노드</h4>
+                    <h4 className="text-sm font-medium text-slate-300">생성된 노드</h4>
                     <div className="flex flex-wrap gap-2">
                       {result.graph_definition.nodes.map((node, index) => (
                         <div
                           key={node.id}
-                          className="flex items-center gap-1 px-2 py-1 bg-white border rounded-lg text-sm"
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-800/80 border border-slate-700/50 rounded-lg text-sm"
                         >
-                          <span className="text-muted-foreground text-xs">{index + 1}.</span>
-                          <span>{node.data?.label || node.type}</span>
-                          <Badge variant="outline" className="text-xs ml-1">{node.type}</Badge>
+                          <span className="text-purple-400 text-xs font-medium">{index + 1}.</span>
+                          <span className="text-slate-200">{node.data?.label || node.type}</span>
+                          <Badge className="text-xs ml-1 bg-purple-500/20 text-purple-300 border-0">{node.type}</Badge>
                         </div>
                       ))}
                     </div>
@@ -381,14 +419,14 @@ export const NLPWorkflowGenerator: React.FC<NLPWorkflowGeneratorProps> = ({
 
                   {/* Suggestions */}
                   {result.suggestions.length > 0 && (
-                    <div className="space-y-2">
-                      <h4 className="text-sm font-medium flex items-center gap-2">
-                        <Lightbulb className="h-4 w-4 text-yellow-500" />
+                    <div className="space-y-2 p-3 bg-yellow-500/5 border border-yellow-500/20 rounded-lg">
+                      <h4 className="text-sm font-medium flex items-center gap-2 text-yellow-400">
+                        <Lightbulb className="h-4 w-4" />
                         개선 제안
                       </h4>
                       <ul className="space-y-1">
                         {result.suggestions.map((suggestion, index) => (
-                          <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
+                          <li key={index} className="text-sm text-slate-400 flex items-start gap-2">
                             <span className="text-yellow-500">•</span>
                             {suggestion}
                           </li>
@@ -398,9 +436,9 @@ export const NLPWorkflowGenerator: React.FC<NLPWorkflowGeneratorProps> = ({
                   )}
 
                   {/* Refinement */}
-                  <div className="space-y-2 pt-2 border-t">
-                    <h4 className="text-sm font-medium flex items-center gap-2">
-                      <Settings className="h-4 w-4" />
+                  <div className="space-y-2 pt-3 border-t border-slate-700/50">
+                    <h4 className="text-sm font-medium flex items-center gap-2 text-slate-300">
+                      <Settings className="h-4 w-4 text-slate-400" />
                       워크플로우 수정
                     </h4>
                     <div className="flex gap-2">
@@ -409,11 +447,12 @@ export const NLPWorkflowGenerator: React.FC<NLPWorkflowGeneratorProps> = ({
                         value={refinementInput}
                         onChange={(e) => setRefinementInput(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleRefine()}
+                        className="bg-slate-800/50 border-slate-700/50 text-slate-200 placeholder:text-slate-500"
                       />
                       <Button
                         onClick={handleRefine}
                         disabled={refining || !refinementInput.trim()}
-                        variant="outline"
+                        className="bg-slate-700 hover:bg-slate-600 text-slate-200 border-0"
                       >
                         {refining ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                       </Button>
@@ -421,12 +460,18 @@ export const NLPWorkflowGenerator: React.FC<NLPWorkflowGeneratorProps> = ({
                   </div>
 
                   {/* Actions */}
-                  <div className="flex gap-2 pt-2">
-                    <Button onClick={handleApply} className="flex-1">
+                  <div className="flex gap-2 pt-3">
+                    <Button 
+                      onClick={handleApply} 
+                      className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white border-0 shadow-lg shadow-purple-500/25"
+                    >
                       <Play className="h-4 w-4 mr-2" />
                       에디터에 적용
                     </Button>
-                    <Button variant="outline" onClick={copyToClipboard}>
+                    <Button 
+                      onClick={copyToClipboard}
+                      className="bg-slate-700 hover:bg-slate-600 text-slate-200 border-0"
+                    >
                       <Copy className="h-4 w-4" />
                     </Button>
                   </div>

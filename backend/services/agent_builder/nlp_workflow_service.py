@@ -385,19 +385,33 @@ class NLPWorkflowService:
         """Call LLM for workflow generation."""
         try:
             from backend.services.llm_manager import LLMManager
+            from backend.config import settings
             
+            # Use longer timeout for workflow generation (complex task)
             llm_manager = LLMManager()
             
-            response = await llm_manager.generate(
-                messages=[
+            # Use system-configured model, not hardcoded
+            model = settings.LLM_MODEL
+            
+            # Build generation params with longer timeout for complex generation
+            gen_params = {
+                "messages": [
                     {"role": "system", "content": get_system_prompt()},
                     {"role": "user", "content": get_user_prompt(description, language)},
                 ],
-                model="gpt-4o-mini",  # Use capable model for structured output
-                temperature=0.3,  # Lower temperature for more consistent output
-                response_format={"type": "json_object"},  # Request JSON output
-            )
+                "temperature": 0.3,  # Lower temperature for more consistent output
+                "timeout": 60.0,  # Longer timeout for workflow generation
+            }
             
+            # Only add response_format for OpenAI models that support it
+            if settings.LLM_PROVIDER == "openai" and "gpt" in model.lower():
+                gen_params["response_format"] = {"type": "json_object"}
+            
+            response = await llm_manager.generate(**gen_params)
+            
+            # Handle both string and dict responses
+            if isinstance(response, str):
+                return response
             return response.get("content", "{}")
             
         except Exception as e:

@@ -38,7 +38,29 @@ import {
 import { ToolSelector } from './ToolSelector';
 import { PromptTemplateEditor } from './PromptTemplateEditor';
 import { AgentToolsPanel } from './AgentToolsPanel';
-import { LLM_PROVIDERS, getModelsForProvider } from '@/lib/llm-models';
+import { LLM_PROVIDERS, getModelsForProvider, LLMProvider } from '@/lib/llm-models';
+
+// LLM Config interface matching settings page
+interface LLMConfig {
+  apiKeys: {
+    openai: string;
+    anthropic: string;
+    gemini: string;
+  };
+  ollama: {
+    enabled: boolean;
+    baseUrl: string;
+    defaultModel: string;
+  };
+  defaultProvider: 'openai' | 'anthropic' | 'gemini' | 'ollama';
+  defaultModel: string;
+}
+
+// Provider ID mapping (settings page uses 'anthropic', llm-models uses 'claude')
+const providerIdMap: Record<string, string> = {
+  anthropic: 'claude',
+  claude: 'anthropic',
+};
 
 const agentFormSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100),
@@ -100,6 +122,56 @@ export function AgentWizard({ agentId, initialData, mode = 'create' }: AgentWiza
   const [allTools, setAllTools] = React.useState<any[]>([]);
   const [selectedToolsWithConfig, setSelectedToolsWithConfig] = React.useState<any[]>([]);
   const [, forceUpdate] = React.useReducer(x => x + 1, 0);
+  const [llmConfig, setLlmConfig] = React.useState<LLMConfig | null>(null);
+  const [ollamaModels, setOllamaModels] = React.useState<string[]>([]);
+
+  // Load LLM config from localStorage (set in settings/llm page)
+  React.useEffect(() => {
+    const saved = localStorage.getItem('llm_config');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        setLlmConfig(parsed);
+      } catch {
+        console.warn('Failed to parse LLM config from localStorage');
+      }
+    }
+  }, []);
+
+  // Fetch Ollama models if enabled
+  React.useEffect(() => {
+    if (llmConfig?.ollama?.enabled) {
+      const fetchOllamaModels = async () => {
+        try {
+          const response = await fetch(`${llmConfig.ollama.baseUrl}/api/tags`);
+          if (response.ok) {
+            const data = await response.json();
+            const models = data.models?.map((m: any) => m.name) || [];
+            setOllamaModels(models);
+          }
+        } catch (error) {
+          console.error('Failed to fetch Ollama models:', error);
+        }
+      };
+      fetchOllamaModels();
+    }
+  }, [llmConfig?.ollama?.enabled, llmConfig?.ollama?.baseUrl]);
+
+  // Get default provider/model from LLM config
+  const getDefaultProvider = () => {
+    if (initialData?.llm_provider) return initialData.llm_provider;
+    if (llmConfig?.defaultProvider) {
+      // Map 'anthropic' to 'claude' for consistency with LLM_PROVIDERS
+      return llmConfig.defaultProvider === 'anthropic' ? 'claude' : llmConfig.defaultProvider;
+    }
+    return 'ollama';
+  };
+
+  const getDefaultModel = () => {
+    if (initialData?.llm_model) return initialData.llm_model;
+    if (llmConfig?.defaultModel) return llmConfig.defaultModel;
+    return 'llama3.1';
+  };
 
   const form = useForm<AgentFormValues>({
     resolver: zodResolver(agentFormSchema),
@@ -107,12 +179,40 @@ export function AgentWizard({ agentId, initialData, mode = 'create' }: AgentWiza
       name: initialData?.name || '',
       description: initialData?.description || '',
       agent_type: initialData?.agent_type || 'custom',
-      llm_provider: initialData?.llm_provider || 'ollama',
-      llm_model: initialData?.llm_model || 'llama3.1',
+      llm_provider: getDefaultProvider(),
+      llm_model: getDefaultModel(),
       prompt_template: initialData?.prompt_template || '',
       tool_ids: initialData?.tools?.map((t: any) => t.id || t.tool_id) || [],
     },
   });
+
+  // Update form defaults when llmConfig loads
+  React.useEffect(() => {
+    if (llmConfig && !initialData) {
+      const provider = llmConfig.defaultProvider === 'anthropic' ? 'claude' : llmConfig.defaultProvider;
+      form.setValue('llm_provider', provider);
+      form.setValue('llm_model', llmConfig.defaultModel);
+    }
+  }, [llmConfig, initialData, form]);
+
+  // Check if a provider has API key configured
+  const isProviderConfigured = (providerId: string): boolean => {
+    if (!llmConfig) return providerId === 'ollama';
+    
+    switch (providerId) {
+      case 'ollama':
+        return llmConfig.ollama?.enabled !== false;
+      case 'openai':
+        return !!llmConfig.apiKeys?.openai;
+      case 'claude':
+      case 'anthropic':
+        return !!llmConfig.apiKeys?.anthropic;
+      case 'gemini':
+        return !!llmConfig.apiKeys?.gemini;
+      default:
+        return false;
+    }
+  };
 
   // Fetch tools for display in review
   React.useEffect(() => {
@@ -317,6 +417,11 @@ export function AgentWizard({ agentId, initialData, mode = 'create' }: AgentWiza
         );
 
       case 2:
+        const currentProvider = form.watch('llm_provider') || 'ollama';
+        const availableModels = currentProvider === 'ollama' && ollamaModels.length > 0
+          ? ollamaModels.map(m => ({ id: m, name: m, description: 'Local model' }))
+          : getModelsForProvider(currentProvider);
+        
         return (
           <div className="space-y-6">
             <div className="rounded-lg bg-muted p-4">
@@ -325,30 +430,113 @@ export function AgentWizard({ agentId, initialData, mode = 'create' }: AgentWiza
               </p>
             </div>
 
+            {/* LLM Settings Status */}
+            {llmConfig ? (
+              <div className="rounded-lg border border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/20 p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Check className="h-4 w-4 text-green-600" />
+                    <span className="text-sm font-medium text-green-800 dark:text-green-200">
+                      LLM 설정이 구성되어 있습니다
+                    </span>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => router.push('/agent-builder/settings/llm')}
+                  >
+                    설정 변경
+                  </Button>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {llmConfig.ollama?.enabled && (
+                    <Badge variant="outline" className="text-xs">
+                      🦙 Ollama 활성화
+                    </Badge>
+                  )}
+                  {llmConfig.apiKeys?.openai && (
+                    <Badge variant="outline" className="text-xs text-green-600">
+                      🤖 OpenAI 연결됨
+                    </Badge>
+                  )}
+                  {llmConfig.apiKeys?.anthropic && (
+                    <Badge variant="outline" className="text-xs text-green-600">
+                      🧠 Claude 연결됨
+                    </Badge>
+                  )}
+                  {llmConfig.apiKeys?.gemini && (
+                    <Badge variant="outline" className="text-xs text-green-600">
+                      💎 Gemini 연결됨
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-yellow-200 bg-yellow-50 dark:border-yellow-900 dark:bg-yellow-950/20 p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Info className="h-4 w-4 text-yellow-600" />
+                    <span className="text-sm text-yellow-800 dark:text-yellow-200">
+                      LLM API 키가 설정되지 않았습니다. Ollama(로컬)만 사용 가능합니다.
+                    </span>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => router.push('/agent-builder/settings/llm')}
+                  >
+                    설정하기
+                  </Button>
+                </div>
+              </div>
+            )}
+
             <FormField
               control={form.control}
               name="llm_provider"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>LLM Provider *</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select onValueChange={(value) => {
+                    field.onChange(value);
+                    // Reset model when provider changes
+                    const models = value === 'ollama' && ollamaModels.length > 0
+                      ? ollamaModels
+                      : getModelsForProvider(value).map(m => m.id);
+                    if (models.length > 0) {
+                      form.setValue('llm_model', models[0]);
+                    }
+                  }} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select provider" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {LLM_PROVIDERS.map((provider) => (
-                        <SelectItem key={provider.id} value={provider.id}>
-                          <div className="flex items-center gap-2">
-                            <span>{provider.icon}</span>
-                            <span>{provider.name}</span>
-                            <Badge variant="secondary" className="text-xs">
-                              {provider.type === 'local' ? 'Local' : 'Cloud'}
-                            </Badge>
-                          </div>
-                        </SelectItem>
-                      ))}
+                      {LLM_PROVIDERS.map((provider) => {
+                        const configured = isProviderConfigured(provider.id);
+                        const isDisabled = !configured && provider.type === 'cloud';
+                        return (
+                          <SelectItem 
+                            key={provider.id} 
+                            value={provider.id}
+                            className={isDisabled ? 'opacity-50 cursor-not-allowed' : ''}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span>{provider.icon}</span>
+                              <span className={isDisabled ? 'text-muted-foreground' : ''}>{provider.name}</span>
+                              <Badge 
+                                variant={configured ? "default" : "secondary"} 
+                                className="text-xs"
+                              >
+                                {provider.type === 'local' ? 'Local' : configured ? '연결됨' : 'API 키 필요'}
+                              </Badge>
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -369,7 +557,7 @@ export function AgentWizard({ agentId, initialData, mode = 'create' }: AgentWiza
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {getModelsForProvider(form.watch('llm_provider') || 'ollama').map((model) => (
+                      {availableModels.map((model) => (
                         <SelectItem key={model.id} value={model.id}>
                           <div className="flex flex-col">
                             <span>{model.name}</span>
@@ -385,6 +573,29 @@ export function AgentWizard({ agentId, initialData, mode = 'create' }: AgentWiza
                 </FormItem>
               )}
             />
+
+            {/* Default Settings Info */}
+            {llmConfig && (
+              <div className="rounded-lg border p-4 space-y-2">
+                <h4 className="font-medium text-sm flex items-center gap-2">
+                  <Sparkles className="h-4 w-4" />
+                  기본 설정 (Settings에서 구성됨)
+                </h4>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-muted-foreground">기본 Provider</p>
+                    <p className="font-medium">
+                      {llmConfig.defaultProvider === 'anthropic' ? 'Claude' : 
+                       llmConfig.defaultProvider.charAt(0).toUpperCase() + llmConfig.defaultProvider.slice(1)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">기본 Model</p>
+                    <p className="font-medium">{llmConfig.defaultModel}</p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="rounded-lg border p-4 space-y-2">
               <h4 className="font-medium text-sm">Model Comparison</h4>

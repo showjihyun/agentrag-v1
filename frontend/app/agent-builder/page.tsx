@@ -474,8 +474,16 @@ export default function AgentBuilderDashboard() {
                         </p>
                         {agent.last_execution && (
                           <div className="flex items-center gap-1 mt-1">
-                            <span className={`text-xs ${getStatusColor(agent.last_status)}`}>
-                              {getStatusIcon(agent.last_status)}
+                            <span className={`text-xs ${
+                              agent.last_status === 'completed' ? 'text-green-500' :
+                              agent.last_status === 'failed' ? 'text-red-500' :
+                              agent.last_status === 'running' ? 'text-blue-500' :
+                              'text-gray-500'
+                            }`}>
+                              {agent.last_status === 'completed' ? <CheckCircle2 className="h-4 w-4" /> :
+                               agent.last_status === 'failed' ? <AlertCircle className="h-4 w-4" /> :
+                               agent.last_status === 'running' ? <Activity className="h-4 w-4 animate-pulse" /> :
+                               <Clock className="h-4 w-4" />}
                             </span>
                             <span className="text-xs text-muted-foreground">
                               {formatTimeAgo(agent.last_execution)}

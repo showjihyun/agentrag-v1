@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from "react"
+import { createPortal } from "react-dom"
 import { cn } from "@/lib/utils"
 
 interface DialogContextValue {
@@ -34,10 +35,12 @@ const Dialog = ({ open: controlledOpen, onOpenChange, children }: DialogProps) =
   )
 }
 
-const DialogTrigger = React.forwardRef<
-  HTMLButtonElement,
-  React.ButtonHTMLAttributes<HTMLButtonElement>
->(({ className, children, asChild = false, ...props }, ref) => {
+interface DialogTriggerProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  asChild?: boolean;
+}
+
+const DialogTrigger = React.forwardRef<HTMLButtonElement, DialogTriggerProps>(
+  ({ className, children, asChild = false, ...props }, ref) => {
   const context = React.useContext(DialogContext)
   if (!context) throw new Error('DialogTrigger must be used within Dialog')
 
@@ -70,20 +73,26 @@ const DialogContent = React.forwardRef<
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, children, ...props }, ref) => {
   const context = React.useContext(DialogContext)
+  const [mounted, setMounted] = React.useState(false)
+  
+  React.useEffect(() => {
+    setMounted(true)
+    return () => setMounted(false)
+  }, [])
+
   if (!context) throw new Error('DialogContent must be used within Dialog')
+  if (!context.open || !mounted) return null
 
-  if (!context.open) return null
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+  const content = (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center">
       <div 
-        className="fixed inset-0 bg-black/50" 
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm" 
         onClick={() => context.onOpenChange(false)}
       />
       <div
         ref={ref}
         className={cn(
-          "relative z-50 grid w-full max-w-lg gap-4 border bg-background p-6 shadow-lg sm:rounded-lg",
+          "relative z-[10000] grid w-full max-w-lg gap-4 border bg-background p-6 shadow-lg sm:rounded-lg animate-in fade-in-0 zoom-in-95",
           className
         )}
         {...props}
@@ -92,6 +101,9 @@ const DialogContent = React.forwardRef<
       </div>
     </div>
   )
+
+  // Use portal to render at document body level
+  return createPortal(content, document.body)
 })
 DialogContent.displayName = "DialogContent"
 

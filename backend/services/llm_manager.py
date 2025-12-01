@@ -253,10 +253,11 @@ class LLMManager:
         Format model name for LiteLLM based on provider.
 
         Returns:
-            Formatted model name (e.g., "ollama/llama3.1", "gpt-4", "claude-3-opus-20240229")
+            Formatted model name (e.g., "ollama_chat/llama3.1", "gpt-4", "claude-3-opus-20240229")
         """
         if self.provider == LLMProvider.OLLAMA:
-            return f"ollama/{self.model}"
+            # Use ollama_chat for native Ollama API (not OpenAI compatible endpoint)
+            return f"ollama_chat/{self.model}"
         elif self.provider == LLMProvider.CLAUDE:
             # LiteLLM expects "claude-" prefix for Anthropic models
             if not self.model.startswith("claude-"):
@@ -266,12 +267,49 @@ class LLMManager:
             # OpenAI models use their name directly
             return self.model
 
+    def _extract_content(self, response: Any) -> str:
+        """
+        Extract content from LLM response, handling both object and dict formats.
+        
+        Args:
+            response: LLM response (can be object with attributes or dict)
+            
+        Returns:
+            Extracted content string
+        """
+        try:
+            # Try object attribute access first (standard LiteLLM response)
+            if hasattr(response, 'choices'):
+                choices = response.choices
+                if choices and len(choices) > 0:
+                    message = choices[0].message if hasattr(choices[0], 'message') else choices[0].get('message', {})
+                    if hasattr(message, 'content'):
+                        return message.content or ""
+                    elif isinstance(message, dict):
+                        return message.get('content', "")
+            
+            # Try dict access (some providers return dict)
+            if isinstance(response, dict):
+                choices = response.get('choices', [])
+                if choices and len(choices) > 0:
+                    message = choices[0].get('message', {})
+                    return message.get('content', "")
+            
+            # Fallback: try to convert to string
+            logger.warning(f"Unexpected response format: {type(response)}")
+            return str(response)
+            
+        except Exception as e:
+            logger.error(f"Failed to extract content from response: {e}")
+            raise LLMError(f"Failed to extract content from response: {e}")
+
     async def generate(
         self,
         messages: List[Dict[str, str]],
         stream: bool = False,
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
+        timeout: Optional[float] = None,
         **kwargs,
     ) -> Union[str, AsyncGenerator[str, None]]:
         """
@@ -282,6 +320,7 @@ class LLMManager:
             stream: Whether to stream the response
             temperature: Sampling temperature (0.0 to 1.0)
             max_tokens: Maximum tokens to generate
+            timeout: Custom timeout in seconds (overrides provider default)
             **kwargs: Additional provider-specific parameters
 
         Returns:
@@ -292,8 +331,8 @@ class LLMManager:
         """
         import asyncio
 
-        # Get provider-specific timeout
-        timeout = self._get_timeout_for_provider()
+        # Use custom timeout or get provider-specific default
+        effective_timeout = timeout if timeout is not None else self._get_timeout_for_provider()
 
         try:
             # Enforce timeout with asyncio.wait_for
@@ -301,23 +340,23 @@ class LLMManager:
             if self.provider == LLMProvider.OLLAMA:
                 result = await asyncio.wait_for(
                     self._generate_without_retry(
-                        messages, stream, temperature, max_tokens, timeout, **kwargs
+                        messages, stream, temperature, max_tokens, effective_timeout, **kwargs
                     ),
-                    timeout=timeout,
+                    timeout=effective_timeout,
                 )
             else:
                 result = await asyncio.wait_for(
                     self._generate_with_retry(
-                        messages, stream, temperature, max_tokens, timeout, **kwargs
+                        messages, stream, temperature, max_tokens, effective_timeout, **kwargs
                     ),
-                    timeout=timeout,
+                    timeout=effective_timeout,
                 )
 
             return result
 
         except asyncio.TimeoutError:
             error_msg = (
-                f"LLM request timed out after {timeout}s "
+                f"LLM request timed out after {effective_timeout}s "
                 f"(provider: {self.provider.value}, model: {self.model})"
             )
             logger.error(error_msg)
@@ -372,7 +411,7 @@ class LLMManager:
                 return self._stream_completion(litellm_params)
             else:
                 response = await acompletion(**litellm_params)
-                content = response.choices[0].message.content
+                content = self._extract_content(response)
                 logger.debug(f"Generated response: {len(content)} characters")
                 return content
 
@@ -385,7 +424,7 @@ class LLMManager:
                 # Retry once after model loads
                 try:
                     response = await acompletion(**litellm_params)
-                    content = response.choices[0].message.content
+                    content = self._extract_content(response)
                     logger.info(
                         f"Generated response after model load: {len(content)} characters"
                     )

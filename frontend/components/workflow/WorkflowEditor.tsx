@@ -429,30 +429,42 @@ function WorkflowEditorInner({
     );
   }, [nodeStatuses, executionMode, setEdges]);
   
+  // Track previous initialNodes length to detect actual changes
+  const prevInitialNodesLengthRef = useRef<number>(0);
+  const prevInitialNodesIdsRef = useRef<string>('');
+  
   // Update nodes and edges when initialNodes/initialEdges change
   useEffect(() => {
-    // Only initialize once or when explicitly changed from parent
-    if (initializedRef.current && initialNodes.length === nodes.length) {
-      return;
-    }
+    // Create a string of node IDs to compare
+    const currentNodesIds = initialNodes.map(n => n.id).join(',');
+    const nodesChanged = currentNodesIds !== prevInitialNodesIdsRef.current;
     
-    logger.log('🔄 WorkflowEditor: Updating nodes from initialNodes', {
+    logger.log('🔄 WorkflowEditor: Checking initialNodes update', {
       initialNodesCount: initialNodes.length,
       initialEdgesCount: initialEdges.length,
       currentNodesCount: nodes.length,
+      nodesChanged,
+      prevIds: prevInitialNodesIdsRef.current,
+      currentIds: currentNodesIds,
     });
     
-    if (initialNodes.length > 0) {
+    // Always update if nodes changed or if we have new nodes
+    if (nodesChanged || (initialNodes.length > 0 && nodes.length === 0)) {
+      logger.log('🔄 WorkflowEditor: Applying new nodes', initialNodes);
       const initialized = initializeNodes(initialNodes);
       setNodes(initialized);
+      prevInitialNodesIdsRef.current = currentNodesIds;
+      prevInitialNodesLengthRef.current = initialNodes.length;
       initializedRef.current = true;
     }
     
-    if (initialEdges.length > 0) {
+    // Update edges if nodes changed or edges are different
+    const currentEdgesIds = initialEdges.map(e => e.id).join(',');
+    if (nodesChanged || initialEdges.length > 0) {
       setEdges(initialEdges);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialNodes, initialEdges]);
+  }, [initialNodes, initialEdges, initializeNodes, setNodes, setEdges]);
   
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [selectedExecutionNode, setSelectedExecutionNode] = useState<Node | null>(null);
@@ -498,15 +510,18 @@ function WorkflowEditorInner({
       return nodeApiKey;
     }
     
-    // Try to load from localStorage
-    try {
-      const savedApiKeys = localStorage.getItem('llm_api_keys');
-      if (savedApiKeys) {
-        const apiKeys = JSON.parse(savedApiKeys);
-        return apiKeys[provider] || undefined;
+    // Try to load from localStorage (only on client side)
+    // Check both window and localStorage existence for SSR safety
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+      try {
+        const savedApiKeys = localStorage.getItem('llm_api_keys');
+        if (savedApiKeys) {
+          const apiKeys = JSON.parse(savedApiKeys);
+          return apiKeys[provider] || undefined;
+        }
+      } catch {
+        // Silently fail on SSR or localStorage errors
       }
-    } catch (e) {
-      console.error('Failed to load API key from localStorage:', e);
     }
     
     return undefined;
@@ -530,7 +545,10 @@ function WorkflowEditorInner({
 
   const selectedProvider = selectedAIAgent?.data?.parameters?.provider || 'ollama';
   const selectedNodeApiKey = selectedAIAgent?.data?.parameters?.api_key;
-  const effectiveApiKey = getApiKey(selectedProvider, selectedNodeApiKey);
+  const effectiveApiKey = React.useMemo(() => {
+    if (typeof window === 'undefined') return selectedNodeApiKey;
+    return getApiKey(selectedProvider, selectedNodeApiKey);
+  }, [selectedProvider, selectedNodeApiKey, getApiKey]);
 
   const llmConnectionStatus = useLLMConnectionCheck(
     selectedProvider,

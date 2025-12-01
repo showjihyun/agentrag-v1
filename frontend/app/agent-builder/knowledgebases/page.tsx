@@ -444,7 +444,7 @@ export default function KnowledgebaseManagerPage() {
       )}
 
       {/* Knowledgebases Table */}
-      <Card>
+      <Card className="overflow-visible">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -539,7 +539,7 @@ export default function KnowledgebaseManagerPage() {
             )}
           </div>
         </CardHeader>
-        <CardContent className="overflow-visible">
+        <CardContent className="overflow-visible relative">
           {loading ? (
             <div className="space-y-2">
               {[...Array(3)].map((_, i) => (
@@ -589,8 +589,8 @@ export default function KnowledgebaseManagerPage() {
               </div>
             </div>
           ) : (
-            <div className="relative overflow-visible">
-              <Table>
+            <div className="relative" style={{ overflow: 'visible' }}>
+              <Table className="overflow-visible">
                 <TableHeader>
                 <TableRow>
                   <TableHead className="w-12">
@@ -661,7 +661,7 @@ export default function KnowledgebaseManagerPage() {
                       {formatDate(kb.created_at)}
                     </TableCell>
                     <TableCell className="text-right py-4">
-                      <DropdownMenu>
+                      <DropdownMenu modal={false}>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon">
                             <MoreVertical className="h-4 w-4" />
@@ -669,7 +669,10 @@ export default function KnowledgebaseManagerPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent 
                           align="end" 
-                          className="w-56 max-h-[400px] overflow-y-auto z-50"
+                          side="bottom"
+                          sideOffset={5}
+                          className="w-56 z-[100]"
+                          style={{ position: 'relative' }}
                         >
                           <DropdownMenuItem 
                             onClick={() => handleUploadDocuments(kb.id)}
