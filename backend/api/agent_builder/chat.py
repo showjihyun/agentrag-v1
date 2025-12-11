@@ -13,6 +13,7 @@ from backend.db.models.agent_builder import Workflow
 from backend.db.query_helpers import get_workflow_with_relations
 from backend.core.triggers.manager import TriggerManager
 from backend.core.triggers.chat import ChatTrigger
+from backend.services.agent_builder.chatflow_service import ChatflowService
 
 logger = logging.getLogger(__name__)
 
@@ -212,13 +213,15 @@ async def get_chat_history(
                 detail="You don't have permission to access this workflow"
             )
         
-        # TODO: Implement persistent chat history storage
-        # For now, return empty history
+        # Get chat history from ChatflowService
+        chatflow_service = ChatflowService(db)
+        history = chatflow_service.get_session_history(session_id)
+        
         return {
             "workflow_id": workflow_id,
             "session_id": session_id,
-            "history": [],
-            "message": "Chat history not yet implemented"
+            "history": history,
+            "message_count": len(history),
         }
     
     except HTTPException:

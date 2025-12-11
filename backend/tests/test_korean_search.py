@@ -15,7 +15,7 @@ import os
 # Add parent directory to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from backend.services.hybrid_search import HybridSearchManager
+from backend.services.hybrid_search import HybridSearchService as HybridSearchManager
 from backend.services.milvus import MilvusManager
 from backend.services.embedding import EmbeddingService
 from backend.config import settings

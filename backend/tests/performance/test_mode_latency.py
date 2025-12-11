@@ -18,9 +18,9 @@ from typing import List, Dict
 from backend.services.intelligent_mode_router import IntelligentModeRouter
 from backend.services.adaptive_rag_service import AdaptiveRAGService
 from backend.services.query_pattern_learner import QueryPatternLearner
-from backend.core.speculative_processor import SpeculativeQueryProcessor
+from backend.services.speculative_processor import SpeculativeProcessor as SpeculativeQueryProcessor
 from backend.models.hybrid import QueryMode, QueryComplexity
-from config import Settings
+from backend.config import Settings
 
 
 @pytest.fixture

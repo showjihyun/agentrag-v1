@@ -4,6 +4,15 @@ const nextConfig: NextConfig = {
   // Enable React strict mode
   reactStrictMode: true,
 
+  // Enable production source maps for debugging
+  productionBrowserSourceMaps: false,
+
+  // Compress responses
+  compress: true,
+
+  // Power by header removal for security
+  poweredByHeader: false,
+
   // API proxy to backend
   async rewrites() {
     return [
@@ -14,7 +23,7 @@ const nextConfig: NextConfig = {
     ];
   },
 
-  // PWA configuration
+  // PWA and caching configuration
   async headers() {
     return [
       {
@@ -36,6 +45,36 @@ const nextConfig: NextConfig = {
           {
             key: 'Content-Type',
             value: 'application/manifest+json',
+          },
+        ],
+      },
+      // Cache static assets aggressively
+      {
+        source: '/:all*(svg|jpg|jpeg|png|gif|ico|webp|avif)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+      // Cache fonts
+      {
+        source: '/:all*(woff|woff2|ttf|otf|eot)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+      // Cache JS/CSS with revalidation
+      {
+        source: '/_next/static/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
           },
         ],
       },
@@ -95,12 +134,31 @@ const nextConfig: NextConfig = {
 
   // Experimental features
   experimental: {
-    optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
+    // Optimize package imports for tree-shaking
+    optimizePackageImports: [
+      'lucide-react',
+      '@radix-ui/react-icons',
+      '@tanstack/react-query',
+      'framer-motion',
+      'date-fns',
+      'lodash',
+      'recharts',
+    ],
   },
 
   // Compiler options
   compiler: {
-    removeConsole: process.env.NODE_ENV === 'production',
+    // Remove console.log in production
+    removeConsole: process.env.NODE_ENV === 'production' 
+      ? { exclude: ['error', 'warn'] }
+      : false,
+  },
+
+  // Modular imports for smaller bundles
+  modularizeImports: {
+    'lucide-react': {
+      transform: 'lucide-react/dist/esm/icons/{{kebabCase member}}',
+    },
   },
 };
 

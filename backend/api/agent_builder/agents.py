@@ -12,8 +12,20 @@ from pydantic import BaseModel
 from backend.core.auth_dependencies import get_current_user
 from backend.db.database import get_db
 from backend.db.models.user import User
-from backend.services.agent_builder.agent_service_refactored import AgentServiceRefactored
-from backend.core.dependencies import get_agent_service
+# DDD Architecture - CQRS Pattern
+from backend.services.agent_builder.facade import AgentBuilderFacade
+from backend.services.agent_builder.application.commands import (
+    CreateAgentCommand,
+    UpdateAgentCommand,
+)
+from backend.services.agent_builder.application.queries import (
+    GetAgentQuery,
+    ListAgentsQuery,
+)
+from backend.services.agent_builder.shared.errors import (
+    NotFoundError,
+    ValidationError,
+)
 from backend.exceptions.agent_builder import (
     AgentNotFoundException,
     AgentValidationException,
@@ -54,10 +66,10 @@ class PaginationParams(BaseModel):
 def create_agent(
     agent_data: AgentCreate,
     current_user: User = Depends(get_current_user),
-    agent_service: AgentServiceRefactored = Depends(get_agent_service),
+    db: Session = Depends(get_db),
 ):
     """
-    Create a new agent with Refactored Service (Repository Pattern, Transaction Management).
+    Create a new agent using DDD CQRS Command pattern.
     
     **Requirements:** 1.1, 1.4
     
@@ -85,10 +97,25 @@ def create_agent(
     try:
         logger.info(f"Creating agent for user {current_user.id}: {agent_data.name}")
         
-        agent = agent_service.create_agent(
+        facade = AgentBuilderFacade(db)
+        
+        # Create command
+        command = CreateAgentCommand(
             user_id=str(current_user.id),
-            agent_data=agent_data
+            name=agent_data.name,
+            description=agent_data.description,
+            agent_type=agent_data.agent_type,
+            template_id=agent_data.template_id,
+            llm_provider=agent_data.llm_provider,
+            llm_model=agent_data.llm_model,
+            prompt_template_id=agent_data.prompt_template_id,
+            configuration=agent_data.configuration,
+            tool_ids=agent_data.tool_ids,
+            knowledgebase_ids=agent_data.knowledgebase_ids,
         )
+        
+        # Execute command
+        agent = facade.agent_commands.handle_create(command)
         
         logger.info(f"Agent created successfully: {agent.id}")
         
@@ -126,23 +153,17 @@ def create_agent(
             version_count=0
         )
         
-    except AgentValidationException as e:
-        logger.warning(f"Agent validation failed: {e.message}")
+    except ValidationError as e:
+        logger.warning(f"Agent validation failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=e.to_dict()
+            detail=str(e)
         )
-    except AgentToolNotFoundException as e:
-        logger.warning(f"Tool not found: {e.message}")
+    except NotFoundError as e:
+        logger.warning(f"Resource not found: {e}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=e.to_dict()
-        )
-    except AgentKnowledgebaseNotFoundException as e:
-        logger.warning(f"Knowledgebase not found: {e.message}")
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=e.to_dict()
+            detail=str(e)
         )
     except Exception as e:
         logger.error(f"Failed to create agent: {e}", exc_info=True)
@@ -161,10 +182,10 @@ def create_agent(
 async def get_agent(
     agent_id: str,
     current_user: User = Depends(get_current_user),
-    agent_service: AgentServiceRefactored = Depends(get_agent_service),
+    db: Session = Depends(get_db),
 ):
     """
-    Get agent by ID.
+    Get agent by ID using DDD CQRS Query pattern.
     
     **Requirements:** 1.1, 1.4
     
@@ -183,12 +204,20 @@ async def get_agent(
     try:
         logger.info(f"Fetching agent {agent_id} for user {current_user.id}")
         
-        agent = await agent_service.get_agent(agent_id)
+        facade = AgentBuilderFacade(db)
+        
+        # Create query
+        query = GetAgentQuery(agent_id=agent_id)
+        
+        # Execute query
+        agent = facade.agent_queries.handle_get(query)
         
         # Check permissions (owner or has read permission)
-        # Convert both to UUID for comparison
         if str(agent.user_id) != str(current_user.id) and not agent.is_public:
-            raise AgentPermissionException(agent_id, str(current_user.id), "read")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have permission to access this agent"
+            )
         
         # Convert Agent ORM object to AgentResponse
         return AgentResponse(
@@ -224,18 +253,14 @@ async def get_agent(
             version_count=0
         )
         
-    except AgentNotFoundException as e:
-        logger.warning(f"Agent not found: {e.message}")
+    except NotFoundError as e:
+        logger.warning(f"Agent not found: {e}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=e.to_dict()
+            detail=str(e)
         )
-    except AgentPermissionException as e:
-        logger.warning(f"Permission denied: {e.message}")
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=e.to_dict()
-        )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to get agent: {e}", exc_info=True)
         raise HTTPException(
@@ -254,10 +279,10 @@ async def update_agent(
     agent_id: str,
     agent_data: AgentUpdate,
     current_user: User = Depends(get_current_user),
-    agent_service: AgentServiceRefactored = Depends(get_agent_service),
+    db: Session = Depends(get_db),
 ):
     """
-    Update agent.
+    Update agent using DDD CQRS Command pattern.
     
     **Requirements:** 1.1, 1.4
     
@@ -280,13 +305,12 @@ async def update_agent(
     try:
         logger.info(f"Updating agent {agent_id} for user {current_user.id}")
         
-        # Check ownership
-        existing_agent = await agent_service.get_agent(agent_id)
-        if not existing_agent:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Agent {agent_id} not found"
-            )
+        facade = AgentBuilderFacade(db)
+        
+        # Check ownership using CQRS Query
+        from backend.services.agent_builder.application.queries import GetAgentQuery
+        query = GetAgentQuery(agent_id=agent_id)
+        existing_agent = facade.agent_queries.handle_get(query)
         
         if str(existing_agent.user_id) != str(current_user.id):
             raise HTTPException(
@@ -294,12 +318,19 @@ async def update_agent(
                 detail="You don't have permission to update this agent"
             )
         
-        # Update agent
-        updated_agent = await agent_service.update_agent(
+        # Update agent using CQRS Command
+        command = UpdateAgentCommand(
             agent_id=agent_id,
-            agent_data=agent_data,
-            user_id=str(current_user.id)
+            name=agent_data.name,
+            description=agent_data.description,
+            agent_type=agent_data.agent_type,
+            llm_provider=agent_data.llm_provider,
+            llm_model=agent_data.llm_model,
+            configuration=agent_data.configuration,
+            tool_ids=agent_data.tool_ids,
+            knowledgebase_ids=agent_data.knowledgebase_ids,
         )
+        updated_agent = facade.agent_commands.handle_update(command)
         
         logger.info(f"Agent updated successfully: {agent_id}")
         
@@ -337,14 +368,19 @@ async def update_agent(
             version_count=0
         )
         
-    except HTTPException:
-        raise
-    except ValueError as e:
+    except NotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Agent {agent_id} not found"
+        )
+    except ValidationError as e:
         logger.warning(f"Invalid agent data: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to update agent: {e}", exc_info=True)
         raise HTTPException(
@@ -365,7 +401,7 @@ async def delete_agent(
     db: Session = Depends(get_db),
 ):
     """
-    Soft delete agent.
+    Soft delete agent using DDD CQRS Command pattern.
     
     **Requirements:** 1.4, 6.4
     
@@ -384,15 +420,12 @@ async def delete_agent(
     try:
         logger.info(f"Deleting agent {agent_id} for user {current_user.id}")
         
-        agent_service = AgentServiceRefactored(db)
+        facade = AgentBuilderFacade(db)
         
-        # Check ownership
-        existing_agent = await agent_service.get_agent(agent_id)
-        if not existing_agent:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Agent {agent_id} not found"
-            )
+        # Check ownership using CQRS Query
+        from backend.services.agent_builder.application.queries import GetAgentQuery
+        query = GetAgentQuery(agent_id=agent_id)
+        existing_agent = facade.agent_queries.handle_get(query)
         
         if str(existing_agent.user_id) != str(current_user.id):
             raise HTTPException(
@@ -400,12 +433,19 @@ async def delete_agent(
                 detail="You don't have permission to delete this agent"
             )
         
-        # Soft delete
-        await agent_service.delete_agent(agent_id)
+        # Soft delete using CQRS Command
+        from backend.services.agent_builder.application.commands import DeleteAgentCommand
+        command = DeleteAgentCommand(agent_id=agent_id)
+        facade.agent_commands.handle_delete(command)
         
         logger.info(f"Agent deleted successfully: {agent_id}")
         return None
         
+    except NotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Agent {agent_id} not found"
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -431,7 +471,7 @@ async def list_agents(
     db: Session = Depends(get_db),
 ):
     """
-    List user's agents with pagination.
+    List user's agents with pagination using DDD CQRS Query pattern.
     
     **Requirements:** 1.1, 9.3
     
@@ -451,15 +491,16 @@ async def list_agents(
     try:
         logger.info(f"Listing agents for user {current_user.id}")
         
-        agent_service = AgentServiceRefactored(db)
+        facade = AgentBuilderFacade(db)
         
-        # Get agents with proper parameters
-        agents = agent_service.list_agents(
+        # Use CQRS Query for list operation
+        query = ListAgentsQuery(
             user_id=str(current_user.id),
             agent_type=agent_type,
+            skip=skip,
             limit=limit,
-            offset=skip
         )
+        agents = facade.agent_queries.handle_list(query)
         
         # Apply search filter if provided
         if search:

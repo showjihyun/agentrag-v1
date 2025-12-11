@@ -1,0 +1,174 @@
+{
+  "dashboard": {
+    "title": "Agentic RAG System - Performance Dashboard",
+    "tags": ["agentic-rag", "performance", "monitoring"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Request Rate (RPS)",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total[5m])",
+            "legendFormat": "{{method}} {{endpoint}}"
+          }
+        ],
+        "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8}
+      },
+      {
+        "id": 2,
+        "title": "Response Time (P95)",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "P95"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "P99"
+          }
+        ],
+        "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8}
+      },
+      {
+        "id": 3,
+        "title": "Error Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total{status=~\"5..\"}[5m])",
+            "legendFormat": "5xx Errors"
+          },
+          {
+            "expr": "rate(http_requests_total{status=~\"4..\"}[5m])",
+            "legendFormat": "4xx Errors"
+          }
+        ],
+        "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8}
+      },
+      {
+        "id": 4,
+        "title": "Cache Hit Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(cache_hits_total[5m]) / (rate(cache_hits_total[5m]) + rate(cache_misses_total[5m])) * 100",
+            "legendFormat": "Hit Rate %"
+          }
+        ],
+        "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8}
+      },
+      {
+        "id": 5,
+        "title": "Database Query Duration",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(db_query_duration_seconds_bucket[5m]))",
+            "legendFormat": "P95"
+          }
+        ],
+        "gridPos": {"x": 0, "y": 16, "w": 12, "h": 8}
+      },
+      {
+        "id": 6,
+        "title": "Active Connections",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "db_connections_active",
+            "legendFormat": "Database"
+          },
+          {
+            "expr": "redis_connections_active",
+            "legendFormat": "Redis"
+          },
+          {
+            "expr": "milvus_connections_active",
+            "legendFormat": "Milvus"
+          }
+        ],
+        "gridPos": {"x": 12, "y": 16, "w": 12, "h": 8}
+      },
+      {
+        "id": 7,
+        "title": "Memory Usage",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "process_resident_memory_bytes / 1024 / 1024",
+            "legendFormat": "Memory (MB)"
+          }
+        ],
+        "gridPos": {"x": 0, "y": 24, "w": 12, "h": 8}
+      },
+      {
+        "id": 8,
+        "title": "CPU Usage",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(process_cpu_seconds_total[5m]) * 100",
+            "legendFormat": "CPU %"
+          }
+        ],
+        "gridPos": {"x": 12, "y": 24, "w": 12, "h": 8}
+      },
+      {
+        "id": 9,
+        "title": "Workflow Executions",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(workflow_executions_total[5m])",
+            "legendFormat": "{{status}}"
+          }
+        ],
+        "gridPos": {"x": 0, "y": 32, "w": 12, "h": 8}
+      },
+      {
+        "id": 10,
+        "title": "LLM API Calls",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(llm_api_calls_total[5m])",
+            "legendFormat": "{{provider}}"
+          }
+        ],
+        "gridPos": {"x": 12, "y": 32, "w": 12, "h": 8}
+      },
+      {
+        "id": 11,
+        "title": "Document Processing",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(document_processed_total[5m])",
+            "legendFormat": "{{type}}"
+          }
+        ],
+        "gridPos": {"x": 0, "y": 40, "w": 12, "h": 8}
+      },
+      {
+        "id": 12,
+        "title": "Event Store Events",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(event_store_events_total[5m])",
+            "legendFormat": "{{event_type}}"
+          }
+        ],
+        "gridPos": {"x": 12, "y": 40, "w": 12, "h": 8}
+      }
+    ],
+    "refresh": "10s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    }
+  }
+}

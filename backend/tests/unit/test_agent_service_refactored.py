@@ -1,10 +1,10 @@
-"""Unit tests for AgentServiceRefactored."""
+"""Unit tests for AgentServiceRefactored (AgentService)."""
 
 import pytest
 from unittest.mock import Mock, MagicMock, patch
 import uuid
 
-from backend.services.agent_builder.agent_service_refactored import AgentServiceRefactored
+from backend.services.agent_builder.agent_service import AgentService as AgentServiceRefactored
 from backend.models.agent_builder import AgentCreate, AgentUpdate
 from backend.db.models.agent_builder import Agent
 from backend.exceptions.agent_builder import (
@@ -15,10 +15,10 @@ from backend.exceptions.agent_builder import (
 
 
 class TestAgentServiceRefactored:
-    """Test AgentServiceRefactored methods."""
+    """Test AgentServiceRefactored (AgentService) methods."""
     
-    @patch('backend.services.agent_builder.agent_service_refactored.AgentRepository')
-    @patch('backend.services.agent_builder.agent_service_refactored.transaction')
+    @patch('backend.services.agent_builder.agent_service.AgentRepository')
+    @patch('backend.services.agent_builder.agent_service.transaction')
     def test_create_agent_success(self, mock_transaction, mock_repo_class):
         """Test successful agent creation."""
         # Setup mocks
@@ -61,7 +61,7 @@ class TestAgentServiceRefactored:
         assert result is not None
         repo_mock.create.assert_called_once()
     
-    @patch('backend.services.agent_builder.agent_service_refactored.AgentRepository')
+    @patch('backend.services.agent_builder.agent_service.AgentRepository')
     def test_create_agent_validation_error(self, mock_repo_class):
         """Test agent creation with validation error."""
         db_mock = Mock()
@@ -79,7 +79,7 @@ class TestAgentServiceRefactored:
         with pytest.raises(AgentValidationException):
             service.create_agent(str(uuid.uuid4()), agent_data)
     
-    @patch('backend.services.agent_builder.agent_service_refactored.AgentRepository')
+    @patch('backend.services.agent_builder.agent_service.AgentRepository')
     def test_get_agent_success(self, mock_repo_class):
         """Test successful agent retrieval."""
         db_mock = Mock()
@@ -101,7 +101,7 @@ class TestAgentServiceRefactored:
         assert result == agent_mock
         repo_mock.find_by_id.assert_called_once_with(agent_mock.id)
     
-    @patch('backend.services.agent_builder.agent_service_refactored.AgentRepository')
+    @patch('backend.services.agent_builder.agent_service.AgentRepository')
     def test_get_agent_not_found(self, mock_repo_class):
         """Test agent not found."""
         db_mock = Mock()
@@ -118,7 +118,7 @@ class TestAgentServiceRefactored:
         with pytest.raises(AgentNotFoundException):
             service.get_agent(str(uuid.uuid4()))
     
-    @patch('backend.services.agent_builder.agent_service_refactored.AgentRepository')
+    @patch('backend.services.agent_builder.agent_service.AgentRepository')
     def test_list_agents(self, mock_repo_class):
         """Test listing agents."""
         db_mock = Mock()
@@ -140,8 +140,8 @@ class TestAgentServiceRefactored:
         assert len(result) == 3
         repo_mock.find_by_user.assert_called_once()
     
-    @patch('backend.services.agent_builder.agent_service_refactored.AgentRepository')
-    @patch('backend.services.agent_builder.agent_service_refactored.transaction')
+    @patch('backend.services.agent_builder.agent_service.AgentRepository')
+    @patch('backend.services.agent_builder.agent_service.transaction')
     def test_delete_agent(self, mock_transaction, mock_repo_class):
         """Test agent deletion."""
         db_mock = Mock()
@@ -172,7 +172,7 @@ class TestAgentServiceRefactored:
 class TestAgentServiceCaching:
     """Test caching behavior."""
     
-    @patch('backend.services.agent_builder.agent_service_refactored.AgentRepository')
+    @patch('backend.services.agent_builder.agent_service.AgentRepository')
     def test_get_agent_with_cache_hit(self, mock_repo_class):
         """Test cache hit scenario."""
         db_mock = Mock()
@@ -194,7 +194,7 @@ class TestAgentServiceCaching:
         assert result == agent_mock
         repo_mock.find_by_id.assert_not_called()
     
-    @patch('backend.services.agent_builder.agent_service_refactored.AgentRepository')
+    @patch('backend.services.agent_builder.agent_service.AgentRepository')
     def test_get_agent_with_cache_miss(self, mock_repo_class):
         """Test cache miss scenario."""
         db_mock = Mock()
@@ -225,8 +225,8 @@ class TestAgentServiceCaching:
 class TestAgentServiceEvents:
     """Test event publishing."""
     
-    @patch('backend.services.agent_builder.agent_service_refactored.AgentRepository')
-    @patch('backend.services.agent_builder.agent_service_refactored.transaction')
+    @patch('backend.services.agent_builder.agent_service.AgentRepository')
+    @patch('backend.services.agent_builder.agent_service.transaction')
     def test_create_agent_publishes_event(self, mock_transaction, mock_repo_class):
         """Test that creating agent publishes event."""
         db_mock = Mock()

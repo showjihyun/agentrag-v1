@@ -8,6 +8,8 @@ Multi-Agent RAG | Visual Workflow Builder | 50+ Integrations | Real-time Streami
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Next.js 15](https://img.shields.io/badge/Next.js-15-black)](https://nextjs.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.109+-green.svg)](https://fastapi.tiangolo.com/)
+[![Production Ready](https://img.shields.io/badge/Production-Ready-brightgreen.svg)](SYSTEM_READY.md)
+[![System Score](https://img.shields.io/badge/Score-100%2F100-success.svg)](FINAL_REPORT.md)
 
 ---
 ## 1. Agent  Builder

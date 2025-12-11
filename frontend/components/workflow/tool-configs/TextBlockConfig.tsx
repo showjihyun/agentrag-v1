@@ -1,105 +1,124 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+/**
+ * TextBlockConfig - Text Block Tool Configuration
+ * 
+ * Refactored to use common hooks and components
+ */
+
 import { FileText } from 'lucide-react';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { ToolConfigProps } from './ToolConfigRegistry';
+import {
+  ToolConfigHeader,
+  TextField,
+  TextareaField,
+  SelectField,
+  useToolConfig,
+} from './common';
+
+// ============================================
+// Constants
+// ============================================
+
+const CONTENT_TYPES = [
+  { value: 'text', label: 'Plain Text' },
+  { value: 'json', label: 'JSON' },
+  { value: 'html', label: 'HTML' },
+  { value: 'markdown', label: 'Markdown' },
+  { value: 'xml', label: 'XML' },
+] as const;
+
+const TEMPLATE_ENGINES = [
+  { value: 'simple', label: 'Simple {{variable}}' },
+  { value: 'jinja', label: 'Jinja2' },
+  { value: 'handlebars', label: 'Handlebars' },
+  { value: 'none', label: 'None (Static)' },
+] as const;
+
+// ============================================
+// Types
+// ============================================
+
+interface TextBlockConfigData {
+  content: string;
+  content_type: string;
+  template_engine: string;
+  output_name: string;
+  trim_whitespace: boolean;
+}
+
+const DEFAULTS: TextBlockConfigData = {
+  content: '',
+  content_type: 'text',
+  template_engine: 'simple',
+  output_name: 'text',
+  trim_whitespace: true,
+};
+
+
+// ============================================
+// Component
+// ============================================
 
 export default function TextBlockConfig({ data, onChange }: ToolConfigProps) {
-  const [config, setConfig] = useState({
-    content: data.content || '',
-    content_type: data.content_type || 'text',
-    template_engine: data.template_engine || 'simple',
-    output_name: data.output_name || 'text',
-    trim_whitespace: data.trim_whitespace !== false,
-    ...data
+  const { config, updateField } = useToolConfig<TextBlockConfigData>({
+    initialData: data,
+    defaults: DEFAULTS,
+    onChange,
   });
 
-  useEffect(() => {
-    onChange(config);
-  }, [config]);
-
-  const updateConfig = (key: string, value: any) => {
-    setConfig((prev: typeof config) => ({ ...prev, [key]: value }));
-  };
-
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3 pb-4 border-b">
-        <div className="p-2 rounded-lg bg-gray-100 dark:bg-gray-950">
-          <FileText className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-        </div>
-        <div>
-          <h3 className="font-semibold">Text Block</h3>
-          <p className="text-sm text-muted-foreground">Static text or template</p>
-        </div>
-      </div>
+    <TooltipProvider>
+      <div className="space-y-6">
+        {/* Header */}
+        <ToolConfigHeader
+          icon={FileText}
+          iconBgColor="bg-gray-100 dark:bg-gray-950"
+          iconColor="text-gray-600 dark:text-gray-400"
+          title="Text Block"
+          description="정적 텍스트 또는 템플릿"
+        />
 
-      {/* Content Type */}
-      <div className="space-y-2">
-        <Label>Content Type</Label>
-        <Select value={config.content_type} onValueChange={(v) => updateConfig('content_type', v)}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="text">Plain Text</SelectItem>
-            <SelectItem value="json">JSON</SelectItem>
-            <SelectItem value="html">HTML</SelectItem>
-            <SelectItem value="markdown">Markdown</SelectItem>
-            <SelectItem value="xml">XML</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+        {/* Content Type */}
+        <SelectField
+          label="콘텐츠 유형"
+          value={config.content_type}
+          onChange={(v) => updateField('content_type', v)}
+          options={CONTENT_TYPES.map(c => ({ value: c.value, label: c.label }))}
+        />
 
-      {/* Template Engine */}
-      <div className="space-y-2">
-        <Label>Template Engine</Label>
-        <Select value={config.template_engine} onValueChange={(v) => updateConfig('template_engine', v)}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="simple">Simple {'{{variable}}'}</SelectItem>
-            <SelectItem value="jinja">Jinja2</SelectItem>
-            <SelectItem value="handlebars">Handlebars</SelectItem>
-            <SelectItem value="none">None (Static)</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+        {/* Template Engine */}
+        <SelectField
+          label="템플릿 엔진"
+          value={config.template_engine}
+          onChange={(v) => updateField('template_engine', v)}
+          options={TEMPLATE_ENGINES.map(t => ({ value: t.value, label: t.label }))}
+        />
 
-      {/* Content */}
-      <div className="space-y-2">
-        <Label>Content</Label>
-        <Textarea
+        {/* Content */}
+        <TextareaField
+          label="콘텐츠"
+          value={config.content}
+          onChange={(v) => updateField('content', v)}
           placeholder={
-            config.content_type === 'json' 
+            config.content_type === 'json'
               ? '{\n  "message": "Hello {{input.name}}"\n}'
               : 'Hello {{input.name}}, welcome to our service!'
           }
-          value={config.content}
-          onChange={(e) => updateConfig('content', e.target.value)}
           rows={10}
-          className="font-mono text-sm"
+          mono
+          hint="{{variable}} 문법으로 동적 값 포함 가능"
         />
-        <p className="text-xs text-muted-foreground">
-          Use {'{{variable}}'} syntax to include dynamic values
-        </p>
-      </div>
 
-      {/* Output Name */}
-      <div className="space-y-2">
-        <Label>Output Variable Name</Label>
-        <Input
-          placeholder="text"
+        {/* Output Name */}
+        <TextField
+          label="출력 변수명"
           value={config.output_name}
-          onChange={(e) => updateConfig('output_name', e.target.value)}
+          onChange={(v) => updateField('output_name', v)}
+          placeholder="text"
         />
       </div>
-    </div>
+    </TooltipProvider>
   );
 }

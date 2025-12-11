@@ -51,8 +51,6 @@ class HybridDocumentProcessor:
         # 프로세서 초기화
         self.docling_processor = None
         self.doc_processor = None
-        self.colpali_processor = None
-        self.colpali_milvus = None
         self.structured_data_service = None
         
         self._init_processors()
@@ -95,31 +93,10 @@ class HybridDocumentProcessor:
                 self.doc_processor = DocumentProcessor()
                 logger.info("✅ Native document processor initialized")
             
-            # ColPali 프로세서 (선택적)
+            # ColPali removed - not used
             if self.enable_colpali:
-                try:
-                    from backend.services.colpali_processor import get_colpali_processor
-                    from backend.services.colpali_milvus_service import get_colpali_milvus_service
-                    from backend.config import settings
-                    
-                    self.colpali_processor = get_colpali_processor(
-                        model_name=settings.COLPALI_MODEL,
-                        use_gpu=settings.COLPALI_USE_GPU,
-                        enable_binarization=settings.COLPALI_ENABLE_BINARIZATION,
-                        enable_pooling=settings.COLPALI_ENABLE_POOLING,
-                        pooling_factor=settings.COLPALI_POOLING_FACTOR
-                    )
-                    self.colpali_milvus = get_colpali_milvus_service()
-                    
-                    if self.colpali_processor:
-                        model_info = self.colpali_processor.get_model_info()
-                        logger.info(f"✅ ColPali processor initialized on {model_info['device']}")
-                    else:
-                        logger.warning("⚠️  ColPali processor returned None")
-                        self.enable_colpali = False
-                except Exception as e:
-                    logger.warning(f"⚠️  ColPali not available: {e}")
-                    self.enable_colpali = False
+                logger.info("ColPali has been removed from the system")
+                self.enable_colpali = False
             
         except Exception as e:
             logger.error(f"Failed to initialize processors: {e}")
@@ -300,9 +277,10 @@ class HybridDocumentProcessor:
             # 3단계: ColPali 처리 결정
             should_use_colpali = False
             
-            logger.info(f"🔍 ColPali check: enabled={self.enable_colpali}, processor_available={self.colpali_processor is not None}")
+            # ColPali removed
+            logger.info(f"🔍 ColPali check: disabled (removed from system)")
             
-            if self.enable_colpali and self.colpali_processor:
+            if False:  # ColPali disabled
                 # 이미지 파일이면 무조건 ColPali 처리
                 if is_image_file:
                     should_use_colpali = True
@@ -347,7 +325,8 @@ class HybridDocumentProcessor:
                     total_patches = 0
                     for i, img_path in enumerate(image_paths, 1):
                         logger.info(f"🔄 Processing image {i}/{len(image_paths)}: {Path(img_path).name}")
-                        colpali_result = self.colpali_processor.process_image(img_path)
+                        # ColPali removed
+                        colpali_result = None
                         
                         # Milvus에 저장
                         if colpali_result.get('embeddings') is not None:
@@ -485,7 +464,7 @@ class HybridDocumentProcessor:
             'enable_colpali': self.enable_colpali,
             'colpali_threshold': self.colpali_threshold,
             'process_images_always': self.process_images_always,
-            'colpali_available': self.colpali_processor is not None,
+            'colpali_available': False,  # ColPali removed
             'structured_data_available': self.structured_data_service is not None
         }
 

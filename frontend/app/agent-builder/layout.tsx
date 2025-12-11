@@ -18,16 +18,33 @@ import {
   Menu,
   X,
   Settings,
+  Users,
+  MessageSquare,
+  BarChart3,
+  Key,
+  Code,
+  Store,
 } from 'lucide-react';
 
 const navigation = [
+  // Flow Types (Primary)
+  { name: 'Agentflows', href: '/agent-builder/agentflows', icon: Users, badge: 'Multi-Agent' },
+  { name: 'Chatflows', href: '/agent-builder/chatflows', icon: MessageSquare, badge: 'Chatbot' },
+  { name: 'Workflows', href: '/agent-builder/workflows', icon: GitBranch },
+  // Building Blocks
   { name: 'Agents', href: '/agent-builder/agents', icon: Layers },
   { name: 'Blocks', href: '/agent-builder/blocks', icon: Box },
   { name: 'Triggers', href: '/agent-builder/triggers', icon: Zap },
-  { name: 'Workflows', href: '/agent-builder/workflows', icon: GitBranch },
+  // Data & Knowledge
   { name: 'Knowledgebases', href: '/agent-builder/knowledgebases', icon: Database },
   { name: 'Variables', href: '/agent-builder/variables', icon: Variable },
+  // Monitoring & Observability
   { name: 'Executions', href: '/agent-builder/executions', icon: Activity },
+  { name: 'Observability', href: '/agent-builder/observability', icon: BarChart3, badge: 'New' },
+  // Developer Tools
+  { name: 'API Keys', href: '/agent-builder/api-keys', icon: Key },
+  { name: 'Embed', href: '/agent-builder/embed', icon: Code },
+  { name: 'Marketplace', href: '/agent-builder/marketplace', icon: Store },
 ];
 
 const settingsNavigation = [
@@ -77,8 +94,106 @@ export default function AgentBuilderLayout({
           </Button>
         </div>
         <ScrollArea className="h-[calc(100vh-4rem)]">
-          <nav className="space-y-2 p-4">
-            {navigation.map((item) => {
+          <nav className="space-y-1 p-4">
+            {/* Flow Types Section */}
+            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-2">
+              Flows
+            </div>
+            {navigation.slice(0, 3).map((item) => {
+              const Icon = item.icon;
+              const isActive = pathname?.startsWith(item.href);
+              return (
+                <Link key={item.name} href={item.href}>
+                  <Button
+                    variant={isActive ? "secondary" : "ghost"}
+                    className="w-full justify-start"
+                    onClick={() => setSidebarOpen(false)}
+                  >
+                    <Icon className="mr-2 h-4 w-4" />
+                    {item.name}
+                    {item.badge && (
+                      <span className="ml-auto text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                        {item.badge}
+                      </span>
+                    )}
+                  </Button>
+                </Link>
+              );
+            })}
+            
+            {/* Building Blocks Section */}
+            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mt-4 mb-2 px-2">
+              Building Blocks
+            </div>
+            {navigation.slice(3, 6).map((item) => {
+              const Icon = item.icon;
+              const isActive = pathname?.startsWith(item.href);
+              return (
+                <Link key={item.name} href={item.href}>
+                  <Button
+                    variant={isActive ? "secondary" : "ghost"}
+                    className="w-full justify-start"
+                    onClick={() => setSidebarOpen(false)}
+                  >
+                    <Icon className="mr-2 h-4 w-4" />
+                    {item.name}
+                  </Button>
+                </Link>
+              );
+            })}
+            
+            {/* Data & Knowledge Section */}
+            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mt-4 mb-2 px-2">
+              Data & Knowledge
+            </div>
+            {navigation.slice(6, 8).map((item) => {
+              const Icon = item.icon;
+              const isActive = pathname?.startsWith(item.href);
+              return (
+                <Link key={item.name} href={item.href}>
+                  <Button
+                    variant={isActive ? "secondary" : "ghost"}
+                    className="w-full justify-start"
+                    onClick={() => setSidebarOpen(false)}
+                  >
+                    <Icon className="mr-2 h-4 w-4" />
+                    {item.name}
+                  </Button>
+                </Link>
+              );
+            })}
+            
+            {/* Observability Section */}
+            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mt-4 mb-2 px-2">
+              Observability
+            </div>
+            {navigation.slice(8, 10).map((item) => {
+              const Icon = item.icon;
+              const isActive = pathname?.startsWith(item.href);
+              return (
+                <Link key={item.name} href={item.href}>
+                  <Button
+                    variant={isActive ? "secondary" : "ghost"}
+                    className="w-full justify-start"
+                    onClick={() => setSidebarOpen(false)}
+                  >
+                    <Icon className="mr-2 h-4 w-4" />
+                    {item.name}
+                    {item.badge && (
+                      <span className="ml-auto text-[10px] bg-green-500/10 text-green-600 px-1.5 py-0.5 rounded">
+                        {item.badge}
+                      </span>
+                    )}
+                  </Button>
+                </Link>
+              );
+            })}
+            
+            {/* Developer Section */}
+            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mt-4 mb-2 px-2">
+              Developer
+            </div>
+            {navigation.slice(10).map((item) => {
               const Icon = item.icon;
               const isActive = pathname?.startsWith(item.href);
               return (

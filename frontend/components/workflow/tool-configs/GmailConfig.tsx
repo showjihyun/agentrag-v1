@@ -1,162 +1,176 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+/**
+ * GmailConfig - Gmail Integration Tool Configuration
+ * 
+ * Refactored to use common hooks and components
+ */
+
+import { useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Mail, Key, TestTube } from 'lucide-react';
+import { Mail, TestTube } from 'lucide-react';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { ToolConfigProps } from './ToolConfigRegistry';
+import {
+  ToolConfigHeader,
+  TOOL_HEADER_PRESETS,
+  TextField,
+  TextareaField,
+  SelectField,
+  useToolConfig,
+} from './common';
+
+// ============================================
+// Constants
+// ============================================
 
 const GMAIL_ACTIONS = [
-  { id: 'send_email', name: 'Send Email', description: 'Send an email' },
-  { id: 'search_emails', name: 'Search Emails', description: 'Search for emails' },
-  { id: 'get_email', name: 'Get Email', description: 'Get a specific email' },
-];
+  { value: 'send_email', label: 'Send Email', description: 'Send an email' },
+  { value: 'search_emails', label: 'Search Emails', description: 'Search for emails' },
+  { value: 'get_email', label: 'Get Email', description: 'Get a specific email' },
+] as const;
+
+const BODY_TYPES = [
+  { value: 'html', label: 'HTML' },
+  { value: 'plain', label: 'Plain Text' },
+] as const;
+
+// ============================================
+// Types
+// ============================================
+
+interface GmailConfigData {
+  action: string;
+  to: string;
+  cc: string;
+  bcc: string;
+  subject: string;
+  body: string;
+  body_type: string;
+}
+
+const DEFAULTS: GmailConfigData = {
+  action: 'send_email',
+  to: '',
+  cc: '',
+  bcc: '',
+  subject: '',
+  body: '',
+  body_type: 'html',
+};
+
+// ============================================
+// Component
+// ============================================
 
 export default function GmailConfig({ data, onChange, onTest }: ToolConfigProps) {
-  const [config, setConfig] = useState({
-    action: data.action || 'send_email',
-    to: data.to || '',
-    cc: data.cc || '',
-    bcc: data.bcc || '',
-    subject: data.subject || '',
-    body: data.body || '',
-    body_type: data.body_type || 'html',
-    ...data
+  const { config, updateField } = useToolConfig<GmailConfigData>({
+    initialData: data,
+    defaults: DEFAULTS,
+    onChange,
   });
 
-  useEffect(() => {
-    onChange(config);
-  }, [config]);
+  const handleTest = useCallback(() => {
+    onTest?.();
+  }, [onTest]);
 
-  const updateConfig = (key: string, value: any) => {
-    setConfig(prev => ({ ...prev, [key]: value }));
-  };
+  const isSendEmail = config.action === 'send_email';
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3 pb-4 border-b">
-        <div className="p-2 rounded-lg bg-red-100 dark:bg-red-950">
-          <Mail className="h-5 w-5 text-red-600 dark:text-red-400" />
-        </div>
-        <div>
-          <h3 className="font-semibold">Gmail</h3>
-          <p className="text-sm text-muted-foreground">Send and manage emails</p>
-        </div>
-        <Badge variant="secondary" className="ml-auto">New</Badge>
-      </div>
+    <TooltipProvider>
+      <div className="space-y-6">
+        {/* Header */}
+        <ToolConfigHeader
+          icon={Mail}
+          {...TOOL_HEADER_PRESETS.email}
+          title="Gmail"
+          description="Send and manage emails"
+          badge="Popular"
+        />
 
-      {/* Action */}
-      <div className="space-y-2">
-        <Label>Action</Label>
-        <Select value={config.action} onValueChange={(v) => updateConfig('action', v)}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {GMAIL_ACTIONS.map(action => (
-              <SelectItem key={action.id} value={action.id}>
-                <div className="flex flex-col">
-                  <span className="font-medium">{action.name}</span>
-                  <span className="text-xs text-muted-foreground">{action.description}</span>
-                </div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+        {/* Action */}
+        <SelectField
+          label="Action"
+          value={config.action}
+          onChange={(v) => updateField('action', v)}
+          options={GMAIL_ACTIONS.map(a => ({ value: a.value, label: a.label, description: a.description }))}
+        />
 
-      {config.action === 'send_email' && (
-        <>
-          {/* To */}
-          <div className="space-y-2">
-            <Label>To *</Label>
-            <Input
-              placeholder="recipient@example.com"
+        {isSendEmail && (
+          <>
+            {/* To */}
+            <TextField
+              label="To"
               value={config.to}
-              onChange={(e) => updateConfig('to', e.target.value)}
+              onChange={(v) => updateField('to', v)}
+              placeholder="recipient@example.com"
+              required
+              hint="Comma-separated for multiple recipients"
+              tooltip="수신자 이메일 주소. 여러 명에게 보내려면 쉼표로 구분하세요."
             />
-            <p className="text-xs text-muted-foreground">
-              Comma-separated for multiple recipients
-            </p>
-          </div>
 
-          {/* CC */}
-          <div className="space-y-2">
-            <Label>CC (Optional)</Label>
-            <Input
-              placeholder="cc@example.com"
+            {/* CC */}
+            <TextField
+              label="CC"
               value={config.cc}
-              onChange={(e) => updateConfig('cc', e.target.value)}
+              onChange={(v) => updateField('cc', v)}
+              placeholder="cc@example.com"
+              hint="Optional"
             />
-          </div>
 
-          {/* BCC */}
-          <div className="space-y-2">
-            <Label>BCC (Optional)</Label>
-            <Input
-              placeholder="bcc@example.com"
+            {/* BCC */}
+            <TextField
+              label="BCC"
               value={config.bcc}
-              onChange={(e) => updateConfig('bcc', e.target.value)}
+              onChange={(v) => updateField('bcc', v)}
+              placeholder="bcc@example.com"
+              hint="Optional"
             />
-          </div>
 
-          {/* Subject */}
-          <div className="space-y-2">
-            <Label>Subject *</Label>
-            <Input
-              placeholder="Email subject..."
+            {/* Subject */}
+            <TextField
+              label="Subject"
               value={config.subject}
-              onChange={(e) => updateConfig('subject', e.target.value)}
+              onChange={(v) => updateField('subject', v)}
+              placeholder="Email subject..."
+              required
             />
-          </div>
 
-          {/* Body Type */}
-          <div className="space-y-2">
-            <Label>Body Type</Label>
-            <Select value={config.body_type} onValueChange={(v) => updateConfig('body_type', v)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="html">HTML</SelectItem>
-                <SelectItem value="plain">Plain Text</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+            {/* Body Type */}
+            <SelectField
+              label="Body Type"
+              value={config.body_type}
+              onChange={(v) => updateField('body_type', v)}
+              options={BODY_TYPES.map(t => ({ value: t.value, label: t.label }))}
+            />
 
-          {/* Body */}
-          <div className="space-y-2">
-            <Label>Body *</Label>
-            <Textarea
-              placeholder={config.body_type === 'html' ? '<p>Email content...</p>' : 'Email content...'}
+            {/* Body */}
+            <TextareaField
+              label="Body"
               value={config.body}
-              onChange={(e) => updateConfig('body', e.target.value)}
+              onChange={(v) => updateField('body', v)}
+              placeholder={config.body_type === 'html' ? '<p>Email content...</p>' : 'Email content...'}
               rows={8}
+              required
+              hint="Use {{variables}} for dynamic content"
+              mono={config.body_type === 'html'}
             />
-            <p className="text-xs text-muted-foreground">
-              Use <code className="px-1 py-0.5 bg-muted rounded">{'{{variables}}'}</code> for dynamic content
-            </p>
-          </div>
-        </>
-      )}
+          </>
+        )}
 
-      {/* Test Button */}
-      {onTest && config.action === 'send_email' && (
-        <Button 
-          onClick={onTest} 
-          variant="outline" 
-          className="w-full"
-          disabled={!config.to || !config.subject || !config.body}
-        >
-          <TestTube className="h-4 w-4 mr-2" />
-          Test Email
-        </Button>
-      )}
-    </div>
+        {/* Test Button */}
+        {onTest && isSendEmail && (
+          <Button
+            onClick={handleTest}
+            variant="outline"
+            className="w-full"
+            disabled={!config.to || !config.subject || !config.body}
+          >
+            <TestTube className="h-4 w-4 mr-2" />
+            Test Email
+          </Button>
+        )}
+      </div>
+    </TooltipProvider>
   );
 }

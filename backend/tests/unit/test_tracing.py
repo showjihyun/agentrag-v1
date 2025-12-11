@@ -1,9 +1,14 @@
 """
 Unit tests for OpenTelemetry Tracing
+
+NOTE: These tests require opentelemetry package to be installed.
 """
 
 import pytest
 from unittest.mock import Mock, patch
+
+# Skip tests if opentelemetry is not installed
+pytest.importorskip("opentelemetry")
 
 from backend.core.tracing import TracingManager, initialize_tracing
 

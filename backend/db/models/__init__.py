@@ -7,6 +7,7 @@ from backend.db.models.document import Document, BatchUpload
 from backend.db.models.feedback import AnswerFeedback
 from backend.db.models.usage import UsageLog
 from backend.db.models.oauth import OAuthCredential, OAuthState
+from backend.db.models.api_keys import APIKey
 from backend.db.models.agent_builder import (
     # Agent models
     Agent,
@@ -43,6 +44,25 @@ from backend.db.models.agent_builder import (
     Permission,
     ResourceShare,
     AuditLog,
+)
+from backend.db.models.flows import (
+    # Flow models
+    Agentflow,
+    AgentflowAgent,
+    Chatflow,
+    ChatflowTool,
+    ChatSession,
+    ChatMessage,
+    FlowExecution,
+    NodeExecution,
+    ExecutionLog,
+    MarketplaceItem,
+    # Extended flow models
+    FlowTemplate,
+    TokenUsage,
+    ModelPricing,
+    EmbedConfig,
+    MarketplaceReview,
 )
 
 __all__ = [
@@ -88,4 +108,22 @@ __all__ = [
     "Permission",
     "ResourceShare",
     "AuditLog",
+    # Flow models
+    "Agentflow",
+    "AgentflowAgent",
+    "Chatflow",
+    "ChatflowTool",
+    "ChatSession",
+    "ChatMessage",
+    "FlowExecution",
+    "NodeExecution",
+    "ExecutionLog",
+    "APIKey",
+    "MarketplaceItem",
+    # Extended flow models
+    "FlowTemplate",
+    "TokenUsage",
+    "ModelPricing",
+    "EmbedConfig",
+    "MarketplaceReview",
 ]

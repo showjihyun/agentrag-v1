@@ -98,44 +98,59 @@ export default function NewWorkflowPage() {
   };
 
   // Map backend node types to frontend ReactFlow node types
+  // Based on ImprovedBlockPalette: Tools, Control, Triggers, Blocks
   const mapNodeType = (backendType: string): string => {
     const typeMapping: Record<string, string> = {
       // Triggers
       'manual_trigger': 'trigger',
       'schedule_trigger': 'trigger',
       'webhook_trigger': 'trigger',
-      // AI
+      'email_trigger': 'trigger',
+      'file_trigger': 'trigger',
+      'slack_trigger': 'trigger',
+      // AI & Agents
+      'ai_agent': 'ai_agent',
       'openai_chat': 'tool',
       'anthropic_claude': 'tool',
-      'ai_agent': 'ai_agent',
-      // Search
-      'tavily_search': 'tool',
-      'wikipedia_search': 'tool',
-      'arxiv_search': 'tool',
-      'youtube_search': 'tool',
-      // Data
-      'http_request': 'http_request',
-      'postgresql_query': 'database',
-      'mongodb_query': 'database',
-      'redis_operation': 'database',
-      'vector_search': 'tool',
+      'google_gemini': 'tool',
       // Communication
       'slack': 'slack',
-      'sendgrid': 'email',
+      'gmail': 'email',
       'discord': 'discord',
-      // Transform
-      'transform': 'code',
-      'filter': 'condition',
+      'telegram': 'tool',
+      // API & Integration
+      'http_request': 'http_request',
+      'webhook': 'tool',
+      'graphql': 'tool',
+      // Data & Database
+      'vector_search': 'tool',
+      'postgres': 'database',
+      'csv_parser': 'tool',
       'json_transform': 'code',
+      // Code Execution
+      'python_code': 'code',
+      'javascript_code': 'code',
+      'calculator': 'tool',
       // Control Flow
+      'start': 'start',
+      'end': 'end',
       'condition': 'condition',
-      'switch': 'switch',
       'loop': 'loop',
       'parallel': 'parallel',
-      'merge': 'merge',
       'delay': 'delay',
-      'end': 'end',
-      'start': 'start',
+      'switch': 'switch',
+      'merge': 'merge',
+      'filter': 'condition',
+      'transform': 'code',
+      'try_catch': 'tool',
+      'human_approval': 'tool',
+      // Blocks
+      'text_block': 'tool',
+      'code_block': 'code',
+      'http_block': 'http_request',
+      'database_block': 'database',
+      'transform_block': 'code',
+      'ai_block': 'tool',
     };
     return typeMapping[backendType] || 'tool';
   };
@@ -144,37 +159,224 @@ export default function NewWorkflowPage() {
   const getNodeLabel = (backendType: string, dataLabel?: string): string => {
     if (dataLabel) return dataLabel;
     const labelMapping: Record<string, string> = {
+      // Triggers
       'manual_trigger': '수동 시작',
       'schedule_trigger': '스케줄 트리거',
       'webhook_trigger': '웹훅 트리거',
-      'openai_chat': 'OpenAI GPT',
-      'anthropic_claude': 'Claude AI',
+      'email_trigger': '이메일 트리거',
+      'file_trigger': '파일 업로드 트리거',
+      'slack_trigger': 'Slack 이벤트 트리거',
+      // AI & Agents
       'ai_agent': 'AI 에이전트',
-      'tavily_search': 'Tavily 검색',
-      'wikipedia_search': '위키피디아 검색',
-      'arxiv_search': 'arXiv 검색',
-      'youtube_search': 'YouTube 검색',
-      'http_request': 'HTTP 요청',
-      'postgresql_query': 'PostgreSQL',
-      'mongodb_query': 'MongoDB',
-      'redis_operation': 'Redis',
-      'vector_search': '벡터 검색',
+      'openai_chat': 'OpenAI Chat',
+      'anthropic_claude': 'Claude',
+      'google_gemini': 'Gemini',
+      // Communication
       'slack': 'Slack',
-      'sendgrid': '이메일',
+      'gmail': 'Gmail',
       'discord': 'Discord',
-      'transform': '데이터 변환',
-      'filter': '필터',
+      'telegram': 'Telegram',
+      // API & Integration
+      'http_request': 'HTTP 요청',
+      'webhook': '웹훅',
+      'graphql': 'GraphQL',
+      // Data & Database
+      'vector_search': '벡터 검색',
+      'postgres': 'PostgreSQL',
+      'csv_parser': 'CSV 파서',
       'json_transform': 'JSON 변환',
+      // Code Execution
+      'python_code': 'Python 코드',
+      'javascript_code': 'JavaScript',
+      'calculator': '계산기',
+      // Control Flow
+      'start': '시작',
+      'end': '종료',
       'condition': '조건 분기',
-      'switch': '다중 분기',
       'loop': '반복',
       'parallel': '병렬 실행',
-      'merge': '병합',
       'delay': '지연',
-      'end': '종료',
-      'start': '시작',
+      'switch': '다중 분기',
+      'merge': '병합',
+      'filter': '필터',
+      'transform': '데이터 변환',
+      'try_catch': '에러 처리',
+      'human_approval': '사람 승인',
+      // Blocks
+      'text_block': '텍스트',
+      'code_block': '코드 블록',
+      'http_block': 'HTTP 블록',
+      'database_block': 'DB 블록',
+      'transform_block': '변환 블록',
+      'ai_block': 'AI 블록',
     };
     return labelMapping[backendType] || backendType;
+  };
+
+  // Build node-specific configuration based on type
+  // Based on ImprovedBlockPalette: Tools, Control, Triggers, Blocks
+  const buildNodeConfig = (backendType: string, config: any = {}): any => {
+    const baseConfig: Record<string, any> = {
+      // ===== TRIGGERS =====
+      'manual_trigger': { triggerType: 'manual' },
+      'schedule_trigger': {
+        triggerType: 'schedule',
+        cron: config.cron || '0 9 * * *',
+        timezone: config.timezone || 'Asia/Seoul',
+      },
+      'webhook_trigger': {
+        triggerType: 'webhook',
+        path: config.path || '/webhook',
+        method: config.method || 'POST',
+      },
+      'email_trigger': { filter: config.filter || '' },
+      'file_trigger': { path: config.path || '' },
+      'slack_trigger': { event_type: config.event_type || 'message' },
+
+      // ===== AI & AGENTS =====
+      'ai_agent': {
+        goal: config.goal || '',
+        tools: config.tools || [],
+        model: config.model || 'gpt-4o-mini',
+        maxIterations: config.maxIterations || 10,
+      },
+      'openai_chat': {
+        model: config.model || 'gpt-4o-mini',
+        prompt: config.prompt || '',
+        temperature: config.temperature || 0.7,
+        maxTokens: config.maxTokens || 2000,
+      },
+      'anthropic_claude': {
+        model: config.model || 'claude-3-sonnet-20240229',
+        prompt: config.prompt || '',
+        temperature: config.temperature || 0.7,
+      },
+      'google_gemini': {
+        model: config.model || 'gemini-pro',
+        prompt: config.prompt || '',
+      },
+
+      // ===== COMMUNICATION =====
+      'slack': {
+        channel: config.channel || '#general',
+        message: config.message || '{{input.message}}',
+      },
+      'gmail': {
+        to: config.to || '',
+        subject: config.subject || '',
+        body: config.body || '',
+      },
+      'discord': {
+        webhook_url: config.webhook_url || '',
+        message: config.message || '{{input.message}}',
+      },
+      'telegram': {
+        chat_id: config.chat_id || '',
+        message: config.message || '{{input.message}}',
+      },
+
+      // ===== API & INTEGRATION =====
+      'http_request': {
+        url: config.url || '',
+        method: config.method || 'GET',
+        headers: config.headers || {},
+        body: config.body || '',
+      },
+      'webhook': { path: config.path || '/webhook' },
+      'graphql': {
+        endpoint: config.endpoint || '',
+        query: config.query || '',
+        variables: config.variables || {},
+      },
+
+      // ===== DATA & DATABASE =====
+      'vector_search': {
+        query: config.query || '{{input.query}}',
+        top_k: config.top_k || 5,
+        collection: config.collection || '',
+      },
+      'postgres': {
+        query: config.query || '',
+        connection: config.connection || '',
+      },
+      'csv_parser': {
+        file_path: config.file_path || '',
+        delimiter: config.delimiter || ',',
+      },
+      'json_transform': {
+        mapping: config.mapping || {},
+      },
+
+      // ===== CODE EXECUTION =====
+      'python_code': {
+        code: config.code || '# Python code here\nresult = input_data',
+      },
+      'javascript_code': {
+        code: config.code || '// JavaScript code here\nreturn inputData;',
+      },
+      'calculator': {
+        expression: config.expression || '',
+      },
+
+      // ===== CONTROL FLOW =====
+      'start': {},
+      'end': {},
+      'condition': {
+        condition: config.condition || '',
+        trueLabel: config.trueLabel || 'True',
+        falseLabel: config.falseLabel || 'False',
+      },
+      'loop': {
+        items: config.items || '{{input.items}}',
+        batch_size: config.batch_size || 1,
+      },
+      'parallel': {
+        branches: config.branches || 2,
+      },
+      'delay': {
+        duration: config.duration || 1000,
+        unit: config.unit || 'ms',
+      },
+      'switch': {
+        expression: config.expression || '',
+        cases: config.cases || [],
+      },
+      'merge': {
+        mode: config.mode || 'concat',
+      },
+      'filter': {
+        condition: config.condition || '',
+      },
+      'transform': {
+        expression: config.expression || '',
+      },
+      'try_catch': {
+        retry_count: config.retry_count || 3,
+      },
+      'human_approval': {
+        message: config.message || '승인이 필요합니다',
+        timeout: config.timeout || 86400,
+      },
+
+      // ===== BLOCKS =====
+      'text_block': { text: config.text || '' },
+      'code_block': {
+        code: config.code || '',
+        language: config.language || 'python',
+      },
+      'http_block': {
+        url: config.url || '',
+        method: config.method || 'GET',
+      },
+      'database_block': { query: config.query || '' },
+      'transform_block': { mapping: config.mapping || {} },
+      'ai_block': {
+        prompt: config.prompt || '',
+        model: config.model || 'gpt-4o-mini',
+      },
+    };
+
+    return baseConfig[backendType] || config;
   };
 
   // Handle AI-generated workflow application to canvas
@@ -205,21 +407,28 @@ export default function NewWorkflowPage() {
 
       const backendType = node.type || 'tool';
       const frontendType = mapNodeType(backendType);
+      const nodeLabel = node.label || node.data?.label || getNodeLabel(backendType);
+      
+      // Build proper configuration for this node type
+      const nodeConfig = buildNodeConfig(backendType, node.config || node.data?.config || {});
 
       return {
         id: node.id || generateUUID(),
         type: frontendType,
         position,
         data: {
-          ...node.data,
-          label: getNodeLabel(backendType, node.data?.label),
-          name: getNodeLabel(backendType, node.data?.label),
-          tool_id: node.data?.tool_id || backendType,
-          tool_name: node.data?.tool_name || getNodeLabel(backendType),
+          label: nodeLabel,
+          name: nodeLabel,
+          description: node.data?.description || '',
+          tool_id: backendType,
+          tool_name: getNodeLabel(backendType),
           nodeType: backendType,
           blockType: frontendType,
-          parameters: node.data?.parameters || node.data?.config || {},
-          configuration: node.data?.configuration || node.data?.config || {},
+          // Node-specific configuration
+          ...nodeConfig,
+          // Keep original config for reference
+          parameters: nodeConfig,
+          configuration: nodeConfig,
         },
       };
     });
@@ -308,20 +517,32 @@ export default function NewWorkflowPage() {
     }
 
     // Validate workflow
-    const errors = validateWorkflow(nodes, edges);
-    const summary = getValidationSummary(errors);
+    const validationResult = validateWorkflow(nodes, edges);
+    const summary = getValidationSummary(validationResult);
     
     if (summary.hasErrors) {
+      // Show detailed error messages
+      const errorDetails = validationResult.errors
+        .map(err => `• ${err.nodeName}${err.field ? ` (${err.field})` : ''}: ${err.message}`)
+        .join('\n');
+      
+      console.error('❌ Validation errors:', validationResult.errors);
+      
       toast({
         title: 'Validation Failed',
-        description: `Please fix ${summary.errorCount} error(s) before saving`,
+        description: `Please fix ${summary.errorCount} error(s) before saving:\n\n${errorDetails}`,
+        variant: 'destructive',
       });
       return;
     }
     
     if (summary.hasWarnings) {
+      const warningDetails = validationResult.warnings
+        .map(warn => `• ${warn.nodeName}${warn.field ? ` (${warn.field})` : ''}: ${warn.message}`)
+        .join('\n');
+      
       const confirmed = confirm(
-        `Workflow has ${summary.warningCount} warning(s). Do you want to save anyway?`
+        `Workflow has ${summary.warningCount} warning(s):\n\n${warningDetails}\n\nDo you want to save anyway?`
       );
       if (!confirmed) return;
     }
@@ -402,9 +623,47 @@ export default function NewWorkflowPage() {
 
       router.push(`/agent-builder/workflows/${workflow.id}`);
     } catch (error: any) {
+      // Log full error for debugging
+      console.error('❌ Workflow creation error:', {
+        message: error?.message,
+        code: error?.code,
+        status: error?.status,
+        details: error?.details,
+        stack: error?.stack,
+        fullError: error,
+      });
+      
+      // Extract detailed error message
+      let errorMessage = 'Failed to create workflow';
+      let errorDetails: string[] = [];
+      
+      if (error?.details?.detail) {
+        // FastAPI validation error format
+        if (typeof error.details.detail === 'string') {
+          errorMessage = error.details.detail;
+        } else if (Array.isArray(error.details.detail)) {
+          // Pydantic validation errors
+          errorMessage = 'Validation errors:';
+          errorDetails = error.details.detail.map((e: any) => {
+            const location = e.loc ? e.loc.join(' → ') : 'unknown';
+            return `• ${location}: ${e.msg}`;
+          });
+        } else {
+          errorMessage = JSON.stringify(error.details.detail, null, 2);
+        }
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
+      // Combine error message and details
+      const fullErrorMessage = errorDetails.length > 0 
+        ? `${errorMessage}\n\n${errorDetails.join('\n')}`
+        : errorMessage;
+      
       toast({
-        title: 'Error',
-        description: error.message || 'Failed to create workflow',
+        title: `Error${error?.status ? ` (${error.status})` : ''}`,
+        description: fullErrorMessage,
+        variant: 'destructive',
       });
     } finally {
       setSaving(false);

@@ -14,7 +14,7 @@ import {
   BatchProgressResponse
 } from './types';
 import { getAccessToken, getRefreshToken, setTokens, clearTokens } from './auth';
-import { APIError, NetworkError } from './error-handler';
+import { APIError, NetworkError } from './errors';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 

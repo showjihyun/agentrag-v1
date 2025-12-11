@@ -1,190 +1,199 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
+/**
+ * LoopConfig - Loop/Iteration Tool Configuration
+ * 
+ * Refactored to use common hooks and components
+ */
+
 import { RefreshCw } from 'lucide-react';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { ToolConfigProps } from './ToolConfigRegistry';
+import {
+  ToolConfigHeader,
+  TextField,
+  NumberField,
+  SelectField,
+  SwitchField,
+  InfoBox,
+  useToolConfig,
+} from './common';
+
+// ============================================
+// Constants
+// ============================================
+
+const LOOP_TYPES = [
+  { value: 'foreach', label: 'For Each (iterate items)' },
+  { value: 'count', label: 'Count (fixed iterations)' },
+  { value: 'range', label: 'Range (start to end)' },
+  { value: 'while', label: 'While (condition-based)' },
+] as const;
+
+// ============================================
+// Types
+// ============================================
+
+interface LoopConfigData {
+  loop_type: string;
+  items: string;
+  count: number;
+  start: number;
+  end: number;
+  step: number;
+  condition: string;
+  max_iterations: number;
+  batch_size: number;
+  parallel: boolean;
+  continue_on_error: boolean;
+}
+
+const DEFAULTS: LoopConfigData = {
+  loop_type: 'foreach',
+  items: '{{input.items}}',
+  count: 10,
+  start: 0,
+  end: 10,
+  step: 1,
+  condition: '',
+  max_iterations: 100,
+  batch_size: 1,
+  parallel: false,
+  continue_on_error: false,
+};
+
+// ============================================
+// Component
+// ============================================
 
 export default function LoopConfig({ data, onChange }: ToolConfigProps) {
-  const [config, setConfig] = useState({
-    loop_type: data.loop_type || 'foreach',
-    items: data.items || '{{input.items}}',
-    count: data.count || 10,
-    start: data.start || 0,
-    end: data.end || 10,
-    step: data.step || 1,
-    condition: data.condition || '',
-    max_iterations: data.max_iterations || 100,
-    batch_size: data.batch_size || 1,
-    parallel: data.parallel || false,
-    continue_on_error: data.continue_on_error || false,
-    ...data
+  const { config, updateField } = useToolConfig<LoopConfigData>({
+    initialData: data,
+    defaults: DEFAULTS,
+    onChange,
   });
 
-  useEffect(() => {
-    onChange(config);
-  }, [config]);
-
-  const updateConfig = (key: string, value: any) => {
-    setConfig((prev: typeof config) => ({ ...prev, [key]: value }));
-  };
-
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3 pb-4 border-b">
-        <div className="p-2 rounded-lg bg-indigo-100 dark:bg-indigo-950">
-          <RefreshCw className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-        </div>
-        <div>
-          <h3 className="font-semibold">Loop</h3>
-          <p className="text-sm text-muted-foreground">Iterate over items or count</p>
-        </div>
-      </div>
+    <TooltipProvider>
+      <div className="space-y-6">
+        {/* Header */}
+        <ToolConfigHeader
+          icon={RefreshCw}
+          iconBgColor="bg-indigo-100 dark:bg-indigo-950"
+          iconColor="text-indigo-600 dark:text-indigo-400"
+          title="Loop"
+          description="Iterate over items or count"
+        />
 
-      {/* Loop Type */}
-      <div className="space-y-2">
-        <Label>Loop Type</Label>
-        <Select value={config.loop_type} onValueChange={(v) => updateConfig('loop_type', v)}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="foreach">For Each (iterate items)</SelectItem>
-            <SelectItem value="count">Count (fixed iterations)</SelectItem>
-            <SelectItem value="range">Range (start to end)</SelectItem>
-            <SelectItem value="while">While (condition-based)</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+        {/* Loop Type */}
+        <SelectField
+          label="Loop Type"
+          value={config.loop_type}
+          onChange={(v) => updateField('loop_type', v)}
+          options={LOOP_TYPES.map(t => ({ value: t.value, label: t.label }))}
+        />
 
-      {/* For Each */}
-      {config.loop_type === 'foreach' && (
-        <div className="space-y-2">
-          <Label>Items to Iterate</Label>
-          <Input
-            placeholder="{{input.items}} or {{previous.data}}"
+        {/* For Each */}
+        {config.loop_type === 'foreach' && (
+          <TextField
+            label="Items to Iterate"
             value={config.items}
-            onChange={(e) => updateConfig('items', e.target.value)}
+            onChange={(v) => updateField('items', v)}
+            placeholder="{{input.items}} or {{previous.data}}"
+            hint="Array or object to iterate. Current item: {{item}}, index: {{index}}"
+            tooltip="배열이나 객체를 순회합니다. 현재 항목은 {{item}}, 인덱스는 {{index}}로 접근 가능합니다."
           />
-          <p className="text-xs text-muted-foreground">
-            Array or object to iterate over. Current item available as {'{{item}}'} and index as {'{{index}}'}
-          </p>
-        </div>
-      )}
+        )}
 
-      {/* Count */}
-      {config.loop_type === 'count' && (
-        <div className="space-y-2">
-          <Label>Number of Iterations</Label>
-          <Input
-            type="number"
-            min="1"
+        {/* Count */}
+        {config.loop_type === 'count' && (
+          <NumberField
+            label="Number of Iterations"
             value={config.count}
-            onChange={(e) => updateConfig('count', parseInt(e.target.value) || 1)}
+            onChange={(v) => updateField('count', v)}
+            min={1}
           />
-        </div>
-      )}
+        )}
 
-      {/* Range */}
-      {config.loop_type === 'range' && (
-        <div className="grid grid-cols-3 gap-4">
-          <div className="space-y-2">
-            <Label>Start</Label>
-            <Input
-              type="number"
+        {/* Range */}
+        {config.loop_type === 'range' && (
+          <div className="grid grid-cols-3 gap-4">
+            <NumberField
+              label="Start"
               value={config.start}
-              onChange={(e) => updateConfig('start', parseInt(e.target.value) || 0)}
+              onChange={(v) => updateField('start', v)}
             />
-          </div>
-          <div className="space-y-2">
-            <Label>End</Label>
-            <Input
-              type="number"
+            <NumberField
+              label="End"
               value={config.end}
-              onChange={(e) => updateConfig('end', parseInt(e.target.value) || 10)}
+              onChange={(v) => updateField('end', v)}
             />
-          </div>
-          <div className="space-y-2">
-            <Label>Step</Label>
-            <Input
-              type="number"
-              min="1"
+            <NumberField
+              label="Step"
               value={config.step}
-              onChange={(e) => updateConfig('step', parseInt(e.target.value) || 1)}
+              onChange={(v) => updateField('step', v)}
+              min={1}
             />
           </div>
-        </div>
-      )}
+        )}
 
-      {/* While */}
-      {config.loop_type === 'while' && (
-        <div className="space-y-2">
-          <Label>Condition</Label>
-          <Input
-            placeholder="{{item.status}} !== 'complete'"
+        {/* While */}
+        {config.loop_type === 'while' && (
+          <TextField
+            label="Condition"
             value={config.condition}
-            onChange={(e) => updateConfig('condition', e.target.value)}
+            onChange={(v) => updateField('condition', v)}
+            placeholder="{{item.status}} !== 'complete'"
+            hint="Loop continues while this condition is true"
+            tooltip="조건이 참인 동안 반복합니다. 무한 루프 방지를 위해 max_iterations를 설정하세요."
           />
-          <p className="text-xs text-muted-foreground">
-            Loop continues while this condition is true
-          </p>
-        </div>
-      )}
+        )}
 
-      {/* Max Iterations (safety) */}
-      <div className="space-y-2">
-        <Label>Max Iterations (Safety Limit)</Label>
-        <Input
-          type="number"
-          min="1"
-          max="1000"
+        {/* Max Iterations */}
+        <NumberField
+          label="Max Iterations (Safety Limit)"
           value={config.max_iterations}
-          onChange={(e) => updateConfig('max_iterations', parseInt(e.target.value) || 100)}
+          onChange={(v) => updateField('max_iterations', v)}
+          min={1}
+          max={1000}
+          tooltip="무한 루프 방지를 위한 최대 반복 횟수"
         />
-      </div>
 
-      {/* Batch Size */}
-      <div className="space-y-2">
-        <Label>Batch Size</Label>
-        <Input
-          type="number"
-          min="1"
+        {/* Batch Size */}
+        <NumberField
+          label="Batch Size"
           value={config.batch_size}
-          onChange={(e) => updateConfig('batch_size', parseInt(e.target.value) || 1)}
+          onChange={(v) => updateField('batch_size', v)}
+          min={1}
+          hint="Process items in batches (1 = one at a time)"
         />
-        <p className="text-xs text-muted-foreground">
-          Process items in batches (1 = one at a time)
-        </p>
-      </div>
 
-      {/* Options */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <Label>Parallel Execution</Label>
-            <p className="text-xs text-muted-foreground">Execute iterations in parallel</p>
-          </div>
-          <Switch
+        {/* Options */}
+        <div className="space-y-2 pt-2 border-t">
+          <SwitchField
+            label="Parallel Execution"
+            description="Execute iterations in parallel"
             checked={config.parallel}
-            onCheckedChange={(checked) => updateConfig('parallel', checked)}
+            onChange={(v) => updateField('parallel', v)}
+          />
+
+          <SwitchField
+            label="Continue on Error"
+            description="Continue loop if an iteration fails"
+            checked={config.continue_on_error}
+            onChange={(v) => updateField('continue_on_error', v)}
           />
         </div>
 
-        <div className="flex items-center justify-between">
-          <div>
-            <Label>Continue on Error</Label>
-            <p className="text-xs text-muted-foreground">Continue loop if an iteration fails</p>
+        {/* Info */}
+        <InfoBox title="Available Variables:" variant="info">
+          <div className="space-y-1 font-mono text-xs">
+            <div>• <code>{'{{item}}'}</code> - Current item</div>
+            <div>• <code>{'{{index}}'}</code> - Current index (0-based)</div>
+            <div>• <code>{'{{loop.total}}'}</code> - Total iterations</div>
           </div>
-          <Switch
-            checked={config.continue_on_error}
-            onCheckedChange={(checked) => updateConfig('continue_on_error', checked)}
-          />
-        </div>
+        </InfoBox>
       </div>
-    </div>
+    </TooltipProvider>
   );
 }

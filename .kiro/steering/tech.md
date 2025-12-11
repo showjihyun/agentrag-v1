@@ -4,8 +4,9 @@
 
 **Framework**: FastAPI (Python 3.10+)
 - Async/await for non-blocking I/O
-- Pydantic for validation and settings management
+- Pydantic v2 for validation and settings management
 - Uvicorn ASGI server
+- Application factory pattern
 
 **AI/ML Stack**:
 - LangChain/LangGraph: Agent orchestration and workflows
@@ -26,6 +27,13 @@
 - httpx: Async HTTP client
 - ddgs: DuckDuckGo search
 
+**Architecture Patterns**:
+- Domain-Driven Design (DDD) for Agent Builder
+- Event-driven architecture with event bus
+- Saga pattern for distributed transactions
+- Circuit breaker for resilience
+- Multi-level caching (L1 memory, L2 Redis)
+
 ## Frontend
 
 **Framework**: Next.js 15 (App Router)
@@ -36,13 +44,19 @@
 **UI/Styling**:
 - Tailwind CSS 4
 - Shadcn/ui components
-- Lucide icons
+- Lucide icons (modular imports)
 - Framer Motion for animations
 
 **State Management**:
 - Zustand: Global state
-- TanStack Query (React Query): Server state and caching
+- TanStack Query (React Query): Server state with optimized caching
 - Context API: Theme, i18n
+
+**Performance**:
+- Code splitting with dynamic imports
+- Prefetching strategies (hover, visible, idle)
+- Virtual lists for large data sets
+- Optimized bundle with tree-shaking
 
 **Real-time**:
 - Server-Sent Events (SSE): Streaming responses
@@ -63,7 +77,7 @@
 ## Development Tools
 
 **Python**:
-- pytest: Testing framework
+- pytest: Testing framework with fixtures
 - black: Code formatting (120 char line length)
 - isort: Import sorting
 - mypy: Type checking
@@ -71,7 +85,7 @@
 
 **TypeScript**:
 - ESLint: Linting
-- Jest: Unit testing
+- Jest: Unit testing with custom utilities
 - Playwright: E2E testing
 - React Testing Library
 
@@ -91,6 +105,8 @@ uvicorn main:app --reload --port 8000
 
 # Run tests
 pytest
+pytest tests/unit/           # Unit tests only
+pytest tests/integration/    # Integration tests only
 pytest --cov=backend --cov-report=html
 
 # Database migrations
@@ -132,7 +148,6 @@ docker-compose up -d
 docker-compose up -d postgres milvus redis
 
 # View logs
-docker-compose logs -f
 docker-compose logs -f backend
 
 # Stop services
@@ -140,16 +155,6 @@ docker-compose down
 
 # Rebuild containers
 docker-compose up -d --build
-```
-
-### Database
-
-```bash
-# PostgreSQL
-psql -h localhost -p 5433 -U postgres -d agenticrag
-
-# Redis
-redis-cli -h localhost -p 6380
 ```
 
 ## Configuration
@@ -161,26 +166,27 @@ redis-cli -h localhost -p 6380
 **Key Settings**:
 - `LLM_PROVIDER`: ollama | openai | claude
 - `ENABLE_HYBRID_SEARCH`: true (recommended)
-- `ENABLE_ADAPTIVE_RERANKING`: true (auto-selects Korean/multilingual models)
+- `ENABLE_ADAPTIVE_RERANKING`: true
 - `DEFAULT_QUERY_MODE`: fast | balanced | deep
-- `ADAPTIVE_ROUTING_ENABLED`: true (intelligent mode selection)
+- `ADAPTIVE_ROUTING_ENABLED`: true
 
 ## Performance Optimization
+
+**Backend Caching**:
+- L1 (Memory): LRU cache with TTL
+- L2 (Redis): Shared cache across instances
+- Cache decorators: `@cached_short`, `@cached_medium`, `@cached_long`
+- Query result caching with automatic invalidation
+
+**Frontend Caching**:
+- React Query with stale/cache time presets
+- Query keys factory for consistent cache management
+- Prefetch helpers for route transitions
 
 **Connection Pooling**:
 - PostgreSQL: 20 base + 30 overflow connections
 - Redis: 50 max connections
 - Milvus: 5 connection pool
-
-**Caching Strategy**:
-- L1 (Redis): 1 hour TTL
-- L2 (Memory): Promoted after 3 hits
-- LLM responses: 1 hour cache
-
-**Parallel Processing**:
-- Multi-agent execution in Deep mode
-- Async document processing
-- Background task queue
 
 ## Code Style
 
@@ -202,11 +208,14 @@ redis-cli -h localhost -p 6380
 **Backend**:
 - Unit tests: `backend/tests/unit/`
 - Integration tests: `backend/tests/integration/`
+- Fixtures: `backend/tests/fixtures/`
+- Utilities: `backend/tests/utils/`
 - Target coverage: 85%+
 
 **Frontend**:
-- Unit tests: Jest + React Testing Library
-- E2E tests: Playwright
+- Unit tests: `frontend/__tests__/`
+- E2E tests: `frontend/e2e/`
+- Test utilities: `frontend/__tests__/utils/`
 - Target coverage: 80%+
 
 ## Deployment

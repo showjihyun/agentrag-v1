@@ -20,6 +20,7 @@ from backend.models.hybrid import (
     QueryMode,
     ResponseChunk,
     ChunkType,
+    QueryComplexity,
     SpeculativeResult,
     AgenticResult,
 )

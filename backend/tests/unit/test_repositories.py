@@ -12,7 +12,7 @@ from backend.db.models import (
     Document,
     Session as ConversationSession,
     Message,
-    Feedback,
+    AnswerFeedback as Feedback,
 )
 from backend.db.repositories import (
     UserRepository,

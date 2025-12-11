@@ -85,6 +85,9 @@ class User(Base):
         back_populates="user",
         cascade="all, delete-orphan",
     )
+    api_keys = relationship(
+        "APIKey", back_populates="user", cascade="all, delete-orphan"
+    )
 
     # Database Constraints for data integrity
     __table_args__ = (

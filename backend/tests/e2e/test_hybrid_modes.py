@@ -14,7 +14,7 @@ import asyncio
 import time
 from typing import List, Dict, Any
 
-from backend.models.hybrid import QueryMode, ResponseChunk, ChunkType
+from backend.models.hybrid import QueryMode, ResponseChunk, ChunkType, QueryComplexity
 from backend.services.hybrid_query_router import HybridQueryRouter
 from backend.services.speculative_processor import SpeculativeProcessor
 from backend.services.response_coordinator import ResponseCoordinator

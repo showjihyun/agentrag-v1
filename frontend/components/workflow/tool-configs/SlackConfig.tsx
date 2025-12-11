@@ -1,173 +1,174 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+/**
+ * SlackConfig - Slack Integration Tool Configuration
+ * 
+ * Refactored to use common hooks and components
+ */
+
+import { useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { MessageSquare, Key, Hash, User, TestTube } from 'lucide-react';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { ToolConfigProps } from './ToolConfigRegistry';
+import {
+  ToolConfigHeader,
+  TOOL_HEADER_PRESETS,
+  TextField,
+  TextareaField,
+  SelectField,
+  useToolConfig,
+} from './common';
+
+// ============================================
+// Constants
+// ============================================
 
 const SLACK_ACTIONS = [
-  { id: 'send_message', name: 'Send Message', description: 'Send a message to a channel or user' },
-  { id: 'send_dm', name: 'Send Direct Message', description: 'Send a DM to a specific user' },
-  { id: 'create_channel', name: 'Create Channel', description: 'Create a new channel' },
-  { id: 'invite_user', name: 'Invite User', description: 'Invite user to a channel' },
-];
+  { value: 'send_message', label: 'Send Message', description: 'Send a message to a channel or user' },
+  { value: 'send_dm', label: 'Send Direct Message', description: 'Send a DM to a specific user' },
+  { value: 'create_channel', label: 'Create Channel', description: 'Create a new channel' },
+  { value: 'invite_user', label: 'Invite User', description: 'Invite user to a channel' },
+] as const;
+
+// ============================================
+// Types
+// ============================================
+
+interface SlackConfigData {
+  bot_token: string;
+  action: string;
+  channel: string;
+  user_id: string;
+  message: string;
+  thread_ts: string;
+}
+
+const DEFAULTS: SlackConfigData = {
+  bot_token: '',
+  action: 'send_message',
+  channel: '',
+  user_id: '',
+  message: '',
+  thread_ts: '',
+};
+
+// ============================================
+// Component
+// ============================================
 
 export default function SlackConfig({ data, onChange, onTest }: ToolConfigProps) {
-  const [config, setConfig] = useState({
-    bot_token: data.bot_token || '',
-    action: data.action || 'send_message',
-    channel: data.channel || '',
-    user_id: data.user_id || '',
-    message: data.message || '',
-    thread_ts: data.thread_ts || '',
-    ...data
+  const { config, updateField } = useToolConfig<SlackConfigData>({
+    initialData: data,
+    defaults: DEFAULTS,
+    onChange,
   });
 
-  useEffect(() => {
-    onChange(config);
-  }, [config]);
+  const handleTest = useCallback(() => {
+    onTest?.();
+  }, [onTest]);
 
-  const updateConfig = (key: string, value: any) => {
-    setConfig(prev => ({ ...prev, [key]: value }));
-  };
+  const showChannel = config.action === 'send_message' || config.action === 'create_channel';
+  const showUserId = config.action === 'send_dm';
+  const showMessage = config.action === 'send_message' || config.action === 'send_dm';
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3 pb-4 border-b">
-        <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-950">
-          <MessageSquare className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-        </div>
-        <div>
-          <h3 className="font-semibold">Slack</h3>
-          <p className="text-sm text-muted-foreground">Send messages and manage channels</p>
-        </div>
-        <Badge variant="secondary" className="ml-auto">New</Badge>
-      </div>
+    <TooltipProvider>
+      <div className="space-y-6">
+        {/* Header */}
+        <ToolConfigHeader
+          icon={MessageSquare}
+          {...TOOL_HEADER_PRESETS.slack}
+          title="Slack"
+          description="Send messages and manage channels"
+          badge="Popular"
+        />
 
-      {/* Bot Token */}
-      <div className="space-y-2">
-        <Label className="flex items-center gap-2">
-          <Key className="h-4 w-4" />
-          Bot Token *
-        </Label>
-        <Input
+        {/* Bot Token */}
+        <TextField
+          label="Bot Token"
+          value={config.bot_token}
+          onChange={(v) => updateField('bot_token', v)}
           type="password"
           placeholder="xoxb-..."
-          value={config.bot_token}
-          onChange={(e) => updateConfig('bot_token', e.target.value)}
-          className="font-mono text-sm"
+          required
+          icon={Key}
+          hint="Get your bot token from Slack API (api.slack.com/apps)"
+          mono
         />
-        <p className="text-xs text-muted-foreground">
-          Get your bot token from <a href="https://api.slack.com/apps" target="_blank" className="text-primary hover:underline">Slack API</a>
-        </p>
-      </div>
 
-      {/* Action */}
-      <div className="space-y-2">
-        <Label>Action</Label>
-        <Select value={config.action} onValueChange={(v) => updateConfig('action', v)}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {SLACK_ACTIONS.map(action => (
-              <SelectItem key={action.id} value={action.id}>
-                <div className="flex flex-col">
-                  <span className="font-medium">{action.name}</span>
-                  <span className="text-xs text-muted-foreground">{action.description}</span>
-                </div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+        {/* Action */}
+        <SelectField
+          label="Action"
+          value={config.action}
+          onChange={(v) => updateField('action', v)}
+          options={SLACK_ACTIONS.map(a => ({ value: a.value, label: a.label, description: a.description }))}
+        />
 
-      {/* Channel (for send_message) */}
-      {(config.action === 'send_message' || config.action === 'create_channel') && (
-        <div className="space-y-2">
-          <Label className="flex items-center gap-2">
-            <Hash className="h-4 w-4" />
-            Channel {config.action === 'send_message' && '*'}
-          </Label>
-          <Input
-            placeholder="#general or C1234567890"
+        {/* Channel */}
+        {showChannel && (
+          <TextField
+            label="Channel"
             value={config.channel}
-            onChange={(e) => updateConfig('channel', e.target.value)}
+            onChange={(v) => updateField('channel', v)}
+            placeholder="#general or C1234567890"
+            required={config.action === 'send_message'}
+            icon={Hash}
+            hint="Channel name (with #) or Channel ID"
           />
-          <p className="text-xs text-muted-foreground">
-            Channel name (with #) or Channel ID
-          </p>
-        </div>
-      )}
+        )}
 
-      {/* User ID (for send_dm) */}
-      {config.action === 'send_dm' && (
-        <div className="space-y-2">
-          <Label className="flex items-center gap-2">
-            <User className="h-4 w-4" />
-            User ID *
-          </Label>
-          <Input
-            placeholder="U1234567890"
+        {/* User ID */}
+        {showUserId && (
+          <TextField
+            label="User ID"
             value={config.user_id}
-            onChange={(e) => updateConfig('user_id', e.target.value)}
+            onChange={(v) => updateField('user_id', v)}
+            placeholder="U1234567890"
+            required
+            icon={User}
+            hint="Slack user ID (starts with U)"
           />
-          <p className="text-xs text-muted-foreground">
-            Slack user ID (starts with U)
-          </p>
-        </div>
-      )}
+        )}
 
-      {/* Message */}
-      {(config.action === 'send_message' || config.action === 'send_dm') && (
-        <div className="space-y-2">
-          <Label>Message *</Label>
-          <Textarea
-            placeholder="Hello from workflow! Use {{variables}} for dynamic content..."
+        {/* Message */}
+        {showMessage && (
+          <TextareaField
+            label="Message"
             value={config.message}
-            onChange={(e) => updateConfig('message', e.target.value)}
+            onChange={(v) => updateField('message', v)}
+            placeholder="Hello from workflow! Use {{variables}} for dynamic content..."
             rows={5}
+            required
+            hint="Supports Slack markdown and {{variables}}"
           />
-          <p className="text-xs text-muted-foreground">
-            Supports Slack markdown and <code className="px-1 py-0.5 bg-muted rounded">{'{{variables}}'}</code>
-          </p>
-        </div>
-      )}
+        )}
 
-      {/* Thread TS (optional) */}
-      {(config.action === 'send_message' || config.action === 'send_dm') && (
-        <div className="space-y-2">
-          <Label>Thread Timestamp (Optional)</Label>
-          <Input
-            placeholder="1234567890.123456"
+        {/* Thread TS */}
+        {showMessage && (
+          <TextField
+            label="Thread Timestamp"
             value={config.thread_ts}
-            onChange={(e) => updateConfig('thread_ts', e.target.value)}
-            className="font-mono text-sm"
+            onChange={(v) => updateField('thread_ts', v)}
+            placeholder="1234567890.123456"
+            hint="Reply to a specific thread (optional)"
+            mono
           />
-          <p className="text-xs text-muted-foreground">
-            Reply to a specific thread
-          </p>
-        </div>
-      )}
+        )}
 
-      {/* Test Button */}
-      {onTest && (
-        <Button 
-          onClick={onTest} 
-          variant="outline" 
-          className="w-full"
-          disabled={!config.bot_token || !config.message}
-        >
-          <TestTube className="h-4 w-4 mr-2" />
-          Test Connection
-        </Button>
-      )}
-    </div>
+        {/* Test Button */}
+        {onTest && (
+          <Button
+            onClick={handleTest}
+            variant="outline"
+            className="w-full"
+            disabled={!config.bot_token || !config.message}
+          >
+            <TestTube className="h-4 w-4 mr-2" />
+            Test Connection
+          </Button>
+        )}
+      </div>
+    </TooltipProvider>
   );
 }

@@ -13,7 +13,7 @@ from uuid import UUID
 
 from backend.db.database import get_db
 from sqlalchemy.orm import Session
-from backend.api.auth import get_current_user
+from backend.core.auth_dependencies import get_current_user
 from backend.db.models.user import User
 from backend.services.bookmark_service import get_bookmark_service
 from backend.models.enums import BookmarkType

@@ -1,127 +1,128 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
+/**
+ * ParallelConfig - Parallel Execution Tool Configuration
+ * 
+ * Refactored to use common hooks and components
+ */
+
 import { GitBranch } from 'lucide-react';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { ToolConfigProps } from './ToolConfigRegistry';
+import {
+  ToolConfigHeader,
+  NumberField,
+  SelectField,
+  SwitchField,
+  useToolConfig,
+} from './common';
+
+// ============================================
+// Constants
+// ============================================
+
+const RESULT_ORDERS = [
+  { value: 'completion', label: 'Completion Order' },
+  { value: 'definition', label: 'Definition Order' },
+] as const;
+
+// ============================================
+// Types
+// ============================================
+
+interface ParallelConfigData {
+  max_concurrency: number;
+  wait_for_all: boolean;
+  timeout: number;
+  fail_fast: boolean;
+  collect_results: boolean;
+  result_order: string;
+}
+
+const DEFAULTS: ParallelConfigData = {
+  max_concurrency: 5,
+  wait_for_all: true,
+  timeout: 60,
+  fail_fast: false,
+  collect_results: true,
+  result_order: 'completion',
+};
+
+// ============================================
+// Component
+// ============================================
 
 export default function ParallelConfig({ data, onChange }: ToolConfigProps) {
-  const [config, setConfig] = useState({
-    max_concurrency: data.max_concurrency || 5,
-    wait_for_all: data.wait_for_all !== false,
-    timeout: data.timeout || 60,
-    fail_fast: data.fail_fast || false,
-    collect_results: data.collect_results !== false,
-    result_order: data.result_order || 'completion',
-    ...data
+  const { config, updateField } = useToolConfig<ParallelConfigData>({
+    initialData: data,
+    defaults: DEFAULTS,
+    onChange,
   });
 
-  useEffect(() => {
-    onChange(config);
-  }, [config]);
-
-  const updateConfig = (key: string, value: any) => {
-    setConfig((prev: typeof config) => ({ ...prev, [key]: value }));
-  };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3 pb-4 border-b">
-        <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-950">
-          <GitBranch className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-        </div>
-        <div>
-          <h3 className="font-semibold">Parallel</h3>
-          <p className="text-sm text-muted-foreground">Execute branches in parallel</p>
-        </div>
-      </div>
+    <TooltipProvider>
+      <div className="space-y-6">
+        {/* Header */}
+        <ToolConfigHeader
+          icon={GitBranch}
+          iconBgColor="bg-purple-100 dark:bg-purple-950"
+          iconColor="text-purple-600 dark:text-purple-400"
+          title="Parallel"
+          description="분기를 병렬로 실행"
+        />
 
-      {/* Max Concurrency */}
-      <div className="space-y-2">
-        <Label>Max Concurrency</Label>
-        <Input
-          type="number"
-          min="1"
-          max="20"
+        {/* Max Concurrency */}
+        <NumberField
+          label="최대 동시 실행 수"
           value={config.max_concurrency}
-          onChange={(e) => updateConfig('max_concurrency', parseInt(e.target.value) || 5)}
+          onChange={(v) => updateField('max_concurrency', v)}
+          min={1}
+          max={20}
+          hint="동시에 실행할 최대 분기 수"
         />
-        <p className="text-xs text-muted-foreground">
-          Maximum number of branches to execute simultaneously
-        </p>
-      </div>
 
-      {/* Timeout */}
-      <div className="space-y-2">
-        <Label>Timeout (seconds)</Label>
-        <Input
-          type="number"
-          min="1"
-          max="3600"
+        {/* Timeout */}
+        <NumberField
+          label="타임아웃 (초)"
           value={config.timeout}
-          onChange={(e) => updateConfig('timeout', parseInt(e.target.value) || 60)}
+          onChange={(v) => updateField('timeout', v)}
+          min={1}
+          max={3600}
+          hint="모든 분기 완료를 기다리는 최대 시간"
         />
-        <p className="text-xs text-muted-foreground">
-          Maximum time to wait for all branches to complete
-        </p>
+
+        {/* Result Order */}
+        <SelectField
+          label="결과 순서"
+          value={config.result_order}
+          onChange={(v) => updateField('result_order', v)}
+          options={RESULT_ORDERS.map(r => ({ value: r.value, label: r.label }))}
+          hint="병렬 분기 결과의 정렬 방식"
+        />
+
+        {/* Options */}
+        <SwitchField
+          label="모두 대기"
+          description="모든 분기가 완료될 때까지 대기"
+          checked={config.wait_for_all}
+          onChange={(v) => updateField('wait_for_all', v)}
+        />
+
+        <SwitchField
+          label="빠른 실패"
+          description="하나라도 실패하면 모든 분기 중단"
+          checked={config.fail_fast}
+          onChange={(v) => updateField('fail_fast', v)}
+        />
+
+        <SwitchField
+          label="결과 수집"
+          description="모든 분기의 결과를 결합"
+          checked={config.collect_results}
+          onChange={(v) => updateField('collect_results', v)}
+        />
       </div>
-
-      {/* Result Order */}
-      <div className="space-y-2">
-        <Label>Result Order</Label>
-        <Select value={config.result_order} onValueChange={(v) => updateConfig('result_order', v)}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="completion">Completion Order</SelectItem>
-            <SelectItem value="definition">Definition Order</SelectItem>
-          </SelectContent>
-        </Select>
-        <p className="text-xs text-muted-foreground">
-          How to order results from parallel branches
-        </p>
-      </div>
-
-      {/* Options */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <Label>Wait for All</Label>
-            <p className="text-xs text-muted-foreground">Wait for all branches to complete</p>
-          </div>
-          <Switch
-            checked={config.wait_for_all}
-            onCheckedChange={(checked) => updateConfig('wait_for_all', checked)}
-          />
-        </div>
-
-        <div className="flex items-center justify-between">
-          <div>
-            <Label>Fail Fast</Label>
-            <p className="text-xs text-muted-foreground">Stop all branches if one fails</p>
-          </div>
-          <Switch
-            checked={config.fail_fast}
-            onCheckedChange={(checked) => updateConfig('fail_fast', checked)}
-          />
-        </div>
-
-        <div className="flex items-center justify-between">
-          <div>
-            <Label>Collect Results</Label>
-            <p className="text-xs text-muted-foreground">Combine results from all branches</p>
-          </div>
-          <Switch
-            checked={config.collect_results}
-            onCheckedChange={(checked) => updateConfig('collect_results', checked)}
-          />
-        </div>
-      </div>
-    </div>
+    </TooltipProvider>
   );
 }

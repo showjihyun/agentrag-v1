@@ -9,7 +9,7 @@ from typing import Optional, List
 from datetime import datetime
 from pydantic import BaseModel
 
-from backend.core.dependencies import get_current_user
+from backend.core.auth_dependencies import get_current_user
 from backend.services.agent_builder.workflow_monitoring import (
     get_workflow_monitor,
     AlertSeverity,

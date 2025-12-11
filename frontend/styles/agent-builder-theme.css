@@ -1,0 +1,179 @@
+/* Agent Builder Dark Mode Optimizations */
+
+/* Status Colors - Improved contrast for dark mode */
+.status-success {
+  @apply text-green-600 dark:text-green-400;
+}
+
+.status-error {
+  @apply text-red-600 dark:text-red-400;
+}
+
+.status-warning {
+  @apply text-yellow-600 dark:text-yellow-400;
+}
+
+.status-info {
+  @apply text-blue-600 dark:text-blue-400;
+}
+
+.status-running {
+  @apply text-blue-600 dark:text-blue-400;
+}
+
+/* Background colors with better dark mode contrast */
+.bg-status-success {
+  @apply bg-green-50 dark:bg-green-950/50 border-green-200 dark:border-green-800;
+}
+
+.bg-status-error {
+  @apply bg-red-50 dark:bg-red-950/50 border-red-200 dark:border-red-800;
+}
+
+.bg-status-warning {
+  @apply bg-yellow-50 dark:bg-yellow-950/50 border-yellow-200 dark:border-yellow-800;
+}
+
+.bg-status-info {
+  @apply bg-blue-50 dark:bg-blue-950/50 border-blue-200 dark:border-blue-800;
+}
+
+/* Card hover states */
+.card-interactive {
+  @apply transition-all duration-200;
+  @apply hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/20;
+  @apply hover:border-primary/50 dark:hover:border-primary/30;
+}
+
+/* Code blocks */
+.code-block {
+  @apply bg-gray-100 dark:bg-gray-900;
+  @apply text-gray-800 dark:text-gray-200;
+  @apply border border-gray-200 dark:border-gray-700;
+}
+
+/* Muted text with better contrast */
+.text-muted-improved {
+  @apply text-gray-600 dark:text-gray-400;
+}
+
+/* Badge variants with dark mode support */
+.badge-purple {
+  @apply bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300;
+}
+
+.badge-blue {
+  @apply bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300;
+}
+
+.badge-green {
+  @apply bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300;
+}
+
+.badge-orange {
+  @apply bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300;
+}
+
+/* Input focus states */
+.input-focus {
+  @apply focus:ring-2 focus:ring-primary/20 dark:focus:ring-primary/30;
+  @apply focus:border-primary dark:focus:border-primary;
+}
+
+/* Skeleton animation improvements */
+@keyframes skeleton-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.skeleton-animated {
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+  @apply bg-gray-200 dark:bg-gray-700;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    theme('colors.gray.200') 0%,
+    theme('colors.gray.100') 50%,
+    theme('colors.gray.200') 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+}
+
+.dark .skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    theme('colors.gray.800') 0%,
+    theme('colors.gray.700') 50%,
+    theme('colors.gray.800') 100%
+  );
+  background-size: 200% 100%;
+}
+
+/* Progress bar improvements */
+.progress-bar {
+  @apply bg-gray-200 dark:bg-gray-700;
+}
+
+.progress-bar-fill {
+  @apply bg-primary dark:bg-primary;
+}
+
+/* Scrollbar styling for dark mode */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  @apply bg-gray-300 dark:bg-gray-600 rounded-full;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-400 dark:bg-gray-500;
+}
+
+/* Tooltip improvements */
+.tooltip-content {
+  @apply bg-gray-900 dark:bg-gray-100;
+  @apply text-white dark:text-gray-900;
+  @apply shadow-lg dark:shadow-black/30;
+}
+
+/* Dropdown menu dark mode */
+.dropdown-content {
+  @apply bg-white dark:bg-gray-800;
+  @apply border-gray-200 dark:border-gray-700;
+  @apply shadow-lg dark:shadow-black/30;
+}
+
+/* Tab improvements */
+.tab-active {
+  @apply bg-white dark:bg-gray-800;
+  @apply text-primary dark:text-primary;
+  @apply border-b-2 border-primary;
+}
+
+.tab-inactive {
+  @apply text-gray-600 dark:text-gray-400;
+  @apply hover:text-gray-900 dark:hover:text-gray-200;
+}

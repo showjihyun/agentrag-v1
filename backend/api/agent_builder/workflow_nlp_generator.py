@@ -83,10 +83,13 @@ def _result_to_response(result: GenerationResult) -> NLPGenerateResponse:
         {
             "id": n.id,
             "type": n.type,
+            "label": n.label,  # Include label at top level for frontend
             "position": n.position,
+            "config": n.config,  # Include config at top level for frontend
             "data": {
                 "label": n.label,
-                **n.config,
+                "config": n.config,  # Also include in data for compatibility
+                **n.config,  # Spread config into data for direct access
             },
         }
         for n in result.nodes

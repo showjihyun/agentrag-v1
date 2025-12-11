@@ -17,7 +17,7 @@ from backend.services.document_acl_service import (
     DocumentACLServiceError,
     get_document_acl_service,
 )
-from backend.api.auth import get_current_user
+from backend.core.auth_dependencies import get_current_user
 
 logger = logging.getLogger(__name__)
 

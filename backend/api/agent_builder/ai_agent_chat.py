@@ -18,6 +18,7 @@ from backend.core.auth_dependencies import get_current_user
 from backend.db.database import get_db
 from backend.db.models.user import User
 from backend.services.tools.tool_executor_registry import ToolExecutorRegistry
+from backend.services.agent_builder.chatflow_service import ChatflowService
 
 logger = logging.getLogger(__name__)
 
@@ -199,11 +200,12 @@ async def ai_agent_chat_websocket(
                     })
                 
                 elif data.get("type") == "clear":
-                    # Clear conversation history
-                    # TODO: Implement memory clearing
+                    # Clear conversation history using ChatflowService
+                    chatflow_service = ChatflowService(db)
+                    cleared = chatflow_service.clear_session(session_id)
                     await manager.send_message(session_id, {
                         "type": "status",
-                        "content": "cleared",
+                        "content": "cleared" if cleared else "session_not_found",
                         "timestamp": datetime.utcnow().isoformat() + "Z",
                     })
             
@@ -249,13 +251,14 @@ async def get_chat_history(
 ):
     """
     Get chat history for a session.
-    
-    TODO: Implement persistent storage of chat history.
     """
+    chatflow_service = ChatflowService(db)
+    history = chatflow_service.get_session_history(session_id)
+    
     return {
         "session_id": session_id,
-        "messages": [],
-        "message": "Chat history not yet implemented"
+        "messages": history,
+        "message_count": len(history),
     }
 
 
@@ -267,12 +270,14 @@ async def clear_chat_session(
 ):
     """
     Clear chat session and history.
-    
-    TODO: Implement session clearing.
     """
+    chatflow_service = ChatflowService(db)
+    cleared = chatflow_service.clear_session(session_id)
+    
     return {
         "session_id": session_id,
-        "message": "Session cleared"
+        "cleared": cleared,
+        "message": "Session cleared" if cleared else "Session not found",
     }
 
 

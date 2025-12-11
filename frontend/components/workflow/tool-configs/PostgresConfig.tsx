@@ -1,275 +1,303 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+/**
+ * PostgresConfig - PostgreSQL Database Tool Configuration
+ * 
+ * Refactored to use common hooks and components
+ */
+
+import { useCallback } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
 import { Database, TestTube, Plus, Trash } from 'lucide-react';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { ToolConfigProps } from './ToolConfigRegistry';
+import {
+  ToolConfigHeader,
+  TOOL_HEADER_PRESETS,
+  TextField,
+  NumberField,
+  TextareaField,
+  SelectField,
+  SwitchField,
+  InfoBox,
+  useToolConfig,
+} from './common';
+
+// ============================================
+// Constants
+// ============================================
+
+const OPERATIONS = [
+  { value: 'query', label: 'Custom Query' },
+  { value: 'select', label: 'SELECT' },
+  { value: 'insert', label: 'INSERT' },
+  { value: 'update', label: 'UPDATE' },
+  { value: 'delete', label: 'DELETE' },
+] as const;
+
+const RETURN_TYPES = [
+  { value: 'rows', label: 'All Rows' },
+  { value: 'first', label: 'First Row Only' },
+  { value: 'count', label: 'Row Count' },
+  { value: 'affected', label: 'Affected Rows' },
+] as const;
+
+// ============================================
+// Types
+// ============================================
+
+interface QueryParameter {
+  name: string;
+  value: string;
+}
+
+interface PostgresConfigData {
+  operation: string;
+  connection_string: string;
+  host: string;
+  port: number;
+  database: string;
+  username: string;
+  password: string;
+  use_connection_string: boolean;
+  query: string;
+  table: string;
+  columns: string;
+  where_clause: string;
+  order_by: string;
+  limit: number;
+  parameters: QueryParameter[];
+  return_type: string;
+}
+
+const DEFAULTS: PostgresConfigData = {
+  operation: 'query',
+  connection_string: '',
+  host: 'localhost',
+  port: 5432,
+  database: '',
+  username: '',
+  password: '',
+  use_connection_string: false,
+  query: '',
+  table: '',
+  columns: '*',
+  where_clause: '',
+  order_by: '',
+  limit: 100,
+  parameters: [],
+  return_type: 'rows',
+};
+
+// ============================================
+// Component
+// ============================================
 
 export default function PostgresConfig({ data, onChange, onTest }: ToolConfigProps) {
-  const [config, setConfig] = useState({
-    operation: data.operation || 'query',
-    connection_string: data.connection_string || '',
-    host: data.host || 'localhost',
-    port: data.port || 5432,
-    database: data.database || '',
-    username: data.username || '',
-    password: data.password || '',
-    use_connection_string: data.use_connection_string || false,
-    query: data.query || '',
-    table: data.table || '',
-    columns: data.columns || '*',
-    where_clause: data.where_clause || '',
-    order_by: data.order_by || '',
-    limit: data.limit || 100,
-    parameters: data.parameters || [],
-    return_type: data.return_type || 'rows',
-    ...data
+  const { config, updateField } = useToolConfig<PostgresConfigData>({
+    initialData: data,
+    defaults: DEFAULTS,
+    onChange,
   });
 
-  useEffect(() => {
-    onChange(config);
-  }, [config]);
+  // Parameter handlers
+  const addParameter = useCallback(() => {
+    const newParams = [...config.parameters, { name: `$${config.parameters.length + 1}`, value: '' }];
+    updateField('parameters', newParams);
+  }, [config.parameters, updateField]);
 
-  const updateConfig = (key: string, value: any) => {
-    setConfig((prev: typeof config) => ({ ...prev, [key]: value }));
-  };
-
-  const addParameter = () => {
-    updateConfig('parameters', [...config.parameters, { name: '', value: '' }]);
-  };
-
-  const updateParameter = (index: number, field: 'name' | 'value', value: string) => {
+  const updateParameter = useCallback((index: number, field: 'name' | 'value', value: string) => {
     const newParams = [...config.parameters];
-    newParams[index][field] = value;
-    updateConfig('parameters', newParams);
-  };
+    newParams[index] = { ...newParams[index], [field]: value };
+    updateField('parameters', newParams);
+  }, [config.parameters, updateField]);
 
-  const removeParameter = (index: number) => {
-    updateConfig('parameters', config.parameters.filter((_: any, i: number) => i !== index));
-  };
+  const removeParameter = useCallback((index: number) => {
+    updateField('parameters', config.parameters.filter((_, i) => i !== index));
+  }, [config.parameters, updateField]);
+
+  const isCustomQuery = config.operation === 'query';
+  const isSelect = config.operation === 'select';
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3 pb-4 border-b">
-        <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-950">
-          <Database className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-        </div>
-        <div>
-          <h3 className="font-semibold">PostgreSQL</h3>
-          <p className="text-sm text-muted-foreground">Query PostgreSQL database</p>
-        </div>
-      </div>
+    <TooltipProvider>
+      <div className="space-y-6">
+        {/* Header */}
+        <ToolConfigHeader
+          icon={Database}
+          {...TOOL_HEADER_PRESETS.database}
+          title="PostgreSQL"
+          description="Query PostgreSQL database"
+        />
 
-      {/* Connection */}
-      <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
-        <div className="flex items-center justify-between">
-          <Label>Use Connection String</Label>
-          <Switch
+        {/* Connection Section */}
+        <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
+          <SwitchField
+            label="Use Connection String"
             checked={config.use_connection_string}
-            onCheckedChange={(checked) => updateConfig('use_connection_string', checked)}
+            onChange={(v) => updateField('use_connection_string', v)}
+            tooltip="연결 문자열을 직접 입력하거나 개별 필드로 설정할 수 있습니다."
           />
-        </div>
 
-        {config.use_connection_string ? (
-          <div className="space-y-2">
-            <Label>Connection String</Label>
-            <Input
+          {config.use_connection_string ? (
+            <TextField
+              label="Connection String"
+              value={config.connection_string}
+              onChange={(v) => updateField('connection_string', v)}
               type="password"
               placeholder="postgresql://user:password@host:port/database"
-              value={config.connection_string}
-              onChange={(e) => updateConfig('connection_string', e.target.value)}
             />
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Host</Label>
-              <Input
-                placeholder="localhost"
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              <TextField
+                label="Host"
                 value={config.host}
-                onChange={(e) => updateConfig('host', e.target.value)}
+                onChange={(v) => updateField('host', v)}
+                placeholder="localhost"
               />
-            </div>
-            <div className="space-y-2">
-              <Label>Port</Label>
-              <Input
-                type="number"
-                placeholder="5432"
+              <NumberField
+                label="Port"
                 value={config.port}
-                onChange={(e) => updateConfig('port', parseInt(e.target.value) || 5432)}
+                onChange={(v) => updateField('port', v)}
+                min={1}
+                max={65535}
               />
-            </div>
-            <div className="space-y-2">
-              <Label>Database</Label>
-              <Input
-                placeholder="mydb"
+              <TextField
+                label="Database"
                 value={config.database}
-                onChange={(e) => updateConfig('database', e.target.value)}
+                onChange={(v) => updateField('database', v)}
+                placeholder="mydb"
               />
-            </div>
-            <div className="space-y-2">
-              <Label>Username</Label>
-              <Input
-                placeholder="postgres"
+              <TextField
+                label="Username"
                 value={config.username}
-                onChange={(e) => updateConfig('username', e.target.value)}
+                onChange={(v) => updateField('username', v)}
+                placeholder="postgres"
               />
+              <div className="col-span-2">
+                <TextField
+                  label="Password"
+                  value={config.password}
+                  onChange={(v) => updateField('password', v)}
+                  type="password"
+                  placeholder="••••••••"
+                />
+              </div>
             </div>
-            <div className="col-span-2 space-y-2">
-              <Label>Password</Label>
-              <Input
-                type="password"
-                placeholder="••••••••"
-                value={config.password}
-                onChange={(e) => updateConfig('password', e.target.value)}
+          )}
+        </div>
+
+        {/* Operation */}
+        <SelectField
+          label="Operation"
+          value={config.operation}
+          onChange={(v) => updateField('operation', v)}
+          options={OPERATIONS.map(o => ({ value: o.value, label: o.label }))}
+        />
+
+        {/* Custom Query */}
+        {isCustomQuery && (
+          <TextareaField
+            label="SQL Query"
+            value={config.query}
+            onChange={(v) => updateField('query', v)}
+            placeholder="SELECT * FROM users WHERE id = $1"
+            rows={5}
+            mono
+            hint="Use $1, $2, etc. for parameterized queries"
+          />
+        )}
+
+        {/* SELECT Builder */}
+        {isSelect && (
+          <div className="space-y-4">
+            <TextField
+              label="Table"
+              value={config.table}
+              onChange={(v) => updateField('table', v)}
+              placeholder="users"
+            />
+            <TextField
+              label="Columns"
+              value={config.columns}
+              onChange={(v) => updateField('columns', v)}
+              placeholder="* or id, name, email"
+            />
+            <TextField
+              label="WHERE Clause"
+              value={config.where_clause}
+              onChange={(v) => updateField('where_clause', v)}
+              placeholder="status = 'active' AND created_at > '2024-01-01'"
+            />
+            <div className="grid grid-cols-2 gap-4">
+              <TextField
+                label="ORDER BY"
+                value={config.order_by}
+                onChange={(v) => updateField('order_by', v)}
+                placeholder="created_at DESC"
+              />
+              <NumberField
+                label="LIMIT"
+                value={config.limit}
+                onChange={(v) => updateField('limit', v)}
+                min={1}
               />
             </div>
           </div>
         )}
-      </div>
 
-      {/* Operation */}
-      <div className="space-y-2">
-        <Label>Operation</Label>
-        <Select value={config.operation} onValueChange={(v) => updateConfig('operation', v)}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="query">Custom Query</SelectItem>
-            <SelectItem value="select">SELECT</SelectItem>
-            <SelectItem value="insert">INSERT</SelectItem>
-            <SelectItem value="update">UPDATE</SelectItem>
-            <SelectItem value="delete">DELETE</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+        {/* Query Parameters */}
+        {(isCustomQuery || config.parameters.length > 0) && (
+          <div className="space-y-3">
+            <Label>Query Parameters ({config.parameters.length})</Label>
+            {config.parameters.map((param, index) => (
+              <div key={index} className="flex gap-2">
+                <Input
+                  value={`$${index + 1}`}
+                  className="w-16 text-center"
+                  disabled
+                />
+                <Input
+                  placeholder="Value or {{variable}}"
+                  value={param.value}
+                  onChange={(e) => updateParameter(index, 'value', e.target.value)}
+                  className="flex-1"
+                />
+                <Button variant="ghost" size="icon" onClick={() => removeParameter(index)}>
+                  <Trash className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+            <Button variant="outline" size="sm" onClick={addParameter} className="w-full">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Parameter
+            </Button>
+          </div>
+        )}
 
-      {/* Custom Query */}
-      {config.operation === 'query' && (
-        <div className="space-y-2">
-          <Label>SQL Query</Label>
-          <Textarea
-            placeholder="SELECT * FROM users WHERE id = $1"
-            value={config.query}
-            onChange={(e) => updateConfig('query', e.target.value)}
-            rows={5}
-            className="font-mono text-sm"
-          />
-          <p className="text-xs text-muted-foreground">
-            Use $1, $2, etc. for parameterized queries
-          </p>
-        </div>
-      )}
+        {/* Return Type */}
+        <SelectField
+          label="Return Type"
+          value={config.return_type}
+          onChange={(v) => updateField('return_type', v)}
+          options={RETURN_TYPES.map(r => ({ value: r.value, label: r.label }))}
+        />
 
-      {/* SELECT Builder */}
-      {config.operation === 'select' && (
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label>Table</Label>
-            <Input
-              placeholder="users"
-              value={config.table}
-              onChange={(e) => updateConfig('table', e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Columns</Label>
-            <Input
-              placeholder="* or id, name, email"
-              value={config.columns}
-              onChange={(e) => updateConfig('columns', e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>WHERE Clause</Label>
-            <Input
-              placeholder="status = 'active' AND created_at > '2024-01-01'"
-              value={config.where_clause}
-              onChange={(e) => updateConfig('where_clause', e.target.value)}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>ORDER BY</Label>
-              <Input
-                placeholder="created_at DESC"
-                value={config.order_by}
-                onChange={(e) => updateConfig('order_by', e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>LIMIT</Label>
-              <Input
-                type="number"
-                value={config.limit}
-                onChange={(e) => updateConfig('limit', parseInt(e.target.value) || 100)}
-              />
-            </div>
-          </div>
-        </div>
-      )}
+        {/* Info */}
+        <InfoBox title="Security Note:" variant="warning">
+          Always use parameterized queries ($1, $2) to prevent SQL injection.
+        </InfoBox>
 
-      {/* Query Parameters */}
-      {(config.operation === 'query' || config.parameters.length > 0) && (
-        <div className="space-y-3">
-          <Label>Query Parameters</Label>
-          {config.parameters.map((param: any, index: number) => (
-            <div key={index} className="flex gap-2">
-              <Input
-                placeholder={`$${index + 1}`}
-                value={param.name}
-                onChange={(e) => updateParameter(index, 'name', e.target.value)}
-                className="w-24"
-                disabled
-              />
-              <Input
-                placeholder="Value or {{variable}}"
-                value={param.value}
-                onChange={(e) => updateParameter(index, 'value', e.target.value)}
-                className="flex-1"
-              />
-              <Button variant="ghost" size="icon" onClick={() => removeParameter(index)}>
-                <Trash className="h-4 w-4" />
-              </Button>
-            </div>
-          ))}
-          <Button variant="outline" size="sm" onClick={addParameter} className="w-full">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Parameter
+        {/* Test Button */}
+        {onTest && (
+          <Button onClick={onTest} variant="outline" className="w-full">
+            <TestTube className="h-4 w-4 mr-2" />
+            Test Query
           </Button>
-        </div>
-      )}
-
-      {/* Return Type */}
-      <div className="space-y-2">
-        <Label>Return Type</Label>
-        <Select value={config.return_type} onValueChange={(v) => updateConfig('return_type', v)}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="rows">All Rows</SelectItem>
-            <SelectItem value="first">First Row Only</SelectItem>
-            <SelectItem value="count">Row Count</SelectItem>
-            <SelectItem value="affected">Affected Rows</SelectItem>
-          </SelectContent>
-        </Select>
+        )}
       </div>
-
-      {/* Test Button */}
-      {onTest && (
-        <Button onClick={onTest} variant="outline" className="w-full">
-          <TestTube className="h-4 w-4 mr-2" />
-          Test Query
-        </Button>
-      )}
-    </div>
+    </TooltipProvider>
   );
 }

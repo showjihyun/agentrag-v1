@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from datetime import datetime, timedelta
 from backend.main import app
 from backend.models.approval import ApprovalRequest
-from backend.db.session import get_db
+from backend.db.database import get_db
 
 
 client = TestClient(app)

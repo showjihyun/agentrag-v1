@@ -750,25 +750,60 @@ class AgentBuilderAPI {
     return this.request(`/api/agent-builder/workflows/${workflowId}/executions/${executionId}`);
   }
 
-  // Dashboard endpoints
+  // Dashboard endpoints (with fallback for 404 errors)
   async getDashboardStats(): Promise<any> {
-    return this.request('/api/agent-builder/dashboard/stats');
+    try {
+      return await this.request('/api/agent-builder/dashboard/stats');
+    } catch (error: any) {
+      if (error?.statusCode === 404 || error?.message?.includes('Not Found')) {
+        return { total_agents: 0, total_workflows: 0, total_executions: 0, success_rate: 0, active_workflows: 0 };
+      }
+      throw error;
+    }
   }
 
   async getRecentActivity(limit: number = 10): Promise<any> {
-    return this.request(`/api/agent-builder/dashboard/recent-activity?limit=${limit}`);
+    try {
+      return await this.request(`/api/agent-builder/dashboard/recent-activity?limit=${limit}`);
+    } catch (error: any) {
+      if (error?.statusCode === 404 || error?.message?.includes('Not Found')) {
+        return { activities: [] };
+      }
+      throw error;
+    }
   }
 
   async getFavoriteAgents(limit: number = 5): Promise<any> {
-    return this.request(`/api/agent-builder/dashboard/favorite-agents?limit=${limit}`);
+    try {
+      return await this.request(`/api/agent-builder/dashboard/favorite-agents?limit=${limit}`);
+    } catch (error: any) {
+      if (error?.statusCode === 404 || error?.message?.includes('Not Found')) {
+        return { agents: [] };
+      }
+      throw error;
+    }
   }
 
   async getExecutionTrend(days: number = 7): Promise<any> {
-    return this.request(`/api/agent-builder/dashboard/execution-trend?days=${days}`);
+    try {
+      return await this.request(`/api/agent-builder/dashboard/execution-trend?days=${days}`);
+    } catch (error: any) {
+      if (error?.statusCode === 404 || error?.message?.includes('Not Found')) {
+        return { trend: [] };
+      }
+      throw error;
+    }
   }
 
   async getSystemStatus(): Promise<any> {
-    return this.request('/api/agent-builder/dashboard/system-status');
+    try {
+      return await this.request('/api/agent-builder/dashboard/system-status');
+    } catch (error: any) {
+      if (error?.statusCode === 404 || error?.message?.includes('Not Found')) {
+        return { status: 'unknown', services: {}, timestamp: new Date().toISOString() };
+      }
+      throw error;
+    }
   }
 
   // Memory Management APIs

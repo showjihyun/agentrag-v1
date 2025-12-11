@@ -14,7 +14,13 @@ from backend.core.auth_dependencies import get_current_user
 from backend.db.database import get_db
 from backend.db.models.user import User
 from backend.db.transaction import transactional
-from backend.services.agent_builder.workflow_service import WorkflowService
+# DDD Architecture
+from backend.services.agent_builder.facade import AgentBuilderFacade
+from backend.services.agent_builder.shared.errors import (
+    NotFoundError,
+    ValidationError,
+    ExecutionError,
+)
 from backend.models.agent_builder import (
     WorkflowCreate,
     WorkflowUpdate,
@@ -44,15 +50,17 @@ async def create_workflow(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Create a new workflow."""
-    @transactional(db)
-    def _create_workflow():
+    """Create a new workflow using DDD Facade pattern."""
+    try:
         logger.info(f"Creating workflow for user {current_user.id}: {workflow_data.name}")
         
-        workflow_service = WorkflowService(db)
-        workflow = workflow_service.create_workflow(
+        facade = AgentBuilderFacade(db)
+        workflow = facade.create_workflow(
             user_id=str(current_user.id),
-            workflow_data=workflow_data
+            name=workflow_data.name,
+            nodes=workflow_data.nodes,
+            edges=workflow_data.edges,
+            description=workflow_data.description,
         )
         
         logger.info(f"Workflow created successfully: {workflow.id}")
@@ -68,11 +76,8 @@ async def create_workflow(
             created_at=workflow.created_at,
             updated_at=workflow.updated_at
         )
-    
-    try:
-        return _create_workflow()
         
-    except ValueError as e:
+    except ValidationError as e:
         logger.warning(f"Invalid workflow data: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -97,18 +102,12 @@ async def get_workflow(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Get workflow by ID."""
+    """Get workflow by ID using DDD Facade pattern."""
     try:
         logger.info(f"Fetching workflow {workflow_id} for user {current_user.id}")
         
-        workflow_service = WorkflowService(db)
-        workflow = workflow_service.get_workflow(workflow_id)
-        
-        if not workflow:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Workflow {workflow_id} not found"
-            )
+        facade = AgentBuilderFacade(db)
+        workflow = facade.get_workflow(workflow_id)
         
         # Check permissions (owner or public)
         if str(workflow.user_id) != str(current_user.id) and not workflow.is_public:
@@ -129,6 +128,11 @@ async def get_workflow(
             updated_at=workflow.updated_at
         )
         
+    except NotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Workflow {workflow_id} not found"
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -151,21 +155,14 @@ async def update_workflow(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Update workflow."""
-    @transactional(db)
-    def _update_workflow():
+    """Update workflow using DDD Facade pattern."""
+    try:
         logger.info(f"Updating workflow {workflow_id} for user {current_user.id}")
         
-        workflow_service = WorkflowService(db)
+        facade = AgentBuilderFacade(db)
         
         # Check ownership
-        existing_workflow = workflow_service.get_workflow(workflow_id)
-        if not existing_workflow:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Workflow {workflow_id} not found"
-            )
-        
+        existing_workflow = facade.get_workflow(workflow_id)
         if str(existing_workflow.user_id) != str(current_user.id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -173,7 +170,13 @@ async def update_workflow(
             )
         
         # Update workflow
-        updated_workflow = workflow_service.update_workflow(workflow_id, workflow_data)
+        updated_workflow = facade.update_workflow(
+            workflow_id=workflow_id,
+            name=workflow_data.name,
+            nodes=workflow_data.nodes,
+            edges=workflow_data.edges,
+            description=workflow_data.description,
+        )
         
         logger.info(f"Workflow updated successfully: {workflow_id}")
         
@@ -188,18 +191,20 @@ async def update_workflow(
             created_at=updated_workflow.created_at,
             updated_at=updated_workflow.updated_at
         )
-    
-    try:
-        return _update_workflow()
         
-    except HTTPException:
-        raise
-    except ValueError as e:
+    except NotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Workflow {workflow_id} not found"
+        )
+    except ValidationError as e:
         logger.warning(f"Invalid workflow data: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to update workflow: {e}", exc_info=True)
         raise HTTPException(
@@ -219,21 +224,14 @@ async def delete_workflow(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Delete workflow."""
-    @transactional(db)
-    def _delete_workflow():
+    """Delete workflow using DDD Facade pattern."""
+    try:
         logger.info(f"Deleting workflow {workflow_id} for user {current_user.id}")
         
-        workflow_service = WorkflowService(db)
+        facade = AgentBuilderFacade(db)
         
         # Check ownership
-        existing_workflow = workflow_service.get_workflow(workflow_id)
-        if not existing_workflow:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Workflow {workflow_id} not found"
-            )
-        
+        existing_workflow = facade.get_workflow(workflow_id)
         if str(existing_workflow.user_id) != str(current_user.id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -241,14 +239,16 @@ async def delete_workflow(
             )
         
         # Delete workflow
-        workflow_service.delete_workflow(workflow_id)
+        facade.delete_workflow(workflow_id)
         
         logger.info(f"Workflow deleted successfully: {workflow_id}")
         return None
-    
-    try:
-        return _delete_workflow()
         
+    except NotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Workflow {workflow_id} not found"
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -278,28 +278,26 @@ async def list_workflows(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """List workflows with advanced filtering (Phase 2)."""
+    """List workflows with advanced filtering using DDD Facade pattern."""
     try:
         logger.info(f"Listing workflows for user {current_user.id}")
         
-        workflow_service = WorkflowService(db)
+        facade = AgentBuilderFacade(db)
         
         # Get workflows based on filters (fetch more for filtering)
         if include_public:
-            workflows = workflow_service.list_workflows(
+            workflows = facade.workflows.list_workflows(
                 user_id=None,
-                is_public=None,
+                skip=0,
                 limit=limit * 3,  # Get more for filtering
-                offset=0
             )
             # Convert UUID to string for comparison
             workflows = [w for w in workflows if str(w.user_id) == str(current_user.id) or w.is_public]
         else:
-            workflows = workflow_service.list_workflows(
+            workflows = facade.workflows.list_workflows(
                 user_id=str(current_user.id),
-                is_public=None,
+                skip=0,
                 limit=limit * 3,
-                offset=0
             )
         
         # Apply search filter if provided
@@ -569,7 +567,7 @@ async def get_workflow_execution(
 @router.post(
     "/{workflow_id}/execute",
     summary="Execute workflow",
-    description="Execute a workflow with optional input data.",
+    description="Execute a workflow with optional input data using DDD Application Service.",
 )
 async def execute_workflow(
     workflow_id: str,
@@ -577,146 +575,42 @@ async def execute_workflow(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Execute a workflow."""
+    """Execute a workflow using DDD Application Service."""
     try:
-        logger.info(f"[WORKFLOW EXECUTE] Starting execution for workflow {workflow_id}, user {current_user.id}, input: {input_data}")
+        logger.info(f"[WORKFLOW EXECUTE] Starting execution for workflow {workflow_id}, user {current_user.id}")
         
-        workflow_service = WorkflowService(db)
-        workflow = workflow_service.get_workflow(workflow_id)
+        facade = AgentBuilderFacade(db)
         
-        if not workflow:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Workflow {workflow_id} not found"
-            )
-        
-        # Check permissions (compare UUIDs properly)
+        # Check permissions
+        workflow = facade.get_workflow(workflow_id)
         if str(workflow.user_id) != str(current_user.id) and not workflow.is_public:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You don't have permission to execute this workflow"
             )
         
-        # Create execution record
-        from backend.db.models.agent_builder import WorkflowExecution
-        from datetime import datetime
-        import uuid
-        
-        execution_id = uuid.uuid4()
-        execution = WorkflowExecution(
-            id=execution_id,
-            workflow_id=uuid.UUID(workflow_id),
-            user_id=uuid.UUID(str(current_user.id)),
+        # Execute workflow using Application Service
+        result = await facade.execute_workflow(
+            workflow_id=workflow_id,
             input_data=input_data,
-            execution_context={},
-            status="running",
-            started_at=datetime.utcnow(),
+            user_id=str(current_user.id),
         )
         
-        try:
-            db.add(execution)
-            db.flush()  # Flush first to catch any DB errors early
-            logger.info(f"[WORKFLOW EXECUTE] Created execution record: {execution.id}, flushed to DB")
-            
-            # Commit immediately to ensure record is saved
-            db.commit()
-            db.refresh(execution)
-            logger.info(f"[WORKFLOW EXECUTE] Committed execution record: {execution.id}")
-            
-            # Execute workflow using the execution engine
-            from backend.services.agent_builder.workflow_executor import execute_workflow
-            import asyncio
-            
-            try:
-                # Run async execution (use await since we're already in async context)
-                # Pass user_id for API key retrieval
-                input_data_with_user = {
-                    **input_data,
-                    "_user_id": str(current_user.id)  # Internal field for user context
-                }
-                result = await execute_workflow(workflow, db, input_data_with_user)
-                
-                # Check if workflow was paused for approval
-                if result.get("paused"):
-                    execution.status = "waiting_approval"
-                    execution.execution_context = result.get("execution_context", {})
-                    execution.execution_context["waiting_for_approval_id"] = result.get("approval_id")
-                    execution.execution_context["waiting_for_node_id"] = result.get("node_id")
-                    # Don't set completed_at for paused workflows
-                    
-                    db.commit()
-                    
-                    logger.info(f"Workflow paused for approval: {execution.id}")
-                    
-                    return {
-                        "execution_id": str(execution.id),
-                        "status": "waiting_approval",
-                        "message": result.get("message", "Workflow paused for approval"),
-                        "approval_id": result.get("approval_id"),
-                        "approval_url": f"/agent-builder/approvals/{result.get('approval_id')}",
-                    }
-                
-                elif result.get("success"):
-                    execution.status = "completed"
-                    execution.output_data = result.get("output", {})
-                    execution.execution_context = result.get("execution_context", {})
-                else:
-                    execution.status = "failed"
-                    execution.error_message = result.get("error", "Unknown error")
-                    execution.execution_context = result.get("execution_context", {})
-                
-                execution.completed_at = datetime.utcnow()
-                
-                try:
-                    db.commit()
-                except Exception as commit_error:
-                    # If commit fails, rollback and try again with fresh session
-                    logger.error(f"Commit failed: {commit_error}")
-                    db.rollback()
-                    
-                    # Refresh execution object and try again
-                    db.refresh(execution)
-                    execution.status = "failed"
-                    execution.error_message = f"Execution completed but failed to save: {str(commit_error)}"
-                    execution.completed_at = datetime.utcnow()
-                    db.commit()
-                
-                logger.info(f"Workflow executed: {execution.id} - Status: {execution.status}")
-                
-                return {
-                    "execution_id": str(execution.id),
-                    "status": execution.status,
-                    "message": "Workflow execution completed" if result.get("success") else f"Workflow execution failed: {result.get('error')}",
-                    "output": result.get("output"),
-                }
-                
-            except Exception as exec_error:
-                # Execution failed - rollback and update status
-                logger.error(f"Workflow execution error: {exec_error}")
-                db.rollback()
-                
-                # Refresh and update execution status
-                try:
-                    db.refresh(execution)
-                    execution.status = "failed"
-                    execution.completed_at = datetime.utcnow()
-                    execution.error_message = str(exec_error)
-                    db.commit()
-                except Exception as update_error:
-                    logger.error(f"Failed to update execution status: {update_error}")
-                
-                return {
-                    "execution_id": str(execution.id),
-                    "status": "failed",
-                    "message": f"Workflow execution failed: {str(exec_error)}",
-                }
-            
-        except Exception as exec_error:
-            # Rollback on error
-            logger.error(f"Failed to create execution record: {exec_error}")
-            db.rollback()
-            raise
+        logger.info(f"Workflow executed: {result.get('execution_id')} - Status: {result.get('status')}")
         
+        return result
+        
+    except NotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Workflow {workflow_id} not found"
+        )
+    except ExecutionError as e:
+        logger.error(f"Workflow execution error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
     except HTTPException:
         raise
     except Exception as e:

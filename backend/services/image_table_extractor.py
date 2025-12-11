@@ -29,7 +29,6 @@ class ImageTableExtractor:
     
     def __init__(self):
         """초기화"""
-        self.colpali_processor = None
         self.ocr_engine = None
         
     def extract_tables_from_image(
@@ -85,16 +84,9 @@ class ImageTableExtractor:
         return processed_tables
     
     def _extract_with_colpali(self, image: Image.Image) -> List[Dict[str, Any]]:
-        """ColPali로 표 추출"""
-        if self.colpali_processor is None:
-            from backend.services.colpali_processor import get_colpali_processor
-            self.colpali_processor = get_colpali_processor()
-        
-        # ColPali는 이미지 전체를 패치로 나누어 처리
-        # 표 영역은 높은 attention을 받음
-        embeddings = self.colpali_processor.process_image(image)
-        
-        # 표 영역 감지 (attention map 기반)
+        """ColPali removed - not used"""
+        # ColPali table extraction removed
+        return []
         table_regions = self._detect_table_regions(embeddings, image)
         
         tables = []

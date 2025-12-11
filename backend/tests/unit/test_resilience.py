@@ -9,9 +9,9 @@ from backend.core.resilience import (
     CircuitState,
     CircuitBreakerError,
     with_retry,
-    with_timeout,
-    RateLimiter,
 )
+# with_timeout and RateLimiter are in different modules
+from backend.core.rate_limiter import RateLimiter
 
 
 class TestCircuitBreaker:

@@ -1,463 +1,411 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+/**
+ * HttpRequestConfig - HTTP Request Tool Configuration
+ * 
+ * Refactored to use common hooks and components
+ */
+
+import { useCallback } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Globe, Plus, Trash, TestTube, Key, Settings, Shield } from 'lucide-react';
+import { Globe, TestTube, Settings, Shield } from 'lucide-react';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { ToolConfigProps } from './ToolConfigRegistry';
+import {
+  ToolConfigHeader,
+  TOOL_HEADER_PRESETS,
+  TextField,
+  NumberField,
+  TextareaField,
+  SelectField,
+  SwitchField,
+  KeyValueListField,
+  useToolConfig,
+} from './common';
 
-const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
+// ============================================
+// Constants
+// ============================================
+
+const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'] as const;
 
 const CONTENT_TYPES = [
-  'application/json',
-  'application/x-www-form-urlencoded',
-  'multipart/form-data',
-  'text/plain',
-  'text/html',
-  'application/xml',
-];
+  { value: 'application/json', label: 'application/json' },
+  { value: 'application/x-www-form-urlencoded', label: 'application/x-www-form-urlencoded' },
+  { value: 'multipart/form-data', label: 'multipart/form-data' },
+  { value: 'text/plain', label: 'text/plain' },
+  { value: 'text/html', label: 'text/html' },
+  { value: 'application/xml', label: 'application/xml' },
+] as const;
 
 const AUTH_TYPES = [
   { value: 'none', label: 'No Auth' },
   { value: 'bearer', label: 'Bearer Token' },
   { value: 'basic', label: 'Basic Auth' },
   { value: 'api_key', label: 'API Key' },
-];
+] as const;
+
+const RESPONSE_TYPES = [
+  { value: 'json', label: 'JSON' },
+  { value: 'text', label: 'Text' },
+  { value: 'binary', label: 'Binary' },
+  { value: 'auto', label: 'Auto-detect' },
+] as const;
+
+const API_KEY_LOCATIONS = [
+  { value: 'header', label: 'Header' },
+  { value: 'query', label: 'Query Parameter' },
+] as const;
+
+// ============================================
+// Types
+// ============================================
+
+interface KeyValueItem {
+  key: string;
+  value: string;
+}
+
+interface HttpRequestConfigData {
+  method: string;
+  url: string;
+  headers: KeyValueItem[];
+  query_params: KeyValueItem[];
+  body: string;
+  body_type: string;
+  timeout: number;
+  follow_redirects: boolean;
+  auth_type: string;
+  auth_token: string;
+  auth_username: string;
+  auth_password: string;
+  api_key_name: string;
+  api_key_value: string;
+  api_key_location: string;
+  retry_count: number;
+  retry_delay: number;
+  verify_ssl: boolean;
+  response_type: string;
+}
+
+const DEFAULTS: HttpRequestConfigData = {
+  method: 'GET',
+  url: '',
+  headers: [],
+  query_params: [],
+  body: '',
+  body_type: 'application/json',
+  timeout: 30,
+  follow_redirects: true,
+  auth_type: 'none',
+  auth_token: '',
+  auth_username: '',
+  auth_password: '',
+  api_key_name: 'X-API-Key',
+  api_key_value: '',
+  api_key_location: 'header',
+  retry_count: 0,
+  retry_delay: 1000,
+  verify_ssl: true,
+  response_type: 'json',
+};
+
+// ============================================
+// Component
+// ============================================
 
 export default function HttpRequestConfig({ data, onChange, onTest }: ToolConfigProps) {
-  const [config, setConfig] = useState({
-    method: data.method || 'GET',
-    url: data.url || '',
-    headers: data.headers || [],
-    query_params: data.query_params || [],
-    body: data.body || '',
-    body_type: data.body_type || 'application/json',
-    timeout: data.timeout || 30,
-    follow_redirects: data.follow_redirects !== false,
-    // Authentication
-    auth_type: data.auth_type || 'none',
-    auth_token: data.auth_token || '',
-    auth_username: data.auth_username || '',
-    auth_password: data.auth_password || '',
-    api_key_name: data.api_key_name || 'X-API-Key',
-    api_key_value: data.api_key_value || '',
-    api_key_location: data.api_key_location || 'header',
-    // Advanced options
-    retry_count: data.retry_count || 0,
-    retry_delay: data.retry_delay || 1000,
-    verify_ssl: data.verify_ssl !== false,
-    response_type: data.response_type || 'json',
-    ...data
+  const { config, updateField } = useToolConfig<HttpRequestConfigData>({
+    initialData: data,
+    defaults: DEFAULTS,
+    onChange,
   });
 
-  useEffect(() => {
-    onChange(config);
-  }, [config]);
+  // Header handlers
+  const addHeader = useCallback(() => {
+    updateField('headers', [...config.headers, { key: '', value: '' }]);
+  }, [config.headers, updateField]);
 
-  const updateConfig = (key: string, value: any) => {
-    setConfig((prev: typeof config) => ({ ...prev, [key]: value }));
-  };
-
-  const addHeader = () => {
-    updateConfig('headers', [...config.headers, { key: '', value: '' }]);
-  };
-
-  const updateHeader = (index: number, field: 'key' | 'value', value: string) => {
+  const updateHeader = useCallback((index: number, field: 'key' | 'value', value: string) => {
     const newHeaders = [...config.headers];
-    newHeaders[index][field] = value;
-    updateConfig('headers', newHeaders);
-  };
+    newHeaders[index] = { ...newHeaders[index], [field]: value };
+    updateField('headers', newHeaders);
+  }, [config.headers, updateField]);
 
-  const removeHeader = (index: number) => {
-    updateConfig('headers', config.headers.filter((_: any, i: number) => i !== index));
-  };
+  const removeHeader = useCallback((index: number) => {
+    updateField('headers', config.headers.filter((_, i) => i !== index));
+  }, [config.headers, updateField]);
 
-  const addQueryParam = () => {
-    updateConfig('query_params', [...config.query_params, { key: '', value: '' }]);
-  };
+  // Query param handlers
+  const addQueryParam = useCallback(() => {
+    updateField('query_params', [...config.query_params, { key: '', value: '' }]);
+  }, [config.query_params, updateField]);
 
-  const updateQueryParam = (index: number, field: 'key' | 'value', value: string) => {
+  const updateQueryParam = useCallback((index: number, field: 'key' | 'value', value: string) => {
     const newParams = [...config.query_params];
-    newParams[index][field] = value;
-    updateConfig('query_params', newParams);
-  };
+    newParams[index] = { ...newParams[index], [field]: value };
+    updateField('query_params', newParams);
+  }, [config.query_params, updateField]);
 
-  const removeQueryParam = (index: number) => {
-    updateConfig('query_params', config.query_params.filter((_: any, i: number) => i !== index));
-  };
+  const removeQueryParam = useCallback((index: number) => {
+    updateField('query_params', config.query_params.filter((_, i) => i !== index));
+  }, [config.query_params, updateField]);
+
+  const showBody = ['POST', 'PUT', 'PATCH'].includes(config.method);
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3 pb-4 border-b">
-        <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-950">
-          <Globe className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-        </div>
-        <div>
-          <h3 className="font-semibold">HTTP Request</h3>
-          <p className="text-sm text-muted-foreground">Make API calls to any endpoint</p>
-        </div>
-        <Badge variant="secondary" className="ml-auto">Popular</Badge>
-      </div>
+    <TooltipProvider>
+      <div className="space-y-6">
+        {/* Header */}
+        <ToolConfigHeader
+          icon={Globe}
+          {...TOOL_HEADER_PRESETS.http}
+          title="HTTP Request"
+          description="Make API calls to any endpoint"
+          badge="Popular"
+        />
 
-      {/* Method & URL */}
-      <div className="space-y-2">
-        <Label>Request</Label>
-        <div className="flex gap-2">
-          <Select value={config.method} onValueChange={(v) => updateConfig('method', v)}>
-            <SelectTrigger className="w-32">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {HTTP_METHODS.map(method => (
-                <SelectItem key={method} value={method}>
-                  <Badge variant={method === 'GET' ? 'default' : method === 'POST' ? 'secondary' : 'outline'}>
-                    {method}
-                  </Badge>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Input
-            placeholder="https://api.example.com/endpoint"
-            value={config.url}
-            onChange={(e) => updateConfig('url', e.target.value)}
-            className="flex-1 font-mono text-sm"
-          />
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Use <code className="px-1 py-0.5 bg-muted rounded">{'{{variables}}'}</code> for dynamic values
-        </p>
-      </div>
-
-      {/* Tabs for Headers, Query, Body, Auth, Settings */}
-      <Tabs defaultValue="headers" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="headers">
-            Headers ({config.headers.length})
-          </TabsTrigger>
-          <TabsTrigger value="query">
-            Query ({config.query_params.length})
-          </TabsTrigger>
-          <TabsTrigger value="body">
-            Body
-          </TabsTrigger>
-          <TabsTrigger value="auth">
-            <Shield className="h-3 w-3 mr-1" />
-            Auth
-          </TabsTrigger>
-          <TabsTrigger value="settings">
-            <Settings className="h-3 w-3 mr-1" />
-            Settings
-          </TabsTrigger>
-        </TabsList>
-
-        {/* Headers Tab */}
-        <TabsContent value="headers" className="space-y-3">
-          {config.headers.map((header: any, index: number) => (
-            <div key={index} className="flex gap-2">
-              <Input
-                placeholder="Header name"
-                value={header.key}
-                onChange={(e) => updateHeader(index, 'key', e.target.value)}
-                className="flex-1"
-              />
-              <Input
-                placeholder="Value"
-                value={header.value}
-                onChange={(e) => updateHeader(index, 'value', e.target.value)}
-                className="flex-1"
-              />
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => removeHeader(index)}
-              >
-                <Trash className="h-4 w-4" />
-              </Button>
-            </div>
-          ))}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={addHeader}
-            className="w-full"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Header
-          </Button>
-        </TabsContent>
-
-        {/* Query Params Tab */}
-        <TabsContent value="query" className="space-y-3">
-          {config.query_params.map((param: any, index: number) => (
-            <div key={index} className="flex gap-2">
-              <Input
-                placeholder="Parameter name"
-                value={param.key}
-                onChange={(e) => updateQueryParam(index, 'key', e.target.value)}
-                className="flex-1"
-              />
-              <Input
-                placeholder="Value"
-                value={param.value}
-                onChange={(e) => updateQueryParam(index, 'value', e.target.value)}
-                className="flex-1"
-              />
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => removeQueryParam(index)}
-              >
-                <Trash className="h-4 w-4" />
-              </Button>
-            </div>
-          ))}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={addQueryParam}
-            className="w-full"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Query Parameter
-          </Button>
-        </TabsContent>
-
-        {/* Body Tab */}
-        <TabsContent value="body" className="space-y-3">
-          {(config.method === 'POST' || config.method === 'PUT' || config.method === 'PATCH') ? (
-            <>
-              <div className="space-y-2">
-                <Label>Content Type</Label>
-                <Select value={config.body_type} onValueChange={(v) => updateConfig('body_type', v)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CONTENT_TYPES.map(type => (
-                      <SelectItem key={type} value={type}>
-                        {type}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Body</Label>
-                <Textarea
-                  placeholder={config.body_type === 'application/json' ? '{\n  "key": "value"\n}' : 'Request body...'}
-                  value={config.body}
-                  onChange={(e) => updateConfig('body', e.target.value)}
-                  rows={8}
-                  className="font-mono text-sm"
-                />
-              </div>
-            </>
-          ) : (
-            <p className="text-sm text-muted-foreground text-center py-8">
-              Body is not available for {config.method} requests
-            </p>
-          )}
-        </TabsContent>
-
-        {/* Authentication Tab */}
-        <TabsContent value="auth" className="space-y-4">
-          <div className="space-y-2">
-            <Label>Authentication Type</Label>
-            <Select value={config.auth_type} onValueChange={(v) => updateConfig('auth_type', v)}>
-              <SelectTrigger>
+        {/* Method & URL */}
+        <div className="space-y-2">
+          <Label>Request</Label>
+          <div className="flex gap-2">
+            <Select value={config.method} onValueChange={(v) => updateField('method', v)}>
+              <SelectTrigger className="w-32">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {AUTH_TYPES.map(auth => (
-                  <SelectItem key={auth.value} value={auth.value}>
-                    {auth.label}
+                {HTTP_METHODS.map(method => (
+                  <SelectItem key={method} value={method}>
+                    <Badge variant={method === 'GET' ? 'default' : method === 'POST' ? 'secondary' : 'outline'}>
+                      {method}
+                    </Badge>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            <Input
+              placeholder="https://api.example.com/endpoint"
+              value={config.url}
+              onChange={(e) => updateField('url', e.target.value)}
+              className="flex-1 font-mono text-sm"
+            />
           </div>
+          <p className="text-xs text-muted-foreground">
+            Use <code className="px-1 py-0.5 bg-muted rounded">{'{{variables}}'}</code> for dynamic values
+          </p>
+        </div>
 
-          {config.auth_type === 'bearer' && (
-            <div className="space-y-2">
-              <Label>Bearer Token</Label>
-              <Input
+        {/* Tabs */}
+        <Tabs defaultValue="headers" className="w-full">
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="headers">Headers ({config.headers.length})</TabsTrigger>
+            <TabsTrigger value="query">Query ({config.query_params.length})</TabsTrigger>
+            <TabsTrigger value="body">Body</TabsTrigger>
+            <TabsTrigger value="auth">
+              <Shield className="h-3 w-3 mr-1" />
+              Auth
+            </TabsTrigger>
+            <TabsTrigger value="settings">
+              <Settings className="h-3 w-3 mr-1" />
+              Settings
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Headers Tab */}
+          <TabsContent value="headers" className="space-y-3 mt-4">
+            <KeyValueListField
+              label="Headers"
+              items={config.headers}
+              onAdd={addHeader}
+              onUpdate={updateHeader}
+              onRemove={removeHeader}
+              keyPlaceholder="Header name"
+              valuePlaceholder="Value"
+              addButtonText="Add Header"
+            />
+          </TabsContent>
+
+          {/* Query Params Tab */}
+          <TabsContent value="query" className="space-y-3 mt-4">
+            <KeyValueListField
+              label="Query Parameters"
+              items={config.query_params}
+              onAdd={addQueryParam}
+              onUpdate={updateQueryParam}
+              onRemove={removeQueryParam}
+              keyPlaceholder="Parameter name"
+              valuePlaceholder="Value"
+              addButtonText="Add Query Parameter"
+            />
+          </TabsContent>
+
+          {/* Body Tab */}
+          <TabsContent value="body" className="space-y-4 mt-4">
+            {showBody ? (
+              <>
+                <SelectField
+                  label="Content Type"
+                  value={config.body_type}
+                  onChange={(v) => updateField('body_type', v)}
+                  options={CONTENT_TYPES.map(t => ({ value: t.value, label: t.label }))}
+                />
+                <TextareaField
+                  label="Body"
+                  value={config.body}
+                  onChange={(v) => updateField('body', v)}
+                  placeholder={config.body_type === 'application/json' ? '{\n  "key": "value"\n}' : 'Request body...'}
+                  rows={8}
+                  mono
+                />
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-8">
+                Body is not available for {config.method} requests
+              </p>
+            )}
+          </TabsContent>
+
+          {/* Auth Tab */}
+          <TabsContent value="auth" className="space-y-4 mt-4">
+            <SelectField
+              label="Authentication Type"
+              value={config.auth_type}
+              onChange={(v) => updateField('auth_type', v)}
+              options={AUTH_TYPES.map(a => ({ value: a.value, label: a.label }))}
+            />
+
+            {config.auth_type === 'bearer' && (
+              <TextField
+                label="Bearer Token"
+                value={config.auth_token}
+                onChange={(v) => updateField('auth_token', v)}
                 type="password"
                 placeholder="Enter your bearer token"
-                value={config.auth_token}
-                onChange={(e) => updateConfig('auth_token', e.target.value)}
+                hint="Token will be sent as: Authorization: Bearer <token>"
               />
-              <p className="text-xs text-muted-foreground">
-                Token will be sent as: Authorization: Bearer {'<token>'}
-              </p>
-            </div>
-          )}
+            )}
 
-          {config.auth_type === 'basic' && (
-            <>
-              <div className="space-y-2">
-                <Label>Username</Label>
-                <Input
-                  placeholder="Username"
+            {config.auth_type === 'basic' && (
+              <>
+                <TextField
+                  label="Username"
                   value={config.auth_username}
-                  onChange={(e) => updateConfig('auth_username', e.target.value)}
+                  onChange={(v) => updateField('auth_username', v)}
+                  placeholder="Username"
                 />
-              </div>
-              <div className="space-y-2">
-                <Label>Password</Label>
-                <Input
+                <TextField
+                  label="Password"
+                  value={config.auth_password}
+                  onChange={(v) => updateField('auth_password', v)}
                   type="password"
                   placeholder="Password"
-                  value={config.auth_password}
-                  onChange={(e) => updateConfig('auth_password', e.target.value)}
                 />
-              </div>
-            </>
-          )}
+              </>
+            )}
 
-          {config.auth_type === 'api_key' && (
-            <>
-              <div className="space-y-2">
-                <Label>API Key Name</Label>
-                <Input
-                  placeholder="X-API-Key"
+            {config.auth_type === 'api_key' && (
+              <>
+                <TextField
+                  label="API Key Name"
                   value={config.api_key_name}
-                  onChange={(e) => updateConfig('api_key_name', e.target.value)}
+                  onChange={(v) => updateField('api_key_name', v)}
+                  placeholder="X-API-Key"
                 />
-              </div>
-              <div className="space-y-2">
-                <Label>API Key Value</Label>
-                <Input
+                <TextField
+                  label="API Key Value"
+                  value={config.api_key_value}
+                  onChange={(v) => updateField('api_key_value', v)}
                   type="password"
                   placeholder="Your API key"
-                  value={config.api_key_value}
-                  onChange={(e) => updateConfig('api_key_value', e.target.value)}
                 />
-              </div>
-              <div className="space-y-2">
-                <Label>Send In</Label>
-                <Select value={config.api_key_location} onValueChange={(v) => updateConfig('api_key_location', v)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="header">Header</SelectItem>
-                    <SelectItem value="query">Query Parameter</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </>
-          )}
+                <SelectField
+                  label="Send In"
+                  value={config.api_key_location}
+                  onChange={(v) => updateField('api_key_location', v)}
+                  options={API_KEY_LOCATIONS.map(l => ({ value: l.value, label: l.label }))}
+                />
+              </>
+            )}
 
-          {config.auth_type === 'none' && (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              No authentication configured
-            </p>
-          )}
-        </TabsContent>
+            {config.auth_type === 'none' && (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No authentication configured
+              </p>
+            )}
+          </TabsContent>
 
-        {/* Settings Tab */}
-        <TabsContent value="settings" className="space-y-4">
-          <div className="space-y-2">
-            <Label>Timeout (seconds)</Label>
-            <Input
-              type="number"
-              min="1"
-              max="300"
+          {/* Settings Tab */}
+          <TabsContent value="settings" className="space-y-4 mt-4">
+            <NumberField
+              label="Timeout (seconds)"
               value={config.timeout}
-              onChange={(e) => updateConfig('timeout', parseInt(e.target.value) || 30)}
+              onChange={(v) => updateField('timeout', v)}
+              min={1}
+              max={300}
+              hint="Maximum time to wait for response (1-300 seconds)"
             />
-            <p className="text-xs text-muted-foreground">
-              Maximum time to wait for response (1-300 seconds)
-            </p>
-          </div>
 
-          <div className="space-y-2">
-            <Label>Response Type</Label>
-            <Select value={config.response_type} onValueChange={(v) => updateConfig('response_type', v)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="json">JSON</SelectItem>
-                <SelectItem value="text">Text</SelectItem>
-                <SelectItem value="binary">Binary</SelectItem>
-                <SelectItem value="auto">Auto-detect</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+            <SelectField
+              label="Response Type"
+              value={config.response_type}
+              onChange={(v) => updateField('response_type', v)}
+              options={RESPONSE_TYPES.map(r => ({ value: r.value, label: r.label }))}
+            />
 
-          <div className="space-y-2">
-            <Label>Retry Count</Label>
-            <Input
-              type="number"
-              min="0"
-              max="5"
+            <NumberField
+              label="Retry Count"
               value={config.retry_count}
-              onChange={(e) => updateConfig('retry_count', parseInt(e.target.value) || 0)}
+              onChange={(v) => updateField('retry_count', v)}
+              min={0}
+              max={5}
+              hint="Number of retries on failure (0-5)"
             />
-            <p className="text-xs text-muted-foreground">
-              Number of retries on failure (0-5)
-            </p>
-          </div>
 
-          {config.retry_count > 0 && (
-            <div className="space-y-2">
-              <Label>Retry Delay (ms)</Label>
-              <Input
-                type="number"
-                min="100"
-                max="10000"
-                step="100"
+            {config.retry_count > 0 && (
+              <NumberField
+                label="Retry Delay (ms)"
                 value={config.retry_delay}
-                onChange={(e) => updateConfig('retry_delay', parseInt(e.target.value) || 1000)}
+                onChange={(v) => updateField('retry_delay', v)}
+                min={100}
+                max={10000}
+                step={100}
               />
-            </div>
-          )}
+            )}
 
-          <div className="flex items-center justify-between py-2">
-            <div>
-              <Label>Follow Redirects</Label>
-              <p className="text-xs text-muted-foreground">Automatically follow HTTP redirects</p>
-            </div>
-            <Switch
+            <SwitchField
+              label="Follow Redirects"
+              description="Automatically follow HTTP redirects"
               checked={config.follow_redirects}
-              onCheckedChange={(checked) => updateConfig('follow_redirects', checked)}
+              onChange={(v) => updateField('follow_redirects', v)}
             />
-          </div>
 
-          <div className="flex items-center justify-between py-2">
-            <div>
-              <Label>Verify SSL</Label>
-              <p className="text-xs text-muted-foreground">Verify SSL certificates</p>
-            </div>
-            <Switch
+            <SwitchField
+              label="Verify SSL"
+              description="Verify SSL certificates"
               checked={config.verify_ssl}
-              onCheckedChange={(checked) => updateConfig('verify_ssl', checked)}
+              onChange={(v) => updateField('verify_ssl', v)}
             />
-          </div>
-        </TabsContent>
-      </Tabs>
+          </TabsContent>
+        </Tabs>
 
-      {/* Test Button */}
-      {onTest && (
-        <Button 
-          onClick={onTest} 
-          variant="outline" 
-          className="w-full"
-          disabled={!config.url}
-        >
-          <TestTube className="h-4 w-4 mr-2" />
-          Test Request
-        </Button>
-      )}
-    </div>
+        {/* Test Button */}
+        {onTest && (
+          <Button
+            onClick={onTest}
+            variant="outline"
+            className="w-full"
+            disabled={!config.url}
+          >
+            <TestTube className="h-4 w-4 mr-2" />
+            Test Request
+          </Button>
+        )}
+      </div>
+    </TooltipProvider>
   );
 }

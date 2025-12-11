@@ -52,8 +52,6 @@ class DoclingProcessor:
         self.images_scale = images_scale
         
         self.converter = None
-        self.colpali_processor = None
-        self.colpali_milvus = None
         
         self._init_docling()
         self._init_colpali()
@@ -87,15 +85,12 @@ class DoclingProcessor:
             raise
     
     def _init_colpali(self):
-        """ColPali 초기화 (선택적)"""
+        """ColPali removed - not used"""
         try:
-            from backend.services.colpali_processor import get_colpali_processor
-            from backend.services.colpali_milvus_service import get_colpali_milvus_service
+            # ColPali initialization removed
+            pass
             
-            self.colpali_processor = get_colpali_processor()
-            self.colpali_milvus = get_colpali_milvus_service()
-            
-            if self.colpali_processor:
+            if False:
                 logger.info("✅ ColPali integration enabled")
             else:
                 logger.warning("⚠️  ColPali not available")

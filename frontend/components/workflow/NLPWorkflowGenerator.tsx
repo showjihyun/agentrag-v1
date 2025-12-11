@@ -51,28 +51,28 @@ interface NLPWorkflowGeneratorProps {
 
 const EXAMPLE_PROMPTS = [
   {
-    text: "매일 아침 9시에 최신 AI 뉴스를 검색해서 요약한 후 슬랙 #news 채널로 보내줘",
+    text: "매일 아침 9시에 HTTP API로 뉴스를 가져와서 OpenAI로 요약한 후 Slack으로 보내줘",
     category: "자동화",
     complexity: "moderate",
   },
   {
-    text: "웹훅으로 고객 문의를 받으면 AI로 분류하고, 긴급한 건은 즉시 이메일 알림을 보내고 나머지는 데이터베이스에 저장해",
-    category: "고객지원",
+    text: "웹훅으로 데이터를 받으면 조건에 따라 분기해서 Gmail로 알림을 보내거나 PostgreSQL에 저장해",
+    category: "데이터 처리",
     complexity: "complex",
   },
   {
-    text: "사용자 질문을 받아서 벡터 검색으로 관련 문서를 찾고 AI로 답변을 생성해서 반환해",
+    text: "사용자 질문을 받아서 벡터 검색으로 관련 문서를 찾고 OpenAI로 답변을 생성해",
     category: "RAG",
     complexity: "moderate",
   },
   {
-    text: "GitHub 저장소의 README를 가져와서 한국어로 번역해줘",
-    category: "번역",
+    text: "수동으로 시작해서 HTTP 요청으로 데이터를 가져온 후 Python 코드로 처리해",
+    category: "데이터 변환",
     complexity: "simple",
   },
   {
-    text: "여러 뉴스 소스에서 동시에 검색하고 결과를 병합해서 AI로 종합 리포트를 만들어줘",
-    category: "리서치",
+    text: "스케줄로 매시간 실행해서 여러 API를 병렬로 호출하고 결과를 병합한 후 AI로 분석해",
+    category: "분석",
     complexity: "complex",
   },
 ];

@@ -1,4 +1,4 @@
-"""Quick verification script for GPU and ColPali"""
+"""Quick verification script for GPU"""
 import sys
 
 try:
@@ -9,9 +9,8 @@ try:
     if torch.cuda.is_available():
         print(f"GPU: {torch.cuda.get_device_name(0)}")
     
-    # Check ColPali
-    from colpali_engine.models import ColPali
-    print("ColPali: OK")
+    # ColPali removed - not used in this system
+    print("ColPali: Removed (not used)")
     
     sys.exit(0)
 except Exception as e:

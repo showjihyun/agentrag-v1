@@ -17,10 +17,12 @@ import {
   Plus,
   Play,
   Layers,
-  Box,
   GitBranch,
   Database,
   ArrowRight,
+  Users,
+  MessageSquare,
+  Sparkles,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { agentBuilderAPI } from '@/lib/api/agent-builder';
@@ -37,11 +39,11 @@ import { toast } from 'sonner';
 const StatsCard = React.memo(({ stats }: { stats: any }) => {
   const totalResources = React.useMemo(() => {
     return (
-      (stats?.resources.agents || 0) +
-      (stats?.resources.blocks || 0) +
-      (stats?.resources.workflows || 0)
+      (stats?.resources?.agents || stats?.total_agents || 0) +
+      (stats?.resources?.blocks || 0) +
+      (stats?.resources?.workflows || stats?.total_workflows || 0)
     );
-  }, [stats?.resources]);
+  }, [stats]);
 
   const formatDuration = React.useCallback((seconds: number) => {
     if (seconds < 60) return `${seconds.toFixed(1)}s`;
@@ -49,34 +51,38 @@ const StatsCard = React.memo(({ stats }: { stats: any }) => {
     return `${(seconds / 3600).toFixed(1)}h`;
   }, []);
 
+  const executions = stats?.executions || {};
+  const resources = stats?.resources || {};
+  const successRate = executions.success_rate ?? stats?.success_rate ?? 0;
+
   return (
     <>
       <AccessibleCard
         title="Total Executions"
-        value={stats?.executions.total || 0}
-        subtitle={`${stats?.executions.last_24h || 0} in last 24h`}
+        value={executions.total ?? stats?.total_executions ?? 0}
+        subtitle={`${executions.last_24h ?? 0} in last 24h`}
         icon={<Activity className="h-4 w-4" />}
-        ariaLabel={`Total executions: ${stats?.executions.total || 0}, with ${stats?.executions.last_24h || 0} in the last 24 hours`}
+        ariaLabel={`Total executions: ${executions.total ?? stats?.total_executions ?? 0}, with ${executions.last_24h ?? 0} in the last 24 hours`}
       />
       <AccessibleCard
         title="Success Rate"
-        value={`${stats?.executions.success_rate || 0}%`}
-        subtitle={`${stats?.executions.running || 0} currently running`}
+        value={`${successRate}%`}
+        subtitle={`${executions.running ?? 0} currently running`}
         icon={<TrendingUp className="h-4 w-4" />}
-        trend={stats?.executions.success_rate >= 90 ? 'up' : stats?.executions.success_rate >= 70 ? 'neutral' : 'down'}
-        ariaLabel={`Success rate: ${stats?.executions.success_rate || 0}%, with ${stats?.executions.running || 0} currently running`}
+        trend={successRate >= 90 ? 'up' : successRate >= 70 ? 'neutral' : 'down'}
+        ariaLabel={`Success rate: ${successRate}%, with ${executions.running ?? 0} currently running`}
       />
       <AccessibleCard
         title="Avg Duration"
-        value={formatDuration(stats?.executions.avg_duration_seconds || 0)}
+        value={formatDuration(executions.avg_duration_seconds ?? 0)}
         subtitle="per execution"
         icon={<Clock className="h-4 w-4" />}
-        ariaLabel={`Average duration: ${formatDuration(stats?.executions.avg_duration_seconds || 0)} per execution`}
+        ariaLabel={`Average duration: ${formatDuration(executions.avg_duration_seconds ?? 0)} per execution`}
       />
       <AccessibleCard
         title="Resources"
         value={totalResources}
-        subtitle={`${stats?.resources.agents || 0} agents, ${stats?.resources.blocks || 0} blocks`}
+        subtitle={`${resources.agents ?? stats?.total_agents ?? 0} agents, ${resources.blocks ?? 0} blocks`}
         icon={<Zap className="h-4 w-4" />}
         ariaLabel={`Total resources: ${totalResources}`}
       />
@@ -171,25 +177,6 @@ ActivityItem.displayName = 'ActivityItem';
 export default function AgentBuilderDashboard() {
   const router = useRouter();
 
-  // Helper functions for status display
-  const getStatusColor = React.useCallback((status: string) => {
-    switch (status) {
-      case 'completed': return 'text-green-500';
-      case 'failed': return 'text-red-500';
-      case 'running': return 'text-blue-500';
-      default: return 'text-gray-500';
-    }
-  }, []);
-
-  const getStatusIcon = React.useCallback((status: string) => {
-    switch (status) {
-      case 'completed': return <CheckCircle2 className="h-4 w-4" />;
-      case 'failed': return <AlertCircle className="h-4 w-4" />;
-      case 'running': return <Activity className="h-4 w-4 animate-pulse" />;
-      default: return <Clock className="h-4 w-4" />;
-    }
-  }, []);
-
   const formatTimeAgo = React.useCallback((dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -252,25 +239,8 @@ export default function AgentBuilderDashboard() {
   });
 
   // Memoized callbacks
-  const handleAgentClick = React.useCallback((agentId: string) => {
-    router.push(`/agent-builder/agents/${agentId}`);
-  }, [router]);
-
-  const handleAgentTest = React.useCallback((e: React.MouseEvent, agentId: string) => {
-    e.stopPropagation();
-    router.push(`/agent-builder/agents/${agentId}/test`);
-  }, [router]);
-
   const handleActivityClick = React.useCallback((executionId: string) => {
     router.push(`/agent-builder/executions/${executionId}`);
-  }, [router]);
-
-  const handleCreateAgent = React.useCallback(() => {
-    router.push('/agent-builder/agents/new');
-  }, [router]);
-
-  const handleCreateBlock = React.useCallback(() => {
-    router.push('/agent-builder/blocks/new');
   }, [router]);
 
   const handleViewWorkflows = React.useCallback(() => {
@@ -286,22 +256,26 @@ export default function AgentBuilderDashboard() {
       <Toaster />
       <SkipToContent />
       <div className="container mx-auto p-6 space-y-6" id="main-content" tabIndex={-1}>
-        {/* Header */}
-        <header className="flex items-center justify-between" role="banner">
-        <div>
-          <h1 className="text-3xl font-bold">Agent Builder Dashboard</h1>
-          <p className="text-muted-foreground">
-            Overview of your agents, workflows, and executions
-          </p>
-        </div>
-          <div className="flex gap-2">
+        {/* Header - Enhanced Visual Hierarchy */}
+        <header className="flex items-center justify-between mb-2" role="banner">
+          <div>
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+              Agent Builder Dashboard
+            </h1>
+            <p className="text-muted-foreground mt-2 text-lg">
+              Overview of your agents, workflows, and executions
+            </p>
+          </div>
+          <div className="flex gap-3">
             <KeyboardShortcutsDialog />
             <Button 
-              onClick={handleCreateAgent}
-              aria-label="Create a new agent"
+              size="lg"
+              onClick={() => router.push('/agent-builder/agentflows/new')}
+              aria-label="Create a new agentflow"
+              className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 shadow-lg hover:shadow-xl transition-all"
             >
-              <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
-              Create Agent
+              <Plus className="mr-2 h-5 w-5" aria-hidden="true" />
+              Create Agentflow
             </Button>
           </div>
         </header>
@@ -357,49 +331,88 @@ export default function AgentBuilderDashboard() {
             </CardContent>
           </Card>
 
-          {/* Quick Actions */}
-          <Card role="region" aria-label="Quick Actions">
-            <CardHeader>
-              <CardTitle>Quick Actions</CardTitle>
-              <CardDescription>Common tasks</CardDescription>
+          {/* Quick Actions - Enhanced Visual Hierarchy */}
+          <Card role="region" aria-label="Quick Actions" className="border-2">
+            <CardHeader className="border-b bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-950/20 dark:to-blue-950/20">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900">
+                  <Zap className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg">Quick Actions</CardTitle>
+                  <CardDescription>빠른 시작</CardDescription>
+                </div>
+              </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-6">
               <nav aria-label="Quick action buttons">
-                <div className="space-y-2">
+                <div className="space-y-3">
+                  {/* Primary Actions - Flows with enhanced styling */}
+                  <Button
+                    size="lg"
+                    className="w-full justify-start bg-gradient-to-r from-purple-600 via-blue-600 to-cyan-600 hover:from-purple-700 hover:via-blue-700 hover:to-cyan-700 text-white shadow-md hover:shadow-lg transition-all"
+                    onClick={() => router.push('/agent-builder/wizard')}
+                    aria-label="Open workflow creation wizard"
+                  >
+                    <Sparkles className="mr-3 h-5 w-5" aria-hidden="true" />
+                    <div className="flex flex-col items-start">
+                      <span className="font-semibold">마법사로 시작하기</span>
+                      <span className="text-xs opacity-90">Step-by-step Guide</span>
+                    </div>
+                  </Button>
+                  <Button
+                    size="lg"
+                    className="w-full justify-start bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white shadow-md hover:shadow-lg transition-all"
+                    onClick={() => router.push('/agent-builder/agentflows/new')}
+                    aria-label="Create a new Agentflow"
+                  >
+                    <Users className="mr-3 h-5 w-5" aria-hidden="true" />
+                    <div className="flex flex-col items-start">
+                      <span className="font-semibold">새 Agentflow</span>
+                      <span className="text-xs opacity-90">Multi-Agent System</span>
+                    </div>
+                  </Button>
+                  <Button
+                    size="lg"
+                    className="w-full justify-start bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-md hover:shadow-lg transition-all"
+                    onClick={() => router.push('/agent-builder/chatflows/new')}
+                    aria-label="Create a new Chatflow"
+                  >
+                    <MessageSquare className="mr-3 h-5 w-5" aria-hidden="true" />
+                    <div className="flex flex-col items-start">
+                      <span className="font-semibold">새 Chatflow</span>
+                      <span className="text-xs opacity-90">Conversational AI</span>
+                    </div>
+                  </Button>
+                  
+                  <div className="border-t my-4" />
+                  
+                  {/* Secondary Actions with improved styling */}
                   <Button
                     variant="outline"
-                    className="w-full justify-start focus-visible:ring-2 focus-visible:ring-primary"
-                    onClick={handleCreateAgent}
+                    className="w-full justify-start hover:bg-purple-50 dark:hover:bg-purple-950/20 hover:border-purple-300 dark:hover:border-purple-700 transition-all"
+                    onClick={() => router.push('/agent-builder/agents/new')}
                     aria-label="Create a new agent"
                   >
-                    <Layers className="mr-2 h-4 w-4" aria-hidden="true" />
+                    <Layers className="mr-2 h-4 w-4 text-purple-600 dark:text-purple-400" aria-hidden="true" />
                     Create Agent
                   </Button>
                   <Button
                     variant="outline"
-                    className="w-full justify-start focus-visible:ring-2 focus-visible:ring-primary"
-                    onClick={handleCreateBlock}
-                    aria-label="Create a new block"
-                  >
-                    <Box className="mr-2 h-4 w-4" aria-hidden="true" />
-                    Create Block
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start focus-visible:ring-2 focus-visible:ring-primary"
+                    className="w-full justify-start hover:bg-blue-50 dark:hover:bg-blue-950/20 hover:border-blue-300 dark:hover:border-blue-700 transition-all"
                     onClick={handleViewWorkflows}
                     aria-label="Design a new workflow"
                   >
-                    <GitBranch className="mr-2 h-4 w-4" aria-hidden="true" />
+                    <GitBranch className="mr-2 h-4 w-4 text-blue-600 dark:text-blue-400" aria-hidden="true" />
                     Design Workflow
                   </Button>
                   <Button
                     variant="outline"
-                    className="w-full justify-start focus-visible:ring-2 focus-visible:ring-primary"
+                    className="w-full justify-start hover:bg-green-50 dark:hover:bg-green-950/20 hover:border-green-300 dark:hover:border-green-700 transition-all"
                     onClick={handleAddKnowledgebase}
                     aria-label="Add a new knowledgebase"
                   >
-                    <Database className="mr-2 h-4 w-4" aria-hidden="true" />
+                    <Database className="mr-2 h-4 w-4 text-green-600 dark:text-green-400" aria-hidden="true" />
                     Add Knowledgebase
                   </Button>
                 </div>

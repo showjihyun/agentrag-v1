@@ -1,159 +1,170 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
+/**
+ * MergeConfig - Merge Branches Tool Configuration
+ * 
+ * Refactored to use common hooks and components
+ */
+
 import { Merge } from 'lucide-react';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { ToolConfigProps } from './ToolConfigRegistry';
+import {
+  ToolConfigHeader,
+  TOOL_HEADER_PRESETS,
+  TextField,
+  NumberField,
+  SelectField,
+  SwitchField,
+  useToolConfig,
+} from './common';
+
+// ============================================
+// Constants
+// ============================================
+
+const MERGE_MODES = [
+  { value: 'wait_all', label: 'Wait for All Inputs' },
+  { value: 'wait_any', label: 'Wait for Any Input' },
+  { value: 'wait_n', label: 'Wait for N Inputs' },
+  { value: 'pass_through', label: 'Pass Through (No Wait)' },
+] as const;
+
+const COMBINE_STRATEGIES = [
+  { value: 'array', label: 'Array (collect all)' },
+  { value: 'object', label: 'Object (merge by key)' },
+  { value: 'concat', label: 'Concatenate Arrays' },
+  { value: 'first', label: 'First Input Only' },
+  { value: 'last', label: 'Last Input Only' },
+] as const;
+
+const SORT_ORDERS = [
+  { value: 'asc', label: 'Ascending' },
+  { value: 'desc', label: 'Descending' },
+] as const;
+
+// ============================================
+// Types
+// ============================================
+
+interface MergeConfigData {
+  merge_mode: string;
+  combine_strategy: string;
+  timeout: number;
+  min_inputs: number;
+  key_field: string;
+  deduplicate: boolean;
+  sort_by: string;
+  sort_order: string;
+}
+
+
+const DEFAULTS: MergeConfigData = {
+  merge_mode: 'wait_all',
+  combine_strategy: 'array',
+  timeout: 60,
+  min_inputs: 1,
+  key_field: '',
+  deduplicate: false,
+  sort_by: '',
+  sort_order: 'asc',
+};
+
+// ============================================
+// Component
+// ============================================
 
 export default function MergeConfig({ data, onChange }: ToolConfigProps) {
-  const [config, setConfig] = useState({
-    merge_mode: data.merge_mode || 'wait_all',
-    combine_strategy: data.combine_strategy || 'array',
-    timeout: data.timeout || 60,
-    min_inputs: data.min_inputs || 1,
-    key_field: data.key_field || '',
-    deduplicate: data.deduplicate || false,
-    sort_by: data.sort_by || '',
-    sort_order: data.sort_order || 'asc',
-    ...data
+  const { config, updateField } = useToolConfig<MergeConfigData>({
+    initialData: data,
+    defaults: DEFAULTS,
+    onChange,
   });
 
-  useEffect(() => {
-    onChange(config);
-  }, [config]);
-
-  const updateConfig = (key: string, value: any) => {
-    setConfig((prev: typeof config) => ({ ...prev, [key]: value }));
-  };
-
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3 pb-4 border-b">
-        <div className="p-2 rounded-lg bg-teal-100 dark:bg-teal-950">
-          <Merge className="h-5 w-5 text-teal-600 dark:text-teal-400" />
-        </div>
-        <div>
-          <h3 className="font-semibold">Merge</h3>
-          <p className="text-sm text-muted-foreground">Merge multiple branches into one</p>
-        </div>
-      </div>
+    <TooltipProvider>
+      <div className="space-y-6">
+        {/* Header */}
+        <ToolConfigHeader
+          icon={Merge}
+          {...TOOL_HEADER_PRESETS.storage}
+          title="Merge"
+          description="여러 분기를 하나로 병합"
+        />
 
-      {/* Merge Mode */}
-      <div className="space-y-2">
-        <Label>Merge Mode</Label>
-        <Select value={config.merge_mode} onValueChange={(v) => updateConfig('merge_mode', v)}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="wait_all">Wait for All Inputs</SelectItem>
-            <SelectItem value="wait_any">Wait for Any Input</SelectItem>
-            <SelectItem value="wait_n">Wait for N Inputs</SelectItem>
-            <SelectItem value="pass_through">Pass Through (No Wait)</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+        {/* Merge Mode */}
+        <SelectField
+          label="병합 모드"
+          value={config.merge_mode}
+          onChange={(v) => updateField('merge_mode', v)}
+          options={MERGE_MODES.map(m => ({ value: m.value, label: m.label }))}
+        />
 
-      {/* Min Inputs (for wait_n) */}
-      {config.merge_mode === 'wait_n' && (
-        <div className="space-y-2">
-          <Label>Minimum Inputs Required</Label>
-          <Input
-            type="number"
-            min="1"
+        {/* Min Inputs (for wait_n) */}
+        {config.merge_mode === 'wait_n' && (
+          <NumberField
+            label="최소 입력 수"
             value={config.min_inputs}
-            onChange={(e) => updateConfig('min_inputs', parseInt(e.target.value) || 1)}
+            onChange={(v) => updateField('min_inputs', v)}
+            min={1}
           />
-        </div>
-      )}
+        )}
 
-      {/* Timeout */}
-      {config.merge_mode !== 'pass_through' && (
-        <div className="space-y-2">
-          <Label>Timeout (seconds)</Label>
-          <Input
-            type="number"
-            min="1"
+        {/* Timeout */}
+        {config.merge_mode !== 'pass_through' && (
+          <NumberField
+            label="타임아웃 (초)"
             value={config.timeout}
-            onChange={(e) => updateConfig('timeout', parseInt(e.target.value) || 60)}
+            onChange={(v) => updateField('timeout', v)}
+            min={1}
+            hint="입력을 기다리는 최대 시간"
           />
-          <p className="text-xs text-muted-foreground">
-            Maximum time to wait for inputs
-          </p>
-        </div>
-      )}
+        )}
 
-      {/* Combine Strategy */}
-      <div className="space-y-2">
-        <Label>Combine Strategy</Label>
-        <Select value={config.combine_strategy} onValueChange={(v) => updateConfig('combine_strategy', v)}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="array">Array (collect all)</SelectItem>
-            <SelectItem value="object">Object (merge by key)</SelectItem>
-            <SelectItem value="concat">Concatenate Arrays</SelectItem>
-            <SelectItem value="first">First Input Only</SelectItem>
-            <SelectItem value="last">Last Input Only</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
 
-      {/* Key Field (for object merge) */}
-      {config.combine_strategy === 'object' && (
-        <div className="space-y-2">
-          <Label>Key Field</Label>
-          <Input
-            placeholder="id or name"
+        {/* Combine Strategy */}
+        <SelectField
+          label="결합 전략"
+          value={config.combine_strategy}
+          onChange={(v) => updateField('combine_strategy', v)}
+          options={COMBINE_STRATEGIES.map(c => ({ value: c.value, label: c.label }))}
+        />
+
+        {/* Key Field (for object merge) */}
+        {config.combine_strategy === 'object' && (
+          <TextField
+            label="키 필드"
             value={config.key_field}
-            onChange={(e) => updateConfig('key_field', e.target.value)}
+            onChange={(v) => updateField('key_field', v)}
+            placeholder="id or name"
+            hint="객체 병합 시 키로 사용할 필드"
           />
-          <p className="text-xs text-muted-foreground">
-            Field to use as key when merging objects
-          </p>
-        </div>
-      )}
+        )}
 
-      {/* Sort */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Sort By (optional)</Label>
-          <Input
-            placeholder="timestamp or priority"
+        {/* Sort */}
+        <div className="grid grid-cols-2 gap-4">
+          <TextField
+            label="정렬 기준 (선택)"
             value={config.sort_by}
-            onChange={(e) => updateConfig('sort_by', e.target.value)}
+            onChange={(v) => updateField('sort_by', v)}
+            placeholder="timestamp or priority"
+          />
+          <SelectField
+            label="정렬 순서"
+            value={config.sort_order}
+            onChange={(v) => updateField('sort_order', v)}
+            options={SORT_ORDERS.map(s => ({ value: s.value, label: s.label }))}
           />
         </div>
-        <div className="space-y-2">
-          <Label>Sort Order</Label>
-          <Select value={config.sort_order} onValueChange={(v) => updateConfig('sort_order', v)}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="asc">Ascending</SelectItem>
-              <SelectItem value="desc">Descending</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
 
-      {/* Deduplicate */}
-      <div className="flex items-center justify-between">
-        <div>
-          <Label>Deduplicate</Label>
-          <p className="text-xs text-muted-foreground">Remove duplicate items</p>
-        </div>
-        <Switch
+        {/* Deduplicate */}
+        <SwitchField
+          label="중복 제거"
+          description="중복 항목 제거"
           checked={config.deduplicate}
-          onCheckedChange={(checked) => updateConfig('deduplicate', checked)}
+          onChange={(v) => updateField('deduplicate', v)}
         />
       </div>
-    </div>
+    </TooltipProvider>
   );
 }

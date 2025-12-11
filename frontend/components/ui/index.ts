@@ -20,7 +20,7 @@ export { Badge } from './badge';
 export { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './card';
 export { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select';
 export { Switch } from './switch';
-export { Tabs, TabsContent, TabsList, TabsTrigger } from './Tabs';
+export { Tabs, TabsContent, TabsList, TabsTrigger } from './tabs';
 export { ScrollArea, ScrollBar } from './scroll-area';
 export { Separator } from './separator';
 export { Slider } from './slider';

@@ -14,7 +14,8 @@ from sqlalchemy.orm import Session
 from backend.core.auth_dependencies import get_current_user
 from backend.db.database import get_db
 from backend.db.models.user import User
-from backend.services.agent_builder.workflow_service import WorkflowService
+from backend.services.agent_builder.facade import AgentBuilderFacade
+from backend.services.agent_builder.shared.errors import NotFoundError
 from backend.services.agent_builder.workflow_testing import (
     get_test_runner,
     TestCase,
@@ -79,20 +80,21 @@ async def run_single_test(
     db: Session = Depends(get_db),
 ):
     """Run a single test case against a workflow."""
-    workflow_service = WorkflowService(db)
-    workflow = workflow_service.get_workflow(workflow_id)
-    
-    if not workflow:
+    try:
+        # Use Facade pattern
+        facade = AgentBuilderFacade(db)
+        workflow = facade.get_workflow(workflow_id)
+        
+        # Check permissions
+        if str(workflow.user_id) != str(current_user.id) and not workflow.is_public:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Permission denied",
+            )
+    except NotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Workflow not found",
-        )
-    
-    # Check permissions
-    if str(workflow.user_id) != str(current_user.id) and not workflow.is_public:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Permission denied",
         )
     
     # Convert request to TestCase
@@ -192,19 +194,20 @@ async def generate_test_cases(
     db: Session = Depends(get_db),
 ):
     """Generate test cases for a workflow."""
-    workflow_service = WorkflowService(db)
-    workflow = workflow_service.get_workflow(workflow_id)
-    
-    if not workflow:
+    try:
+        # Use Facade pattern
+        facade = AgentBuilderFacade(db)
+        workflow = facade.get_workflow(workflow_id)
+        
+        if str(workflow.user_id) != str(current_user.id) and not workflow.is_public:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Permission denied",
+            )
+    except NotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Workflow not found",
-        )
-    
-    if str(workflow.user_id) != str(current_user.id) and not workflow.is_public:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Permission denied",
         )
     
     generator = TestCaseGenerator()
@@ -232,10 +235,11 @@ async def get_test_coverage(
     db: Session = Depends(get_db),
 ):
     """Get test coverage for a workflow."""
-    workflow_service = WorkflowService(db)
-    workflow = workflow_service.get_workflow(workflow_id)
-    
-    if not workflow:
+    try:
+        # Use Facade pattern
+        facade = AgentBuilderFacade(db)
+        workflow = facade.get_workflow(workflow_id)
+    except NotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Workflow not found",
@@ -266,19 +270,20 @@ async def analyze_workflow(
     db: Session = Depends(get_db),
 ):
     """Analyze workflow for optimization opportunities."""
-    workflow_service = WorkflowService(db)
-    workflow = workflow_service.get_workflow(workflow_id)
-    
-    if not workflow:
+    try:
+        # Use Facade pattern
+        facade = AgentBuilderFacade(db)
+        workflow = facade.get_workflow(workflow_id)
+        
+        if str(workflow.user_id) != str(current_user.id) and not workflow.is_public:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Permission denied",
+            )
+    except NotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Workflow not found",
-        )
-    
-    if str(workflow.user_id) != str(current_user.id) and not workflow.is_public:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Permission denied",
         )
     
     optimizer = get_optimizer(db)
@@ -295,19 +300,20 @@ async def apply_optimizations(
     db: Session = Depends(get_db),
 ):
     """Apply optimizations to a workflow."""
-    workflow_service = WorkflowService(db)
-    workflow = workflow_service.get_workflow(workflow_id)
-    
-    if not workflow:
+    try:
+        # Use Facade pattern
+        facade = AgentBuilderFacade(db)
+        workflow = facade.get_workflow(workflow_id)
+        
+        if str(workflow.user_id) != str(current_user.id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Permission denied",
+            )
+    except NotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Workflow not found",
-        )
-    
-    if str(workflow.user_id) != str(current_user.id):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Permission denied",
         )
     
     # Convert string types to enum
@@ -318,11 +324,10 @@ async def apply_optimizations(
     
     # Optionally save the optimized graph
     if request.apply_automatically and result.get("optimized_graph"):
-        from backend.models.agent_builder import WorkflowUpdate
-        
-        workflow_service.update_workflow(
-            workflow_id,
-            WorkflowUpdate(graph_definition=result["optimized_graph"]),
+        # Update workflow through Facade
+        workflow = facade.workflows.update_workflow(
+            workflow_id=workflow_id,
+            graph_definition=result["optimized_graph"],
         )
         result["saved"] = True
     else:
@@ -338,19 +343,20 @@ async def get_workflow_metrics(
     db: Session = Depends(get_db),
 ):
     """Get performance metrics for a workflow."""
-    workflow_service = WorkflowService(db)
-    workflow = workflow_service.get_workflow(workflow_id)
-    
-    if not workflow:
+    try:
+        # Use Facade pattern
+        facade = AgentBuilderFacade(db)
+        workflow = facade.get_workflow(workflow_id)
+        
+        if str(workflow.user_id) != str(current_user.id) and not workflow.is_public:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Permission denied",
+            )
+    except NotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Workflow not found",
-        )
-    
-    if str(workflow.user_id) != str(current_user.id) and not workflow.is_public:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Permission denied",
         )
     
     optimizer = get_optimizer(db)

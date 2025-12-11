@@ -411,22 +411,20 @@ async def create_workflow_from_template(
         raise HTTPException(status_code=404, detail="Template not found")
     
     try:
-        from backend.services.agent_builder.workflow_service import WorkflowService
-        from backend.models.agent_builder import WorkflowCreate
+        from backend.services.agent_builder.facade import AgentBuilderFacade
+        from backend.services.agent_builder.shared.errors import ValidationError
         
-        workflow_service = WorkflowService(db)
+        # Use Facade pattern
+        facade = AgentBuilderFacade(db)
         
         # Create workflow from template
-        workflow_data = WorkflowCreate(
+        workflow = facade.create_workflow(
+            user_id=str(current_user.id),
             name=request.name,
             description=request.description or template.get("description", ""),
-            graph_definition=template["graph_definition"],
+            nodes=template["graph_definition"].get("nodes", []),
+            edges=template["graph_definition"].get("edges", []),
             is_public=False,
-        )
-        
-        workflow = workflow_service.create_workflow(
-            user_id=str(current_user.id),
-            workflow_data=workflow_data,
         )
         
         return {
@@ -435,6 +433,9 @@ async def create_workflow_from_template(
             "message": f"Workflow created from template '{template['name']}'",
         }
         
+    except ValidationError as e:
+        logger.warning(f"Invalid template data: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Failed to create workflow from template: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -454,13 +455,12 @@ async def save_as_template(
     Save an existing workflow as a template.
     """
     try:
-        from backend.services.agent_builder.workflow_service import WorkflowService
+        from backend.services.agent_builder.facade import AgentBuilderFacade
+        from backend.services.agent_builder.shared.errors import NotFoundError
         
-        workflow_service = WorkflowService(db)
-        workflow = workflow_service.get_workflow(workflow_id)
-        
-        if not workflow:
-            raise HTTPException(status_code=404, detail="Workflow not found")
+        # Use Facade pattern
+        facade = AgentBuilderFacade(db)
+        workflow = facade.get_workflow(workflow_id)
         
         if str(workflow.user_id) != str(current_user.id):
             raise HTTPException(status_code=403, detail="Access denied")
@@ -489,6 +489,9 @@ async def save_as_template(
             "message": "Template saved successfully",
         }
         
+    except NotFoundError as e:
+        logger.warning(f"Workflow not found: {e}")
+        raise HTTPException(status_code=404, detail=str(e))
     except HTTPException:
         raise
     except Exception as e:

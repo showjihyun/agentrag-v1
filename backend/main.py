@@ -82,9 +82,9 @@ from backend.core.dependencies import initialize_container, cleanup_container
 
 # Configure structured logging
 from backend.core.structured_logging import (
-    setup_structured_logging,
+    setup_logging,
     get_logger,
-    set_request_context,
+    LogContext,
 )
 
 # Setup structured logging (JSON format in production, plain text in debug)
@@ -96,10 +96,10 @@ log_file = (
 
 # Optimize logging level based on environment
 effective_log_level = settings.LOG_LEVEL if settings.DEBUG else "INFO"
-setup_structured_logging(
+setup_logging(
     log_level=effective_log_level,
-    log_file=log_file,
-    json_format=not settings.DEBUG,  # JSON in production, plain text in debug
+    json_logs=not settings.DEBUG,  # JSON in production, plain text in debug
+    enable_colors=settings.DEBUG,  # Colors in debug mode
 )
 
 logger = get_logger(__name__)
@@ -186,58 +186,53 @@ async def lifespan(app: FastAPI):
         await initialize_health_checks(container)
         logger.info("Health checks initialized")
 
-        # Initialize ColPali processor (warm up model)
-        try:
-            logger.info("Initializing ColPali processor...")
-            from backend.services.colpali_processor import get_colpali_processor
-            
-            colpali = get_colpali_processor()
-            if colpali:
-                logger.info(f"✅ ColPali initialized: model={colpali.model_name}, device={colpali.device}")
-            else:
-                logger.warning("⚠️  ColPali not available")
-        except Exception as e:
-            logger.warning(f"ColPali initialization failed: {e}")
+        # ColPali removed - not used in this system
 
-        # Initialize cache warmer and warm cache on startup
+        # Initialize distributed tracing (OpenTelemetry)
         try:
-            from backend.services.cache_warmer import get_cache_warmer
-            from backend.services.speculative_processor import SpeculativeProcessor
-            from backend.services.embedding import EmbeddingService
-            from backend.services.milvus import MilvusManager
-            from backend.services.llm_manager import LLMManager
+            from backend.core.tracing import setup_tracing
             
-            # Get services
-            embedding_service = EmbeddingService()
-            milvus_manager = MilvusManager(
-                host=settings.MILVUS_HOST,
-                port=settings.MILVUS_PORT,
-                collection_name=settings.MILVUS_COLLECTION_NAME,
-                embedding_dim=embedding_service.dimension,
-            )
-            llm_manager = LLMManager()
+            if not settings.DEBUG:  # Enable in production
+                setup_tracing(
+                    service_name="agentic-rag",
+                    jaeger_host=os.getenv("JAEGER_HOST", "localhost"),
+                    jaeger_port=int(os.getenv("JAEGER_PORT", "6831"))
+                )
+                logger.info("Distributed tracing initialized (Jaeger)")
+        except Exception as e:
+            logger.warning(f"Failed to initialize tracing: {e}")
+
+        # Initialize cache warmer (Phase 3)
+        try:
+            from backend.core.cache_warming import get_cache_warmer
+            from backend.db.database import SessionLocal
             
-            # Create speculative processor
-            speculative_processor = SpeculativeProcessor(
-                embedding_service=embedding_service,
-                milvus_manager=milvus_manager,
-                llm_manager=llm_manager,
-                redis_client=redis_client
-            )
+            def db_factory():
+                return SessionLocal()
             
             # Initialize cache warmer
             cache_warmer = get_cache_warmer(
-                speculative_processor=speculative_processor,
-                redis_client=redis_client
+                redis=redis_client,
+                db_factory=db_factory
             )
             
-            # Warm cache on startup (non-blocking)
-            import asyncio
-            asyncio.create_task(cache_warmer.warm_cache_on_startup())
-            logger.info("Cache warming scheduled")
+            # Start cache warming scheduler
+            cache_warmer.start()
+            logger.info("Cache warming scheduler started")
             
         except Exception as e:
             logger.warning(f"Failed to initialize cache warmer: {e}")
+        
+        # Initialize API key manager
+        try:
+            from backend.core.security.api_key_manager import get_api_key_manager
+            
+            # Initialize with encryption key from environment
+            api_key_manager = get_api_key_manager()
+            logger.info("API key manager initialized")
+            
+        except Exception as e:
+            logger.warning(f"Failed to initialize API key manager: {e}")
 
         # Initialize tool integrations
         try:
@@ -291,6 +286,15 @@ async def lifespan(app: FastAPI):
 
     # Shutdown
     logger.info("Shutting down...")
+    
+    # Stop cache warmer
+    try:
+        from backend.core.cache_warming import get_cache_warmer
+        cache_warmer = get_cache_warmer()
+        cache_warmer.stop()
+        logger.info("Cache warmer stopped")
+    except Exception as e:
+        logger.warning(f"Failed to stop cache warmer: {e}")
     
     # Stop background scheduler
     try:
@@ -489,17 +493,19 @@ async def logging_middleware(request: Request, call_next):
 @app.middleware("http")
 async def request_id_middleware(request: Request, call_next):
     """Add unique request ID to each request and set logging context."""
+    from backend.core.structured_logging import request_id_var, user_id_var
+    
     request_id = str(uuid.uuid4())
     request.state.request_id = request_id
 
     # Set request context for structured logging
-    set_request_context(request_id=request_id)
+    request_id_var.set(request_id)
 
     # Try to extract user_id from request if authenticated
     try:
         if hasattr(request.state, "user") and request.state.user:
             user_id = str(request.state.user.id)
-            set_request_context(user_id=user_id)
+            user_id_var.set(user_id)
     except:
         pass
 
@@ -710,33 +716,32 @@ from backend.core.dependencies import (
 
 
 # Include API routers
-from backend.api import (
-    auth,
-    conversations,
-    documents,
-    query,
-    tasks,
-    feedback,
-    analytics,
-    health,
-    confidence,
-    permissions,
-    metrics,
-    config,
-    database_metrics,
-    export,
-    share,
-    bookmarks,
-    dashboard,
-    notifications,
-    usage,
-    models,
-    react_stats,
-    advanced_rag,
-    enterprise,
-    monitoring_stats,
-    web_search,
-)
+# Import directly from .py files to avoid conflicts with domain folders
+from backend.api.auth import router as auth_router
+from backend.api.conversations import router as conversations_router
+from backend.api.documents import router as documents_router
+from backend.api.query import router as query_router
+from backend.api.tasks import router as tasks_router
+from backend.api.feedback import router as feedback_router
+from backend.api.analytics import router as analytics_router
+from backend.api.health import router as health_router
+from backend.api.confidence import router as confidence_router
+from backend.api.permissions import router as permissions_router
+from backend.api.metrics import router as metrics_router
+from backend.api.config import router as config_router
+from backend.api.database_metrics import router as database_metrics_router
+from backend.api.export import router as export_router
+from backend.api.share import router as share_router
+from backend.api.bookmarks import router as bookmarks_router
+from backend.api.dashboard import router as dashboard_router
+from backend.api.notifications import router as notifications_router
+from backend.api.usage import router as usage_router
+from backend.api.models import router as models_router
+from backend.api.react_stats import router as react_stats_router
+from backend.api.advanced_rag import router as advanced_rag_router
+from backend.api.enterprise import router as enterprise_router
+from backend.api.monitoring_stats import router as monitoring_stats_router
+from backend.api.web_search import router as web_search_router
 
 # Import new monitoring API
 from backend.api import monitoring as monitoring_api
@@ -748,43 +753,43 @@ from backend.api import paddleocr_advanced
 from backend.api.v1 import health as health_v1
 
 # Legacy health router (backward compatibility)
-app.include_router(health.router)
+app.include_router(health_router)
 
 # v1 API routers (Kubernetes-ready health checks)
 app.include_router(health_v1.router)
-app.include_router(auth.router)
-app.include_router(conversations.router)
-app.include_router(documents.router)
-app.include_router(query.router)
-app.include_router(tasks.router)
-app.include_router(feedback.router)
-app.include_router(analytics.router)
-app.include_router(confidence.router)
-app.include_router(permissions.router)
-app.include_router(metrics.router)
-app.include_router(config.router)
-app.include_router(database_metrics.router)
-app.include_router(models.router)
+app.include_router(auth_router)
+app.include_router(conversations_router)
+app.include_router(documents_router)
+app.include_router(query_router)
+app.include_router(tasks_router)
+app.include_router(feedback_router)
+app.include_router(analytics_router)
+app.include_router(confidence_router)
+app.include_router(permissions_router)
+app.include_router(metrics_router)
+app.include_router(config_router)
+app.include_router(database_metrics_router)
+app.include_router(models_router)
 # New routers for Priority 2 & 3 features
-app.include_router(export.router)
-app.include_router(share.router)
-app.include_router(bookmarks.router)
-app.include_router(dashboard.router)
-app.include_router(notifications.router)
-app.include_router(usage.router)
+app.include_router(export_router)
+app.include_router(share_router)
+app.include_router(bookmarks_router)
+app.include_router(dashboard_router)
+app.include_router(notifications_router)
+app.include_router(usage_router)
 # ReAct Statistics API
-app.include_router(react_stats.router)
+app.include_router(react_stats_router)
 # Monitoring API (Priority 1)
-app.include_router(monitoring_stats.router)
+app.include_router(monitoring_stats_router)
 
 # New Monitoring Statistics API (PostgreSQL-based)
 app.include_router(monitoring_api.router)
 # Advanced RAG API (Priority 3)
-app.include_router(advanced_rag.router)
+app.include_router(advanced_rag_router)
 # Enterprise API (Priority 4)
-app.include_router(enterprise.router)
+app.include_router(enterprise_router)
 # Web Search API
-app.include_router(web_search.router)
+app.include_router(web_search_router)
 
 # PaddleOCR Advanced API (Phase 1: PP-ChatOCRv4)
 app.include_router(paddleocr_advanced.router)
@@ -804,6 +809,10 @@ app.include_router(cache_metrics.router)
 # Admin API
 from backend.api import admin
 app.include_router(admin.router)
+
+# Event Store API
+from backend.api import event_store
+app.include_router(event_store.router)
 
 # Agent Builder API
 from backend.api.agent_builder import (
@@ -858,6 +867,16 @@ from backend.api.agent_builder import (
     code_analyzer as agent_builder_code_analyzer,  # Code analysis/linting
     code_profiler as agent_builder_code_profiler,  # Performance profiling & test generation
     code_secrets as agent_builder_code_secrets,  # Secrets management
+    flows as agent_builder_flows,  # Agentflow & Chatflow management
+    agentflows as agent_builder_agentflows,  # Agentflow-specific API
+    chatflows as agent_builder_chatflows,  # Chatflow-specific API
+    embed as agent_builder_embed,  # Embed widget for Chatflows
+    flow_templates as agent_builder_flow_templates,  # Flow templates management
+    chatflow_chat as agent_builder_chatflow_chat,  # Chatflow chat API
+    prometheus_metrics as agent_builder_prometheus_metrics,  # Prometheus metrics export
+    agentflow_execution as agent_builder_agentflow_execution,  # Agentflow execution API
+    workflows_ddd as agent_builder_workflows_ddd,  # DDD Reference Implementation
+    nlp_generator as agent_builder_nlp_generator,  # NLP Workflow Generator
 )
 
 # Circuit Breaker Status API (Phase 1 Architecture)
@@ -921,6 +940,16 @@ app.include_router(agent_builder_code_debugger.router)  # Interactive debugger
 app.include_router(agent_builder_code_analyzer.router)  # Code analysis/linting
 app.include_router(agent_builder_code_profiler.router)  # Performance profiling & test generation
 app.include_router(agent_builder_code_secrets.router)  # Secrets management
+app.include_router(agent_builder_flows.router)  # Agentflow & Chatflow management
+app.include_router(agent_builder_agentflows.router)  # Agentflow-specific API
+app.include_router(agent_builder_chatflows.router)  # Chatflow-specific API
+app.include_router(agent_builder_embed.router)  # Embed widget for Chatflows
+app.include_router(agent_builder_flow_templates.router)  # Flow templates management
+app.include_router(agent_builder_nlp_generator.router)  # NLP Workflow Generator
+app.include_router(agent_builder_chatflow_chat.router)  # Chatflow chat API
+app.include_router(agent_builder_prometheus_metrics.router)  # Prometheus metrics export
+app.include_router(agent_builder_agentflow_execution.router)  # Agentflow execution API
+app.include_router(agent_builder_workflows_ddd.router)  # DDD Reference Implementation
 app.include_router(llm_settings.router)
 
 # Environment Variables API

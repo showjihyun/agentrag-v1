@@ -1,263 +1,273 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+/**
+ * TryCatchConfig - Error Handling Tool Configuration
+ * 
+ * Refactored to use common hooks and components
+ */
+
+import { useCallback } from 'react';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
-import { Button } from '@/components/ui/button';
 import { ShieldAlert, Plus, Trash } from 'lucide-react';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { ToolConfigProps } from './ToolConfigRegistry';
+import {
+  ToolConfigHeader,
+  TextField,
+  NumberField,
+  TextareaField,
+  SelectField,
+  SwitchField,
+  useToolConfig,
+} from './common';
+
+// ============================================
+// Constants
+// ============================================
+
+const BACKOFF_STRATEGIES = [
+  { value: 'fixed', label: 'Fixed Delay' },
+  { value: 'linear', label: 'Linear (delay * attempt)' },
+  { value: 'exponential', label: 'Exponential (delay * 2^attempt)' },
+] as const;
+
+const ERROR_TYPES = [
+  { value: 'all', label: 'All Errors' },
+  { value: 'timeout', label: 'Timeout Errors' },
+  { value: 'network', label: 'Network Errors' },
+  { value: 'validation', label: 'Validation Errors' },
+  { value: 'auth', label: 'Authentication Errors' },
+  { value: 'rate_limit', label: 'Rate Limit Errors' },
+] as const;
+
+const HANDLER_ACTIONS = [
+  { value: 'continue', label: 'Continue' },
+  { value: 'retry', label: 'Retry' },
+  { value: 'skip', label: 'Skip' },
+  { value: 'fail', label: 'Fail' },
+  { value: 'goto', label: 'Go to Node' },
+] as const;
+
+
+const NOTIFICATION_CHANNELS = [
+  { value: 'email', label: 'Email' },
+  { value: 'slack', label: 'Slack' },
+  { value: 'webhook', label: 'Webhook' },
+] as const;
+
+// ============================================
+// Types
+// ============================================
+
+interface ErrorHandler {
+  error_type: string;
+  action: string;
+  value: string;
+}
+
+interface TryCatchConfigData {
+  retry_count: number;
+  retry_delay: number;
+  retry_backoff: string;
+  catch_errors: string[];
+  error_output: string;
+  continue_on_error: boolean;
+  fallback_value: string;
+  log_errors: boolean;
+  notify_on_error: boolean;
+  notification_channel: string;
+  custom_error_handlers: ErrorHandler[];
+}
+
+const DEFAULTS: TryCatchConfigData = {
+  retry_count: 0,
+  retry_delay: 1000,
+  retry_backoff: 'fixed',
+  catch_errors: ['all'],
+  error_output: 'error',
+  continue_on_error: false,
+  fallback_value: '',
+  log_errors: true,
+  notify_on_error: false,
+  notification_channel: '',
+  custom_error_handlers: [],
+};
+
+// ============================================
+// Component
+// ============================================
 
 export default function TryCatchConfig({ data, onChange }: ToolConfigProps) {
-  const [config, setConfig] = useState({
-    retry_count: data.retry_count || 0,
-    retry_delay: data.retry_delay || 1000,
-    retry_backoff: data.retry_backoff || 'fixed',
-    catch_errors: data.catch_errors || ['all'],
-    error_output: data.error_output || 'error',
-    continue_on_error: data.continue_on_error || false,
-    fallback_value: data.fallback_value || '',
-    log_errors: data.log_errors !== false,
-    notify_on_error: data.notify_on_error || false,
-    notification_channel: data.notification_channel || '',
-    custom_error_handlers: data.custom_error_handlers || [],
-    ...data
+  const { config, updateField } = useToolConfig<TryCatchConfigData>({
+    initialData: data,
+    defaults: DEFAULTS,
+    onChange,
   });
 
-  useEffect(() => {
-    onChange(config);
-  }, [config]);
 
-  const updateConfig = (key: string, value: any) => {
-    setConfig((prev: typeof config) => ({ ...prev, [key]: value }));
-  };
-
-  const addErrorHandler = () => {
-    updateConfig('custom_error_handlers', [
+  const addErrorHandler = useCallback(() => {
+    updateField('custom_error_handlers', [
       ...config.custom_error_handlers,
-      { error_type: '', action: 'continue', value: '' }
+      { error_type: '', action: 'continue', value: '' },
     ]);
-  };
+  }, [config.custom_error_handlers, updateField]);
 
-  const updateErrorHandler = (index: number, field: string, value: string) => {
+  const updateErrorHandler = useCallback((index: number, field: keyof ErrorHandler, value: string) => {
     const newHandlers = [...config.custom_error_handlers];
-    newHandlers[index][field] = value;
-    updateConfig('custom_error_handlers', newHandlers);
-  };
+    newHandlers[index] = { ...newHandlers[index], [field]: value };
+    updateField('custom_error_handlers', newHandlers);
+  }, [config.custom_error_handlers, updateField]);
 
-  const removeErrorHandler = (index: number) => {
-    updateConfig('custom_error_handlers', 
-      config.custom_error_handlers.filter((_: any, i: number) => i !== index)
-    );
-  };
+  const removeErrorHandler = useCallback((index: number) => {
+    updateField('custom_error_handlers', config.custom_error_handlers.filter((_, i) => i !== index));
+  }, [config.custom_error_handlers, updateField]);
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3 pb-4 border-b">
-        <div className="p-2 rounded-lg bg-red-100 dark:bg-red-950">
-          <ShieldAlert className="h-5 w-5 text-red-600 dark:text-red-400" />
-        </div>
-        <div>
-          <h3 className="font-semibold">Try/Catch</h3>
-          <p className="text-sm text-muted-foreground">Error handling and recovery</p>
-        </div>
-      </div>
+    <TooltipProvider>
+      <div className="space-y-6">
+        {/* Header */}
+        <ToolConfigHeader
+          icon={ShieldAlert}
+          iconBgColor="bg-red-100 dark:bg-red-950"
+          iconColor="text-red-600 dark:text-red-400"
+          title="Try/Catch"
+          description="에러 처리 및 복구"
+        />
 
-      {/* Retry Settings */}
-      <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
-        <h4 className="font-medium text-sm">Retry Settings</h4>
-        
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label>Retry Count</Label>
-            <Input
-              type="number"
-              min="0"
-              max="10"
+        {/* Retry Settings */}
+        <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
+          <h4 className="font-medium text-sm">재시도 설정</h4>
+          <div className="grid grid-cols-2 gap-4">
+            <NumberField
+              label="재시도 횟수"
               value={config.retry_count}
-              onChange={(e) => updateConfig('retry_count', parseInt(e.target.value) || 0)}
+              onChange={(v) => updateField('retry_count', v)}
+              min={0}
+              max={10}
             />
-          </div>
-          <div className="space-y-2">
-            <Label>Retry Delay (ms)</Label>
-            <Input
-              type="number"
-              min="0"
-              step="100"
+            <NumberField
+              label="재시도 지연 (ms)"
               value={config.retry_delay}
-              onChange={(e) => updateConfig('retry_delay', parseInt(e.target.value) || 1000)}
+              onChange={(v) => updateField('retry_delay', v)}
+              min={0}
             />
           </div>
+          <SelectField
+            label="백오프 전략"
+            value={config.retry_backoff}
+            onChange={(v) => updateField('retry_backoff', v)}
+            options={BACKOFF_STRATEGIES.map(b => ({ value: b.value, label: b.label }))}
+          />
         </div>
 
-        <div className="space-y-2">
-          <Label>Backoff Strategy</Label>
-          <Select value={config.retry_backoff} onValueChange={(v) => updateConfig('retry_backoff', v)}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="fixed">Fixed Delay</SelectItem>
-              <SelectItem value="linear">Linear (delay * attempt)</SelectItem>
-              <SelectItem value="exponential">Exponential (delay * 2^attempt)</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
 
-      {/* Error Types to Catch */}
-      <div className="space-y-2">
-        <Label>Catch Error Types</Label>
-        <Select 
-          value={config.catch_errors[0] || 'all'} 
-          onValueChange={(v) => updateConfig('catch_errors', [v])}
-        >
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Errors</SelectItem>
-            <SelectItem value="timeout">Timeout Errors</SelectItem>
-            <SelectItem value="network">Network Errors</SelectItem>
-            <SelectItem value="validation">Validation Errors</SelectItem>
-            <SelectItem value="auth">Authentication Errors</SelectItem>
-            <SelectItem value="rate_limit">Rate Limit Errors</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+        {/* Error Types to Catch */}
+        <SelectField
+          label="캐치할 에러 유형"
+          value={config.catch_errors[0] || 'all'}
+          onChange={(v) => updateField('catch_errors', [v])}
+          options={ERROR_TYPES.map(e => ({ value: e.value, label: e.label }))}
+        />
 
-      {/* Error Output */}
-      <div className="space-y-2">
-        <Label>Error Output Name</Label>
-        <Input
-          placeholder="error"
+        {/* Error Output */}
+        <TextField
+          label="에러 출력 이름"
           value={config.error_output}
-          onChange={(e) => updateConfig('error_output', e.target.value)}
+          onChange={(v) => updateField('error_output', v)}
+          placeholder="error"
+          hint="에러 상세 정보를 저장할 변수명 ({{error}}로 접근)"
         />
-        <p className="text-xs text-muted-foreground">
-          Variable name to store error details (accessible as {'{{error}}'})
-        </p>
-      </div>
 
-      {/* Fallback Value */}
-      <div className="space-y-2">
-        <Label>Fallback Value (on error)</Label>
-        <Textarea
-          placeholder='{"status": "failed", "data": null}'
+        {/* Fallback Value */}
+        <TextareaField
+          label="폴백 값 (에러 시)"
           value={config.fallback_value}
-          onChange={(e) => updateConfig('fallback_value', e.target.value)}
+          onChange={(v) => updateField('fallback_value', v)}
+          placeholder='{"status": "failed", "data": null}'
           rows={3}
-          className="font-mono text-sm"
+          mono
         />
-      </div>
 
-      {/* Custom Error Handlers */}
-      <div className="space-y-3">
-        <Label>Custom Error Handlers</Label>
-        {config.custom_error_handlers.map((handler: any, index: number) => (
-          <div key={index} className="p-3 border rounded-lg bg-muted/30 space-y-2">
-            <div className="flex gap-2">
-              <Input
-                placeholder="Error type or message pattern"
-                value={handler.error_type}
-                onChange={(e) => updateErrorHandler(index, 'error_type', e.target.value)}
-                className="flex-1"
-              />
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => removeErrorHandler(index)}
-              >
-                <Trash className="h-4 w-4" />
-              </Button>
+        {/* Custom Error Handlers */}
+        <div className="space-y-3">
+          <Label>커스텀 에러 핸들러</Label>
+          {config.custom_error_handlers.map((handler, index) => (
+            <div key={index} className="p-3 border rounded-lg bg-muted/30 space-y-2">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="에러 유형 또는 메시지 패턴"
+                  value={handler.error_type}
+                  onChange={(e) => updateErrorHandler(index, 'error_type', e.target.value)}
+                  className="flex-1"
+                />
+                <Button variant="ghost" size="icon" onClick={() => removeErrorHandler(index)}>
+                  <Trash className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Select
+                  value={handler.action}
+                  onValueChange={(v) => updateErrorHandler(index, 'action', v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {HANDLER_ACTIONS.map(a => (
+                      <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  placeholder="값 또는 노드 ID"
+                  value={handler.value}
+                  onChange={(e) => updateErrorHandler(index, 'value', e.target.value)}
+                />
+              </div>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <Select
-                value={handler.action}
-                onValueChange={(v) => updateErrorHandler(index, 'action', v)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="continue">Continue</SelectItem>
-                  <SelectItem value="retry">Retry</SelectItem>
-                  <SelectItem value="skip">Skip</SelectItem>
-                  <SelectItem value="fail">Fail</SelectItem>
-                  <SelectItem value="goto">Go to Node</SelectItem>
-                </SelectContent>
-              </Select>
-              <Input
-                placeholder="Value or node ID"
-                value={handler.value}
-                onChange={(e) => updateErrorHandler(index, 'value', e.target.value)}
-              />
-            </div>
-          </div>
-        ))}
-        <Button variant="outline" size="sm" onClick={addErrorHandler} className="w-full">
-          <Plus className="h-4 w-4 mr-2" />
-          Add Error Handler
-        </Button>
-      </div>
-
-      {/* Options */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <Label>Continue on Error</Label>
-            <p className="text-xs text-muted-foreground">Continue workflow even if error occurs</p>
-          </div>
-          <Switch
-            checked={config.continue_on_error}
-            onCheckedChange={(checked) => updateConfig('continue_on_error', checked)}
-          />
+          ))}
+          <Button variant="outline" size="sm" onClick={addErrorHandler} className="w-full">
+            <Plus className="h-4 w-4 mr-2" />
+            에러 핸들러 추가
+          </Button>
         </div>
 
-        <div className="flex items-center justify-between">
-          <div>
-            <Label>Log Errors</Label>
-            <p className="text-xs text-muted-foreground">Log error details for debugging</p>
-          </div>
-          <Switch
-            checked={config.log_errors}
-            onCheckedChange={(checked) => updateConfig('log_errors', checked)}
-          />
-        </div>
 
-        <div className="flex items-center justify-between">
-          <div>
-            <Label>Notify on Error</Label>
-            <p className="text-xs text-muted-foreground">Send notification when error occurs</p>
-          </div>
-          <Switch
-            checked={config.notify_on_error}
-            onCheckedChange={(checked) => updateConfig('notify_on_error', checked)}
-          />
-        </div>
+        {/* Options */}
+        <SwitchField
+          label="에러 시 계속"
+          description="에러가 발생해도 워크플로우 계속 진행"
+          checked={config.continue_on_error}
+          onChange={(v) => updateField('continue_on_error', v)}
+        />
+
+        <SwitchField
+          label="에러 로깅"
+          description="디버깅을 위해 에러 상세 정보 기록"
+          checked={config.log_errors}
+          onChange={(v) => updateField('log_errors', v)}
+        />
+
+        <SwitchField
+          label="에러 시 알림"
+          description="에러 발생 시 알림 전송"
+          checked={config.notify_on_error}
+          onChange={(v) => updateField('notify_on_error', v)}
+        />
 
         {config.notify_on_error && (
-          <div className="space-y-2">
-            <Label>Notification Channel</Label>
-            <Select 
-              value={config.notification_channel} 
-              onValueChange={(v) => updateConfig('notification_channel', v)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select channel" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="email">Email</SelectItem>
-                <SelectItem value="slack">Slack</SelectItem>
-                <SelectItem value="webhook">Webhook</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <SelectField
+            label="알림 채널"
+            value={config.notification_channel}
+            onChange={(v) => updateField('notification_channel', v)}
+            options={NOTIFICATION_CHANNELS.map(n => ({ value: n.value, label: n.label }))}
+            placeholder="채널 선택"
+          />
         )}
       </div>
-    </div>
+    </TooltipProvider>
   );
 }

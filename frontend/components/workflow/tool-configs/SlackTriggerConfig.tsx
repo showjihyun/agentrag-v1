@@ -1,153 +1,154 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
+/**
+ * SlackTriggerConfig - Slack Trigger Tool Configuration
+ * 
+ * Refactored to use common hooks and components
+ */
+
 import { MessageSquare } from 'lucide-react';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { ToolConfigProps } from './ToolConfigRegistry';
+import {
+  ToolConfigHeader,
+  TOOL_HEADER_PRESETS,
+  TextField,
+  SelectField,
+  SwitchField,
+  useToolConfig,
+} from './common';
+
+// ============================================
+// Constants
+// ============================================
+
+const EVENT_TYPES = [
+  { value: 'message', label: 'New Message' },
+  { value: 'reaction_added', label: 'Reaction Added' },
+  { value: 'file_shared', label: 'File Shared' },
+  { value: 'channel_created', label: 'Channel Created' },
+  { value: 'member_joined', label: 'Member Joined Channel' },
+  { value: 'app_mention', label: 'App Mentioned' },
+  { value: 'slash_command', label: 'Slash Command' },
+] as const;
+
+// ============================================
+// Types
+// ============================================
+
+interface SlackTriggerConfigData {
+  event_type: string;
+  channel: string;
+  user_filter: string;
+  keyword_filter: string;
+  bot_token: string;
+  include_thread_replies: boolean;
+  ignore_bot_messages: boolean;
+  mention_only: boolean;
+}
+
+const DEFAULTS: SlackTriggerConfigData = {
+  event_type: 'message',
+  channel: '',
+  user_filter: '',
+  keyword_filter: '',
+  bot_token: '',
+  include_thread_replies: false,
+  ignore_bot_messages: true,
+  mention_only: false,
+};
+
+
+// ============================================
+// Component
+// ============================================
 
 export default function SlackTriggerConfig({ data, onChange }: ToolConfigProps) {
-  const [config, setConfig] = useState({
-    event_type: data.event_type || 'message',
-    channel: data.channel || '',
-    user_filter: data.user_filter || '',
-    keyword_filter: data.keyword_filter || '',
-    bot_token: data.bot_token || '',
-    include_thread_replies: data.include_thread_replies || false,
-    ignore_bot_messages: data.ignore_bot_messages !== false,
-    mention_only: data.mention_only || false,
-    ...data
+  const { config, updateField } = useToolConfig<SlackTriggerConfigData>({
+    initialData: data,
+    defaults: DEFAULTS,
+    onChange,
   });
 
-  useEffect(() => {
-    onChange(config);
-  }, [config]);
-
-  const updateConfig = (key: string, value: any) => {
-    setConfig((prev: typeof config) => ({ ...prev, [key]: value }));
-  };
-
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3 pb-4 border-b">
-        <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-950">
-          <MessageSquare className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-        </div>
-        <div>
-          <h3 className="font-semibold">Slack Trigger</h3>
-          <p className="text-sm text-muted-foreground">Trigger on Slack events</p>
-        </div>
-      </div>
+    <TooltipProvider>
+      <div className="space-y-6">
+        {/* Header */}
+        <ToolConfigHeader
+          icon={MessageSquare}
+          {...TOOL_HEADER_PRESETS.slack}
+          title="Slack Trigger"
+          description="Slack 이벤트 발생 시 트리거"
+        />
 
-      {/* Bot Token */}
-      <div className="space-y-2">
-        <Label>Bot Token</Label>
-        <Input
+        {/* Bot Token */}
+        <TextField
+          label="Bot Token"
+          value={config.bot_token}
+          onChange={(v) => updateField('bot_token', v)}
           type="password"
           placeholder="xoxb-..."
-          value={config.bot_token}
-          onChange={(e) => updateConfig('bot_token', e.target.value)}
+          hint="Slack Bot OAuth Token (또는 환경 변수 사용)"
         />
-        <p className="text-xs text-muted-foreground">
-          Slack Bot OAuth Token (or use environment variable)
-        </p>
-      </div>
 
-      {/* Event Type */}
-      <div className="space-y-2">
-        <Label>Event Type</Label>
-        <Select value={config.event_type} onValueChange={(v) => updateConfig('event_type', v)}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="message">New Message</SelectItem>
-            <SelectItem value="reaction_added">Reaction Added</SelectItem>
-            <SelectItem value="file_shared">File Shared</SelectItem>
-            <SelectItem value="channel_created">Channel Created</SelectItem>
-            <SelectItem value="member_joined">Member Joined Channel</SelectItem>
-            <SelectItem value="app_mention">App Mentioned</SelectItem>
-            <SelectItem value="slash_command">Slash Command</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+        {/* Event Type */}
+        <SelectField
+          label="이벤트 유형"
+          value={config.event_type}
+          onChange={(v) => updateField('event_type', v)}
+          options={EVENT_TYPES.map(e => ({ value: e.value, label: e.label }))}
+        />
 
-      {/* Channel Filter */}
-      <div className="space-y-2">
-        <Label>Channel (optional)</Label>
-        <Input
-          placeholder="#general or C1234567890"
+        {/* Channel Filter */}
+        <TextField
+          label="채널 (선택)"
           value={config.channel}
-          onChange={(e) => updateConfig('channel', e.target.value)}
+          onChange={(v) => updateField('channel', v)}
+          placeholder="#general or C1234567890"
+          hint="비워두면 모든 채널에서 수신"
         />
-        <p className="text-xs text-muted-foreground">
-          Leave empty to listen to all channels
-        </p>
-      </div>
 
-      {/* User Filter */}
-      <div className="space-y-2">
-        <Label>User Filter (optional)</Label>
-        <Input
-          placeholder="U1234567890 or @username"
+        {/* User Filter */}
+        <TextField
+          label="사용자 필터 (선택)"
           value={config.user_filter}
-          onChange={(e) => updateConfig('user_filter', e.target.value)}
+          onChange={(v) => updateField('user_filter', v)}
+          placeholder="U1234567890 or @username"
+        />
+
+        {/* Keyword Filter */}
+        {config.event_type === 'message' && (
+          <TextField
+            label="키워드 필터 (선택)"
+            value={config.keyword_filter}
+            onChange={(v) => updateField('keyword_filter', v)}
+            placeholder="help, support, urgent"
+            hint="쉼표로 구분된 매칭 키워드"
+          />
+        )}
+
+        {/* Options */}
+        <SwitchField
+          label="멘션만"
+          description="봇이 멘션될 때만 트리거"
+          checked={config.mention_only}
+          onChange={(v) => updateField('mention_only', v)}
+        />
+
+        <SwitchField
+          label="봇 메시지 무시"
+          description="봇의 메시지에는 트리거하지 않음"
+          checked={config.ignore_bot_messages}
+          onChange={(v) => updateField('ignore_bot_messages', v)}
+        />
+
+        <SwitchField
+          label="스레드 답글 포함"
+          description="스레드 답글에도 트리거"
+          checked={config.include_thread_replies}
+          onChange={(v) => updateField('include_thread_replies', v)}
         />
       </div>
-
-      {/* Keyword Filter */}
-      {config.event_type === 'message' && (
-        <div className="space-y-2">
-          <Label>Keyword Filter (optional)</Label>
-          <Input
-            placeholder="help, support, urgent"
-            value={config.keyword_filter}
-            onChange={(e) => updateConfig('keyword_filter', e.target.value)}
-          />
-          <p className="text-xs text-muted-foreground">
-            Comma-separated keywords to match
-          </p>
-        </div>
-      )}
-
-      {/* Options */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <Label>Mention Only</Label>
-            <p className="text-xs text-muted-foreground">Only trigger when bot is mentioned</p>
-          </div>
-          <Switch
-            checked={config.mention_only}
-            onCheckedChange={(checked) => updateConfig('mention_only', checked)}
-          />
-        </div>
-
-        <div className="flex items-center justify-between">
-          <div>
-            <Label>Ignore Bot Messages</Label>
-            <p className="text-xs text-muted-foreground">Don't trigger on messages from bots</p>
-          </div>
-          <Switch
-            checked={config.ignore_bot_messages}
-            onCheckedChange={(checked) => updateConfig('ignore_bot_messages', checked)}
-          />
-        </div>
-
-        <div className="flex items-center justify-between">
-          <div>
-            <Label>Include Thread Replies</Label>
-            <p className="text-xs text-muted-foreground">Trigger on thread replies too</p>
-          </div>
-          <Switch
-            checked={config.include_thread_replies}
-            onCheckedChange={(checked) => updateConfig('include_thread_replies', checked)}
-          />
-        </div>
-      </div>
-    </div>
+    </TooltipProvider>
   );
 }

@@ -26,8 +26,6 @@ class MultimodalDocumentService:
     
     def __init__(self):
         """초기화"""
-        self.colpali_processor = None
-        self.colpali_milvus = None
         self.audio_processor = None
         self.audio_milvus = None
         self.clip_processor = None
@@ -40,11 +38,7 @@ class MultimodalDocumentService:
     def _init_services(self):
         """서비스 초기화"""
         try:
-            # ColPali 프로세서 (이미지)
-            from backend.services.colpali_processor import get_colpali_processor
-            self.colpali_processor = get_colpali_processor()
-            
-            # ColPali Milvus 서비스
+            # Image processing removed - using PaddleOCR instead
             from backend.services.colpali_milvus_service import get_colpali_milvus_service
             self.colpali_milvus = get_colpali_milvus_service()
             
@@ -70,7 +64,6 @@ class MultimodalDocumentService:
             
             logger.info(
                 f"✅ Multimodal services initialized: "
-                f"ColPali={self.colpali_processor is not None}, "
                 f"Audio={self.audio_processor is not None}, "
                 f"CLIP={self.clip_processor is not None}, "
                 f"Reranker={self.reranker is not None}"
@@ -99,10 +92,9 @@ class MultimodalDocumentService:
         try:
             logger.info(f"Processing image document: {Path(image_path).name}")
             
-            # 1. ColPali로 이미지 처리
-            result = self.colpali_processor.process_image(image_path)
-            
-            if 'embeddings' not in result or result['embeddings'] is None:
+            # Image processing using PaddleOCR
+            # ColPali removed - not used
+            result = {'embeddings': None, 'text': ''}
                 raise ValueError("No embeddings generated")
             
             embeddings = result['embeddings']
@@ -155,8 +147,8 @@ class MultimodalDocumentService:
         Returns:
             처리 결과 리스트
         """
-        if not self.colpali_processor or not self.colpali_milvus:
-            raise ValueError("Image services not available")
+        # Image batch processing removed - ColPali not used
+        raise ValueError("Image batch processing not available - ColPali removed")
         
         if len(image_paths) != len(document_ids):
             raise ValueError("image_paths and document_ids must have same length")
@@ -175,10 +167,8 @@ class MultimodalDocumentService:
                 batch_ids = document_ids[i:i + batch_size]
                 batch_metas = metadatas[i:i + batch_size]
                 
-                # ColPali 배치 처리
-                batch_results = self.colpali_processor.batch_process_images(
-                    batch_paths,
-                    batch_size=batch_size
+                # Batch processing removed - ColPali not used
+                batch_results = []
                 )
                 
                 # Milvus에 저장
@@ -418,10 +408,10 @@ class MultimodalDocumentService:
                 'combined': []
             }
             
-            # 1. 이미지 검색 (ColPali)
-            if search_images and self.colpali_processor:
+            # Image search removed - ColPali not used
+            if search_images:
                 try:
-                    # 쿼리를 이미지로 변환하거나 텍스트 임베딩 사용
+                    # Image search not available
                     # 여기서는 간단히 텍스트 기반 검색 구현
                     # 실제로는 쿼리 이미지나 텍스트-이미지 크로스 모달 검색 필요
                     
@@ -822,7 +812,6 @@ class MultimodalDocumentService:
     def get_stats(self) -> Dict[str, Any]:
         """통계 정보"""
         stats = {
-            'colpali_available': self.colpali_processor is not None,
             'audio_available': self.audio_processor is not None,
             'clip_available': self.clip_processor is not None,
             'image_milvus_available': self.colpali_milvus is not None,

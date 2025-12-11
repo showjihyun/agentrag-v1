@@ -5,7 +5,7 @@ Integration tests for hybrid search system.
 import pytest
 import asyncio
 from unittest.mock import Mock, AsyncMock
-from backend.services.hybrid_search import HybridSearchManager
+from backend.services.hybrid_search import HybridSearchService as HybridSearchManager
 from backend.services.search_cache import SearchCacheManager
 from backend.services.query_expansion import QueryExpansionService
 from backend.services.reranker import RerankerService

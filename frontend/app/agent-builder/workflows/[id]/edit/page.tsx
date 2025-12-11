@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { agentBuilderAPI } from '@/lib/api/agent-builder';
+import { getErrorMessage } from '@/lib/errors';
 import { ArrowLeft, Save, Play, Eye } from 'lucide-react';
 import type { Node, Edge } from 'reactflow';
 
@@ -142,7 +143,7 @@ export default function WorkflowEditPage() {
       console.error('❌ Failed to load workflow:', error);
       toast({
         title: 'Error',
-        description: error.message || 'Failed to load workflow',
+        description: getErrorMessage(error),
         variant: 'destructive',
       });
     } finally {
@@ -248,9 +249,10 @@ export default function WorkflowEditPage() {
         description: 'Workflow saved successfully',
       });
     } catch (error: any) {
+      console.error('❌ Failed to save workflow:', error);
       toast({
         title: '❌ Error',
-        description: error.message || 'Failed to save workflow',
+        description: getErrorMessage(error),
         variant: 'destructive',
       });
     } finally {

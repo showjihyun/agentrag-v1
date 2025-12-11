@@ -10,7 +10,12 @@ from backend.core.auth_dependencies import get_current_user
 from backend.db.database import get_db
 from backend.db.models.user import User
 from backend.db.transaction import transactional
-from backend.services.agent_builder.block_service import BlockService
+# DDD Architecture
+from backend.services.agent_builder.facade import AgentBuilderFacade
+from backend.services.agent_builder.shared.errors import (
+    NotFoundError,
+    ValidationError,
+)
 from backend.models.agent_builder import (
     BlockCreate,
     BlockUpdate,
@@ -66,8 +71,9 @@ async def create_block(
     try:
         logger.info(f"Creating block for user {current_user.id}: {block_data.name}")
         
-        block_service = BlockService(db)
-        block = block_service.create_block(
+        # Use Facade pattern
+        facade = AgentBuilderFacade(db)
+        block = facade.create_block(
             user_id=str(current_user.id),
             block_data=block_data
         )
@@ -92,7 +98,7 @@ async def create_block(
             version_count=0
         )
         
-    except ValueError as e:
+    except ValidationError as e:
         logger.warning(f"Invalid block data: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -137,14 +143,9 @@ async def get_block(
     try:
         logger.info(f"Fetching block {block_id} for user {current_user.id}")
         
-        block_service = BlockService(db)
-        block = block_service.get_block(block_id)
-        
-        if not block:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Block {block_id} not found"
-            )
+        # Use Facade pattern
+        facade = AgentBuilderFacade(db)
+        block = facade.get_block(block_id)
         
         # Check permissions (owner or public)
         if str(block.user_id) != str(current_user.id) and not block.is_public:
@@ -171,6 +172,12 @@ async def get_block(
             version_count=0
         )
         
+    except NotFoundError as e:
+        logger.warning(f"Block not found: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -217,15 +224,11 @@ async def update_block(
     try:
         logger.info(f"Updating block {block_id} for user {current_user.id}")
         
-        block_service = BlockService(db)
+        # Use Facade pattern
+        facade = AgentBuilderFacade(db)
         
         # Check ownership
-        existing_block = block_service.get_block(block_id)
-        if not existing_block:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Block {block_id} not found"
-            )
+        existing_block = facade.get_block(block_id)
         
         if str(existing_block.user_id) != str(current_user.id):
             raise HTTPException(
@@ -234,7 +237,7 @@ async def update_block(
             )
         
         # Update block
-        updated_block = block_service.update_block(block_id, block_data)
+        updated_block = facade.update_block(block_id, block_data)
         
         logger.info(f"Block updated successfully: {block_id}")
         
@@ -256,14 +259,20 @@ async def update_block(
             version_count=0
         )
         
-    except HTTPException:
-        raise
-    except ValueError as e:
+    except NotFoundError as e:
+        logger.warning(f"Block not found: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+    except ValidationError as e:
         logger.warning(f"Invalid block data: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to update block: {e}", exc_info=True)
         raise HTTPException(
@@ -303,29 +312,31 @@ async def delete_block(
     try:
         logger.info(f"Deleting block {block_id} for user {current_user.id}")
         
-        block_service = BlockService(db)
+        # Use Facade pattern
+        facade = AgentBuilderFacade(db)
         
         # Check ownership
-        existing_block = block_service.get_block(block_id)
-        if not existing_block:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Block {block_id} not found"
-            )
+        existing_block = facade.get_block(block_id)
         
-        if existing_str(block.user_id) != str(current_user.id):
+        if str(existing_block.user_id) != str(current_user.id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You don't have permission to delete this block"
             )
         
         # Delete block
-        block_service.delete_block(block_id)
+        facade.delete_block(block_id)
         
         logger.info(f"Block deleted successfully: {block_id}")
         from fastapi.responses import Response
         return Response(status_code=status.HTTP_204_NO_CONTENT)
         
+    except NotFoundError as e:
+        logger.warning(f"Block not found: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -373,18 +384,19 @@ async def list_blocks(
     try:
         logger.info(f"Listing blocks for user {current_user.id}")
         
-        block_service = BlockService(db)
+        # Use Facade pattern
+        facade = AgentBuilderFacade(db)
         
         # Get blocks with proper parameters
         if include_public:
             # Get user's blocks + public blocks
-            user_blocks = block_service.list_blocks(
+            user_blocks = facade.list_blocks(
                 user_id=str(current_user.id),
                 block_type=block_type,
                 limit=limit,
                 offset=skip
             )
-            public_blocks = block_service.list_blocks(
+            public_blocks = facade.list_blocks(
                 is_public=True,
                 block_type=block_type,
                 limit=limit,
@@ -395,7 +407,7 @@ async def list_blocks(
             blocks = list(blocks_dict.values())
         else:
             # Get only user's blocks
-            blocks = block_service.list_blocks(
+            blocks = facade.list_blocks(
                 user_id=str(current_user.id),
                 block_type=block_type,
                 limit=limit,
@@ -484,15 +496,11 @@ async def test_block(
     try:
         logger.info(f"Testing block {block_id} for user {current_user.id}")
         
-        block_service = BlockService(db)
+        # Use Facade pattern
+        facade = AgentBuilderFacade(db)
         
         # Check if block exists and user has access
-        block = block_service.get_block(block_id)
-        if not block:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Block {block_id} not found"
-            )
+        block = facade.get_block(block_id)
         
         # Check permissions (owner or public)
         if str(block.user_id) != str(current_user.id) and not block.is_public:
@@ -502,7 +510,7 @@ async def test_block(
             )
         
         # Test block
-        result = await block_service.test_block(
+        result = await facade.test_block(
             block_id=block_id,
             test_input=test_request,
             user_id=str(current_user.id),
@@ -512,14 +520,20 @@ async def test_block(
         logger.info(f"Block tested successfully: {block_id}")
         return result
         
-    except HTTPException:
-        raise
-    except ValueError as e:
+    except NotFoundError as e:
+        logger.warning(f"Block not found: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+    except ValidationError as e:
         logger.warning(f"Invalid test input: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to test block: {e}", exc_info=True)
         raise HTTPException(
@@ -562,15 +576,11 @@ async def get_block_versions(
     try:
         logger.info(f"Fetching versions for block {block_id}")
         
-        block_service = BlockService(db)
+        # Use Facade pattern
+        facade = AgentBuilderFacade(db)
         
         # Check if block exists and user has access
-        block = block_service.get_block(block_id)
-        if not block:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Block {block_id} not found"
-            )
+        block = facade.get_block(block_id)
         
         # Check permissions (owner or public)
         if str(block.user_id) != str(current_user.id) and not block.is_public:
@@ -580,10 +590,16 @@ async def get_block_versions(
             )
         
         # Get versions
-        versions = block_service.get_block_versions(block_id)
+        versions = facade.get_block_versions(block_id)
         
         return versions
         
+    except NotFoundError as e:
+        logger.warning(f"Block not found: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -633,15 +649,11 @@ async def get_block_executions(
         
         logger.info(f"Fetching executions for block {block_id}")
         
-        # Check if block exists and user has access
-        block_service = BlockService(db)
-        block = block_service.get_block(block_id)
+        # Use Facade pattern
+        facade = AgentBuilderFacade(db)
         
-        if not block:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Block not found"
-            )
+        # Check if block exists and user has access
+        block = facade.get_block(block_id)
         
         # Check permissions
         if str(block.user_id) != str(current_user.id) and not block.is_public:

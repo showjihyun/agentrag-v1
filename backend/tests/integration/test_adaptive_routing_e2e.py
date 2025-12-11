@@ -18,11 +18,11 @@ from backend.services.intelligent_mode_router import (
 from backend.services.query_pattern_learner import QueryPatternLearner
 from backend.services.adaptive_rag_service import AdaptiveRAGService
 from backend.services.threshold_tuner import ThresholdTuner
-from backend.services.adaptive_metrics import AdaptiveMetricsCollector
-from backend.core.multi_level_cache import MultiLevelCache
-from backend.core.speculative_processor import SpeculativeQueryProcessor
+from backend.services.adaptive_metrics import AdaptiveMetricsService as AdaptiveMetricsCollector
+from backend.core.advanced_cache import MultiLevelCache
+from backend.services.speculative_processor import SpeculativeProcessor as SpeculativeQueryProcessor
 from backend.models.hybrid import QueryMode, QueryComplexity
-from config import Settings
+from backend.config import Settings
 
 
 @pytest.fixture

@@ -194,3 +194,7 @@ def get_hybrid_search_service(
             vector_weight=vector_weight, bm25_weight=bm25_weight
         )
     return _hybrid_search_service
+
+
+# Alias for backward compatibility with tests
+HybridSearchManager = HybridSearchService

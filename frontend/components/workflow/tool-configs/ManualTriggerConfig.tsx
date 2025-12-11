@@ -1,170 +1,191 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+/**
+ * ManualTriggerConfig - Manual Trigger Tool Configuration
+ * 
+ * Refactored to use common hooks and components
+ */
+
+import { useCallback } from 'react';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
-import { Button } from '@/components/ui/button';
 import { Zap, Plus, Trash } from 'lucide-react';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { ToolConfigProps } from './ToolConfigRegistry';
+import {
+  ToolConfigHeader,
+  TOOL_HEADER_PRESETS,
+  TextField,
+  TextareaField,
+  SwitchField,
+  useToolConfig,
+} from './common';
+
+// ============================================
+// Types
+// ============================================
+
+interface InputField {
+  name: string;
+  type: string;
+  required: boolean;
+  default: string;
+}
+
+interface ManualTriggerConfigData {
+  name: string;
+  description: string;
+  input_schema: InputField[];
+  require_confirmation: boolean;
+  confirmation_message: string;
+  allowed_users: string;
+}
+
+const DEFAULTS: ManualTriggerConfigData = {
+  name: 'Manual Trigger',
+  description: '',
+  input_schema: [],
+  require_confirmation: false,
+  confirmation_message: 'Are you sure you want to run this workflow?',
+  allowed_users: '',
+};
+
+const FIELD_TYPES = ['string', 'number', 'boolean', 'file', 'json'] as const;
+
+
+// ============================================
+// Component
+// ============================================
 
 export default function ManualTriggerConfig({ data, onChange }: ToolConfigProps) {
-  const [config, setConfig] = useState({
-    name: data.name || 'Manual Trigger',
-    description: data.description || '',
-    input_schema: data.input_schema || [],
-    require_confirmation: data.require_confirmation || false,
-    confirmation_message: data.confirmation_message || 'Are you sure you want to run this workflow?',
-    allowed_users: data.allowed_users || '',
-    ...data
+  const { config, updateField } = useToolConfig<ManualTriggerConfigData>({
+    initialData: data,
+    defaults: DEFAULTS,
+    onChange,
   });
 
-  useEffect(() => {
-    onChange(config);
-  }, [config]);
-
-  const updateConfig = (key: string, value: any) => {
-    setConfig((prev: typeof config) => ({ ...prev, [key]: value }));
-  };
-
-  const addInputField = () => {
-    updateConfig('input_schema', [
+  const addInputField = useCallback(() => {
+    updateField('input_schema', [
       ...config.input_schema,
-      { name: '', type: 'string', required: false, default: '' }
+      { name: '', type: 'string', required: false, default: '' },
     ]);
-  };
+  }, [config.input_schema, updateField]);
 
-  const updateInputField = (index: number, field: string, value: any) => {
+  const updateInputField = useCallback((index: number, field: keyof InputField, value: string | boolean) => {
     const newSchema = [...config.input_schema];
-    newSchema[index][field] = value;
-    updateConfig('input_schema', newSchema);
-  };
+    newSchema[index] = { ...newSchema[index], [field]: value };
+    updateField('input_schema', newSchema);
+  }, [config.input_schema, updateField]);
 
-  const removeInputField = (index: number) => {
-    updateConfig('input_schema', config.input_schema.filter((_: any, i: number) => i !== index));
-  };
+  const removeInputField = useCallback((index: number) => {
+    updateField('input_schema', config.input_schema.filter((_, i) => i !== index));
+  }, [config.input_schema, updateField]);
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3 pb-4 border-b">
-        <div className="p-2 rounded-lg bg-yellow-100 dark:bg-yellow-950">
-          <Zap className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
-        </div>
-        <div>
-          <h3 className="font-semibold">Manual Trigger</h3>
-          <p className="text-sm text-muted-foreground">Manually start workflow execution</p>
-        </div>
-      </div>
-
-      {/* Name & Description */}
-      <div className="space-y-2">
-        <Label>Trigger Name</Label>
-        <Input
-          value={config.name}
-          onChange={(e) => updateConfig('name', e.target.value)}
+    <TooltipProvider>
+      <div className="space-y-6">
+        {/* Header */}
+        <ToolConfigHeader
+          icon={Zap}
+          {...TOOL_HEADER_PRESETS.trigger}
+          title="Manual Trigger"
+          description="수동으로 워크플로우 실행 시작"
         />
-      </div>
 
-      <div className="space-y-2">
-        <Label>Description</Label>
-        <Textarea
-          placeholder="Describe when to use this trigger..."
+        {/* Name & Description */}
+        <TextField
+          label="트리거 이름"
+          value={config.name}
+          onChange={(v) => updateField('name', v)}
+        />
+
+        <TextareaField
+          label="설명"
           value={config.description}
-          onChange={(e) => updateConfig('description', e.target.value)}
+          onChange={(v) => updateField('description', v)}
+          placeholder="이 트리거를 사용할 때를 설명..."
           rows={2}
         />
-      </div>
 
-      {/* Input Schema */}
-      <div className="space-y-3">
-        <Label>Input Fields</Label>
-        <p className="text-xs text-muted-foreground">
-          Define input fields that users must fill when triggering
-        </p>
-        {config.input_schema.map((field: any, index: number) => (
-          <div key={index} className="p-3 border rounded-lg bg-muted/30 space-y-2">
-            <div className="flex gap-2">
-              <Input
-                placeholder="Field name"
-                value={field.name}
-                onChange={(e) => updateInputField(index, 'name', e.target.value)}
-                className="flex-1"
-              />
-              <select
-                value={field.type}
-                onChange={(e) => updateInputField(index, 'type', e.target.value)}
-                className="px-3 py-2 border rounded-md bg-background"
-              >
-                <option value="string">Text</option>
-                <option value="number">Number</option>
-                <option value="boolean">Boolean</option>
-                <option value="file">File</option>
-                <option value="json">JSON</option>
-              </select>
-              <Button variant="ghost" size="icon" onClick={() => removeInputField(index)}>
-                <Trash className="h-4 w-4" />
-              </Button>
-            </div>
-            <div className="flex gap-2 items-center">
-              <Input
-                placeholder="Default value"
-                value={field.default}
-                onChange={(e) => updateInputField(index, 'default', e.target.value)}
-                className="flex-1"
-              />
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={field.required}
-                  onChange={(e) => updateInputField(index, 'required', e.target.checked)}
+
+        {/* Input Schema */}
+        <div className="space-y-3">
+          <Label>입력 필드</Label>
+          <p className="text-xs text-muted-foreground">
+            트리거 시 사용자가 입력해야 할 필드 정의
+          </p>
+          {config.input_schema.map((field, index) => (
+            <div key={index} className="p-3 border rounded-lg bg-muted/30 space-y-2">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="필드 이름"
+                  value={field.name}
+                  onChange={(e) => updateInputField(index, 'name', e.target.value)}
+                  className="flex-1"
                 />
-                Required
-              </label>
+                <select
+                  value={field.type}
+                  onChange={(e) => updateInputField(index, 'type', e.target.value)}
+                  className="px-3 py-2 border rounded-md bg-background"
+                >
+                  {FIELD_TYPES.map(type => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
+                </select>
+                <Button variant="ghost" size="icon" onClick={() => removeInputField(index)}>
+                  <Trash className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="flex gap-2 items-center">
+                <Input
+                  placeholder="기본값"
+                  value={field.default}
+                  onChange={(e) => updateInputField(index, 'default', e.target.value)}
+                  className="flex-1"
+                />
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={field.required}
+                    onChange={(e) => updateInputField(index, 'required', e.target.checked)}
+                  />
+                  필수
+                </label>
+              </div>
             </div>
-          </div>
-        ))}
-        <Button variant="outline" size="sm" onClick={addInputField} className="w-full">
-          <Plus className="h-4 w-4 mr-2" />
-          Add Input Field
-        </Button>
-      </div>
-
-      {/* Confirmation */}
-      <div className="flex items-center justify-between">
-        <div>
-          <Label>Require Confirmation</Label>
-          <p className="text-xs text-muted-foreground">Ask for confirmation before running</p>
+          ))}
+          <Button variant="outline" size="sm" onClick={addInputField} className="w-full">
+            <Plus className="h-4 w-4 mr-2" />
+            입력 필드 추가
+          </Button>
         </div>
-        <Switch
+
+        {/* Confirmation */}
+        <SwitchField
+          label="확인 필요"
+          description="실행 전 확인 요청"
           checked={config.require_confirmation}
-          onCheckedChange={(checked) => updateConfig('require_confirmation', checked)}
+          onChange={(v) => updateField('require_confirmation', v)}
         />
-      </div>
 
-      {config.require_confirmation && (
-        <div className="space-y-2">
-          <Label>Confirmation Message</Label>
-          <Input
+        {config.require_confirmation && (
+          <TextField
+            label="확인 메시지"
             value={config.confirmation_message}
-            onChange={(e) => updateConfig('confirmation_message', e.target.value)}
+            onChange={(v) => updateField('confirmation_message', v)}
           />
-        </div>
-      )}
+        )}
 
-      {/* Access Control */}
-      <div className="space-y-2">
-        <Label>Allowed Users (optional)</Label>
-        <Input
-          placeholder="user1@example.com, user2@example.com"
+        {/* Access Control */}
+        <TextField
+          label="허용된 사용자 (선택)"
           value={config.allowed_users}
-          onChange={(e) => updateConfig('allowed_users', e.target.value)}
+          onChange={(v) => updateField('allowed_users', v)}
+          placeholder="user1@example.com, user2@example.com"
+          hint="비워두면 모든 사용자 허용"
         />
-        <p className="text-xs text-muted-foreground">
-          Leave empty to allow all users
-        </p>
       </div>
-    </div>
+    </TooltipProvider>
   );
 }

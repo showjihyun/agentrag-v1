@@ -1,51 +1,28 @@
-"""
-Event Store Database Model
+# Database model for Event Store
 
-Stores domain events for event sourcing.
-"""
-
-from sqlalchemy import Column, String, Integer, DateTime, JSON, Index
-from sqlalchemy.ext.declarative import declarative_base
-from datetime import datetime
-
+from sqlalchemy import Column, Integer, String, DateTime, JSON, Index
+from sqlalchemy.sql import func
 from backend.db.database import Base
 
 
 class EventStoreModel(Base):
-    """Event Store table for persisting domain events."""
+    """Event Store table for storing all domain events."""
     
     __tablename__ = "event_store"
     
-    # Primary key
-    id = Column(String(36), primary_key=True)
+    id = Column(Integer, primary_key=True, index=True)
+    aggregate_id = Column(String, nullable=False, index=True)
+    aggregate_type = Column(String, nullable=False, index=True)
+    event_type = Column(String, nullable=False, index=True)
+    event_data = Column(JSON, nullable=False)
+    user_id = Column(Integer, nullable=True, index=True)
+    metadata = Column(JSON, nullable=True)
+    timestamp = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
+    version = Column(Integer, nullable=False, default=1)
     
-    # Aggregate information
-    aggregate_id = Column(String(36), nullable=False, index=True)
-    aggregate_type = Column(String(100), nullable=False, index=True)
-    
-    # Event information
-    event_type = Column(String(100), nullable=False, index=True)
-    data = Column(JSON, nullable=False)
-    
-    # Versioning
-    version = Column(Integer, nullable=False)
-    
-    # Metadata
-    timestamp = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
-    user_id = Column(String(36), nullable=True, index=True)
-    correlation_id = Column(String(36), nullable=True, index=True)
-    
-    # Indexes for efficient querying
+    # Composite indexes for common queries
     __table_args__ = (
-        Index("idx_aggregate_version", "aggregate_id", "version", unique=True),
-        Index("idx_event_type_timestamp", "event_type", "timestamp"),
-        Index("idx_correlation", "correlation_id"),
+        Index('idx_aggregate_version', 'aggregate_id', 'version'),
+        Index('idx_aggregate_type_timestamp', 'aggregate_type', 'timestamp'),
+        Index('idx_user_timestamp', 'user_id', 'timestamp'),
     )
-    
-    def __repr__(self):
-        return (
-            f"<EventStoreModel(id={self.id}, "
-            f"aggregate_id={self.aggregate_id}, "
-            f"event_type={self.event_type}, "
-            f"version={self.version})>"
-        )

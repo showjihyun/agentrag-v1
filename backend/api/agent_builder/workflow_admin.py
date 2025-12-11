@@ -99,33 +99,37 @@ async def retry_dlq_entry(
             detail="DLQ entry not found or max retries exceeded",
         )
     
-    # Re-execute workflow
-    from backend.services.agent_builder.workflow_service import WorkflowService
-    from backend.services.agent_builder.workflow_executor_v2 import execute_workflow_v2
+    # Re-execute workflow using Facade
+    from backend.services.agent_builder.facade import AgentBuilderFacade
+    from backend.services.agent_builder.shared.errors import NotFoundError
     
-    workflow_service = WorkflowService(db)
-    workflow = workflow_service.get_workflow(entry.workflow_id)
-    
-    if not workflow:
+    try:
+        facade = AgentBuilderFacade(db)
+        workflow = facade.get_workflow(entry.workflow_id)
+    except NotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Workflow not found",
         )
     
     try:
-        result = await execute_workflow_v2(
-            workflow=workflow,
-            db=db,
+        result = await facade.execute_workflow(
+            workflow_id=entry.workflow_id,
             input_data=entry.input_data,
+            user_id=str(current_user.id),
         )
         
-        if result.get("success"):
+        if result.status == "completed":
             await dlq.resolve(entry_id, notes=f"Retry successful by {current_user.email}")
         
         return {
             "entry_id": entry_id,
             "retry_count": entry.retry_count,
-            "result": result,
+            "result": {
+                "success": result.status == "completed",
+                "status": result.status,
+                "output": result.output,
+            },
         }
         
     except Exception as e:

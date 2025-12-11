@@ -142,8 +142,54 @@ export function getModel(providerId: string, modelId: string): LLMModel | undefi
 
 /**
  * Get all models for a provider
+ * For Ollama, tries to load from localStorage first (set by LLM settings page)
  */
 export function getModelsForProvider(providerId: string): LLMModel[] {
   const provider = getProvider(providerId);
+  
+  // For Ollama, try to get models from localStorage (set by LLM settings page)
+  if (providerId === 'ollama') {
+    try {
+      const savedModels = localStorage.getItem('ollama_models');
+      if (savedModels) {
+        const models = JSON.parse(savedModels) as string[];
+        if (models.length > 0) {
+          return models.map(modelName => ({
+            id: modelName,
+            name: modelName,
+            description: 'Local model',
+          }));
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to load Ollama models from localStorage:', error);
+    }
+  }
+  
   return provider?.models || [];
+}
+
+/**
+ * Save Ollama models to localStorage
+ * Called by LLM settings page after fetching from Ollama API
+ */
+export function saveOllamaModels(models: string[]): void {
+  try {
+    localStorage.setItem('ollama_models', JSON.stringify(models));
+  } catch (error) {
+    console.error('Failed to save Ollama models to localStorage:', error);
+  }
+}
+
+/**
+ * Get Ollama models from localStorage
+ */
+export function getOllamaModels(): string[] {
+  try {
+    const saved = localStorage.getItem('ollama_models');
+    return saved ? JSON.parse(saved) : [];
+  } catch (error) {
+    console.warn('Failed to load Ollama models from localStorage:', error);
+    return [];
+  }
 }

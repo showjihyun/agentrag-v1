@@ -155,30 +155,31 @@ def require_ownership(
                     detail="Database session not available"
                 )
             
-            # Check ownership
+            # Check ownership using Facade
             try:
-                from backend.services.agent_builder.agent_service import AgentService
-                from backend.services.agent_builder.block_service import BlockService
-                from backend.services.agent_builder.workflow_service import WorkflowService
-                from backend.services.agent_builder.knowledgebase_service import KnowledgebaseService
+                from backend.services.agent_builder.facade import AgentBuilderFacade
+                from backend.services.agent_builder.shared.errors import NotFoundError
                 
-                # Get appropriate service
-                if resource_type == "agent":
-                    service = AgentService(db)
-                    resource = service.get_agent(resource_id)
-                elif resource_type == "block":
-                    service = BlockService(db)
-                    resource = service.get_block(resource_id)
-                elif resource_type == "workflow":
-                    service = WorkflowService(db)
-                    resource = service.get_workflow(resource_id)
-                elif resource_type == "knowledgebase":
-                    service = KnowledgebaseService(db)
-                    resource = service.get_knowledgebase(resource_id)
-                else:
-                    raise ValueError(f"Unknown resource type: {resource_type}")
+                facade = AgentBuilderFacade(db)
                 
-                if not resource:
+                # Get appropriate resource
+                try:
+                    if resource_type == "agent":
+                        resource = facade.get_agent(resource_id)
+                    elif resource_type == "block":
+                        resource = facade.get_block(resource_id)
+                    elif resource_type == "workflow":
+                        resource = facade.get_workflow(resource_id)
+                    elif resource_type == "knowledgebase":
+                        # Knowledgebase not yet migrated, use legacy
+                        from backend.services.agent_builder.knowledgebase_service import KnowledgebaseService
+                        service = KnowledgebaseService(db)
+                        resource = service.get_knowledgebase(resource_id)
+                        if not resource:
+                            raise NotFoundError("Knowledgebase", resource_id)
+                    else:
+                        raise ValueError(f"Unknown resource type: {resource_type}")
+                except NotFoundError:
                     raise HTTPException(
                         status_code=status.HTTP_404_NOT_FOUND,
                         detail=f"{resource_type.capitalize()} not found"
@@ -264,30 +265,31 @@ def require_public_or_permission(
                     detail="Database session not available"
                 )
             
-            # Check if public or has permission
+            # Check if public or has permission using Facade
             try:
-                from backend.services.agent_builder.agent_service import AgentService
-                from backend.services.agent_builder.block_service import BlockService
-                from backend.services.agent_builder.workflow_service import WorkflowService
-                from backend.services.agent_builder.knowledgebase_service import KnowledgebaseService
+                from backend.services.agent_builder.facade import AgentBuilderFacade
+                from backend.services.agent_builder.shared.errors import NotFoundError
                 
-                # Get appropriate service
-                if resource_type == "agent":
-                    service = AgentService(db)
-                    resource = service.get_agent(resource_id)
-                elif resource_type == "block":
-                    service = BlockService(db)
-                    resource = service.get_block(resource_id)
-                elif resource_type == "workflow":
-                    service = WorkflowService(db)
-                    resource = service.get_workflow(resource_id)
-                elif resource_type == "knowledgebase":
-                    service = KnowledgebaseService(db)
-                    resource = service.get_knowledgebase(resource_id)
-                else:
-                    raise ValueError(f"Unknown resource type: {resource_type}")
+                facade = AgentBuilderFacade(db)
                 
-                if not resource:
+                # Get appropriate resource
+                try:
+                    if resource_type == "agent":
+                        resource = facade.get_agent(resource_id)
+                    elif resource_type == "block":
+                        resource = facade.get_block(resource_id)
+                    elif resource_type == "workflow":
+                        resource = facade.get_workflow(resource_id)
+                    elif resource_type == "knowledgebase":
+                        # Knowledgebase not yet migrated, use legacy
+                        from backend.services.agent_builder.knowledgebase_service import KnowledgebaseService
+                        service = KnowledgebaseService(db)
+                        resource = service.get_knowledgebase(resource_id)
+                        if not resource:
+                            raise NotFoundError("Knowledgebase", resource_id)
+                    else:
+                        raise ValueError(f"Unknown resource type: {resource_type}")
+                except NotFoundError:
                     raise HTTPException(
                         status_code=status.HTTP_404_NOT_FOUND,
                         detail=f"{resource_type.capitalize()} not found"

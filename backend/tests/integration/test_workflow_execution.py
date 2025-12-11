@@ -14,7 +14,8 @@ from datetime import datetime
 from unittest.mock import Mock, AsyncMock, MagicMock
 from sqlalchemy.orm import Session
 
-from backend.services.agent_builder.workflow_executor import WorkflowExecutor, ExecutionContext
+from backend.services.agent_builder.workflow_executor import WorkflowExecutor
+from backend.models.agent_builder import ExecutionContext
 from backend.services.llm_manager import LLMManager
 from backend.memory.manager import MemoryManager
 from backend.services.agent_builder.variable_resolver import VariableResolver

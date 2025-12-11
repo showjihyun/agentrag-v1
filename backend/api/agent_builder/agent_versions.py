@@ -15,6 +15,12 @@ from backend.core.api_response import api_response
 from backend.core.auth_dependencies import get_current_user
 from backend.db.database import get_db
 from backend.db.models.user import User
+# DDD Architecture - CQRS
+from backend.services.agent_builder.facade import AgentBuilderFacade
+from backend.services.agent_builder.shared.errors import (
+    NotFoundError,
+    ValidationError,
+)
 from backend.services.agent_builder.agent_versioning import AgentVersioningService
 from sqlalchemy.orm import Session
 
@@ -106,18 +112,19 @@ async def create_version(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Create a new version of an agent."""
-    from backend.services.agent_builder.agent_service_refactored import AgentServiceRefactored
-    
-    # Get current agent
-    agent_service = AgentServiceRefactored(db)
-    agent = await agent_service.get_agent(agent_id)
-    
-    if not agent:
+    """Create a new version of an agent using DDD CQRS Query."""
+    try:
+        facade = AgentBuilderFacade(db)
+        
+        # Get current agent using CQRS Query
+        from backend.services.agent_builder.application.queries import GetAgentQuery
+        query = GetAgentQuery(agent_id=agent_id)
+        agent = facade.agent_queries.handle_get(query)
+        
+        if str(agent.user_id) != str(current_user.id):
+            raise HTTPException(status_code=403, detail="Permission denied")
+    except NotFoundError:
         raise HTTPException(status_code=404, detail="Agent not found")
-    
-    if str(agent.user_id) != str(current_user.id):
-        raise HTTPException(status_code=403, detail="Permission denied")
     
     # Create version
     version_service = AgentVersioningService(db)
@@ -169,18 +176,19 @@ async def rollback_version(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Rollback to a previous version."""
-    from backend.services.agent_builder.agent_service_refactored import AgentServiceRefactored
-    
-    # Verify ownership
-    agent_service = AgentServiceRefactored(db)
-    agent = await agent_service.get_agent(agent_id)
-    
-    if not agent:
+    """Rollback to a previous version using DDD CQRS Query."""
+    try:
+        facade = AgentBuilderFacade(db)
+        
+        # Verify ownership using CQRS Query
+        from backend.services.agent_builder.application.queries import GetAgentQuery
+        query = GetAgentQuery(agent_id=agent_id)
+        agent = facade.agent_queries.handle_get(query)
+        
+        if str(agent.user_id) != str(current_user.id):
+            raise HTTPException(status_code=403, detail="Permission denied")
+    except NotFoundError:
         raise HTTPException(status_code=404, detail="Agent not found")
-    
-    if str(agent.user_id) != str(current_user.id):
-        raise HTTPException(status_code=403, detail="Permission denied")
     
     # Perform rollback
     version_service = AgentVersioningService(db)

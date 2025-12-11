@@ -1,191 +1,209 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+/**
+ * CSVParserConfig - CSV Parser Tool Configuration
+ * 
+ * Refactored to use common hooks and components
+ */
+
+import { useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
 import { FileText, TestTube } from 'lucide-react';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { ToolConfigProps } from './ToolConfigRegistry';
+import {
+  ToolConfigHeader,
+  TextField,
+  NumberField,
+  SelectField,
+  SwitchField,
+  useToolConfig,
+} from './common';
+
+// ============================================
+// Constants
+// ============================================
+
+const INPUT_SOURCES = [
+  { value: 'file', label: 'File Path' },
+  { value: 'content', label: 'Raw CSV Content' },
+  { value: 'variable', label: 'From Variable' },
+] as const;
+
+const DELIMITERS = [
+  { value: ',', label: 'Comma (,)' },
+  { value: ';', label: 'Semicolon (;)' },
+  { value: '\t', label: 'Tab' },
+  { value: '|', label: 'Pipe (|)' },
+] as const;
+
+const QUOTE_CHARS = [
+  { value: '"', label: 'Double Quote (")' },
+  { value: "'", label: "Single Quote (')" },
+  { value: '', label: 'None' },
+] as const;
+
+const ENCODINGS = [
+  { value: 'utf-8', label: 'UTF-8' },
+  { value: 'utf-16', label: 'UTF-16' },
+  { value: 'ascii', label: 'ASCII' },
+  { value: 'euc-kr', label: 'EUC-KR (Korean)' },
+  { value: 'iso-8859-1', label: 'ISO-8859-1' },
+] as const;
+
+const OUTPUT_FORMATS = [
+  { value: 'array', label: 'Array of Objects' },
+  { value: 'dict', label: 'Dictionary (by column)' },
+  { value: 'raw', label: 'Raw 2D Array' },
+] as const;
+
+// ============================================
+// Types
+// ============================================
+
+interface CSVParserConfigData {
+  input_source: string;
+  file_path: string;
+  csv_content: string;
+  delimiter: string;
+  quote_char: string;
+  has_header: boolean;
+  skip_rows: number;
+  encoding: string;
+  output_format: string;
+  columns: string;
+}
+
+const DEFAULTS: CSVParserConfigData = {
+  input_source: 'file',
+  file_path: '',
+  csv_content: '',
+  delimiter: ',',
+  quote_char: '"',
+  has_header: true,
+  skip_rows: 0,
+  encoding: 'utf-8',
+  output_format: 'array',
+  columns: '',
+};
+
+// ============================================
+// Component
+// ============================================
 
 export default function CSVParserConfig({ data, onChange, onTest }: ToolConfigProps) {
-  const [config, setConfig] = useState({
-    input_source: data.input_source || 'file',
-    file_path: data.file_path || '',
-    csv_content: data.csv_content || '',
-    delimiter: data.delimiter || ',',
-    quote_char: data.quote_char || '"',
-    has_header: data.has_header !== false,
-    skip_rows: data.skip_rows || 0,
-    encoding: data.encoding || 'utf-8',
-    output_format: data.output_format || 'array',
-    columns: data.columns || '',
-    ...data
+  const { config, updateField } = useToolConfig<CSVParserConfigData>({
+    initialData: data,
+    defaults: DEFAULTS,
+    onChange,
   });
 
-  useEffect(() => {
-    onChange(config);
-  }, [config]);
-
-  const updateConfig = (key: string, value: any) => {
-    setConfig((prev: typeof config) => ({ ...prev, [key]: value }));
-  };
+  const handleTest = useCallback(() => {
+    onTest?.();
+  }, [onTest]);
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3 pb-4 border-b">
-        <div className="p-2 rounded-lg bg-green-100 dark:bg-green-950">
-          <FileText className="h-5 w-5 text-green-600 dark:text-green-400" />
-        </div>
-        <div>
-          <h3 className="font-semibold">CSV Parser</h3>
-          <p className="text-sm text-muted-foreground">Parse CSV files and data</p>
-        </div>
-      </div>
+    <TooltipProvider>
+      <div className="space-y-6">
+        {/* Header */}
+        <ToolConfigHeader
+          icon={FileText}
+          iconBgColor="bg-green-100 dark:bg-green-950"
+          iconColor="text-green-600 dark:text-green-400"
+          title="CSV Parser"
+          description="CSV 파일 및 데이터 파싱"
+        />
 
-      {/* Input Source */}
-      <div className="space-y-2">
-        <Label>Input Source</Label>
-        <Select value={config.input_source} onValueChange={(v) => updateConfig('input_source', v)}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="file">File Path</SelectItem>
-            <SelectItem value="content">Raw CSV Content</SelectItem>
-            <SelectItem value="variable">From Variable</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+        {/* Input Source */}
+        <SelectField
+          label="입력 소스"
+          value={config.input_source}
+          onChange={(v) => updateField('input_source', v)}
+          options={INPUT_SOURCES.map(s => ({ value: s.value, label: s.label }))}
+        />
 
-      {config.input_source === 'file' && (
-        <div className="space-y-2">
-          <Label>File Path</Label>
-          <Input
-            placeholder="/path/to/file.csv or {{input.file_path}}"
+        {config.input_source === 'file' && (
+          <TextField
+            label="파일 경로"
             value={config.file_path}
-            onChange={(e) => updateConfig('file_path', e.target.value)}
+            onChange={(v) => updateField('file_path', v)}
+            placeholder="/path/to/file.csv or {{input.file_path}}"
           />
-        </div>
-      )}
+        )}
 
-      {config.input_source === 'content' && (
-        <div className="space-y-2">
-          <Label>CSV Content</Label>
-          <Input
-            placeholder="{{input.csv_data}}"
+        {config.input_source === 'content' && (
+          <TextField
+            label="CSV 내용"
             value={config.csv_content}
-            onChange={(e) => updateConfig('csv_content', e.target.value)}
+            onChange={(v) => updateField('csv_content', v)}
+            placeholder="{{input.csv_data}}"
+          />
+        )}
+
+        {/* Delimiter & Quote */}
+        <div className="grid grid-cols-2 gap-4">
+          <SelectField
+            label="구분자"
+            value={config.delimiter}
+            onChange={(v) => updateField('delimiter', v)}
+            options={DELIMITERS.map(d => ({ value: d.value, label: d.label }))}
+          />
+          <SelectField
+            label="인용 문자"
+            value={config.quote_char}
+            onChange={(v) => updateField('quote_char', v)}
+            options={QUOTE_CHARS.map(q => ({ value: q.value, label: q.label }))}
           />
         </div>
-      )}
 
-      {/* Delimiter */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Delimiter</Label>
-          <Select value={config.delimiter} onValueChange={(v) => updateConfig('delimiter', v)}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value=",">Comma (,)</SelectItem>
-              <SelectItem value=";">Semicolon (;)</SelectItem>
-              <SelectItem value="\t">Tab</SelectItem>
-              <SelectItem value="|">Pipe (|)</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label>Quote Character</Label>
-          <Select value={config.quote_char} onValueChange={(v) => updateConfig('quote_char', v)}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value='"'>Double Quote (")</SelectItem>
-              <SelectItem value="'">Single Quote (')</SelectItem>
-              <SelectItem value="">None</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {/* Options */}
-      <div className="flex items-center justify-between py-2">
-        <div>
-          <Label>Has Header Row</Label>
-          <p className="text-xs text-muted-foreground">First row contains column names</p>
-        </div>
-        <Switch
+        {/* Options */}
+        <SwitchField
+          label="헤더 행 포함"
+          description="첫 번째 행이 컬럼명을 포함"
           checked={config.has_header}
-          onCheckedChange={(checked) => updateConfig('has_header', checked)}
+          onChange={(v) => updateField('has_header', v)}
         />
-      </div>
 
-      <div className="space-y-2">
-        <Label>Skip Rows</Label>
-        <Input
-          type="number"
-          min="0"
+        <NumberField
+          label="건너뛸 행 수"
           value={config.skip_rows}
-          onChange={(e) => updateConfig('skip_rows', parseInt(e.target.value) || 0)}
+          onChange={(v) => updateField('skip_rows', v)}
+          min={0}
+          hint="시작 부분에서 건너뛸 행 수"
         />
-        <p className="text-xs text-muted-foreground">Number of rows to skip at the beginning</p>
-      </div>
 
-      {/* Encoding */}
-      <div className="space-y-2">
-        <Label>Encoding</Label>
-        <Select value={config.encoding} onValueChange={(v) => updateConfig('encoding', v)}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="utf-8">UTF-8</SelectItem>
-            <SelectItem value="utf-16">UTF-16</SelectItem>
-            <SelectItem value="ascii">ASCII</SelectItem>
-            <SelectItem value="euc-kr">EUC-KR (Korean)</SelectItem>
-            <SelectItem value="iso-8859-1">ISO-8859-1</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+        {/* Encoding */}
+        <SelectField
+          label="인코딩"
+          value={config.encoding}
+          onChange={(v) => updateField('encoding', v)}
+          options={ENCODINGS.map(e => ({ value: e.value, label: e.label }))}
+        />
 
-      {/* Output Format */}
-      <div className="space-y-2">
-        <Label>Output Format</Label>
-        <Select value={config.output_format} onValueChange={(v) => updateConfig('output_format', v)}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="array">Array of Objects</SelectItem>
-            <SelectItem value="dict">Dictionary (by column)</SelectItem>
-            <SelectItem value="raw">Raw 2D Array</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+        {/* Output Format */}
+        <SelectField
+          label="출력 형식"
+          value={config.output_format}
+          onChange={(v) => updateField('output_format', v)}
+          options={OUTPUT_FORMATS.map(f => ({ value: f.value, label: f.label }))}
+        />
 
-      {/* Specific Columns */}
-      <div className="space-y-2">
-        <Label>Select Columns (optional)</Label>
-        <Input
-          placeholder="col1, col2, col3 (leave empty for all)"
+        {/* Specific Columns */}
+        <TextField
+          label="선택 컬럼 (선택사항)"
           value={config.columns}
-          onChange={(e) => updateConfig('columns', e.target.value)}
+          onChange={(v) => updateField('columns', v)}
+          placeholder="col1, col2, col3 (비워두면 전체)"
         />
-      </div>
 
-      {/* Test Button */}
-      {onTest && (
-        <Button onClick={onTest} variant="outline" className="w-full">
-          <TestTube className="h-4 w-4 mr-2" />
-          Test Parser
-        </Button>
-      )}
-    </div>
+        {/* Test Button */}
+        {onTest && (
+          <Button onClick={handleTest} variant="outline" className="w-full">
+            <TestTube className="h-4 w-4 mr-2" />
+            파서 테스트
+          </Button>
+        )}
+      </div>
+    </TooltipProvider>
   );
 }

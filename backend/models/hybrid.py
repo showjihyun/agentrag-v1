@@ -25,6 +25,25 @@ class QueryMode(str, Enum):
     WEB_SEARCH = "web_search"
 
 
+class QueryComplexity(str, Enum):
+    """Query complexity level for routing decisions."""
+    
+    SIMPLE = "simple"
+    MODERATE = "moderate"
+    COMPLEX = "complex"
+
+
+class ChunkType(str, Enum):
+    """Type of streaming chunk."""
+    
+    CONTENT = "content"
+    REASONING = "reasoning"
+    SOURCE = "source"
+    STATUS = "status"
+    ERROR = "error"
+    DONE = "done"
+
+
 class ResponseType(str, Enum):
     """Type of response chunk in progressive streaming.
 
@@ -270,3 +289,25 @@ class StaticRAGResponse(BaseModel):
             }
         }
     )
+
+
+class SpeculativeResult(BaseModel):
+    """Result from speculative path processing."""
+    
+    response: str = Field(..., description="Generated response")
+    sources: List[SearchResult] = Field(default_factory=list)
+    confidence_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    processing_time: float = Field(default=0.0)
+    cache_hit: bool = Field(default=False)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class AgenticResult(BaseModel):
+    """Result from agentic path processing."""
+    
+    response: str = Field(..., description="Generated response")
+    sources: List[SearchResult] = Field(default_factory=list)
+    reasoning_steps: List[Dict[str, Any]] = Field(default_factory=list)
+    confidence_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    processing_time: float = Field(default=0.0)
+    metadata: Dict[str, Any] = Field(default_factory=dict)

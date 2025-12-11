@@ -41,27 +41,12 @@ class ImageProcessor:
             use_gpu: Use GPU for processing (default: True)
         """
         self.use_gpu = use_gpu
-        self.colpali_processor = None
-        
-        # Initialize ColPali
+        # ColPali removed - using PaddleOCR instead
         self._init_colpali()
     
     def _init_colpali(self):
-        """Initialize ColPali processor"""
-        try:
-            from backend.services.colpali_processor import get_colpali_processor
-            
-            self.colpali_processor = get_colpali_processor(use_gpu=self.use_gpu)
-            
-            if self.colpali_processor and self.colpali_processor.is_available():
-                logger.info("✅ ColPali processor initialized successfully")
-            else:
-                logger.warning("⚠️ ColPali not available")
-                self.colpali_processor = None
-                
-        except Exception as e:
-            logger.warning(f"ColPali initialization failed: {e}")
-            self.colpali_processor = None
+        """ColPali removed - not used"""
+        pass
     
     async def extract_text(
         self,
@@ -81,44 +66,18 @@ class ImageProcessor:
         if not os.path.exists(image_path):
             raise FileNotFoundError(f"Image not found: {image_path}")
         
-        if not self.colpali_processor:
-            raise ImageProcessingError(
-                "ColPali not available. Please install: pip install colpali-engine"
-            )
-        
-        try:
-            logger.info(f"Processing image with ColPali: {Path(image_path).name}")
-            
-            # Process with ColPali
-            result = self.colpali_processor.process_image(image_path)
-            
-            # Add text field for compatibility
-            result['text'] = f"[Image: {result['num_patches']} patches, {result['image_size']}]"
-            
-            logger.info(
-                f"✅ ColPali processing complete: {result['num_patches']} patches, "
-                f"confidence={result['confidence']:.2f}"
-            )
-            
-            return result
-            
-        except Exception as e:
-            logger.error(f"ColPali processing failed for {image_path}: {e}")
-            raise ImageProcessingError(f"Image processing failed: {e}")
+        # ColPali removed - image processing not available
+        raise ImageProcessingError(
+            "Image processing with ColPali has been removed. Use PaddleOCR instead."
+        )
     
     def is_available(self) -> bool:
-        """Check if ColPali is available"""
-        return self.colpali_processor is not None and self.colpali_processor.is_available()
+        """ColPali removed - always returns False"""
+        return False
     
     def get_info(self) -> Dict[str, Any]:
         """Get processor information"""
-        if self.colpali_processor:
-            return {
-                'processor': 'colpali',
-                'available': True,
-                **self.colpali_processor.get_model_info()
-            }
-        else:
+        # ColPali removed
             return {
                 'processor': 'colpali',
                 'available': False,

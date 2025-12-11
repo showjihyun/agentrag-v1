@@ -99,6 +99,9 @@ export default function LLMSettingsPage() {
         const data = await response.json();
         const models = data.models?.map((m: any) => m.name) || [];
         setOllamaModels(models);
+        
+        // Save to localStorage for use in other components
+        localStorage.setItem('ollama_models', JSON.stringify(models));
       }
     } catch (error) {
       console.error('Failed to fetch Ollama models:', error);
