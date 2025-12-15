@@ -178,26 +178,26 @@ export default function MonitoringPage() {
         </Card>
       )}
 
-      {/* Hybrid Search Stats */}
-      {metrics?.hybrid_search && (
-        <Card title="Hybrid Search">
+      {/* Workflow Execution Stats */}
+      {metrics?.workflow_execution && (
+        <Card title="Workflow Execution">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <MetricCard
-              label="Total Searches"
-              value={metrics.hybrid_search.total_searches}
+              label="Total Executions"
+              value={metrics.workflow_execution.total_executions}
             />
             <MetricCard
-              label="Cache Hit Rate"
-              value={`${(metrics.hybrid_search.cache_hit_rate * 100).toFixed(1)}%`}
-              warning={metrics.hybrid_search.cache_hit_rate < 0.3}
+              label="Success Rate"
+              value={`${(metrics.workflow_execution.success_rate * 100).toFixed(1)}%`}
+              warning={metrics.workflow_execution.success_rate < 0.8}
             />
             <MetricCard
-              label="Avg Search Time"
-              value={`${metrics.hybrid_search.avg_search_time_ms.toFixed(0)}ms`}
+              label="Avg Execution Time"
+              value={`${metrics.workflow_execution.avg_execution_time_ms.toFixed(0)}ms`}
             />
             <MetricCard
-              label="Avg Results"
-              value={metrics.hybrid_search.avg_results_count.toFixed(1)}
+              label="Active Workflows"
+              value={metrics.workflow_execution.active_workflows}
             />
           </div>
         </Card>

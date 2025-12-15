@@ -11,8 +11,51 @@ import { useDocumentStore } from '@/lib/stores/useDocumentStore';
 import { formatFileSize, formatRelativeTime } from '@/lib/utils';
 import { retryWithBackoff, isRetryableError } from '@/lib/utils/retry';
 import SearchWithSuggestions from './SearchWithSuggestions';
+import { isDragging } from 'framer-motion';
+import { isDragging } from 'framer-motion';
 
+// DocumentUpload component - Redirects to workflow platform
 const DocumentUpload: React.FC = React.memo(() => {
+  return (
+    <div className="p-6 text-center bg-gray-50 dark:bg-gray-900 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700">
+      <div className="max-w-md mx-auto">
+        <div className="text-gray-400 dark:text-gray-600 mb-4">
+          <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+        </div>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+          Document Processing Available
+        </h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          Document upload and processing is now available as workflow tools. Create workflows to handle PDF, DOCX, and other document types.
+        </p>
+        <div className="space-y-2">
+          <button
+            onClick={() => window.location.href = '/agent-builder/workflows/new'}
+            className="w-full inline-flex items-center justify-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+          >
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+            Create Document Workflow
+          </button>
+          <button
+            onClick={() => window.location.href = '/agent-builder/knowledgebases'}
+            className="w-full inline-flex items-center justify-center px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors"
+          >
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+            Manage Knowledge Bases
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Original component code commented out for workflow-focused platform
+  /*
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -447,6 +490,7 @@ const DocumentUpload: React.FC = React.memo(() => {
       </div>
     </Card>
   );
+  */
 });
 
 export default DocumentUpload;

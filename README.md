@@ -1,8 +1,8 @@
-# 🤖 Agentic RAG System with Agent Builder
+# 🤖 Workflow Platform - Visual AI Agent Builder
 
-**Next-Generation AI Document Search & QA System + No-Code AI Workflow Builder**
+**No-Code AI Workflow Builder with 70+ Integrations**
 
-Multi-Agent RAG | Visual Workflow Builder | 50+ Integrations | Real-time Streaming
+Visual Workflow Designer | Multi-Agent Orchestration | 50+ Integrations | Real-time Execution
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
@@ -12,18 +12,15 @@ Multi-Agent RAG | Visual Workflow Builder | 50+ Integrations | Real-time Streami
 [![System Score](https://img.shields.io/badge/Score-100%2F100-success.svg)](FINAL_REPORT.md)
 
 ---
-## 1. Agent  Builder
+## Visual Workflow Builder
 <img width="2016" height="1266" alt="image" src="https://github.com/user-attachments/assets/23c7ce2c-decf-445a-89b6-2f5e8b2bc550" />
-
-## 2. Speculartive RAG
-<img width="2016" height="1266" alt="image" src="https://github.com/user-attachments/assets/e820bf80-4f84-45cb-bbb8-471d6556d879" />
 ---
 
 ## ✨ Key Features
 
-### 🎨 Agent Builder - No-Code AI Workflow Builder
+### 🎨 Visual Workflow Builder
 
-**Visual workflow builder inspired by sim.ai, n8n, and Zapier** - Build complex AI automations with drag-and-drop simplicity.
+**No-code AI workflow platform inspired by n8n, Zapier, and Make** - Build complex AI automations with drag-and-drop simplicity.
 
 #### 🧩 Node Types (70+ Nodes)
 
@@ -131,51 +128,26 @@ Schedule Trigger (Every Hour)
       └─ True → Discord (Alert) → Human Approval
 ```
 
----
+### 🚀 Advanced Workflow Features
 
-### 🤖 Multi-Agent RAG System
+#### 🎯 Smart Execution Engine
+- **Conditional Branching**: Dynamic workflow paths based on data
+- **Loop Processing**: Iterate over datasets and API responses
+- **Parallel Execution**: Run multiple tasks simultaneously
+- **Error Handling**: Automatic retry and fallback mechanisms
 
-**Agentic RAG** goes beyond traditional RAG by leveraging multi-agent collaboration to deliver more accurate and context-aware responses.
+#### 📊 Real-time Monitoring
+- **Live Execution Tracking**: Watch your workflows run in real-time
+- **Performance Analytics**: Detailed metrics and insights
+- **Debug Mode**: Step-by-step execution debugging
+- **Cost Tracking**: Monitor API usage and costs
 
-#### Agent Architecture
-
-**Aggregator Agent** (Master Coordinator):
-- ReAct (Reasoning + Acting) pattern
-- Chain of Thought (CoT) reasoning
-- Multi-agent orchestration
-
-**Specialized Agents**:
-- **Vector Search Agent**: Milvus-based semantic search
-- **Local Data Agent**: File system & database access
-- **Web Search Agent**: Real-time web search (DuckDuckGo)
-
-#### 🎯 Adaptive Query Routing
-
-Automatically analyzes query complexity and selects optimal processing mode:
-
-| Mode | Response Time | Use Case |
-|------|---------------|----------|
-| **Fast** | < 1s | Simple fact checking |
-| **Balanced** | < 3s | General questions |
-| **Deep** | < 10s | Complex analysis & reasoning |
-
-#### 📄 Multimodal Document Processing
-
-**Supported Formats**: PDF, DOCX, HWP, HWPX, PPT, PPTX, XLSX, TXT, MD, Images
-
-**PaddleOCR Advanced Technology**:
-- **PP-OCRv5**: 98%+ text recognition accuracy
-- **PP-StructureV3**: 98%+ table structure recognition
-- **PaddleOCR-VL**: Multimodal document understanding
-- **PP-ChatOCRv4**: Document-based conversational AI
-- **PP-DocTranslation**: Layout-preserving document translation
-
-#### 🔍 Hybrid Search
-
-**Vector Search** (Semantic) + **BM25** (Keyword) combined:
-- Korean-optimized (jhgan/ko-sroberta-multitask)
-- Adaptive Reranking
-- L1/L2 caching strategy
+#### 🔗 Extensive Integrations
+**Communication**: Slack, Discord, Email, SMS, Teams
+**Storage**: Google Drive, S3, Dropbox, OneDrive, Box
+**Database**: PostgreSQL, MySQL, MongoDB, Redis, Supabase
+**AI/ML**: OpenAI, Anthropic, Google AI, Hugging Face, Ollama
+**Productivity**: Notion, Airtable, Google Sheets, Trello
 
 ---
 
@@ -229,26 +201,25 @@ docker-compose logs -f
 
 | Service | URL | Description |
 |---------|-----|-------------|
-| 🌐 **Frontend** | http://localhost:3000 | Main web interface |
-| 🤖 **Agent Builder** | http://localhost:3000/agent-builder | Workflow builder |
+| 🌐 **Frontend** | http://localhost:3000 | Workflow Platform (redirects to Agent Builder) |
+| 🤖 **Agent Builder** | http://localhost:3000/agent-builder | Main workflow builder interface |
 | 🚀 **Backend API** | http://localhost:8000 | REST API |
 | 📚 **API Docs** | http://localhost:8000/docs | Swagger UI |
 | 🗄️ **PostgreSQL** | localhost:5433 | Database |
-| 🔍 **Milvus** | localhost:19530 | Vector DB |
+| 🔍 **Milvus** | localhost:19530 | Vector DB (for workflow tools) |
 | 💾 **Redis** | localhost:6380 | Cache |
 
 ### 5. Create Your First Workflow
 
-1. **Access Agent Builder**: http://localhost:3000/agent-builder
-2. **Click Workflows** menu
-3. **Click "New Workflow"** button
-4. **Add Nodes**:
-   - Add Start node
-   - Add Agent node (drag & drop)
-   - Add End node
-5. **Connect Nodes**: Draw connections between nodes
-6. **Configure**: Click each node to configure
-7. **Save & Execute**: "Save" → "Execute"
+1. **Access Platform**: http://localhost:3000 (automatically redirects to Agent Builder)
+2. **Choose Workflow Type**:
+   - **Agentflow**: Multi-agent task automation
+   - **Chatflow**: Conversational AI workflows
+3. **Build Your Workflow**:
+   - Drag & drop nodes from the sidebar
+   - Connect nodes to create your flow
+   - Configure each node's settings
+4. **Test & Deploy**: Use the built-in testing tools and deploy when ready
 
 ---
 

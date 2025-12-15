@@ -344,6 +344,10 @@ from fastapi.middleware.gzip import GZipMiddleware
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 logger.info("GZip compression middleware enabled (minimum size: 1000 bytes)")
 
+# Add performance optimization middleware
+from backend.middleware.performance_middleware import add_performance_middleware
+add_performance_middleware(app)
+
 # Configure CORS
 print(f"DEBUG MODE: {settings.DEBUG}")
 if settings.DEBUG:
@@ -718,9 +722,12 @@ from backend.core.dependencies import (
 # Include API routers
 # Import directly from .py files to avoid conflicts with domain folders
 from backend.api.auth import router as auth_router
-from backend.api.conversations import router as conversations_router
-from backend.api.documents import router as documents_router
-from backend.api.query import router as query_router
+# RAG-related routers - commented out for workflow-focused platform
+# from backend.api.conversations import router as conversations_router
+# from backend.api.documents import router as documents_router
+# from backend.api.query import router as query_router
+# from backend.api.advanced_rag import router as advanced_rag_router
+# from backend.api.web_search import router as web_search_router
 from backend.api.tasks import router as tasks_router
 from backend.api.feedback import router as feedback_router
 from backend.api.analytics import router as analytics_router
@@ -738,10 +745,8 @@ from backend.api.notifications import router as notifications_router
 from backend.api.usage import router as usage_router
 from backend.api.models import router as models_router
 from backend.api.react_stats import router as react_stats_router
-from backend.api.advanced_rag import router as advanced_rag_router
 from backend.api.enterprise import router as enterprise_router
 from backend.api.monitoring_stats import router as monitoring_stats_router
-from backend.api.web_search import router as web_search_router
 
 # Import new monitoring API
 from backend.api import monitoring as monitoring_api
@@ -758,9 +763,12 @@ app.include_router(health_router)
 # v1 API routers (Kubernetes-ready health checks)
 app.include_router(health_v1.router)
 app.include_router(auth_router)
-app.include_router(conversations_router)
-app.include_router(documents_router)
-app.include_router(query_router)
+# RAG-related routers - commented out for workflow-focused platform
+# app.include_router(conversations_router)
+# app.include_router(documents_router)
+# app.include_router(query_router)
+# app.include_router(advanced_rag_router)
+# app.include_router(web_search_router)
 app.include_router(tasks_router)
 app.include_router(feedback_router)
 app.include_router(analytics_router)
@@ -784,12 +792,8 @@ app.include_router(monitoring_stats_router)
 
 # New Monitoring Statistics API (PostgreSQL-based)
 app.include_router(monitoring_api.router)
-# Advanced RAG API (Priority 3)
-app.include_router(advanced_rag_router)
 # Enterprise API (Priority 4)
 app.include_router(enterprise_router)
-# Web Search API
-app.include_router(web_search_router)
 
 # PaddleOCR Advanced API (Phase 1: PP-ChatOCRv4)
 app.include_router(paddleocr_advanced.router)
@@ -877,6 +881,24 @@ from backend.api.agent_builder import (
     agentflow_execution as agent_builder_agentflow_execution,  # Agentflow execution API
     workflows_ddd as agent_builder_workflows_ddd,  # DDD Reference Implementation
     nlp_generator as agent_builder_nlp_generator,  # NLP Workflow Generator
+    gemini_multimodal as agent_builder_gemini_multimodal,  # Gemini 3.0 MultiModal API
+    gemini_templates as agent_builder_gemini_templates,  # Gemini MultiModal Templates
+    gemini_realtime as agent_builder_gemini_realtime,  # Gemini Real-time Execution
+    gemini_fusion as agent_builder_gemini_fusion,  # Gemini Advanced Fusion
+    gemini_video as agent_builder_gemini_video,  # Gemini Video Processing
+    gemini_batch as agent_builder_gemini_batch,  # Gemini Batch Processing
+    gemini_auto_optimizer as agent_builder_gemini_auto_optimizer,  # Gemini Auto-optimization
+    predictive_routing as agent_builder_predictive_routing,  # Predictive Routing
+    nl_workflow_generator as agent_builder_nl_workflow_generator,  # 🌟 Natural Language Workflow Generator
+    multi_agent_orchestration as agent_builder_multi_agent_orchestration,  # Multi-Agent Orchestration
+    advanced_orchestration as agent_builder_advanced_orchestration,  # 🚀 Advanced Multi-Agent Orchestration
+    workflow_optimization as agent_builder_workflow_optimization,  # 🎯 Intelligent Workflow Optimization
+    predictive_maintenance as agent_builder_predictive_maintenance,  # 🛡️ Predictive Maintenance & Self-Healing
+    agent_olympics as agent_builder_agent_olympics,  # 🏆 AI Agent Olympics
+    emotional_ai as agent_builder_emotional_ai,  # 💝 Emotional AI Integration
+    workflow_dna as agent_builder_workflow_dna,  # 🧬 Workflow DNA Evolution
+    realtime_updates as agent_builder_realtime_updates,  # 🔄 Real-time Updates WebSocket
+    performance_monitoring as agent_builder_performance_monitoring,  # 📊 Performance Monitoring
 )
 
 # Circuit Breaker Status API (Phase 1 Architecture)
@@ -946,6 +968,24 @@ app.include_router(agent_builder_chatflows.router)  # Chatflow-specific API
 app.include_router(agent_builder_embed.router)  # Embed widget for Chatflows
 app.include_router(agent_builder_flow_templates.router)  # Flow templates management
 app.include_router(agent_builder_nlp_generator.router)  # NLP Workflow Generator
+app.include_router(agent_builder_gemini_multimodal.router)  # Gemini 3.0 MultiModal API
+app.include_router(agent_builder_gemini_templates.router)  # Gemini MultiModal Templates
+app.include_router(agent_builder_gemini_realtime.router)  # Gemini Real-time Execution
+app.include_router(agent_builder_gemini_fusion.router)  # Gemini Advanced Fusion
+app.include_router(agent_builder_gemini_video.router)  # Gemini Video Processing
+app.include_router(agent_builder_gemini_batch.router)  # Gemini Batch Processing
+app.include_router(agent_builder_gemini_auto_optimizer.router)  # Gemini Auto-optimization
+app.include_router(agent_builder_predictive_routing.router)  # Predictive Routing
+app.include_router(agent_builder_nl_workflow_generator.router)  # 🌟 Natural Language Workflow Generator
+app.include_router(agent_builder_multi_agent_orchestration.router)  # Multi-Agent Orchestration
+app.include_router(agent_builder_advanced_orchestration.router)  # 🚀 Advanced Multi-Agent Orchestration
+app.include_router(agent_builder_workflow_optimization.router)  # 🎯 Intelligent Workflow Optimization
+app.include_router(agent_builder_predictive_maintenance.router)  # 🛡️ Predictive Maintenance & Self-Healing
+app.include_router(agent_builder_agent_olympics.router)  # 🏆 AI Agent Olympics
+app.include_router(agent_builder_emotional_ai.router)  # 💝 Emotional AI Integration
+app.include_router(agent_builder_workflow_dna.router)  # 🧬 Workflow DNA Evolution
+app.include_router(agent_builder_realtime_updates.router)  # 🔄 Real-time Updates WebSocket
+app.include_router(agent_builder_performance_monitoring.router)  # 📊 Performance Monitoring
 app.include_router(agent_builder_chatflow_chat.router)  # Chatflow chat API
 app.include_router(agent_builder_prometheus_metrics.router)  # Prometheus metrics export
 app.include_router(agent_builder_agentflow_execution.router)  # Agentflow execution API

@@ -26,11 +26,33 @@ interface ChatInterfaceProps {
   onNewMessage?: (message: Message) => void;
 }
 
+// ChatInterface component - Redirects to workflow platform
 const ChatInterface: React.FC<ChatInterfaceProps> = memo(({
   sessionId,
   initialMessages,
   onNewMessage,
 }) => {
+  // Redirect to workflow platform
+  React.useEffect(() => {
+    window.location.href = '/agent-builder';
+  }, []);
+
+  return (
+    <div className="flex items-center justify-center h-64 bg-gray-50 dark:bg-gray-900 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">
+          Redirecting to Workflow Platform...
+        </h3>
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          This platform now focuses on visual workflow automation.
+        </p>
+      </div>
+    </div>
+  );
+
+  // Original component code commented out for workflow-focused platform
+  /*
   const { isOpen: showMobileSheet, setIsOpen: setShowMobileSheet } = useToggle(false);
   const [elapsedTime, setElapsedTime] = useState<number>(0);
   const { isOpen: showDocViewer, setIsOpen: setShowDocViewer } = useToggle(true);
@@ -380,6 +402,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = memo(({
       </div>
     </>
   );
+  */
 });
 
 ChatInterface.displayName = 'ChatInterface';

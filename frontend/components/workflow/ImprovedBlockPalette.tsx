@@ -43,7 +43,12 @@ import {
   Loader2,
   Plus,
   X,
-  Keyboard
+  Keyboard,
+  Eye,
+  Mic,
+  Volume2,
+  Users,
+  Wand2
 } from 'lucide-react';
 
 interface BlockPaletteProps {
@@ -78,6 +83,16 @@ const TOOLS: Tool[] = [
   { id: 'openai_chat', name: 'OpenAI Chat', description: 'GPT-4 and GPT-3.5 models', category: 'ai', icon: Sparkles, popular: true },
   { id: 'anthropic_claude', name: 'Claude', description: 'Anthropic Claude AI', category: 'ai', icon: Bot },
   { id: 'google_gemini', name: 'Gemini', description: 'Google Gemini AI', category: 'ai', icon: Sparkles },
+  
+  // 🌟 Gemini 3.0 MultiModal (NEW - Priority)
+  { id: 'gemini_vision', name: 'Gemini Vision', description: 'Advanced image analysis with Gemini 3.0', category: 'multimodal', icon: Eye, popular: true, new: true },
+  { id: 'gemini_audio', name: 'Gemini Audio', description: 'Audio processing and transcription with Gemini 3.0', category: 'multimodal', icon: Mic, popular: true, new: true },
+  { id: 'gemini_video', name: 'Gemini Video', description: 'Advanced video analysis and content extraction', category: 'multimodal', icon: Volume2, popular: true, new: true },
+  { id: 'gemini_batch', name: 'Gemini Batch', description: 'Batch processing for multiple videos simultaneously', category: 'multimodal', icon: Users, popular: true, new: true },
+  { id: 'gemini_fusion', name: 'Gemini Fusion', description: 'Advanced multimodal fusion processing', category: 'multimodal', icon: Sparkles, popular: true, new: true },
+  { id: 'gemini_auto_optimizer', name: 'Gemini Auto-optimizer', description: 'AI-powered automatic optimization and strategy selection', category: 'multimodal', icon: Wand2, popular: true, new: true },
+  { id: 'predictive_routing', name: 'Predictive Routing', description: 'AI-powered predictive routing and intelligent strategy selection', category: 'ai', icon: Route, popular: true, new: true },
+  { id: 'gemini_document', name: 'Gemini Document', description: 'Document structure analysis and data extraction', category: 'multimodal', icon: FileText, new: true },
   
   // Communication (Priority)
   { id: 'slack', name: 'Slack', description: 'Send messages, manage channels', category: 'communication', icon: MessageSquare, popular: true, new: true },

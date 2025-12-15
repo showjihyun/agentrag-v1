@@ -3,24 +3,25 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  MessageSquare,
   ArrowLeft,
   Save,
+  Play,
+  MessageSquare,
+  Settings,
+  Sparkles,
   Database,
   Brain,
   Wrench,
-  Settings,
-  Plus,
-  Trash,
+  Code,
+  Globe,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Slider } from '@/components/ui/slider';
 import {
   Select,
   SelectContent,
@@ -29,145 +30,162 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Slider } from '@/components/ui/slider';
 import { useToast } from '@/hooks/use-toast';
 import { flowsAPI } from '@/lib/api/flows';
-import { agentBuilderAPI } from '@/lib/api/agent-builder';
-import { useQuery } from '@tanstack/react-query';
+
+const TEMPLATES = [
+  {
+    id: 'rag-chatbot',
+    name: 'RAG 챗봇',
+    description: '문서 기반 질의응답 챗봇 (지식베이스 연동)',
+    features: ['RAG', 'Memory'],
+    icon: '📚',
+    config: {
+      rag_enabled: true,
+      memory_type: 'vector',
+      tools: ['vector_search', 'web_search'],
+    },
+  },
+  {
+    id: 'customer-support',
+    name: '고객 지원 챗봇',
+    description: 'FAQ 및 티켓 생성 기능이 포함된 지원 봇',
+    features: ['Tools', 'Memory'],
+    icon: '🎧',
+    config: {
+      rag_enabled: false,
+      memory_type: 'buffer',
+      tools: ['slack', 'email', 'database'],
+    },
+  },
+  {
+    id: 'code-assistant',
+    name: '코드 어시스턴트',
+    description: '코드 작성, 리뷰, 디버깅을 도와주는 AI',
+    features: ['Tools', 'Code'],
+    icon: '💻',
+    config: {
+      rag_enabled: false,
+      memory_type: 'summary',
+      tools: ['code_execution', 'github', 'documentation'],
+    },
+  },
+  {
+    id: 'research-assistant',
+    name: '리서치 어시스턴트',
+    description: '웹 검색과 문서 분석을 통한 리서치 지원',
+    features: ['RAG', 'Web Search'],
+    icon: '🔬',
+    config: {
+      rag_enabled: true,
+      memory_type: 'hybrid',
+      tools: ['web_search', 'vector_search', 'document_analysis'],
+    },
+  },
+];
+
+const MEMORY_TYPES = [
+  {
+    id: 'buffer',
+    name: '버퍼 메모리',
+    description: '최근 대화 내용을 그대로 저장',
+    icon: Brain,
+  },
+  {
+    id: 'summary',
+    name: '요약 메모리',
+    description: '대화 내용을 요약하여 저장',
+    icon: Brain,
+  },
+  {
+    id: 'vector',
+    name: '벡터 메모리',
+    description: '임베딩을 사용한 의미 기반 저장',
+    icon: Database,
+  },
+  {
+    id: 'hybrid',
+    name: '하이브리드 메모리',
+    description: '여러 메모리 방식을 조합',
+    icon: Sparkles,
+  },
+];
 
 export default function NewChatflowPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const templateId = searchParams.get('template');
   const { toast } = useToast();
-
-  const [saving, setSaving] = useState(false);
+  
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    // Chat Config
-    llm_provider: 'ollama',
-    llm_model: 'llama3.1',
-    system_prompt: 'You are a helpful assistant.',
-    temperature: 0.7,
-    max_tokens: 2048,
-    streaming: true,
-    welcome_message: '안녕하세요! 무엇을 도와드릴까요?',
-    suggested_questions: [] as string[],
-    // Memory Config
-    memory_type: 'buffer' as const,
-    memory_max_messages: 20,
-    // RAG Config
-    rag_enabled: false,
-    rag_knowledgebase_ids: [] as string[],
-    rag_retrieval_strategy: 'hybrid' as const,
-    rag_top_k: 5,
-    rag_score_threshold: 0.7,
-    rag_reranking_enabled: true,
-    // Tools
-    tool_ids: [] as string[],
-    // Tags
+    chat_config: {
+      llm_provider: 'ollama',
+      llm_model: 'llama3.1:8b',
+      system_prompt: '당신은 도움이 되는 AI 어시스턴트입니다. 사용자의 질문에 정확하고 친절하게 답변해주세요.',
+      temperature: 0.7,
+      max_tokens: 2000,
+      streaming: true,
+      welcome_message: '안녕하세요! 무엇을 도와드릴까요?',
+      suggested_questions: [
+        '이 시스템은 어떻게 사용하나요?',
+        '도움이 필요합니다',
+        '문서를 분석해주세요',
+      ],
+    },
+    memory_config: {
+      type: 'buffer',
+      max_messages: 20,
+      summary_threshold: null,
+      vector_store_id: null,
+    },
+    rag_config: {
+      enabled: false,
+      knowledgebase_ids: [],
+      retrieval_strategy: 'hybrid',
+      top_k: 5,
+      score_threshold: 0.7,
+      reranking_enabled: true,
+      reranking_model: null,
+    },
+    graph_definition: {},
     tags: [] as string[],
   });
-  const [newTag, setNewTag] = useState('');
-  const [newQuestion, setNewQuestion] = useState('');
+  
+  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  // Fetch knowledgebases
-  const { data: knowledgebases } = useQuery({
-    queryKey: ['knowledgebases'],
-    queryFn: () => agentBuilderAPI.getKnowledgebases(),
-  });
-
-  // Fetch tools
-  const { data: tools } = useQuery({
-    queryKey: ['tools'],
-    queryFn: () => agentBuilderAPI.getTools(),
-  });
-
-  // Template data loading
+  // Load template if specified in URL
   useEffect(() => {
+    const templateId = searchParams.get('template');
     if (templateId) {
-      loadTemplateData(templateId);
+      const template = TEMPLATES.find(t => t.id === templateId);
+      if (template) {
+        setSelectedTemplate(templateId);
+        setFormData(prev => ({
+          ...prev,
+          name: template.name,
+          description: template.description,
+          memory_config: {
+            ...prev.memory_config,
+            type: template.config.memory_type,
+          },
+          rag_config: {
+            ...prev.rag_config,
+            enabled: template.config.rag_enabled,
+          },
+          tags: template.features.map(f => f.toLowerCase()),
+        }));
+      }
     }
-  }, [templateId]);
-
-  const loadTemplateData = (templateId: string) => {
-    const templateData = {
-      'rag-chatbot': {
-        name: 'RAG 챗봇',
-        description: '문서 기반 질의응답 챗봇 (지식베이스 연동)',
-        system_prompt: 'You are a helpful assistant that answers questions based on the provided documents. Always cite your sources and be accurate.',
-        rag_enabled: true,
-        tags: ['RAG', '문서검색', '챗봇'],
-      },
-      'customer-support': {
-        name: '고객 지원 챗봇',
-        description: 'FAQ 및 티켓 생성 기능이 포함된 지원 봇',
-        system_prompt: 'You are a customer support assistant. Be helpful, professional, and empathetic. Always try to resolve issues efficiently.',
-        welcome_message: '안녕하세요! 고객 지원팀입니다. 어떻게 도와드릴까요?',
-        suggested_questions: ['주문 상태 확인', '환불 요청', '기술 지원', '계정 문제'],
-        tags: ['고객지원', '헬프데스크'],
-      },
-      'code-assistant': {
-        name: '코드 어시스턴트',
-        description: '코드 작성, 리뷰, 디버깅을 도와주는 AI',
-        system_prompt: 'You are a coding assistant. Help users write, review, and debug code. Provide clear explanations and best practices.',
-        welcome_message: '안녕하세요! 코딩을 도와드리겠습니다. 어떤 언어나 문제를 다루고 계신가요?',
-        suggested_questions: ['코드 리뷰 요청', '버그 디버깅', '최적화 방법', '베스트 프랙티스'],
-        tags: ['코딩', '개발', '프로그래밍'],
-      },
-      'research-assistant': {
-        name: '리서치 어시스턴트',
-        description: '웹 검색과 문서 분석을 통한 리서치 지원',
-        system_prompt: 'You are a research assistant. Help users find information, analyze documents, and provide comprehensive research support.',
-        rag_enabled: true,
-        welcome_message: '안녕하세요! 리서치를 도와드리겠습니다. 어떤 주제를 조사하고 계신가요?',
-        suggested_questions: ['시장 조사', '논문 분석', '트렌드 분석', '경쟁사 분석'],
-        tags: ['리서치', '분석', '조사'],
-      },
-    };
-
-    const template = templateData[templateId as keyof typeof templateData];
-    if (template) {
-      setFormData(prev => ({
-        ...prev,
-        ...template,
-      }));
-    }
-  };
-
-  const handleAddTag = () => {
-    if (newTag && !formData.tags.includes(newTag)) {
-      setFormData({ ...formData, tags: [...formData.tags, newTag] });
-      setNewTag('');
-    }
-  };
-
-  const handleRemoveTag = (tag: string) => {
-    setFormData({ ...formData, tags: formData.tags.filter((t) => t !== tag) });
-  };
-
-  const handleAddQuestion = () => {
-    if (newQuestion && !formData.suggested_questions.includes(newQuestion)) {
-      setFormData({
-        ...formData,
-        suggested_questions: [...formData.suggested_questions, newQuestion],
-      });
-      setNewQuestion('');
-    }
-  };
-
-  const handleRemoveQuestion = (question: string) => {
-    setFormData({
-      ...formData,
-      suggested_questions: formData.suggested_questions.filter((q) => q !== question),
-    });
-  };
+  }, [searchParams]);
 
   const handleSave = async () => {
-    if (!formData.name) {
+    if (!formData.name.trim()) {
       toast({
         title: '오류',
-        description: '이름을 입력해주세요',
+        description: 'Chatflow 이름을 입력해주세요',
         variant: 'destructive',
       });
       return;
@@ -175,46 +193,18 @@ export default function NewChatflowPage() {
 
     try {
       setSaving(true);
-      const response = await flowsAPI.createChatflow({
-        name: formData.name,
-        description: formData.description,
-        chat_config: {
-          llm_provider: formData.llm_provider,
-          llm_model: formData.llm_model,
-          system_prompt: formData.system_prompt,
-          temperature: formData.temperature,
-          max_tokens: formData.max_tokens,
-          streaming: formData.streaming,
-          welcome_message: formData.welcome_message,
-          suggested_questions: formData.suggested_questions,
-        },
-        memory_config: {
-          type: formData.memory_type,
-          max_messages: formData.memory_max_messages,
-        },
-        rag_config: formData.rag_enabled
-          ? {
-              enabled: true,
-              knowledgebase_ids: formData.rag_knowledgebase_ids,
-              retrieval_strategy: formData.rag_retrieval_strategy,
-              top_k: formData.rag_top_k,
-              score_threshold: formData.rag_score_threshold,
-              reranking_enabled: formData.rag_reranking_enabled,
-            }
-          : undefined,
-        tags: formData.tags,
-      });
-
+      const chatflow = await flowsAPI.createChatflow(formData);
+      
       toast({
         title: '생성 완료',
-        description: 'Chatflow가 생성되었습니다',
+        description: `"${formData.name}" Chatflow가 생성되었습니다`,
       });
-
-      router.push(`/agent-builder/chatflows/${response.id}/edit`);
+      
+      router.push(`/agent-builder/chatflows/${chatflow.id}`);
     } catch (error: any) {
       toast({
         title: '오류',
-        description: error.message || '생성에 실패했습니다',
+        description: error.message || 'Chatflow 생성에 실패했습니다',
         variant: 'destructive',
       });
     } finally {
@@ -222,51 +212,61 @@ export default function NewChatflowPage() {
     }
   };
 
+  const handleTemplateSelect = (template: typeof TEMPLATES[0]) => {
+    setSelectedTemplate(template.id);
+    setFormData(prev => ({
+      ...prev,
+      name: template.name,
+      description: template.description,
+      memory_config: {
+        ...prev.memory_config,
+        type: template.config.memory_type,
+      },
+      rag_config: {
+        ...prev.rag_config,
+        enabled: template.config.rag_enabled,
+      },
+      tags: template.features.map(f => f.toLowerCase()),
+    }));
+  };
+
   return (
     <div className="container mx-auto p-6 max-w-4xl">
-      {/* Header - Enhanced with Gradient */}
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b mb-6 -mx-6 px-6 py-4">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => router.back()}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div className="flex-1">
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900">
-                <MessageSquare className="h-7 w-7 text-blue-600 dark:text-blue-400" />
-              </div>
-              새 Chatflow 만들기
-            </h1>
-            <p className="text-muted-foreground mt-1 text-base">AI 챗봇을 구성하세요</p>
-          </div>
-          <Button variant="outline" onClick={() => router.back()} size="lg">
-            취소
-          </Button>
-          <Button 
-            onClick={handleSave} 
-            disabled={saving}
-            size="lg"
-            className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 shadow-lg hover:shadow-xl transition-all"
-          >
-            <Save className="h-5 w-5 mr-2" />
-            {saving ? '저장 중...' : '저장하고 계속'}
-          </Button>
+      {/* Header */}
+      <div className="flex items-center gap-4 mb-6">
+        <Button variant="ghost" onClick={() => router.back()}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          뒤로
+        </Button>
+        <div>
+          <h1 className="text-3xl font-bold flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900">
+              <MessageSquare className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+            </div>
+            새 Chatflow 만들기
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            RAG 기반 챗봇과 AI 어시스턴트를 구축하세요
+          </p>
         </div>
       </div>
 
       <Tabs defaultValue="basic" className="space-y-6">
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="basic">기본 정보</TabsTrigger>
-          <TabsTrigger value="llm">LLM 설정</TabsTrigger>
-          <TabsTrigger value="rag">RAG 설정</TabsTrigger>
-          <TabsTrigger value="tools">도구</TabsTrigger>
+          <TabsTrigger value="chat">채팅 설정</TabsTrigger>
+          <TabsTrigger value="memory">메모리 & RAG</TabsTrigger>
+          <TabsTrigger value="templates">템플릿</TabsTrigger>
         </TabsList>
 
-        {/* Basic Info Tab */}
+        {/* Basic Information */}
         <TabsContent value="basic" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>기본 정보</CardTitle>
+              <CardDescription>
+                Chatflow의 이름과 설명을 입력하세요
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
@@ -275,103 +275,59 @@ export default function NewChatflowPage() {
                   id="name"
                   placeholder="예: 고객 지원 챗봇"
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                 />
               </div>
+              
               <div className="space-y-2">
                 <Label htmlFor="description">설명</Label>
                 <Textarea
                   id="description"
-                  placeholder="이 챗봇이 수행하는 작업을 설명하세요"
+                  placeholder="이 Chatflow가 수행할 작업을 설명해주세요..."
                   value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                   rows={3}
                 />
               </div>
-              <div className="space-y-2">
-                <Label>환영 메시지</Label>
-                <Input
-                  placeholder="사용자에게 보여줄 첫 메시지"
-                  value={formData.welcome_message}
-                  onChange={(e) => setFormData({ ...formData, welcome_message: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>추천 질문</Label>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="추천 질문 추가"
-                    value={newQuestion}
-                    onChange={(e) => setNewQuestion(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleAddQuestion()}
-                  />
-                  <Button variant="outline" onClick={handleAddQuestion}>
-                    추가
-                  </Button>
-                </div>
-                {formData.suggested_questions.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {formData.suggested_questions.map((q) => (
-                      <Badge
-                        key={q}
-                        variant="secondary"
-                        className="cursor-pointer"
-                        onClick={() => handleRemoveQuestion(q)}
-                      >
-                        {q} ×
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-              </div>
+
               <div className="space-y-2">
                 <Label>태그</Label>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="태그 추가"
-                    value={newTag}
-                    onChange={(e) => setNewTag(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleAddTag()}
-                  />
-                  <Button variant="outline" onClick={handleAddTag}>
-                    추가
-                  </Button>
+                <div className="flex flex-wrap gap-2">
+                  {formData.tags.map((tag, index) => (
+                    <Badge key={index} variant="secondary">
+                      {tag}
+                    </Badge>
+                  ))}
+                  {formData.tags.length === 0 && (
+                    <p className="text-sm text-muted-foreground">
+                      템플릿을 선택하면 자동으로 태그가 추가됩니다
+                    </p>
+                  )}
                 </div>
-                {formData.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {formData.tags.map((tag) => (
-                      <Badge
-                        key={tag}
-                        variant="secondary"
-                        className="cursor-pointer"
-                        onClick={() => handleRemoveTag(tag)}
-                      >
-                        {tag} ×
-                      </Badge>
-                    ))}
-                  </div>
-                )}
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* LLM Settings Tab */}
-        <TabsContent value="llm" className="space-y-6">
+        {/* Chat Configuration */}
+        <TabsContent value="chat" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Settings className="h-5 w-5" />
-                LLM 설정
-              </CardTitle>
+              <CardTitle>LLM 설정</CardTitle>
+              <CardDescription>
+                채팅에 사용할 언어 모델을 설정하세요
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>LLM Provider</Label>
+                  <Label>LLM 제공자</Label>
                   <Select
-                    value={formData.llm_provider}
-                    onValueChange={(v) => setFormData({ ...formData, llm_provider: v })}
+                    value={formData.chat_config.llm_provider}
+                    onValueChange={(value) => setFormData(prev => ({
+                      ...prev,
+                      chat_config: { ...prev.chat_config, llm_provider: value }
+                    }))}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -383,55 +339,179 @@ export default function NewChatflowPage() {
                     </SelectContent>
                   </Select>
                 </div>
+
                 <div className="space-y-2">
                   <Label>모델</Label>
                   <Input
-                    value={formData.llm_model}
-                    onChange={(e) => setFormData({ ...formData, llm_model: e.target.value })}
+                    value={formData.chat_config.llm_model}
+                    onChange={(e) => setFormData(prev => ({
+                      ...prev,
+                      chat_config: { ...prev.chat_config, llm_model: e.target.value }
+                    }))}
+                    placeholder="llama3.1:8b"
                   />
                 </div>
               </div>
+
               <div className="space-y-2">
                 <Label>시스템 프롬프트</Label>
                 <Textarea
-                  value={formData.system_prompt}
-                  onChange={(e) => setFormData({ ...formData, system_prompt: e.target.value })}
+                  value={formData.chat_config.system_prompt}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    chat_config: { ...prev.chat_config, system_prompt: e.target.value }
+                  }))}
                   rows={4}
-                  placeholder="AI의 역할과 행동 방식을 정의하세요"
+                  placeholder="AI의 역할과 행동 방식을 정의하세요..."
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Temperature: {formData.temperature}</Label>
-                  <Slider
-                    value={[formData.temperature]}
-                    onValueChange={([v]) => setFormData({ ...formData, temperature: v })}
-                    min={0}
-                    max={2}
-                    step={0.1}
+
+              <div className="space-y-2">
+                <Label>Temperature: {formData.chat_config.temperature}</Label>
+                <Slider
+                  value={[formData.chat_config.temperature]}
+                  onValueChange={([value]) => setFormData(prev => ({
+                    ...prev,
+                    chat_config: { ...prev.chat_config, temperature: value }
+                  }))}
+                  max={2}
+                  min={0}
+                  step={0.1}
+                  className="w-full"
+                />
+                <p className="text-xs text-muted-foreground">
+                  낮을수록 일관된 답변, 높을수록 창의적인 답변
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>최대 토큰 수</Label>
+                <Input
+                  type="number"
+                  min="100"
+                  max="8000"
+                  value={formData.chat_config.max_tokens}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    chat_config: { ...prev.chat_config, max_tokens: parseInt(e.target.value) || 2000 }
+                  }))}
+                />
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="streaming"
+                  checked={formData.chat_config.streaming}
+                  onCheckedChange={(checked) => setFormData(prev => ({
+                    ...prev,
+                    chat_config: { ...prev.chat_config, streaming: checked }
+                  }))}
+                />
+                <Label htmlFor="streaming">스트리밍 응답</Label>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>사용자 경험</CardTitle>
+              <CardDescription>
+                사용자와의 첫 만남을 설정하세요
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>환영 메시지</Label>
+                <Input
+                  value={formData.chat_config.welcome_message}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    chat_config: { ...prev.chat_config, welcome_message: e.target.value }
+                  }))}
+                  placeholder="안녕하세요! 무엇을 도와드릴까요?"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>추천 질문</Label>
+                {formData.chat_config.suggested_questions.map((question, index) => (
+                  <Input
+                    key={index}
+                    value={question}
+                    onChange={(e) => {
+                      const newQuestions = [...formData.chat_config.suggested_questions];
+                      newQuestions[index] = e.target.value;
+                      setFormData(prev => ({
+                        ...prev,
+                        chat_config: { ...prev.chat_config, suggested_questions: newQuestions }
+                      }));
+                    }}
+                    placeholder={`추천 질문 ${index + 1}`}
                   />
-                  <p className="text-xs text-muted-foreground">
-                    낮을수록 일관된 응답, 높을수록 창의적인 응답
-                  </p>
-                </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Memory & RAG */}
+        <TabsContent value="memory" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>메모리 설정</CardTitle>
+              <CardDescription>
+                대화 기록을 어떻게 저장하고 활용할지 설정하세요
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {MEMORY_TYPES.map((type) => {
+                  const Icon = type.icon;
+                  const isSelected = formData.memory_config.type === type.id;
+                  
+                  return (
+                    <Card
+                      key={type.id}
+                      className={`cursor-pointer transition-all border-2 ${
+                        isSelected 
+                          ? 'border-primary shadow-lg' 
+                          : 'border-border hover:border-primary/50'
+                      }`}
+                      onClick={() => setFormData(prev => ({ 
+                        ...prev, 
+                        memory_config: { ...prev.memory_config, type: type.id }
+                      }))}
+                    >
+                      <CardHeader className="pb-3">
+                        <div className="flex items-center gap-3">
+                          <Icon className="h-5 w-5 text-blue-500" />
+                          <div>
+                            <CardTitle className="text-base">{type.name}</CardTitle>
+                            <CardDescription className="text-sm">
+                              {type.description}
+                            </CardDescription>
+                          </div>
+                        </div>
+                      </CardHeader>
+                    </Card>
+                  );
+                })}
+              </div>
+
+              <div className="mt-4 space-y-4">
                 <div className="space-y-2">
-                  <Label>Max Tokens</Label>
+                  <Label>최대 메시지 수</Label>
                   <Input
                     type="number"
-                    value={formData.max_tokens}
-                    onChange={(e) => setFormData({ ...formData, max_tokens: parseInt(e.target.value) })}
+                    min="5"
+                    max="100"
+                    value={formData.memory_config.max_messages}
+                    onChange={(e) => setFormData(prev => ({
+                      ...prev,
+                      memory_config: { ...prev.memory_config, max_messages: parseInt(e.target.value) || 20 }
+                    }))}
                   />
                 </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label>스트리밍 응답</Label>
-                  <p className="text-xs text-muted-foreground">실시간으로 응답을 표시합니다</p>
-                </div>
-                <Switch
-                  checked={formData.streaming}
-                  onCheckedChange={(v) => setFormData({ ...formData, streaming: v })}
-                />
               </div>
             </CardContent>
           </Card>
@@ -439,92 +519,36 @@ export default function NewChatflowPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Brain className="h-5 w-5" />
-                메모리 설정
+                <Database className="h-5 w-5 text-purple-500" />
+                RAG 설정
               </CardTitle>
+              <CardDescription>
+                지식베이스와 연동하여 정확한 정보를 제공하세요
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>메모리 유형</Label>
-                  <Select
-                    value={formData.memory_type}
-                    onValueChange={(v) => setFormData({ ...formData, memory_type: v as any })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="buffer">버퍼 (최근 N개 메시지)</SelectItem>
-                      <SelectItem value="summary">요약 (대화 요약)</SelectItem>
-                      <SelectItem value="vector">벡터 (의미 기반 검색)</SelectItem>
-                      <SelectItem value="hybrid">하이브리드</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>최대 메시지 수</Label>
-                  <Input
-                    type="number"
-                    value={formData.memory_max_messages}
-                    onChange={(e) =>
-                      setFormData({ ...formData, memory_max_messages: parseInt(e.target.value) })
-                    }
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* RAG Settings Tab */}
-        <TabsContent value="rag" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <Database className="h-5 w-5" />
-                    RAG 설정
-                  </CardTitle>
-                  <CardDescription>지식베이스를 연동하여 문서 기반 응답을 제공합니다</CardDescription>
-                </div>
+              <div className="flex items-center space-x-2">
                 <Switch
-                  checked={formData.rag_enabled}
-                  onCheckedChange={(v) => setFormData({ ...formData, rag_enabled: v })}
+                  id="rag-enabled"
+                  checked={formData.rag_config.enabled}
+                  onCheckedChange={(checked) => setFormData(prev => ({
+                    ...prev,
+                    rag_config: { ...prev.rag_config, enabled: checked }
+                  }))}
                 />
+                <Label htmlFor="rag-enabled">RAG 활성화</Label>
               </div>
-            </CardHeader>
-            {formData.rag_enabled && (
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label>지식베이스 선택</Label>
-                  <Select
-                    value={formData.rag_knowledgebase_ids[0] || ''}
-                    onValueChange={(v) =>
-                      setFormData({ ...formData, rag_knowledgebase_ids: v ? [v] : [] })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="지식베이스 선택..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(knowledgebases || []).map((kb: any) => (
-                        <SelectItem key={kb.id} value={kb.id}>
-                          {kb.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
+
+              {formData.rag_config.enabled && (
+                <div className="space-y-4 p-4 border rounded-lg">
                   <div className="space-y-2">
                     <Label>검색 전략</Label>
                     <Select
-                      value={formData.rag_retrieval_strategy}
-                      onValueChange={(v) =>
-                        setFormData({ ...formData, rag_retrieval_strategy: v as any })
-                      }
+                      value={formData.rag_config.retrieval_strategy}
+                      onValueChange={(value) => setFormData(prev => ({
+                        ...prev,
+                        rag_config: { ...prev.rag_config, retrieval_strategy: value }
+                      }))}
                     >
                       <SelectTrigger>
                         <SelectValue />
@@ -532,110 +556,141 @@ export default function NewChatflowPage() {
                       <SelectContent>
                         <SelectItem value="similarity">유사도 검색</SelectItem>
                         <SelectItem value="mmr">MMR (다양성 고려)</SelectItem>
-                        <SelectItem value="hybrid">하이브리드 (벡터 + 키워드)</SelectItem>
+                        <SelectItem value="hybrid">하이브리드 검색</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Top K</Label>
-                    <Input
-                      type="number"
-                      value={formData.rag_top_k}
-                      onChange={(e) =>
-                        setFormData({ ...formData, rag_top_k: parseInt(e.target.value) })
-                      }
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>점수 임계값: {formData.rag_score_threshold}</Label>
-                    <Slider
-                      value={[formData.rag_score_threshold]}
-                      onValueChange={([v]) => setFormData({ ...formData, rag_score_threshold: v })}
-                      min={0}
-                      max={1}
-                      step={0.05}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label>리랭킹</Label>
-                      <p className="text-xs text-muted-foreground">검색 결과 재정렬</p>
-                    </div>
-                    <Switch
-                      checked={formData.rag_reranking_enabled}
-                      onCheckedChange={(v) =>
-                        setFormData({ ...formData, rag_reranking_enabled: v })
-                      }
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            )}
-          </Card>
-        </TabsContent>
 
-        {/* Tools Tab */}
-        <TabsContent value="tools" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Wrench className="h-5 w-5" />
-                도구 설정
-              </CardTitle>
-              <CardDescription>챗봇이 사용할 수 있는 도구를 선택하세요</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {(tools || []).length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Wrench className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p>사용 가능한 도구가 없습니다</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-4">
-                  {(tools || []).map((tool: any) => {
-                    const isSelected = formData.tool_ids.includes(tool.id);
-                    return (
-                      <Card
-                        key={tool.id}
-                        className={`cursor-pointer transition-all ${
-                          isSelected ? 'border-2 border-blue-500 bg-blue-50 dark:bg-blue-950' : ''
-                        }`}
-                        onClick={() => {
-                          if (isSelected) {
-                            setFormData({
-                              ...formData,
-                              tool_ids: formData.tool_ids.filter((id) => id !== tool.id),
-                            });
-                          } else {
-                            setFormData({
-                              ...formData,
-                              tool_ids: [...formData.tool_ids, tool.id],
-                            });
-                          }
-                        }}
-                      >
-                        <CardContent className="pt-4">
-                          <div className="flex items-start gap-3">
-                            <Wrench className="h-5 w-5 text-muted-foreground" />
-                            <div>
-                              <p className="font-medium">{tool.name}</p>
-                              <p className="text-sm text-muted-foreground line-clamp-2">
-                                {tool.description}
-                              </p>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Top K</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        max="20"
+                        value={formData.rag_config.top_k}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          rag_config: { ...prev.rag_config, top_k: parseInt(e.target.value) || 5 }
+                        }))}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>점수 임계값</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        max="1"
+                        step="0.1"
+                        value={formData.rag_config.score_threshold}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          rag_config: { ...prev.rag_config, score_threshold: parseFloat(e.target.value) || 0.7 }
+                        }))}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="reranking"
+                      checked={formData.rag_config.reranking_enabled}
+                      onCheckedChange={(checked) => setFormData(prev => ({
+                        ...prev,
+                        rag_config: { ...prev.rag_config, reranking_enabled: checked }
+                      }))}
+                    />
+                    <Label htmlFor="reranking">리랭킹 활성화</Label>
+                  </div>
                 </div>
               )}
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Templates */}
+        <TabsContent value="templates" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-blue-500" />
+                Chatflow 템플릿
+              </CardTitle>
+              <CardDescription>
+                미리 구성된 챗봇 템플릿으로 빠르게 시작하세요
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {TEMPLATES.map((template) => {
+                  const isSelected = selectedTemplate === template.id;
+                  
+                  return (
+                    <Card
+                      key={template.id}
+                      className={`cursor-pointer transition-all border-2 ${
+                        isSelected 
+                          ? 'border-primary shadow-lg' 
+                          : 'border-border hover:border-primary/50'
+                      }`}
+                      onClick={() => handleTemplateSelect(template)}
+                    >
+                      <CardHeader>
+                        <div className="text-3xl mb-2">{template.icon}</div>
+                        <CardTitle className="text-base">{template.name}</CardTitle>
+                        <CardDescription className="text-sm">
+                          {template.description}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {template.features.map((feature) => (
+                            <Badge key={feature} variant="secondary" className="text-xs">
+                              {feature === 'RAG' && <Database className="h-3 w-3 mr-1" />}
+                              {feature === 'Tools' && <Wrench className="h-3 w-3 mr-1" />}
+                              {feature === 'Memory' && <Brain className="h-3 w-3 mr-1" />}
+                              {feature === 'Code' && <Code className="h-3 w-3 mr-1" />}
+                              {feature === 'Web Search' && <Globe className="h-3 w-3 mr-1" />}
+                              {feature}
+                            </Badge>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
+
+      {/* Actions */}
+      <div className="flex items-center justify-between pt-6 border-t">
+        <Button variant="outline" onClick={() => router.back()}>
+          취소
+        </Button>
+        <div className="flex gap-3">
+          <Button variant="outline" disabled={saving}>
+            <Play className="h-4 w-4 mr-2" />
+            미리보기
+          </Button>
+          <Button onClick={handleSave} disabled={saving || !formData.name.trim()}>
+            {saving ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                생성 중...
+              </>
+            ) : (
+              <>
+                <Save className="h-4 w-4 mr-2" />
+                생성하기
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,52 +1,55 @@
 # Product Overview
 
-## Agentic RAG System
+## Workflow Platform - Visual AI Agent Builder
 
-An intelligent document search and question-answering system that combines multi-agent architecture with multimodal RAG capabilities, featuring a visual Agent Builder for creating custom AI workflows.
+A comprehensive no-code platform for building, managing, and executing AI workflows with drag-and-drop simplicity. Features multi-agent orchestration, 70+ integrations, and advanced automation capabilities.
 
 ## Core Value Proposition
 
-Agentic RAG goes beyond traditional RAG systems by using adaptive query routing and multi-agent orchestration to deliver fast, accurate responses across diverse document types and query complexities. The Agent Builder enables users to create, customize, and deploy AI agents without coding.
+The Workflow Platform empowers users to create sophisticated AI automations without coding. By combining visual workflow design with multi-agent orchestration, users can build everything from simple task automation to complex AI-powered business processes. RAG capabilities are available as workflow tools for document processing and knowledge retrieval.
 
 ## Key Features
 
-### RAG Core
-- **Multi-Agent Architecture**: Aggregator agent orchestrates specialized agents (Vector Search, Local Data, Web Search) using ReAct + Chain of Thought reasoning
-- **Adaptive Query Routing**: Automatically analyzes query complexity and routes to optimal processing mode (Fast <1s, Balanced <3s, Deep <10s)
-- **Multimodal Document Processing**: Supports PDF, DOCX, HWP/HWPX, PPT/PPTX, XLSX, images with advanced OCR (PaddleOCR, PP-OCRv5, PP-StructureV3)
-- **Hybrid Search**: Combines vector search (semantic) with BM25 (keyword) for optimal retrieval
-- **Real-time Streaming**: Server-Sent Events (SSE) for live agent reasoning and response generation
-- **Multi-LLM Support**: Works with Ollama (local), OpenAI, Anthropic with automatic fallback
-- **Web Search Integration**: DuckDuckGo-based search (no API key required)
-- **Korean Language Optimized**: Uses jhgan/ko-sroberta-multitask embeddings and Korean-specific rerankers
-
-### Agent Builder
+### Core Workflow Platform
 - **Visual Workflow Designer**: Drag-and-drop interface for building AI workflows
 - **Chatflows**: Conversational AI flows with memory and context
 - **Agentflows**: Task-oriented agent workflows with tool integration
 - **Block Library**: Pre-built blocks (LLM, HTTP, Code, Condition, Loop, etc.)
-- **Tool Integration**: Slack, Gmail, PostgreSQL, Vector Search, and more
+- **70+ Tool Integrations**: Slack, Gmail, PostgreSQL, Vector Search, and more
 - **Template Marketplace**: Share and discover workflow templates
 - **Execution Monitoring**: Real-time execution tracking and debugging
 - **API Keys Management**: Secure API key generation for external access
 - **Embed Support**: Embed chatflows in external applications
 
+### Advanced AI Capabilities (Available as Workflow Tools)
+- **Multi-Agent Orchestration**: Coordinate multiple AI agents within workflows
+- **Document Processing**: PDF, DOCX, HWP/HWPX, PPT/PPTX, XLSX processing with OCR
+- **Vector Search**: Semantic search capabilities using Milvus
+- **Hybrid Search**: Combines vector search with keyword search (BM25)
+- **Web Search Integration**: DuckDuckGo-based search tool
+- **Multi-LLM Support**: Works with Ollama (local), OpenAI, Anthropic, Google AI
+- **Real-time Streaming**: Server-Sent Events (SSE) for live execution updates
+- **Korean Language Support**: Optimized for Korean text processing
+
 ## Target Users
 
-- Organizations needing intelligent document search across large knowledge bases
-- Teams requiring multilingual document understanding (especially Korean)
-- Users wanting local-first LLM deployment with cloud fallback options
-- Developers building RAG applications with advanced agent orchestration
-- Business users creating custom AI workflows without coding
+- **Business Users**: Create custom AI workflows without coding knowledge
+- **Operations Teams**: Automate repetitive tasks and business processes
+- **Developers**: Build complex AI applications with visual tools
+- **Content Teams**: Automate content creation and processing workflows
+- **Customer Support**: Build intelligent chatbots and support automation
+- **Data Teams**: Create data processing and analysis pipelines
+- **Marketing Teams**: Automate campaigns and lead processing
 
 ## Performance Targets
 
-- Fast Mode: <1s response time for simple queries
-- Balanced Mode: <3s for standard queries
-- Deep Mode: <10s for complex multi-document analysis
-- Cache hit rate: 60%+
-- Document processing: 95%+ accuracy
-- Agent Builder execution: <5s for typical workflows
+- **Workflow Execution**: <5s for typical workflows
+- **Simple Automations**: <1s response time
+- **Complex Multi-Agent Flows**: <10s execution time
+- **Cache Hit Rate**: 60%+ for repeated operations
+- **Tool Integration**: <2s average API response time
+- **Real-time Updates**: <100ms latency for live monitoring
+- **Uptime**: 99.9% availability target
 
 ## Architecture Highlights
 

@@ -32,6 +32,8 @@ import { SkipToContent } from '@/components/agent-builder/SkipToContent';
 import { KeyboardShortcutsDialog } from '@/components/agent-builder/KeyboardShortcutsDialog';
 import { EmptyState } from '@/components/agent-builder/EmptyState';
 import { ProgressiveLoader } from '@/components/agent-builder/ProgressiveLoader';
+import { MarketplaceIntegration } from '@/components/agent-builder/MarketplaceIntegration';
+import { ExecutionMonitor } from '@/components/agent-builder/ExecutionMonitor';
 import { Toaster } from '@/components/ui/toaster';
 import { toast } from 'sonner';
 
@@ -421,6 +423,18 @@ export default function AgentBuilderDashboard() {
           </Card>
         </div>
 
+      {/* Marketplace Integration */}
+      <section aria-label="Template Marketplace">
+        <MarketplaceIntegration 
+          maxItems={6}
+          onItemInstall={(item) => {
+            toast.success(`${item.name} 설치 완료`, {
+              description: '새로운 템플릿이 성공적으로 설치되었습니다',
+            });
+          }}
+        />
+      </section>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Favorite Agents */}
         <Card>
@@ -574,6 +588,33 @@ export default function AgentBuilderDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Real-time Execution Monitor */}
+      {stats?.executions?.running > 0 && (
+        <section aria-label="Real-time Execution Monitor">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="h-5 w-5 text-blue-500 animate-pulse" />
+                실시간 실행 모니터링
+              </CardTitle>
+              <CardDescription>
+                현재 실행 중인 워크플로우를 실시간으로 모니터링합니다
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ExecutionMonitor 
+                autoRefresh={true}
+                onExecutionComplete={(execution) => {
+                  toast.success('실행 완료', {
+                    description: `${execution.flowName} 실행이 완료되었습니다`,
+                  });
+                }}
+              />
+            </CardContent>
+          </Card>
+        </section>
+      )}
       </div>
     </>
   );

@@ -1,0 +1,12 @@
+{
+  "dependencies": {
+    "@tanstack/react-query": "^5.0.0",
+    "zustand": "^4.4.0",
+    "framer-motion": "^10.16.0",
+    "react-window": "^1.8.8",
+    "react-window-infinite-loader": "^1.0.9"
+  },
+  "devDependencies": {
+    "@types/react-window": "^1.8.8"
+  }
+}

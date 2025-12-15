@@ -6,13 +6,13 @@ import { Providers } from './providers';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Agent Builder - AgenticRAG',
-  description: 'Build and manage AI agents with visual workflow designer',
+  title: 'Workflow Platform - Visual AI Agent Builder',
+  description: 'Create, manage, and execute AI workflows with drag-and-drop simplicity. Build custom agents, automate tasks, and integrate with 50+ tools.',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'Agent Builder',
+    title: 'Workflow Platform',
   },
   formatDetection: {
     telephone: false,

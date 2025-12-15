@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 
 from backend.db.database import get_db
 from backend.core.security.api_key_manager import get_api_key_manager
-from backend.core.dependencies import get_current_user
+from backend.core.auth_dependencies import get_current_user
 from backend.db.models.user import User
 from backend.core.structured_logging import get_logger
 

@@ -14,10 +14,45 @@ interface ConversationHistoryProps {
   onSessionSelect?: (sessionId: string) => void;
 }
 
+// ConversationHistory component - Disabled for workflow-focused platform
 const ConversationHistory: React.FC<ConversationHistoryProps> = React.memo(({
   activeSessionId,
   onSessionSelect,
 }) => {
+  // Return minimal placeholder for workflow-focused platform
+  return (
+    <div className="w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
+      <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+          Workflow Platform
+        </h2>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          Visual AI Agent Builder
+        </p>
+      </div>
+      <div className="flex-1 flex items-center justify-center p-6">
+        <div className="text-center">
+          <div className="text-gray-400 dark:text-gray-600 mb-3">
+            <svg className="w-10 h-10 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            Chat history is now part of<br />workflow executions
+          </p>
+          <button
+            onClick={() => window.location.href = '/agent-builder'}
+            className="inline-flex items-center px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            Open Workflows
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Original component code commented out for workflow-focused platform
+  /*
   const router = useRouter();
   const { isAuthenticated } = useAuth();
   
@@ -413,6 +448,7 @@ const ConversationHistory: React.FC<ConversationHistoryProps> = React.memo(({
       )}
     </>
   );
+  */
 });
 
 ConversationHistory.displayName = 'ConversationHistory';
