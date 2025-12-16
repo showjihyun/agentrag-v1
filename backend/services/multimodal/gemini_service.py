@@ -17,7 +17,10 @@ try:
     GEMINI_AVAILABLE = True
 except ImportError:
     GEMINI_AVAILABLE = False
-    logging.warning("Google GenerativeAI not installed. Install with: pip install google-generativeai")
+    # Only log Gemini warning in debug mode or if explicitly requested
+    import os
+    if os.getenv("DEBUG", "false").lower() == "true" or os.getenv("SHOW_GEMINI_WARNING", "false").lower() == "true":
+        logging.warning("Google GenerativeAI not installed. Install with: pip install google-generativeai")
 
 from backend.core.cache_decorators import cached_medium
 from backend.core.structured_logging import get_logger

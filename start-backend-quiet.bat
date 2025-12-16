@@ -3,7 +3,7 @@ setlocal
 
 echo.
 echo ================================================================================
-echo  Starting Agentic RAG Backend Server
+echo  Starting Agentic RAG Backend Server (Quiet Mode)
 echo ================================================================================
 echo.
 
@@ -25,6 +25,12 @@ cd /d "%PROJECT_ROOT%"
 set PYTHONPATH=%PROJECT_ROOT%
 set PYTHONWARNINGS=ignore::DeprecationWarning,ignore::UserWarning,ignore::FutureWarning
 set HF_HUB_DISABLE_SYMLINKS_WARNING=1
+
+REM Disable optional warnings for cleaner output
+set SHOW_MCP_WARNING=false
+set SHOW_PROMETHEUS_WARNING=false
+set SHOW_GEMINI_WARNING=false
+set PRINT_CONFIG_SUMMARY=false
 
 REM Determine Python executable
 set PYTHON_EXE=
@@ -65,6 +71,7 @@ echo    Redis:          localhost:6380
 echo    Milvus:         localhost:19530
 echo.
 echo WARNING: Press Ctrl+C to stop the server
+echo INFO: Quiet mode - reduced logging output
 echo.
 echo --------------------------------------------------------------------------------
 echo.

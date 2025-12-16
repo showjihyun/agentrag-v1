@@ -28,13 +28,13 @@ class LocalDataAgent:
     """
 
     def __init__(
-        self, mcp_manager: MCPServerManager, server_name: str = "local_data_server"
+        self, mcp_manager: MCPServerManager = None, server_name: str = "local_data_server"
     ):
         """
         Initialize the Local Data Agent.
 
         Args:
-            mcp_manager: MCPServerManager instance for server communication
+            mcp_manager: MCPServerManager instance for server communication (optional)
             server_name: Name of the MCP local data server (default: "local_data_server")
         """
         self.mcp = mcp_manager
@@ -63,6 +63,9 @@ class LocalDataAgent:
         file_path = file_path.strip()
 
         try:
+            if not self.mcp:
+                raise ValueError("MCP manager not available - cannot read files")
+                
             logger.info(f"Reading file via MCP: {file_path}")
 
             # Call the read_file tool via MCP

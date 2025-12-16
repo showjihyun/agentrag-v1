@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -32,9 +32,12 @@ import { useToast } from '@/hooks/use-toast';
 import { flowsAPI } from '@/lib/api/flows';
 import { agentBuilderAPI } from '@/lib/api/agent-builder';
 
-export default function EditChatflowPage({ params }: { params: { id: string } }) {
+export default function EditChatflowPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const { toast } = useToast();
+  
+  // Unwrap params using React.use()
+  const { id } = React.use(params);
 
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
@@ -64,8 +67,8 @@ export default function EditChatflowPage({ params }: { params: { id: string } })
 
   // Fetch existing flow data
   const { data: flowData, isLoading: flowLoading } = useQuery({
-    queryKey: ['chatflow', params.id],
-    queryFn: () => flowsAPI.getFlow(params.id),
+    queryKey: ['chatflow', id],
+    queryFn: () => flowsAPI.getFlow(id),
   });
 
   const flow = flowData as any;
@@ -150,7 +153,7 @@ export default function EditChatflowPage({ params }: { params: { id: string } })
 
     try {
       setSaving(true);
-      await flowsAPI.updateFlow(params.id, {
+      await flowsAPI.updateFlow(id, {
         name: formData.name,
         description: formData.description,
         chat_config: {
@@ -185,7 +188,7 @@ export default function EditChatflowPage({ params }: { params: { id: string } })
         description: 'Chatflow가 업데이트되었습니다',
       });
 
-      router.push(`/agent-builder/chatflows/${params.id}`);
+      router.push(`/agent-builder/chatflows/${id}`);
     } catch (error: any) {
       toast({
         title: '오류',

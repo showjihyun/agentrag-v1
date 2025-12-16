@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -25,7 +25,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { flowsAPI } from '@/lib/api/flows';
 
-export default function ChatflowAPIPage({ params }: { params: { id: string } }) {
+export default function ChatflowAPIPage({ params }: { params: Promise<{ id: string }> }) {
+  // Unwrap params using React.use()
+  const { id } = React.use(params);
   const router = useRouter();
   const { toast } = useToast();
   const [apiKey, setApiKey] = useState('sk-chatflow-' + Math.random().toString(36).substring(2, 15));
@@ -34,8 +36,8 @@ export default function ChatflowAPIPage({ params }: { params: { id: string } }) 
   const [testing, setTesting] = useState(false);
 
   const { data: flowData, isLoading } = useQuery({
-    queryKey: ['chatflow', params.id],
-    queryFn: () => flowsAPI.getFlow(params.id),
+    queryKey: ['chatflow', id],
+    queryFn: () => flowsAPI.getFlow(id),
   });
 
   const flow = flowData as any;
@@ -90,7 +92,7 @@ export default function ChatflowAPIPage({ params }: { params: { id: string } }) 
   };
 
   const baseURL = typeof window !== 'undefined' ? window.location.origin : '';
-  const apiEndpoint = `${baseURL}/api/v1/chatflows/${params.id}/chat`;
+  const apiEndpoint = `${baseURL}/api/v1/chatflows/${id}/chat`;
 
   const curlExample = `curl -X POST "${apiEndpoint}" \\
   -H "Content-Type: application/json" \\
@@ -203,7 +205,7 @@ while (true) {
         </div>
         <Button
           variant="outline"
-          onClick={() => router.push(`/agent-builder/chatflows/${params.id}`)}
+          onClick={() => router.push(`/agent-builder/chatflows/${id}`)}
         >
           <Settings className="h-4 w-4 mr-2" />
           설정으로 돌아가기
@@ -251,7 +253,7 @@ while (true) {
                     <CardContent className="pt-4">
                       <div className="flex items-center gap-2">
                         <Badge className="bg-green-500">POST</Badge>
-                        <code className="text-sm">/chatflows/{params.id}/chat</code>
+                        <code className="text-sm">/chatflows/{id}/chat</code>
                       </div>
                       <p className="text-sm text-muted-foreground mt-2">
                         Chatflow와 대화를 시작합니다. 스트리밍 및 일반 응답을 모두 지원합니다.

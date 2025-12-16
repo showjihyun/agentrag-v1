@@ -83,7 +83,9 @@ export default function AgentBuilderLayout({
         )}
       >
         <div className="flex h-16 items-center justify-between border-b px-4 lg:justify-center">
-          <h2 className="text-lg font-semibold">Agent Builder</h2>
+          <Link href="/agent-builder" className="hover:opacity-80 transition-opacity">
+            <h2 className="text-lg font-semibold cursor-pointer">Agent Builder</h2>
+          </Link>
           <Button
             variant="ghost"
             size="icon"
@@ -245,7 +247,9 @@ export default function AgentBuilderLayout({
           >
             <Menu className="h-5 w-5" />
           </Button>
-          <h1 className="ml-4 text-lg font-semibold">Agent Builder</h1>
+          <Link href="/agent-builder" className="ml-4 hover:opacity-80 transition-opacity">
+            <h1 className="text-lg font-semibold cursor-pointer">Agent Builder</h1>
+          </Link>
         </header>
 
         {/* Page content */}

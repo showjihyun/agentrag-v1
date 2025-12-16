@@ -7,10 +7,13 @@ Query objects and handlers for agent read operations.
 from dataclasses import dataclass
 from typing import Optional, List, Dict, Any
 from uuid import UUID
+import logging
 
 from sqlalchemy.orm import Session
 
 from backend.services.agent_builder.infrastructure.persistence import AgentRepositoryImpl
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -38,7 +41,13 @@ class AgentQueryHandler:
     
     def handle_get(self, query: GetAgentQuery) -> Optional[Dict[str, Any]]:
         """Handle GetAgentQuery."""
-        aggregate = self.repository.find_by_id(UUID(query.agent_id))
+        try:
+            agent_uuid = UUID(query.agent_id)
+        except ValueError as e:
+            logger.error(f"Invalid UUID format for agent_id: {query.agent_id}")
+            raise ValueError(f"Invalid agent ID format: {query.agent_id}") from e
+            
+        aggregate = self.repository.find_by_id(agent_uuid)
         if not aggregate:
             return None
         

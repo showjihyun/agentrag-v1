@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -48,20 +49,22 @@ import { useToast } from '@/hooks/use-toast';
 import { flowsAPI } from '@/lib/api/flows';
 import { useState } from 'react';
 
-export default function ChatflowDetailPage({ params }: { params: { id: string } }) {
+export default function ChatflowDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  // Unwrap params using React.use()
+  const { id } = React.use(params);
   const router = useRouter();
   const { toast } = useToast();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const { data: flowData, isLoading, error } = useQuery({
-    queryKey: ['chatflow', params.id],
-    queryFn: () => flowsAPI.getFlow(params.id),
+    queryKey: ['chatflow', id],
+    queryFn: () => flowsAPI.getFlow(id),
   });
 
   const flow = flowData as any;
 
   const { data: executions, isLoading: executionsLoading } = useQuery({
-    queryKey: ['chatflow-executions', params.id],
+    queryKey: ['chatflow-executions', id],
     queryFn: async () => {
       // Mock data for now - replace with actual API call when available
       return { executions: [] };
@@ -70,7 +73,7 @@ export default function ChatflowDetailPage({ params }: { params: { id: string } 
 
   const handleDelete = async () => {
     try {
-      await flowsAPI.deleteFlow(params.id);
+      await flowsAPI.deleteFlow(id);
       toast({
         title: '삭제 완료',
         description: 'Chatflow가 삭제되었습니다',
@@ -146,7 +149,7 @@ export default function ChatflowDetailPage({ params }: { params: { id: string } 
         </div>
         <Button
           size="lg"
-          onClick={() => router.push(`/agent-builder/chatflows/${params.id}/chat`)}
+          onClick={() => router.push(`/agent-builder/chatflows/${id}/chat`)}
           className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
         >
           <Play className="h-5 w-5 mr-2" />
@@ -161,15 +164,15 @@ export default function ChatflowDetailPage({ params }: { params: { id: string } 
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>작업</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => router.push(`/agent-builder/chatflows/${params.id}/edit`)}>
+            <DropdownMenuItem onClick={() => router.push(`/agent-builder/chatflows/${id}/edit`)}>
               <Edit className="mr-2 h-4 w-4" />
               편집
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => router.push(`/agent-builder/chatflows/${params.id}/embed`)}>
+            <DropdownMenuItem onClick={() => router.push(`/agent-builder/chatflows/${id}/embed`)}>
               <Code className="mr-2 h-4 w-4" />
               임베드 코드
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => router.push(`/agent-builder/chatflows/${params.id}/api`)}>
+            <DropdownMenuItem onClick={() => router.push(`/agent-builder/chatflows/${id}/api`)}>
               <ExternalLink className="mr-2 h-4 w-4" />
               API 문서
             </DropdownMenuItem>

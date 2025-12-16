@@ -196,7 +196,10 @@ class PrometheusMetricsMiddleware:
             self.metrics_enabled = True
             
         except ImportError:
-            logger.warning("prometheus_client not installed, metrics disabled")
+            # Only log prometheus warning in debug mode or if explicitly requested
+            import os
+            if os.getenv("DEBUG", "false").lower() == "true" or os.getenv("SHOW_PROMETHEUS_WARNING", "false").lower() == "true":
+                logger.warning("prometheus_client not installed, metrics disabled")
             self.metrics_enabled = False
     
     async def __call__(self, scope: Scope, receive: Receive, send: Send):

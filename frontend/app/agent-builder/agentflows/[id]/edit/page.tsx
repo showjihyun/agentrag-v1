@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -79,9 +79,12 @@ interface AgentConfig {
   timeout_seconds: number;
 }
 
-export default function EditAgentflowPage({ params }: { params: { id: string } }) {
+export default function EditAgentflowPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const { toast } = useToast();
+  
+  // Unwrap params using React.use()
+  const { id } = React.use(params);
 
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
@@ -100,8 +103,8 @@ export default function EditAgentflowPage({ params }: { params: { id: string } }
 
   // Fetch existing flow data
   const { data: flowData, isLoading: flowLoading } = useQuery({
-    queryKey: ['agentflow', params.id],
-    queryFn: () => flowsAPI.getFlow(params.id),
+    queryKey: ['agentflow', id],
+    queryFn: () => flowsAPI.getFlow(id),
   });
 
   const flow = flowData as any;
@@ -205,7 +208,7 @@ export default function EditAgentflowPage({ params }: { params: { id: string } }
 
     try {
       setSaving(true);
-      await flowsAPI.updateFlow(params.id, {
+      await flowsAPI.updateFlow(id, {
         name: formData.name,
         description: formData.description,
         orchestration_type: formData.orchestration_type,
@@ -235,7 +238,7 @@ export default function EditAgentflowPage({ params }: { params: { id: string } }
         description: 'Agentflow가 업데이트되었습니다',
       });
 
-      router.push(`/agent-builder/agentflows/${params.id}`);
+      router.push(`/agent-builder/agentflows/${id}`);
     } catch (error: any) {
       toast({
         title: '오류',

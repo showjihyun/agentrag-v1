@@ -34,7 +34,10 @@ try:
     PROMETHEUS_AVAILABLE = True
 except ImportError:
     PROMETHEUS_AVAILABLE = False
-    logging.warning("prometheus_client not installed - metrics disabled")
+    # Only log prometheus warning in debug mode or if explicitly requested
+    import os
+    if os.getenv("DEBUG", "false").lower() == "true" or os.getenv("SHOW_PROMETHEUS_WARNING", "false").lower() == "true":
+        logging.warning("prometheus_client not installed - metrics disabled")
 
 logger = logging.getLogger(__name__)
 

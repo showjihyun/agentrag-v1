@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -49,9 +49,12 @@ interface ExecutionState {
   error?: string;
 }
 
-export default function AgentflowExecutePage({ params }: { params: { id: string } }) {
+export default function AgentflowExecutePage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const { toast } = useToast();
+  
+  // Unwrap params using React.use()
+  const { id } = React.use(params);
   
   const [input, setInput] = useState('');
   const [execution, setExecution] = useState<ExecutionState>({
@@ -60,8 +63,8 @@ export default function AgentflowExecutePage({ params }: { params: { id: string 
   });
 
   const { data: flowData, isLoading } = useQuery({
-    queryKey: ['agentflow', params.id],
-    queryFn: () => flowsAPI.getFlow(params.id),
+    queryKey: ['agentflow', id],
+    queryFn: () => flowsAPI.getFlow(id),
   });
 
   const flow = flowData as any;

@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -62,20 +63,23 @@ const ORCHESTRATION_LABELS = {
   adaptive: '적응형 실행',
 };
 
-export default function AgentflowDetailPage({ params }: { params: { id: string } }) {
+export default function AgentflowDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const { toast } = useToast();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  
+  // Unwrap params using React.use()
+  const { id } = React.use(params);
 
   const { data: flowData, isLoading, error } = useQuery({
-    queryKey: ['agentflow', params.id],
-    queryFn: () => flowsAPI.getFlow(params.id),
+    queryKey: ['agentflow', id],
+    queryFn: () => flowsAPI.getFlow(id),
   });
 
   const flow = flowData as any;
 
   const { data: executions, isLoading: executionsLoading } = useQuery({
-    queryKey: ['agentflow-executions', params.id],
+    queryKey: ['agentflow-executions', id],
     queryFn: async () => {
       // Mock data for now - replace with actual API call when available
       return { executions: [] };
@@ -84,7 +88,7 @@ export default function AgentflowDetailPage({ params }: { params: { id: string }
 
   const handleDelete = async () => {
     try {
-      await flowsAPI.deleteFlow(params.id);
+      await flowsAPI.deleteFlow(id);
       toast({
         title: '삭제 완료',
         description: 'Agentflow가 삭제되었습니다',
@@ -182,7 +186,7 @@ export default function AgentflowDetailPage({ params }: { params: { id: string }
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>작업</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => router.push(`/agent-builder/agentflows/${params.id}/edit`)}>
+            <DropdownMenuItem onClick={() => router.push(`/agent-builder/agentflows/${id}/edit`)}>
               <Edit className="mr-2 h-4 w-4" />
               편집
             </DropdownMenuItem>

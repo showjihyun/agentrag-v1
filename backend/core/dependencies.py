@@ -19,7 +19,12 @@ from backend.services.document_processor import DocumentProcessor
 from backend.memory.stm import ShortTermMemory
 from backend.memory.ltm import LongTermMemory
 from backend.memory.manager import MemoryManager
-from backend.mcp.manager import MCPServerManager
+try:
+    from backend.mcp.manager import MCPServerManager
+    MCP_AVAILABLE = True
+except ImportError:
+    MCPServerManager = None
+    MCP_AVAILABLE = False
 from backend.agents.vector_search import VectorSearchAgent
 from backend.agents.local_data import LocalDataAgent
 from backend.agents.web_search import WebSearchAgent
@@ -93,10 +98,18 @@ class ServiceContainer:
                 max_connections=settings.REDIS_MAX_CONNECTIONS,
             )
             self._redis_client = redis_pool.get_client()
-            await self._redis_client.ping()
-            logger.info(
-                f"Redis connected successfully with connection pool (max_connections={settings.REDIS_MAX_CONNECTIONS})"
-            )
+            try:
+                await self._redis_client.ping()
+                logger.info(
+                    f"Redis connected successfully with connection pool (max_connections={settings.REDIS_MAX_CONNECTIONS})"
+                )
+            except Exception as e:
+                logger.warning(f"Redis connection failed: {e}")
+                if settings.DEBUG:
+                    logger.warning("Running in DEBUG mode - continuing without Redis (caching disabled)")
+                    self._redis_client = None
+                else:
+                    raise
 
             # Initialize Embedding Service
             logger.info("Initializing Embedding Service...")
@@ -179,7 +192,7 @@ class ServiceContainer:
                 logger.info("HybridSearchService initialized")
 
             # Search Cache Manager
-            if settings.ENABLE_SEARCH_CACHE:
+            if settings.ENABLE_SEARCH_CACHE and self._redis_client:
                 self._search_cache_manager = SearchCacheManager(
                     redis_client=self._redis_client,
                     l1_ttl=settings.CACHE_L1_TTL,
@@ -187,6 +200,10 @@ class ServiceContainer:
                     max_l2_size=settings.CACHE_L2_MAX_SIZE,
                 )
                 logger.info("SearchCacheManager initialized")
+            else:
+                if not self._redis_client:
+                    logger.warning("SearchCacheManager disabled - Redis not available")
+                self._search_cache_manager = None
 
             # Query Expansion Service
             if settings.ENABLE_QUERY_EXPANSION:
@@ -205,11 +222,14 @@ class ServiceContainer:
                 logger.info("RerankerService initialized")
 
             # Initialize MCP Manager and Agents
-            logger.info("Initializing MCP Manager and Agents...")
-            self._mcp_manager = MCPServerManager()
-
-            # Connect to MCP servers with graceful degradation
-            await self._initialize_mcp_servers()
+            if MCP_AVAILABLE:
+                logger.info("Initializing MCP Manager and Agents...")
+                self._mcp_manager = MCPServerManager()
+                # Connect to MCP servers with graceful degradation
+                await self._initialize_mcp_servers()
+            else:
+                logger.info("MCP not available, skipping MCP initialization")
+                self._mcp_manager = None
 
             # Initialize specialized agents with advanced services
             # Add direct Milvus fallback for VectorSearchAgent

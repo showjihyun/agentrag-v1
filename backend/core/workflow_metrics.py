@@ -14,7 +14,10 @@ try:
     from prometheus_client import Counter, Histogram, Gauge, Info
     PROMETHEUS_AVAILABLE = True
 except ImportError:
-    logger.warning("prometheus_client not installed. Metrics will be disabled. Install with: pip install prometheus-client")
+    # Only log prometheus warning in debug mode or if explicitly requested
+    import os
+    if os.getenv("DEBUG", "false").lower() == "true" or os.getenv("SHOW_PROMETHEUS_WARNING", "false").lower() == "true":
+        logger.warning("prometheus_client not installed. Metrics will be disabled. Install with: pip install prometheus-client")
     PROMETHEUS_AVAILABLE = False
     
     # Create dummy classes for when prometheus is not available

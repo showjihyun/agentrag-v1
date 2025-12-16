@@ -69,13 +69,13 @@ class WebSearchAgent:
     """
 
     def __init__(
-        self, mcp_manager: MCPServerManager, server_name: str = "search_server"
+        self, mcp_manager: MCPServerManager = None, server_name: str = "search_server"
     ):
         """
         Initialize the Web Search Agent.
 
         Args:
-            mcp_manager: MCPServerManager instance for server communication
+            mcp_manager: MCPServerManager instance for server communication (optional)
             server_name: Name of the MCP search server (default: "search_server")
         """
         self.mcp = mcp_manager
@@ -108,6 +108,9 @@ class WebSearchAgent:
             raise ValueError("num_results must be between 1 and 50")
 
         try:
+            if not self.mcp:
+                raise ValueError("MCP manager not available - cannot perform web search")
+                
             logger.info(
                 f"Performing web search: query='{query[:50]}...', "
                 f"num_results={num_results}"

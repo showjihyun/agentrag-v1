@@ -253,6 +253,12 @@ async def get_agent(
             version_count=0
         )
         
+    except ValueError as e:
+        logger.warning(f"Invalid agent ID format: {agent_id}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid agent ID format: {agent_id}"
+        )
     except NotFoundError as e:
         logger.warning(f"Agent not found: {e}")
         raise HTTPException(

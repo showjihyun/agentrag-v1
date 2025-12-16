@@ -17,10 +17,13 @@ try:
     MCP_AVAILABLE = True
 except ImportError:
     MCP_AVAILABLE = False
-    logging.warning(
-        "MCP SDK not available. Install with: pip install mcp\n"
-        "MCP server functionality will be disabled."
-    )
+    # Only log MCP warning in debug mode or if explicitly requested
+    import os
+    if os.getenv("DEBUG", "false").lower() == "true" or os.getenv("SHOW_MCP_WARNING", "false").lower() == "true":
+        logging.warning(
+            "MCP SDK not available. Install with: pip install mcp\n"
+            "MCP server functionality will be disabled."
+        )
 
 logger = logging.getLogger(__name__)
 

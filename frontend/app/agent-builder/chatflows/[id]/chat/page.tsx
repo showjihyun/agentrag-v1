@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -32,10 +32,13 @@ interface Message {
   isStreaming?: boolean;
 }
 
-export default function ChatflowChatPage({ params }: { params: { id: string } }) {
+export default function ChatflowChatPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Unwrap params using React.use()
+  const { id } = React.use(params);
   
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -43,8 +46,8 @@ export default function ChatflowChatPage({ params }: { params: { id: string } })
   const [sessionId] = useState(() => `session-${Date.now()}`);
 
   const { data: flowData, isLoading: flowLoading } = useQuery({
-    queryKey: ['chatflow', params.id],
-    queryFn: () => flowsAPI.getFlow(params.id),
+    queryKey: ['chatflow', id],
+    queryFn: () => flowsAPI.getFlow(id),
   });
 
   const flow = flowData as any;
@@ -147,7 +150,7 @@ export default function ChatflowChatPage({ params }: { params: { id: string } })
 
   const handleExportChat = () => {
     const chatData = {
-      flowId: params.id,
+      flowId: id,
       flowName: flow?.name,
       sessionId,
       messages: messages.map(msg => ({
@@ -218,7 +221,7 @@ export default function ChatflowChatPage({ params }: { params: { id: string } })
           <Button variant="outline" size="icon" onClick={handleExportChat}>
             <Download className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="icon" onClick={() => router.push(`/agent-builder/chatflows/${params.id}`)}>
+          <Button variant="outline" size="icon" onClick={() => router.push(`/agent-builder/chatflows/${id}`)}>
             <Settings className="h-4 w-4" />
           </Button>
         </div>

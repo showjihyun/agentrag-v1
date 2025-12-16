@@ -4,6 +4,7 @@ from typing import Optional, List
 from pydantic import Field, field_validator, ValidationError, model_validator
 import logging
 import sys
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -798,7 +799,7 @@ class Settings(BaseSettings):
         for provider in fallbacks:
             if provider in valid_providers and provider != self.LLM_PROVIDER:
                 validated_fallbacks.append(provider)
-            else:
+            elif self.DEBUG:  # Only log in debug mode
                 logger.warning(f"Ignoring invalid fallback provider: {provider}")
 
         return validated_fallbacks
@@ -1122,7 +1123,8 @@ try:
         for error in errors:
             logger.error(f"  - {error}")
 
-        if settings.DEBUG:
+        # Only print config summary if explicitly requested via environment variable
+        if settings.DEBUG and os.getenv("PRINT_CONFIG_SUMMARY", "false").lower() == "true":
             settings.print_config_summary()
 
         # Don't exit, let the application handle it
@@ -1131,7 +1133,8 @@ try:
         )
     else:
         logger.info("Configuration loaded successfully")
-        if settings.DEBUG:
+        # Only print config summary if explicitly requested via environment variable
+        if settings.DEBUG and os.getenv("PRINT_CONFIG_SUMMARY", "false").lower() == "true":
             settings.print_config_summary()
 
 except ValidationError as e:

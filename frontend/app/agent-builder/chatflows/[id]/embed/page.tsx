@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -32,7 +32,9 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { flowsAPI } from '@/lib/api/flows';
 
-export default function ChatflowEmbedPage({ params }: { params: { id: string } }) {
+export default function ChatflowEmbedPage({ params }: { params: Promise<{ id: string }> }) {
+  // Unwrap params using React.use()
+  const { id } = React.use(params);
   const router = useRouter();
   const { toast } = useToast();
   
@@ -51,8 +53,8 @@ export default function ChatflowEmbedPage({ params }: { params: { id: string } }
   const [previewDevice, setPreviewDevice] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
 
   const { data: flowData, isLoading } = useQuery({
-    queryKey: ['chatflow', params.id],
-    queryFn: () => flowsAPI.getFlow(params.id),
+    queryKey: ['chatflow', id],
+    queryFn: () => flowsAPI.getFlow(id),
   });
 
   const flow = flowData as any;
@@ -71,7 +73,7 @@ export default function ChatflowEmbedPage({ params }: { params: { id: string } }
 <script>
   (function() {
     var chatflowConfig = {
-      flowId: '${params.id}',
+      flowId: '${id}',
       apiUrl: '${baseURL}/api/v1',
       theme: '${embedConfig.theme}',
       primaryColor: '${embedConfig.primaryColor}',
@@ -100,7 +102,7 @@ export default function ChatflowEmbedPage({ params }: { params: { id: string } }
 </script>`;
 
   const iframeEmbed = `<iframe
-  src="${baseURL}/embed/chatflow/${params.id}?theme=${embedConfig.theme}&color=${encodeURIComponent(embedConfig.primaryColor)}"
+  src="${baseURL}/embed/chatflow/${id}?theme=${embedConfig.theme}&color=${encodeURIComponent(embedConfig.primaryColor)}"
   width="${embedConfig.width}"
   height="${embedConfig.height}"
   frameborder="0"
@@ -113,7 +115,7 @@ export default function ChatflowEmbedPage({ params }: { params: { id: string } }
 const ChatflowWidget = () => {
   useEffect(() => {
     const config = {
-      flowId: '${params.id}',
+      flowId: '${id}',
       apiUrl: '${baseURL}/api/v1',
       theme: '${embedConfig.theme}',
       primaryColor: '${embedConfig.primaryColor}',
@@ -205,7 +207,7 @@ export default ChatflowWidget;`;
         </div>
         <Button
           variant="outline"
-          onClick={() => router.push(`/agent-builder/chatflows/${params.id}`)}
+          onClick={() => router.push(`/agent-builder/chatflows/${id}`)}
         >
           <Settings className="h-4 w-4 mr-2" />
           설정으로 돌아가기

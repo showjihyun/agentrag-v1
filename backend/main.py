@@ -75,7 +75,9 @@ try:
     PROMETHEUS_AVAILABLE = True
 except ImportError:
     PROMETHEUS_AVAILABLE = False
-    logging.warning("prometheus_client not installed, metrics endpoint disabled")
+    # Only log prometheus warning in debug mode or if explicitly requested
+    if os.getenv("DEBUG", "false").lower() == "true" or os.getenv("SHOW_PROMETHEUS_WARNING", "false").lower() == "true":
+        logging.warning("prometheus_client not installed, metrics endpoint disabled")
 from backend.core.dependencies import initialize_container, cleanup_container
 
 # Note: rate_limit_middleware not implemented yet - using SecurityManager for rate limiting in endpoints
