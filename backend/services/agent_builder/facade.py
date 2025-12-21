@@ -114,6 +114,44 @@ class AgentBuilderFacade:
         """Get workflow by ID."""
         return self.workflows.get_workflow(workflow_id)
     
+    def update_workflow(
+        self,
+        workflow_id: str,
+        name: Optional[str] = None,
+        nodes: Optional[List[Dict[str, Any]]] = None,
+        edges: Optional[List[Dict[str, Any]]] = None,
+        description: Optional[str] = None,
+        **kwargs,
+    ):
+        """Update an existing workflow."""
+        return self.workflows.update_workflow(
+            workflow_id=workflow_id,
+            name=name,
+            nodes=nodes,
+            edges=edges,
+            description=description,
+            **kwargs,
+        )
+    
+    def delete_workflow(self, workflow_id: str, user_id: Optional[str] = None, hard: bool = False):
+        """Delete a workflow."""
+        return self.workflows.delete_workflow(workflow_id, user_id or "", hard)
+    
+    def list_workflows(
+        self,
+        user_id: Optional[str] = None,
+        offset: int = 0,
+        limit: int = 50,
+        **kwargs,
+    ):
+        """List workflows with filtering."""
+        return self.workflows.list_workflows(
+            user_id=user_id,
+            offset=offset,
+            limit=limit,
+            **kwargs,
+        )
+    
     async def execute_workflow(
         self,
         workflow_id: str,

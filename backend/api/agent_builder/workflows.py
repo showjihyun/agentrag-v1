@@ -67,14 +67,14 @@ async def create_workflow(
         
         # Convert UUID fields to strings for response
         return WorkflowResponse(
-            id=str(workflow.id),
-            user_id=str(workflow.user_id),
-            name=workflow.name,
-            description=workflow.description,
-            graph_definition=workflow.graph_definition,
-            is_public=workflow.is_public,
-            created_at=workflow.created_at,
-            updated_at=workflow.updated_at
+            id=str(workflow.workflow.id),
+            user_id=str(workflow.workflow.user_id),
+            name=workflow.workflow.name,
+            description=workflow.workflow.description,
+            graph_definition=workflow.workflow.to_graph_definition(),
+            is_public=workflow.workflow.is_public,
+            created_at=workflow.workflow.created_at,
+            updated_at=workflow.workflow.updated_at
         )
         
     except ValidationError as e:
@@ -110,7 +110,7 @@ async def get_workflow(
         workflow = facade.get_workflow(workflow_id)
         
         # Check permissions (owner or public)
-        if str(workflow.user_id) != str(current_user.id) and not workflow.is_public:
+        if str(workflow.workflow.user_id) != str(current_user.id) and not workflow.workflow.is_public:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You don't have permission to access this workflow"
@@ -118,14 +118,14 @@ async def get_workflow(
         
         # Convert UUID fields to strings for response
         return WorkflowResponse(
-            id=str(workflow.id),
-            user_id=str(workflow.user_id),
-            name=workflow.name,
-            description=workflow.description,
-            graph_definition=workflow.graph_definition,
-            is_public=workflow.is_public,
-            created_at=workflow.created_at,
-            updated_at=workflow.updated_at
+            id=str(workflow.workflow.id),
+            user_id=str(workflow.workflow.user_id),
+            name=workflow.workflow.name,
+            description=workflow.workflow.description,
+            graph_definition=workflow.workflow.to_graph_definition(),
+            is_public=workflow.workflow.is_public,
+            created_at=workflow.workflow.created_at,
+            updated_at=workflow.workflow.updated_at
         )
         
     except NotFoundError:
@@ -163,7 +163,7 @@ async def update_workflow(
         
         # Check ownership
         existing_workflow = facade.get_workflow(workflow_id)
-        if str(existing_workflow.user_id) != str(current_user.id):
+        if str(existing_workflow.workflow.user_id) != str(current_user.id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You don't have permission to update this workflow"
@@ -182,14 +182,14 @@ async def update_workflow(
         
         # Convert UUID fields to strings for response
         return WorkflowResponse(
-            id=str(updated_workflow.id),
-            user_id=str(updated_workflow.user_id),
-            name=updated_workflow.name,
-            description=updated_workflow.description,
-            graph_definition=updated_workflow.graph_definition,
-            is_public=updated_workflow.is_public,
-            created_at=updated_workflow.created_at,
-            updated_at=updated_workflow.updated_at
+            id=str(updated_workflow.workflow.id),
+            user_id=str(updated_workflow.workflow.user_id),
+            name=updated_workflow.workflow.name,
+            description=updated_workflow.workflow.description,
+            graph_definition=updated_workflow.workflow.to_graph_definition(),
+            is_public=updated_workflow.workflow.is_public,
+            created_at=updated_workflow.workflow.created_at,
+            updated_at=updated_workflow.workflow.updated_at
         )
         
     except NotFoundError:
@@ -232,14 +232,14 @@ async def delete_workflow(
         
         # Check ownership
         existing_workflow = facade.get_workflow(workflow_id)
-        if str(existing_workflow.user_id) != str(current_user.id):
+        if str(existing_workflow.workflow.user_id) != str(current_user.id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You don't have permission to delete this workflow"
             )
         
         # Delete workflow
-        facade.delete_workflow(workflow_id)
+        facade.delete_workflow(workflow_id, str(current_user.id))
         
         logger.info(f"Workflow deleted successfully: {workflow_id}")
         return None
@@ -286,7 +286,7 @@ async def list_workflows(
         
         # Get workflows based on filters (fetch more for filtering)
         if include_public:
-            workflows = facade.workflows.list_workflows(
+            workflows = facade.list_workflows(
                 user_id=None,
                 offset=0,
                 limit=limit * 3,  # Get more for filtering
@@ -294,7 +294,7 @@ async def list_workflows(
             # Convert UUID to string for comparison
             workflows = [w for w in workflows if str(w.user_id) == str(current_user.id) or w.is_public]
         else:
-            workflows = facade.workflows.list_workflows(
+            workflows = facade.list_workflows(
                 user_id=str(current_user.id),
                 offset=0,
                 limit=limit * 3,
@@ -401,8 +401,8 @@ async def get_workflow_executions(
     try:
         logger.info(f"Fetching executions for workflow {workflow_id}")
         
-        workflow_service = WorkflowService(db)
-        workflow = workflow_service.get_workflow(workflow_id)
+        facade = AgentBuilderFacade(db)
+        workflow = facade.get_workflow(workflow_id)
         
         if not workflow:
             raise HTTPException(
@@ -411,7 +411,7 @@ async def get_workflow_executions(
             )
         
         # Check permissions
-        if str(workflow.user_id) != str(current_user.id) and not workflow.is_public:
+        if str(workflow.workflow.user_id) != str(current_user.id) and not workflow.workflow.is_public:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You don't have permission to access this workflow"
@@ -511,8 +511,8 @@ async def get_workflow_execution(
             )
         
         # Get workflow for name
-        workflow_service = WorkflowService(db)
-        workflow = workflow_service.get_workflow(workflow_id)
+        facade = AgentBuilderFacade(db)
+        workflow = facade.get_workflow(workflow_id)
         
         # Calculate duration
         duration = None
@@ -543,7 +543,7 @@ async def get_workflow_execution(
         return {
             "id": str(execution.id),
             "workflow_id": str(execution.workflow_id),
-            "workflow_name": workflow.name if workflow else "Unknown",
+            "workflow_name": workflow.workflow.name if workflow else "Unknown",
             "status": execution.status,
             "started_at": execution.started_at.isoformat() if execution.started_at else None,
             "completed_at": execution.completed_at.isoformat() if execution.completed_at else None,
@@ -583,7 +583,7 @@ async def execute_workflow(
         
         # Check permissions
         workflow = facade.get_workflow(workflow_id)
-        if str(workflow.user_id) != str(current_user.id) and not workflow.is_public:
+        if str(workflow.workflow.user_id) != str(current_user.id) and not workflow.workflow.is_public:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You don't have permission to execute this workflow"
@@ -636,10 +636,10 @@ async def duplicate_workflow(
     try:
         logger.info(f"Duplicating workflow {workflow_id} for user {current_user.id}")
         
-        workflow_service = WorkflowService(db)
+        facade = AgentBuilderFacade(db)
         
         # Get original workflow
-        original = workflow_service.get_workflow(workflow_id)
+        original = facade.get_workflow(workflow_id)
         if not original:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -647,7 +647,7 @@ async def duplicate_workflow(
             )
         
         # Check permission (can duplicate own workflows or public workflows)
-        if str(original.user_id) != str(current_user.id) and not original.is_public:
+        if str(original.workflow.user_id) != str(current_user.id) and not original.workflow.is_public:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You don't have permission to duplicate this workflow"
@@ -661,42 +661,41 @@ async def duplicate_workflow(
         old_to_new_id = {}
         nodes = []
         
-        for node in original.nodes:
+        for node in original.workflow.nodes:
             new_id = str(uuid.uuid4())
             old_to_new_id[node.id] = new_id
             
             nodes.append(WorkflowNodeCreate(
                 id=new_id,
-                node_type=node.node_type,
+                node_type=node.node_type.value,
                 node_ref_id=node.node_ref_id,
-                position_x=node.position_x,
-                position_y=node.position_y,
-                configuration=node.configuration
+                position_x=node.position.x,
+                position_y=node.position.y,
+                configuration=node.config.to_dict()
             ))
         
         # Convert edges with new node IDs
         edges = []
-        for edge in original.edges:
+        for edge in original.workflow.edges:
             edges.append(WorkflowEdgeCreate(
                 id=str(uuid.uuid4()),
                 source_node_id=old_to_new_id.get(edge.source_node_id, edge.source_node_id),
                 target_node_id=old_to_new_id.get(edge.target_node_id, edge.target_node_id),
-                edge_type=edge.edge_type,
-                condition=edge.condition
+                edge_type=edge.edge_type.value,
+                condition=edge.condition.to_dict() if edge.condition else None
             ))
         
         # Get entry point with new ID
         entry_point = None
-        if original.graph_definition and "entry_point" in original.graph_definition:
-            old_entry = original.graph_definition["entry_point"]
-            entry_point = old_to_new_id.get(old_entry, nodes[0].id if nodes else None)
+        if original.workflow.entry_point:
+            entry_point = old_to_new_id.get(original.workflow.entry_point, nodes[0].id if nodes else None)
         elif nodes:
             entry_point = nodes[0].id
         
         # Create new workflow
         workflow_data = WorkflowCreate(
-            name=f"{original.name} (Copy)",
-            description=original.description,
+            name=f"{original.workflow.name} (Copy)",
+            description=original.workflow.description,
             nodes=nodes,
             edges=edges,
             entry_point=entry_point,
@@ -711,14 +710,14 @@ async def duplicate_workflow(
         logger.info(f"Workflow duplicated successfully: {new_workflow.id}")
         
         return WorkflowResponse(
-            id=str(new_workflow.id),
-            user_id=str(new_workflow.user_id),
-            name=new_workflow.name,
-            description=new_workflow.description,
-            graph_definition=new_workflow.graph_definition,
-            is_public=new_workflow.is_public,
-            created_at=new_workflow.created_at,
-            updated_at=new_workflow.updated_at
+            id=str(new_workflow.workflow.id),
+            user_id=str(new_workflow.workflow.user_id),
+            name=new_workflow.workflow.name,
+            description=new_workflow.workflow.description,
+            graph_definition=new_workflow.workflow.to_graph_definition(),
+            is_public=new_workflow.workflow.is_public,
+            created_at=new_workflow.workflow.created_at,
+            updated_at=new_workflow.workflow.updated_at
         )
         
     except HTTPException:
@@ -776,15 +775,15 @@ async def execute_workflow_stream(
             user_id = payload.get("sub")
             
             # Get workflow
-            workflow_service = WorkflowService(db)
-            workflow = workflow_service.get_workflow(workflow_id)
+            facade = AgentBuilderFacade(db)
+            workflow = facade.get_workflow(workflow_id)
             
             if not workflow:
                 yield f"data: {json.dumps({'type': 'error', 'data': {'message': 'Workflow not found'}})}\n\n"
                 return
             
             # Check permissions
-            if str(workflow.user_id) != str(user_id) and not workflow.is_public:
+            if str(workflow.workflow.user_id) != str(user_id) and not workflow.workflow.is_public:
                 yield f"data: {json.dumps({'type': 'error', 'data': {'message': 'Access denied'}})}\n\n"
                 return
             
@@ -838,8 +837,8 @@ async def autosave_workflow(
     Use PUT /workflows/{id} for full updates with validation.
     """
     try:
-        workflow_service = WorkflowService(db)
-        workflow = workflow_service.get_workflow(workflow_id)
+        facade = AgentBuilderFacade(db)
+        workflow = facade.get_workflow(workflow_id)
         
         if not workflow:
             raise HTTPException(
@@ -848,7 +847,7 @@ async def autosave_workflow(
             )
         
         # Check ownership
-        if str(workflow.user_id) != str(current_user.id):
+        if str(workflow.workflow.user_id) != str(current_user.id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access denied"
@@ -856,7 +855,20 @@ async def autosave_workflow(
         
         # Update only if provided
         if nodes is not None or edges is not None:
-            graph_def = workflow.graph_definition or {}
+            # Get the database model directly for fast autosave
+            from backend.db.models.agent_builder import Workflow
+            db_workflow = db.query(Workflow).filter(
+                Workflow.id == workflow_id,
+                Workflow.deleted_at.is_(None)
+            ).first()
+            
+            if not db_workflow:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Workflow {workflow_id} not found"
+                )
+            
+            graph_def = db_workflow.graph_definition or {}
             
             if nodes is not None:
                 graph_def["nodes"] = nodes
@@ -864,16 +876,16 @@ async def autosave_workflow(
             if edges is not None:
                 graph_def["edges"] = edges
             
-            workflow.graph_definition = graph_def
-            workflow.updated_at = datetime.utcnow()
+            db_workflow.graph_definition = graph_def
+            db_workflow.updated_at = datetime.utcnow()
             
             db.commit()
-            db.refresh(workflow)
+            db.refresh(db_workflow)
         
         return {
             "success": True,
             "workflow_id": workflow_id,
-            "updated_at": workflow.updated_at.isoformat()
+            "updated_at": db_workflow.updated_at.isoformat() if 'db_workflow' in locals() else datetime.utcnow().isoformat()
         }
         
     except HTTPException:
@@ -908,8 +920,8 @@ async def get_workflow_statistics(
     - Execution timeline
     """
     try:
-        workflow_service = WorkflowService(db)
-        workflow = workflow_service.get_workflow(workflow_id)
+        facade = AgentBuilderFacade(db)
+        workflow = facade.get_workflow(workflow_id)
         
         if not workflow:
             raise HTTPException(
@@ -918,7 +930,7 @@ async def get_workflow_statistics(
             )
         
         # Check permissions
-        if str(workflow.user_id) != str(current_user.id) and not workflow.is_public:
+        if str(workflow.workflow.user_id) != str(current_user.id) and not workflow.workflow.is_public:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access denied"
