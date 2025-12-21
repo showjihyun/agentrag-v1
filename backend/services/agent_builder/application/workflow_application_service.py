@@ -157,7 +157,7 @@ class WorkflowApplicationService:
         """List workflows."""
         from backend.db.models.agent_builder import Workflow
         
-        query = self.db.query(Workflow).filter(Workflow.deleted_at.is_(None))
+        query = self.db.query(Workflow)
         
         if user_id:
             query = query.filter(Workflow.user_id == user_id)

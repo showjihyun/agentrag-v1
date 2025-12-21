@@ -55,12 +55,31 @@ class BlockService:
     
     def __init__(self, db: Session, event_bus: Optional[EventBus] = None):
         self.db = db
-        self.event_bus = event_bus or EventBus()
+        
+        # Use provided event_bus or create a no-op one if Redis is not available
+        if event_bus is not None:
+            self.event_bus = event_bus
+        else:
+            # Create a no-op EventBus for when Redis is not available
+            self.event_bus = self._create_noop_event_bus()
         
         # Initialize repositories
         self.block_repo = BlockRepository(db)
         self.version_repo = BlockVersionRepository(db)
         self.test_repo = BlockTestCaseRepository(db)
+    
+    def _create_noop_event_bus(self):
+        """Create a no-op EventBus for when Redis is not available."""
+        class NoOpEventBus:
+            async def publish(self, event_type: str, data: dict, **kwargs):
+                """No-op publish method."""
+                pass
+            
+            def subscribe(self, event_type: str, handler):
+                """No-op subscribe method."""
+                pass
+        
+        return NoOpEventBus()
     
     # ========================================================================
     # CRUD OPERATIONS

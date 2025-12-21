@@ -30,6 +30,14 @@ class CreateAgentCommand:
     model_config: Dict[str, Any] = field(default_factory=dict)
     tools: List[str] = field(default_factory=list)
     is_public: bool = False
+    template_id: Optional[str] = None
+    llm_provider: Optional[str] = None
+    llm_model: Optional[str] = None
+    prompt_template_id: Optional[str] = None
+    prompt_template: Optional[str] = None
+    configuration: Dict[str, Any] = field(default_factory=dict)
+    tool_ids: List[str] = field(default_factory=list)
+    knowledgebase_ids: List[str] = field(default_factory=list)
 
 
 @dataclass

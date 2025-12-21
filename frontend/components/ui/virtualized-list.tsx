@@ -1,41 +1,81 @@
 'use client';
 
-import React, { forwardRef } from 'react';
-import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
+import React, { forwardRef, useRef } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { cn } from '@/lib/utils';
 
 interface VirtualizedListProps<T> {
   items: T[];
   height: number;
   itemSize: number;
-  renderItem: (props: ListChildComponentProps & { item: T }) => React.ReactElement;
+  renderItem: (props: { index: number; item: T }) => React.ReactElement;
   className?: string;
   overscanCount?: number;
 }
 
+interface VirtualizedListRef {
+  scrollToIndex: (index: number, options?: { align?: 'start' | 'center' | 'end' | 'auto' }) => void;
+}
+
 function VirtualizedListInner<T>(
   { items, height, itemSize, renderItem, className, overscanCount = 5 }: VirtualizedListProps<T>,
-  ref: React.Ref<List>
+  ref: React.Ref<VirtualizedListRef>
 ) {
-  const ItemRenderer = ({ index, style }: ListChildComponentProps) => {
-    const item = items[index];
-    return renderItem({ index, style, item });
-  };
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  const virtualizer = useVirtualizer({
+    count: items.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => itemSize,
+    overscan: overscanCount,
+  });
+
+  React.useImperativeHandle(ref, () => ({
+    scrollToIndex: (index: number, options?: { align?: 'start' | 'center' | 'end' | 'auto' }) => {
+      virtualizer.scrollToIndex(index, options);
+    },
+  }));
 
   return (
-    <List
-      ref={ref}
+    <div
+      ref={parentRef}
       className={cn('scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100', className)}
-      height={height}
-      itemCount={items.length}
-      itemSize={itemSize}
-      overscanCount={overscanCount}
+      style={{
+        height,
+        overflow: 'auto',
+      }}
     >
-      {ItemRenderer}
-    </List>
+      <div
+        style={{
+          height: virtualizer.getTotalSize(),
+          width: '100%',
+          position: 'relative',
+        }}
+      >
+        {virtualizer.getVirtualItems().map((virtualItem) => {
+          const item = items[virtualItem.index];
+          
+          return (
+            <div
+              key={virtualItem.key}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: virtualItem.size,
+                transform: `translateY(${virtualItem.start}px)`,
+              }}
+            >
+              {renderItem({ index: virtualItem.index, item })}
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
 export const VirtualizedList = forwardRef(VirtualizedListInner) as <T>(
-  props: VirtualizedListProps<T> & { ref?: React.Ref<List> }
+  props: VirtualizedListProps<T> & { ref?: React.Ref<VirtualizedListRef> }
 ) => React.ReactElement;

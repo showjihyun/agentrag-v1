@@ -47,4 +47,39 @@ interface DemoScenario {
 }
 
 const EnterprisePlatformDemoPage: React.FC = () => {
-  const [selectedScenario, setSelectedScenario] = useState<str
+  const [selectedScenario, setSelectedScenario] = useState<string>('customer-service');
+
+  return (
+    <div className="container mx-auto p-6">
+      <h1 className="text-3xl font-bold mb-6">Enterprise Platform Demo</h1>
+      <p className="text-muted-foreground mb-4">
+        This demo showcases enterprise-level workflow automation capabilities.
+      </p>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="p-6 border rounded-lg">
+          <h3 className="text-xl font-semibold mb-2">Customer Service Automation</h3>
+          <p className="text-muted-foreground">
+            Automated ticket routing and response generation.
+          </p>
+        </div>
+        
+        <div className="p-6 border rounded-lg">
+          <h3 className="text-xl font-semibold mb-2">Data Processing Pipeline</h3>
+          <p className="text-muted-foreground">
+            Large-scale data transformation and analysis workflows.
+          </p>
+        </div>
+        
+        <div className="p-6 border rounded-lg">
+          <h3 className="text-xl font-semibold mb-2">Compliance Monitoring</h3>
+          <p className="text-muted-foreground">
+            Automated compliance checking and reporting.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default EnterprisePlatformDemoPage;

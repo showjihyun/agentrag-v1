@@ -33,3 +33,16 @@ export { AgentBuilderErrorBoundary } from './AgentBuilderErrorBoundary';
 // UI Components
 export { EmptyState } from './EmptyState';
 export { WorkflowWizard } from './WorkflowWizard';
+
+// UX Improvement Components
+export { ImprovedFlowCard } from './ImprovedFlowCard';
+export { QuickActionBar } from './QuickActionBar';
+export { SmartEmptyState } from './SmartEmptyState';
+export { EnhancedSearchFilters } from './EnhancedSearchFilters';
+export { FlowListView } from './FlowListView';
+
+// Advanced Components
+export { TemplateMarketplace } from './TemplateMarketplace';
+export { VirtualizedFlowGrid } from './VirtualizedFlowGrid';
+export { UserPreferencesPanel } from './UserPreferencesPanel';
+export { FlowAnalytics } from './FlowAnalytics';

@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Download, Search, Filter, RefreshCw } from "lucide-react";
-import { agentBuilderApi } from "@/lib/api/agent-builder";
+import { agentBuilderAPI } from "@/lib/api/agent-builder";
 
 interface AuditLog {
   id: string;

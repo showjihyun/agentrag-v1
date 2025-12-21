@@ -288,7 +288,7 @@ async def list_workflows(
         if include_public:
             workflows = facade.workflows.list_workflows(
                 user_id=None,
-                skip=0,
+                offset=0,
                 limit=limit * 3,  # Get more for filtering
             )
             # Convert UUID to string for comparison
@@ -296,7 +296,7 @@ async def list_workflows(
         else:
             workflows = facade.workflows.list_workflows(
                 user_id=str(current_user.id),
-                skip=0,
+                offset=0,
                 limit=limit * 3,
             )
         
@@ -361,7 +361,7 @@ async def list_workflows(
                 user_id=str(w.user_id),
                 name=w.name,
                 description=w.description,
-                graph_definition=w.graph_definition,
+                graph_definition=w.to_graph_definition(),
                 is_public=w.is_public,
                 created_at=w.created_at,
                 updated_at=w.updated_at

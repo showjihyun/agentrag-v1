@@ -1,15 +1,14 @@
 /**
  * Virtual Message List Component
  * 
- * Optimized message list using react-window for virtual scrolling
+ * Optimized message list using @tanstack/react-virtual for virtual scrolling
  * Handles 1000+ messages with 60fps performance
  */
 
 'use client';
 
 import React, { memo, useRef, useEffect } from 'react';
-import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
-import AutoSizer from 'react-virtualized-auto-sizer';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { Message } from './MessageList';
 import MessageItem from './MessageItem';
 
@@ -18,44 +17,31 @@ interface VirtualMessageListProps {
   onReply?: (messageId: string) => void;
   onCopy?: (content: string) => void;
   itemHeight?: number;
+  height?: number;
 }
-
-// Memoized row component
-const Row = memo(({ index, style, data }: ListChildComponentProps<{
-  messages: Message[];
-  onReply?: (messageId: string) => void;
-  onCopy?: (content: string) => void;
-}>) => {
-  const { messages, onReply, onCopy } = data;
-  const message = messages[index];
-
-  return (
-    <div style={style}>
-      <MessageItem
-        message={message}
-        onReply={onReply}
-        onCopy={onCopy}
-      />
-    </div>
-  );
-});
-
-Row.displayName = 'VirtualMessageRow';
 
 export const VirtualMessageList = memo<VirtualMessageListProps>(({
   messages,
   onReply,
   onCopy,
   itemHeight = 150,
+  height = 400,
 }) => {
-  const listRef = useRef<List>(null);
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  const virtualizer = useVirtualizer({
+    count: messages.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => itemHeight,
+    overscan: 5,
+  });
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
-    if (listRef.current && messages.length > 0) {
-      listRef.current.scrollToItem(messages.length - 1, 'end');
+    if (messages.length > 0) {
+      virtualizer.scrollToIndex(messages.length - 1, { align: 'end' });
     }
-  }, [messages.length]);
+  }, [messages.length, virtualizer]);
 
   // Empty state
   if (messages.length === 0) {
@@ -67,21 +53,45 @@ export const VirtualMessageList = memo<VirtualMessageListProps>(({
   }
 
   return (
-    <AutoSizer>
-      {({ height, width }) => (
-        <List
-          ref={listRef}
-          height={height}
-          width={width}
-          itemCount={messages.length}
-          itemSize={itemHeight}
-          itemData={{ messages, onReply, onCopy }}
-          overscanCount={5}
-        >
-          {Row}
-        </List>
-      )}
-    </AutoSizer>
+    <div
+      ref={parentRef}
+      style={{
+        height,
+        overflow: 'auto',
+      }}
+    >
+      <div
+        style={{
+          height: virtualizer.getTotalSize(),
+          width: '100%',
+          position: 'relative',
+        }}
+      >
+        {virtualizer.getVirtualItems().map((virtualItem) => {
+          const message = messages[virtualItem.index];
+          
+          return (
+            <div
+              key={virtualItem.key}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: virtualItem.size,
+                transform: `translateY(${virtualItem.start}px)`,
+              }}
+            >
+              <MessageItem
+                message={message}
+                onReply={onReply}
+                onCopy={onCopy}
+              />
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 });
 

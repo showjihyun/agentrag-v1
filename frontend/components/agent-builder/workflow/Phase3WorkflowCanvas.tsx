@@ -81,7 +81,7 @@ function Phase3WorkflowCanvasInner({
   const history = useWorkflowHistory(50);
 
   // Debugger
-  const debugger = useWorkflowDebugger();
+  const workflowDebugger = useWorkflowDebugger();
 
   // Debounce node changes
   const debouncedNodes = useDebounce(nodes, 100);
@@ -125,7 +125,7 @@ function Phase3WorkflowCanvasInner({
   // Execute workflow with debugging
   const handleExecute = useCallback(async () => {
     setIsExecuting(true);
-    debugger.startDebugging();
+    workflowDebugger.startDebugging();
 
     // Reset all nodes
     setNodes((nds) =>
@@ -149,7 +149,7 @@ function Phase3WorkflowCanvasInner({
         );
 
         // Execute with debugger
-        await debugger.executeNodeWithDebug(node.id, async () => {
+        await workflowDebugger.executeNodeWithDebug(node.id, async () => {
           // Simulate execution
           const executionTime = Math.random() * 1000 + 500;
           await new Promise((resolve) => setTimeout(resolve, executionTime));
@@ -167,7 +167,7 @@ function Phase3WorkflowCanvasInner({
         });
 
         // Update node status
-        const currentState = debugger.getCurrentState();
+        const currentState = workflowDebugger.getCurrentState();
         setNodes((nds) =>
           nds.map((n) =>
             n.id === node.id
@@ -195,16 +195,16 @@ function Phase3WorkflowCanvasInner({
     } finally {
       setEdges((eds) => eds.map((edge) => ({ ...edge, animated: false })));
       setIsExecuting(false);
-      debugger.stopDebugging();
+      workflowDebugger.stopDebugging();
     }
-  }, [nodes, setNodes, setEdges, debugger]);
+  }, [nodes, setNodes, setEdges, workflowDebugger]);
 
   // Stop execution
   const handleStop = useCallback(() => {
     setIsExecuting(false);
-    debugger.stopDebugging();
+    workflowDebugger.stopDebugging();
     setEdges((eds) => eds.map((edge) => ({ ...edge, animated: false })));
-  }, [setEdges, debugger]);
+  }, [setEdges, workflowDebugger]);
 
   // Reset workflow
   const handleReset = useCallback(() => {
@@ -218,8 +218,8 @@ function Phase3WorkflowCanvasInner({
         },
       }))
     );
-    debugger.restart();
-  }, [setNodes, debugger]);
+    workflowDebugger.restart();
+  }, [setNodes, workflowDebugger]);
 
   // Save workflow
   const handleSave = useCallback(async () => {
@@ -293,7 +293,7 @@ function Phase3WorkflowCanvasInner({
 
   // Get performance metrics
   const performanceMetrics = useMemo(() => {
-    const metrics = debugger.getPerformanceMetrics();
+    const metrics = workflowDebugger.getPerformanceMetrics();
     
     // Transform to component format
     const nodeMetrics: Record<string, any> = {};
@@ -311,7 +311,7 @@ function Phase3WorkflowCanvasInner({
       ...metrics,
       nodeMetrics,
     };
-  }, [debugger, nodes]);
+  }, [workflowDebugger, nodes]);
 
   // Minimap node color
   const minimapNodeColor = useCallback((node: Node) => {
@@ -459,15 +459,15 @@ function Phase3WorkflowCanvasInner({
               <TabsContent value="debug" className="flex-1 m-0 p-4">
                 <DebugPanel
                   nodes={nodes}
-                  currentNodeId={debugger.currentNodeId}
-                  executionHistory={debugger.executionHistory}
-                  breakpoints={debugger.breakpoints}
-                  onBreakpointToggle={debugger.toggleBreakpoint}
-                  onStepOver={debugger.stepOver}
-                  onStepInto={debugger.stepInto}
-                  onContinue={debugger.continueExecution}
-                  onRestart={debugger.restart}
-                  onTimeTravel={debugger.timeTravel}
+                  currentNodeId={workflowDebugger.currentNodeId}
+                  executionHistory={workflowDebugger.executionHistory}
+                  breakpoints={workflowDebugger.breakpoints}
+                  onBreakpointToggle={workflowDebugger.toggleBreakpoint}
+                  onStepOver={workflowDebugger.stepOver}
+                  onStepInto={workflowDebugger.stepInto}
+                  onContinue={workflowDebugger.continueExecution}
+                  onRestart={workflowDebugger.restart}
+                  onTimeTravel={workflowDebugger.timeTravel}
                 />
               </TabsContent>
 

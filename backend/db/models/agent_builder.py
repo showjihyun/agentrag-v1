@@ -574,6 +574,7 @@ class Workflow(Base):
     updated_at = Column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
     )
+    deleted_at = Column(DateTime, nullable=True, index=True)  # Soft delete support
 
     # Relationships
     nodes = relationship("WorkflowNode", back_populates="workflow", cascade="all, delete-orphan")

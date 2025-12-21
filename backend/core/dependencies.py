@@ -673,7 +673,20 @@ def get_block_service(
     FastAPI dependency for BlockService.
     
     Returns:
-        BlockService instance
+        BlockService instance with proper EventBus
     """
     from backend.services.agent_builder.block_service import BlockService
-    return BlockService(db)
+    from backend.core.event_bus import EventBus
+    
+    container = get_container()
+    
+    # Create EventBus with Redis client if available
+    event_bus = None
+    try:
+        redis_client = container.get_redis_client()
+        event_bus = EventBus(redis_client=redis_client)
+    except RuntimeError:
+        # Redis not available - BlockService will create a mock EventBus
+        pass
+    
+    return BlockService(db, event_bus=event_bus)

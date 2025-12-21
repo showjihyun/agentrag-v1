@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { flowsAPI } from '@/lib/api/flows';
-import type { Chatflow } from '@/lib/types/flows';
+import type { Agentflow } from '@/lib/types/flows';
 
 // Import improved UX components
 import {
@@ -18,17 +18,7 @@ import {
 
 // Statistics component
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { MessageSquare, CheckCircle2, TrendingUp, Database } from 'lucide-react';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+import { Users, CheckCircle2, TrendingUp, Zap } from 'lucide-react';
 
 interface FilterState {
   status: 'all' | 'active' | 'inactive';
@@ -37,18 +27,16 @@ interface FilterState {
   dateRange: 'all' | 'week' | 'month' | 'quarter';
 }
 
-export default function ImprovedChatflowsPage() {
+export default function ImprovedAgentflowsPage() {
   const router = useRouter();
   const { toast } = useToast();
   
   // State management
-  const [chatflows, setChatflows] = useState<Chatflow[]>([]);
+  const [agentflows, setAgentflows] = useState<Agentflow[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [showTemplates, setShowTemplates] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [flowToDelete, setFlowToDelete] = useState<string | null>(null);
   const [filters, setFilters] = useState<FilterState>({
     status: 'all',
     sortBy: 'updated_at',
@@ -58,22 +46,22 @@ export default function ImprovedChatflowsPage() {
 
   // Load data
   useEffect(() => {
-    loadChatflows();
+    loadAgentflows();
   }, []);
 
-  const loadChatflows = async () => {
+  const loadAgentflows = async () => {
     try {
       setLoading(true);
-      const response = await flowsAPI.getChatflows();
-      setChatflows(response.flows as Chatflow[]);
+      const response = await flowsAPI.getAgentflows();
+      setAgentflows(response.flows as Agentflow[]);
     } catch (error: any) {
-      console.error('Failed to load chatflows:', error);
+      console.error('Failed to load agentflows:', error);
       toast({
         title: '오류',
-        description: error.message || 'Chatflow 목록을 불러오는데 실패했습니다',
+        description: error.message || 'Agentflow 목록을 불러오는데 실패했습니다',
         variant: 'destructive',
       });
-      setChatflows([]);
+      setAgentflows([]);
     } finally {
       setLoading(false);
     }
@@ -82,15 +70,15 @@ export default function ImprovedChatflowsPage() {
   // Extract available tags from flows
   const availableTags = useMemo(() => {
     const tags = new Set<string>();
-    chatflows.forEach(flow => {
+    agentflows.forEach(flow => {
       flow.tags?.forEach(tag => tags.add(tag));
     });
     return Array.from(tags);
-  }, [chatflows]);
+  }, [agentflows]);
 
   // Filter and sort flows
   const filteredFlows = useMemo(() => {
-    return chatflows
+    return agentflows
       .filter((flow) => {
         // Search filter
         const matchesSearch = !searchQuery || 
@@ -137,19 +125,19 @@ export default function ImprovedChatflowsPage() {
             return 0;
         }
       });
-  }, [chatflows, searchQuery, filters]);
+  }, [agentflows, searchQuery, filters]);
 
   // Action handlers
-  const handleAction = async (action: string, flowId: string, flow?: Chatflow) => {
+  const handleAction = async (action: string, flowId: string, flow?: Agentflow) => {
     switch (action) {
       case 'view':
-        router.push(`/agent-builder/chatflows/${flowId}`);
+        router.push(`/agent-builder/agentflows/${flowId}`);
         break;
       case 'edit':
-        router.push(`/agent-builder/chatflows/${flowId}/edit`);
+        router.push(`/agent-builder/agentflows/${flowId}/edit`);
         break;
-      case 'chat':
-        router.push(`/agent-builder/chatflows/${flowId}/chat`);
+      case 'execute':
+        router.push(`/agent-builder/agentflows/${flowId}/execute`);
         break;
       case 'duplicate':
         if (flow) {
@@ -159,12 +147,12 @@ export default function ImprovedChatflowsPage() {
               name: `${flow.name} (복사본)`,
               id: undefined,
             };
-            await flowsAPI.createChatflow(duplicatedFlow);
+            await flowsAPI.createAgentflow(duplicatedFlow);
             toast({
               title: '복제 완료',
               description: `"${flow.name}" 복제가 완료되었습니다`,
             });
-            loadChatflows();
+            loadAgentflows();
           } catch (error: any) {
             toast({
               title: '오류',
@@ -175,64 +163,40 @@ export default function ImprovedChatflowsPage() {
         }
         break;
       case 'delete':
-        setFlowToDelete(flowId);
-        setDeleteDialogOpen(true);
+        // Handle delete with confirmation dialog
         break;
-      case 'embed':
-        router.push(`/agent-builder/chatflows/${flowId}/embed`);
+      case 'chat':
+        router.push(`/agent-builder/agentflows/${flowId}/chat`);
         break;
-      case 'api':
-        router.push(`/agent-builder/chatflows/${flowId}/api`);
-        break;
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!flowToDelete) return;
-
-    try {
-      await flowsAPI.deleteFlow(flowToDelete);
-      toast({
-        title: '삭제 완료',
-        description: 'Chatflow가 삭제되었습니다',
-      });
-      loadChatflows();
-    } catch (error: any) {
-      toast({
-        title: '오류',
-        description: error.message || '삭제에 실패했습니다',
-        variant: 'destructive',
-      });
-    } finally {
-      setDeleteDialogOpen(false);
-      setFlowToDelete(null);
     }
   };
 
   // Statistics calculation
   const stats = useMemo(() => {
-    const total = chatflows.length;
-    const active = chatflows.filter(f => f.is_active).length;
-    const totalConversations = chatflows.reduce((sum, f) => sum + (f.execution_count || 0), 0);
-    const ragEnabled = chatflows.filter(f => f.rag_config?.enabled).length;
+    const total = agentflows.length;
+    const active = agentflows.filter(f => f.is_active).length;
+    const totalExecutions = agentflows.reduce((sum, f) => sum + (f.execution_count || 0), 0);
+    const avgAgents = total > 0 
+      ? Math.round(agentflows.reduce((sum, f) => sum + (f.agents?.length || 0), 0) / total)
+      : 0;
 
-    return { total, active, totalConversations, ragEnabled };
-  }, [chatflows]);
+    return { total, active, totalExecutions, avgAgents };
+  }, [agentflows]);
 
   return (
     <div className="container mx-auto p-6 max-w-7xl">
       {/* Enhanced Header */}
       <div className="mb-6">
         <div className="flex items-center gap-3 mb-2">
-          <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900">
-            <MessageSquare className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+          <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900">
+            <Users className="h-8 w-8 text-purple-600 dark:text-purple-400" />
           </div>
           <div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-              Chatflows
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+              Agentflows
             </h1>
             <p className="text-muted-foreground text-lg">
-              RAG 기반 챗봇과 AI 어시스턴트를 구축하세요
+              멀티 에이전트 시스템을 구축하고 오케스트레이션하세요
             </p>
           </div>
         </div>
@@ -240,8 +204,8 @@ export default function ImprovedChatflowsPage() {
 
       {/* Quick Action Bar */}
       <QuickActionBar
-        type="chatflow"
-        onNewFlow={() => router.push('/agent-builder/chatflows/new')}
+        type="agentflow"
+        onNewFlow={() => router.push('/agent-builder/agentflows/new')}
         onToggleTemplates={() => setShowTemplates(!showTemplates)}
         showTemplates={showTemplates}
         viewMode={viewMode}
@@ -253,8 +217,8 @@ export default function ImprovedChatflowsPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <MessageSquare className="h-4 w-4" />
-              전체 Chatflow
+              <Users className="h-4 w-4" />
+              전체 Agentflow
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -276,29 +240,29 @@ export default function ImprovedChatflowsPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <TrendingUp className="h-4 w-4" />
-              총 대화 수
+              총 실행 횟수
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalConversations}</div>
+            <div className="text-2xl font-bold">{stats.totalExecutions}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Database className="h-4 w-4" />
-              RAG 연동
+              <Zap className="h-4 w-4" />
+              평균 에이전트 수
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{stats.ragEnabled}</div>
+            <div className="text-2xl font-bold text-purple-600">{stats.avgAgents}</div>
           </CardContent>
         </Card>
       </div>
 
       {/* Enhanced Search and Filters */}
       <EnhancedSearchFilters
-        type="chatflow"
+        type="agentflow"
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         filters={filters}
@@ -311,10 +275,10 @@ export default function ImprovedChatflowsPage() {
         <CardGridSkeleton count={6} />
       ) : filteredFlows.length === 0 ? (
         <SmartEmptyState
-          type="chatflow"
+          type="agentflow"
           hasSearch={!!searchQuery || filters.status !== 'all' || filters.tags.length > 0 || filters.dateRange !== 'all'}
           searchQuery={searchQuery}
-          onNewFlow={() => router.push('/agent-builder/chatflows/new')}
+          onNewFlow={() => router.push('/agent-builder/agentflows/new')}
           onShowTemplates={() => setShowTemplates(true)}
           onClearSearch={() => {
             setSearchQuery('');
@@ -332,7 +296,7 @@ export default function ImprovedChatflowsPage() {
             <ImprovedFlowCard
               key={flow.id}
               flow={flow}
-              type="chatflow"
+              type="agentflow"
               onAction={handleAction}
             />
           ))}
@@ -340,28 +304,10 @@ export default function ImprovedChatflowsPage() {
       ) : (
         <FlowListView
           flows={filteredFlows}
-          type="chatflow"
+          type="agentflow"
           onAction={handleAction}
         />
       )}
-
-      {/* Delete Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Chatflow 삭제</AlertDialogTitle>
-            <AlertDialogDescription>
-              이 Chatflow를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>취소</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
-              삭제
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

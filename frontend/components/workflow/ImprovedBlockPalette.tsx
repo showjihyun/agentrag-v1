@@ -48,7 +48,8 @@ import {
   Mic,
   Volume2,
   Users,
-  Wand2
+  Wand2,
+  Route
 } from 'lucide-react';
 
 interface BlockPaletteProps {

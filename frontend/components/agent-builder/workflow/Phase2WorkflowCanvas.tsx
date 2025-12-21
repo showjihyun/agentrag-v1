@@ -41,7 +41,7 @@ import { WorkflowSearchBar } from './WorkflowSearchBar';
 import { VirtualizedNodeList } from './VirtualizedNodeList';
 import { NodeContextMenu } from './NodeContextMenu';
 import { SimplifiedPropertiesPanel } from './SimplifiedPropertiesPanel';
-import { ExecutionTimeline } from './ExecutionTimeline';
+import { ExecutionTimeline } from '../../workflow/ExecutionTimeline';
 import { AnimatedEdge } from './AnimatedEdge';
 import { EnhancedAgentNode } from '../workflow-nodes/EnhancedAgentNode';
 import { EnhancedControlNode } from '../workflow-nodes/EnhancedControlNode';
