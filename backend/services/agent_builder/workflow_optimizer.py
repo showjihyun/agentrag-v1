@@ -1,520 +1,544 @@
 """
-Workflow Optimizer
+Adaptive Workflow Optimizer
 
-Analyzes and optimizes workflow execution for better performance.
+Analyzes workflow execution patterns and provides intelligent optimization suggestions
+for improved performance, cost efficiency, and reliability.
 """
 
 import logging
-from typing import Dict, Any, Optional, List, Tuple
+import json
+from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime, timedelta
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
+
+from sqlalchemy.orm import Session
+from sqlalchemy import func, desc
+
+from backend.db.models.flows import Agentflow, FlowExecution
+from backend.services.llm_manager import LLMManager
 
 logger = logging.getLogger(__name__)
 
 
-class OptimizationType(str, Enum):
-    """Types of optimizations."""
-    PARALLEL_EXECUTION = "parallel_execution"
-    NODE_CACHING = "node_caching"
-    BATCH_PROCESSING = "batch_processing"
-    LAZY_EVALUATION = "lazy_evaluation"
-    CONNECTION_POOLING = "connection_pooling"
-    RESULT_STREAMING = "result_streaming"
+class OptimizationType(Enum):
+    PERFORMANCE = "performance"
+    COST = "cost"
+    RELIABILITY = "reliability"
+    RESOURCE = "resource"
+
+
+class OptimizationPriority(Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
+class OptimizationImpact(Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
 
 
 @dataclass
 class OptimizationSuggestion:
-    """A single optimization suggestion."""
+    """Optimization suggestion with detailed analysis."""
     type: OptimizationType
-    node_ids: List[str]
+    title: str
     description: str
-    estimated_improvement: str  # e.g., "30% faster"
-    priority: int  # 1-5, 5 being highest
-    auto_applicable: bool = False
-    
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "type": self.type.value,
-            "node_ids": self.node_ids,
-            "description": self.description,
-            "estimated_improvement": self.estimated_improvement,
-            "priority": self.priority,
-            "auto_applicable": self.auto_applicable,
-        }
+    impact: OptimizationImpact
+    priority: OptimizationPriority
+    action: Optional[str] = None
+    estimated_improvement: Optional[float] = None
+    implementation_effort: Optional[str] = None
+    confidence_score: Optional[float] = None
 
 
 @dataclass
-class PerformanceMetrics:
-    """Performance metrics for a workflow."""
+class WorkflowAnalysis:
+    """Comprehensive workflow analysis results."""
     workflow_id: str
-    avg_execution_time_ms: float
-    p50_execution_time_ms: float
-    p95_execution_time_ms: float
-    p99_execution_time_ms: float
-    total_executions: int
+    analysis_timestamp: datetime
+    execution_count: int
     success_rate: float
-    node_metrics: Dict[str, Dict[str, float]] = field(default_factory=dict)
-    bottleneck_nodes: List[str] = field(default_factory=list)
-    
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "workflow_id": self.workflow_id,
-            "avg_execution_time_ms": self.avg_execution_time_ms,
-            "p50_execution_time_ms": self.p50_execution_time_ms,
-            "p95_execution_time_ms": self.p95_execution_time_ms,
-            "p99_execution_time_ms": self.p99_execution_time_ms,
-            "total_executions": self.total_executions,
-            "success_rate": self.success_rate,
-            "node_metrics": self.node_metrics,
-            "bottleneck_nodes": self.bottleneck_nodes,
-        }
+    average_duration: float
+    bottlenecks: List[Dict[str, Any]]
+    resource_usage: Dict[str, float]
+    cost_analysis: Dict[str, float]
+    optimization_score: float
+    suggestions: List[OptimizationSuggestion]
 
 
 @dataclass
-class OptimizationReport:
-    """Complete optimization report."""
-    workflow_id: str
-    analyzed_at: str
-    metrics: PerformanceMetrics
-    suggestions: List[OptimizationSuggestion]
-    optimized_graph: Optional[Dict[str, Any]] = None
-    
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "workflow_id": self.workflow_id,
-            "analyzed_at": self.analyzed_at,
-            "metrics": self.metrics.to_dict(),
-            "suggestions": [s.to_dict() for s in self.suggestions],
-            "has_optimized_graph": self.optimized_graph is not None,
-            "total_suggestions": len(self.suggestions),
-            "high_priority_count": sum(1 for s in self.suggestions if s.priority >= 4),
-        }
+class BottleneckAnalysis:
+    """Analysis of workflow bottlenecks."""
+    agent_id: str
+    agent_name: str
+    bottleneck_type: str  # sequential_dependency, resource_contention, slow_execution
+    severity: float  # 0-1 scale
+    frequency: float  # How often this bottleneck occurs
+    impact_on_total_time: float  # Percentage of total execution time
+    suggested_fixes: List[str]
 
 
-class WorkflowOptimizer:
+class AdaptiveWorkflowOptimizer:
     """
-    Analyzes workflows and suggests optimizations.
-    
-    Features:
-    - Parallel execution detection
-    - Bottleneck identification
-    - Caching opportunities
-    - Graph restructuring
+    Intelligent workflow optimizer that learns from execution patterns
+    and provides actionable optimization recommendations.
     """
-    
-    def __init__(self, db_session=None):
+
+    def __init__(self, db: Session, llm_manager: Optional[LLMManager] = None):
         """
-        Initialize optimizer.
-        
+        Initialize the workflow optimizer.
+
         Args:
-            db_session: Database session for metrics
+            db: Database session
+            llm_manager: Optional LLM manager for advanced analysis
         """
-        self.db = db_session
-        self._execution_cache: Dict[str, List[Dict]] = {}
-    
-    async def analyze(
-        self,
-        workflow: Any,
-        include_metrics: bool = True,
-    ) -> OptimizationReport:
+        self.db = db
+        self.llm = llm_manager
+        self.analysis_cache = {}
+        self.cache_ttl = timedelta(minutes=30)
+
+    async def analyze_workflow(self, workflow_id: str, days_back: int = 30) -> WorkflowAnalysis:
         """
-        Analyze workflow and generate optimization report.
-        
+        Perform comprehensive workflow analysis.
+
         Args:
-            workflow: Workflow to analyze
-            include_metrics: Include historical metrics
-            
+            workflow_id: ID of the workflow to analyze
+            days_back: Number of days of execution history to analyze
+
         Returns:
-            Optimization report
+            Comprehensive workflow analysis
         """
-        workflow_id = str(workflow.id)
-        graph = workflow.graph_definition or {}
-        nodes = graph.get("nodes", [])
-        edges = graph.get("edges", [])
-        
-        suggestions = []
-        
-        # Analyze for parallel execution opportunities
-        parallel_suggestions = self._find_parallel_opportunities(nodes, edges)
-        suggestions.extend(parallel_suggestions)
-        
-        # Analyze for caching opportunities
-        cache_suggestions = self._find_caching_opportunities(nodes)
-        suggestions.extend(cache_suggestions)
-        
-        # Analyze for batch processing
-        batch_suggestions = self._find_batch_opportunities(nodes, edges)
-        suggestions.extend(batch_suggestions)
-        
-        # Get performance metrics
-        metrics = await self._get_metrics(workflow_id) if include_metrics else None
-        
-        if metrics:
-            # Add bottleneck-based suggestions
-            bottleneck_suggestions = self._analyze_bottlenecks(metrics, nodes)
-            suggestions.extend(bottleneck_suggestions)
-        
-        # Sort by priority
-        suggestions.sort(key=lambda s: s.priority, reverse=True)
-        
-        return OptimizationReport(
-            workflow_id=workflow_id,
-            analyzed_at=datetime.utcnow().isoformat(),
-            metrics=metrics or PerformanceMetrics(
-                workflow_id=workflow_id,
-                avg_execution_time_ms=0,
-                p50_execution_time_ms=0,
-                p95_execution_time_ms=0,
-                p99_execution_time_ms=0,
-                total_executions=0,
-                success_rate=0,
-            ),
-            suggestions=suggestions,
+        # Check cache first
+        cache_key = f"{workflow_id}_{days_back}"
+        if cache_key in self.analysis_cache:
+            cached_analysis, timestamp = self.analysis_cache[cache_key]
+            if datetime.now() - timestamp < self.cache_ttl:
+                return cached_analysis
+
+        logger.info(f"Analyzing workflow {workflow_id} (last {days_back} days)")
+
+        # Get workflow and execution history
+        workflow = self.db.query(Agentflow).filter(Agentflow.id == workflow_id).first()
+        if not workflow:
+            raise ValueError(f"Workflow {workflow_id} not found")
+
+        cutoff_date = datetime.now() - timedelta(days=days_back)
+        executions = (
+            self.db.query(FlowExecution)
+            .filter(
+                FlowExecution.agentflow_id == workflow_id,
+                FlowExecution.started_at >= cutoff_date
+            )
+            .order_by(desc(FlowExecution.started_at))
+            .all()
         )
-    
-    def _find_parallel_opportunities(
-        self,
-        nodes: List[Dict],
-        edges: List[Dict],
-    ) -> List[OptimizationSuggestion]:
-        """Find nodes that can be executed in parallel."""
-        suggestions = []
-        
-        # Build dependency graph
-        dependencies = {n["id"]: set() for n in nodes}
-        dependents = {n["id"]: set() for n in nodes}
-        
-        for edge in edges:
-            source = edge.get("source") or edge.get("source_node_id")
-            target = edge.get("target") or edge.get("target_node_id")
-            if source and target:
-                dependencies[target].add(source)
-                dependents[source].add(target)
-        
-        # Find nodes with same dependencies (can run in parallel)
-        dep_groups: Dict[frozenset, List[str]] = {}
-        for node_id, deps in dependencies.items():
-            dep_key = frozenset(deps)
-            if dep_key not in dep_groups:
-                dep_groups[dep_key] = []
-            dep_groups[dep_key].append(node_id)
-        
-        # Suggest parallelization for groups > 1
-        for deps, node_ids in dep_groups.items():
-            if len(node_ids) > 1:
-                # Check if nodes are independent (no edges between them)
-                independent = True
-                for i, n1 in enumerate(node_ids):
-                    for n2 in node_ids[i+1:]:
-                        if n2 in dependents.get(n1, set()) or n1 in dependents.get(n2, set()):
-                            independent = False
-                            break
-                
-                if independent:
-                    suggestions.append(OptimizationSuggestion(
-                        type=OptimizationType.PARALLEL_EXECUTION,
-                        node_ids=node_ids,
-                        description=f"Nodes {', '.join(node_ids[:3])}{'...' if len(node_ids) > 3 else ''} can be executed in parallel",
-                        estimated_improvement=f"Up to {len(node_ids)}x faster for this section",
-                        priority=4,
-                        auto_applicable=True,
-                    ))
-        
-        return suggestions
-    
-    def _find_caching_opportunities(
-        self,
-        nodes: List[Dict],
-    ) -> List[OptimizationSuggestion]:
-        """Find nodes that could benefit from caching."""
-        suggestions = []
-        
-        cacheable_types = {"ai_agent", "tool", "http_request", "database"}
-        
-        for node in nodes:
-            node_type = node.get("type") or node.get("node_type")
-            node_id = node.get("id")
-            config = node.get("configuration", {}) or node.get("data", {})
-            
-            if node_type in cacheable_types:
-                # Check if caching is already enabled
-                cache_enabled = config.get("cache_enabled", False)
-                
-                if not cache_enabled:
-                    suggestions.append(OptimizationSuggestion(
-                        type=OptimizationType.NODE_CACHING,
-                        node_ids=[node_id],
-                        description=f"Enable caching for {node_type} node '{node_id}'",
-                        estimated_improvement="Reduce redundant API calls by 60-80%",
-                        priority=3,
-                        auto_applicable=True,
-                    ))
-        
-        return suggestions
-    
-    def _find_batch_opportunities(
-        self,
-        nodes: List[Dict],
-        edges: List[Dict],
-    ) -> List[OptimizationSuggestion]:
-        """Find opportunities for batch processing."""
-        suggestions = []
-        
-        # Find consecutive nodes of same type
-        node_types = {n["id"]: n.get("type") or n.get("node_type") for n in nodes}
-        
-        # Build execution order
-        execution_order = self._topological_sort(nodes, edges)
-        
-        # Find consecutive same-type nodes
-        batch_candidates = []
-        current_batch = []
-        current_type = None
-        
-        for node_id in execution_order:
-            node_type = node_types.get(node_id)
-            
-            if node_type == current_type and node_type in {"http_request", "database"}:
-                current_batch.append(node_id)
-            else:
-                if len(current_batch) > 1:
-                    batch_candidates.append((current_type, current_batch))
-                current_batch = [node_id]
-                current_type = node_type
-        
-        if len(current_batch) > 1:
-            batch_candidates.append((current_type, current_batch))
-        
-        for batch_type, node_ids in batch_candidates:
-            suggestions.append(OptimizationSuggestion(
-                type=OptimizationType.BATCH_PROCESSING,
-                node_ids=node_ids,
-                description=f"Batch {len(node_ids)} consecutive {batch_type} operations",
-                estimated_improvement="Reduce network overhead by 40-60%",
-                priority=3,
-                auto_applicable=False,
-            ))
-        
-        return suggestions
-    
-    def _analyze_bottlenecks(
-        self,
-        metrics: PerformanceMetrics,
-        nodes: List[Dict],
-    ) -> List[OptimizationSuggestion]:
-        """Analyze bottlenecks from metrics."""
-        suggestions = []
-        
-        if not metrics.bottleneck_nodes:
-            return suggestions
-        
-        for node_id in metrics.bottleneck_nodes:
-            node = next((n for n in nodes if n["id"] == node_id), None)
-            if not node:
+
+        if not executions:
+            logger.warning(f"No executions found for workflow {workflow_id}")
+            return self._create_empty_analysis(workflow_id)
+
+        # Perform analysis
+        execution_count = len(executions)
+        success_rate = len([e for e in executions if e.status == 'completed']) / execution_count
+        average_duration = sum(e.duration_ms or 0 for e in executions) / execution_count
+
+        # Analyze bottlenecks
+        bottlenecks = await self._analyze_bottlenecks(workflow, executions)
+
+        # Analyze resource usage
+        resource_usage = self._analyze_resource_usage(executions)
+
+        # Analyze costs
+        cost_analysis = self._analyze_costs(executions)
+
+        # Calculate optimization score
+        optimization_score = self._calculate_optimization_score(
+            success_rate, average_duration, bottlenecks, resource_usage
+        )
+
+        # Generate optimization suggestions
+        suggestions = await self._generate_optimization_suggestions(
+            workflow, executions, bottlenecks, resource_usage, cost_analysis
+        )
+
+        analysis = WorkflowAnalysis(
+            workflow_id=workflow_id,
+            analysis_timestamp=datetime.now(),
+            execution_count=execution_count,
+            success_rate=success_rate,
+            average_duration=average_duration,
+            bottlenecks=[b.__dict__ for b in bottlenecks],
+            resource_usage=resource_usage,
+            cost_analysis=cost_analysis,
+            optimization_score=optimization_score,
+            suggestions=suggestions
+        )
+
+        # Cache the analysis
+        self.analysis_cache[cache_key] = (analysis, datetime.now())
+
+        return analysis
+
+    async def _analyze_bottlenecks(self, 
+                                 workflow: Agentflow, 
+                                 executions: List[FlowExecution]) -> List[BottleneckAnalysis]:
+        """Analyze workflow bottlenecks."""
+        bottlenecks = []
+
+        # Get agent execution data
+        agent_stats = {}
+        for execution in executions:
+            if not execution.metrics:
                 continue
-            
-            node_type = node.get("type") or node.get("node_type")
-            node_metrics = metrics.node_metrics.get(node_id, {})
-            avg_time = node_metrics.get("avg_time_ms", 0)
-            
-            if node_type == "ai_agent":
-                suggestions.append(OptimizationSuggestion(
-                    type=OptimizationType.RESULT_STREAMING,
-                    node_ids=[node_id],
-                    description=f"AI Agent node '{node_id}' is a bottleneck (avg {avg_time:.0f}ms). Consider streaming responses.",
-                    estimated_improvement="Improve perceived latency by 50%",
-                    priority=5,
-                    auto_applicable=False,
+
+            # FlowExecution uses metrics field instead of execution_details
+            metrics = execution.metrics
+            agent_timings = metrics.get('agent_timings', {})
+
+            for agent_id, timing_data in agent_timings.items():
+                if agent_id not in agent_stats:
+                    agent_stats[agent_id] = {
+                        'durations': [],
+                        'failures': 0,
+                        'total_executions': 0,
+                        'agent_name': timing_data.get('name', agent_id)
+                    }
+
+                agent_stats[agent_id]['durations'].append(timing_data.get('duration_ms', 0))
+                agent_stats[agent_id]['total_executions'] += 1
+                if timing_data.get('status') == 'failed':
+                    agent_stats[agent_id]['failures'] += 1
+
+        # Identify bottlenecks
+        total_avg_duration = sum(
+            sum(stats['durations']) / len(stats['durations']) 
+            for stats in agent_stats.values() if stats['durations']
+        )
+
+        for agent_id, stats in agent_stats.items():
+            if not stats['durations']:
+                continue
+
+            avg_duration = sum(stats['durations']) / len(stats['durations'])
+            failure_rate = stats['failures'] / stats['total_executions']
+
+            # Check for slow execution bottleneck
+            if avg_duration > total_avg_duration * 0.3:  # Takes >30% of total time
+                bottlenecks.append(BottleneckAnalysis(
+                    agent_id=agent_id,
+                    agent_name=stats['agent_name'],
+                    bottleneck_type='slow_execution',
+                    severity=min(1.0, avg_duration / total_avg_duration),
+                    frequency=1.0,  # Always slow
+                    impact_on_total_time=avg_duration / total_avg_duration,
+                    suggested_fixes=[
+                        'Consider optimizing agent logic',
+                        'Check for inefficient API calls',
+                        'Implement caching for repeated operations',
+                        'Consider parallel processing within agent'
+                    ]
                 ))
-            elif node_type == "http_request":
-                suggestions.append(OptimizationSuggestion(
-                    type=OptimizationType.CONNECTION_POOLING,
-                    node_ids=[node_id],
-                    description=f"HTTP node '{node_id}' is slow (avg {avg_time:.0f}ms). Enable connection pooling.",
-                    estimated_improvement="Reduce connection overhead by 30%",
-                    priority=4,
-                    auto_applicable=True,
+
+            # Check for reliability bottleneck
+            if failure_rate > 0.1:  # >10% failure rate
+                bottlenecks.append(BottleneckAnalysis(
+                    agent_id=agent_id,
+                    agent_name=stats['agent_name'],
+                    bottleneck_type='reliability_issue',
+                    severity=failure_rate,
+                    frequency=failure_rate,
+                    impact_on_total_time=0.0,  # Doesn't add time, but affects success
+                    suggested_fixes=[
+                        'Add retry logic with exponential backoff',
+                        'Implement circuit breaker pattern',
+                        'Add input validation and error handling',
+                        'Consider fallback mechanisms'
+                    ]
                 ))
-        
-        return suggestions
-    
-    def _topological_sort(
-        self,
-        nodes: List[Dict],
-        edges: List[Dict],
-    ) -> List[str]:
-        """Topological sort of nodes."""
-        # Build adjacency list
-        graph = {n["id"]: [] for n in nodes}
-        in_degree = {n["id"]: 0 for n in nodes}
-        
-        for edge in edges:
-            source = edge.get("source") or edge.get("source_node_id")
-            target = edge.get("target") or edge.get("target_node_id")
-            if source in graph and target in graph:
-                graph[source].append(target)
-                in_degree[target] += 1
-        
-        # Kahn's algorithm
-        queue = [n for n, d in in_degree.items() if d == 0]
-        result = []
-        
-        while queue:
-            node = queue.pop(0)
-            result.append(node)
+
+        return bottlenecks
+
+    def _analyze_resource_usage(self, executions: List[FlowExecution]) -> Dict[str, float]:
+        """Analyze resource usage patterns."""
+        total_tokens = 0
+        total_memory_mb = 0
+        total_cpu_seconds = 0
+        execution_count = 0
+
+        for execution in executions:
+            if not execution.metrics:
+                continue
+
+            metrics = execution.metrics
             
-            for neighbor in graph[node]:
-                in_degree[neighbor] -= 1
-                if in_degree[neighbor] == 0:
-                    queue.append(neighbor)
-        
-        return result
-    
-    async def _get_metrics(self, workflow_id: str) -> Optional[PerformanceMetrics]:
-        """Get performance metrics from execution history."""
-        if not self.db:
-            return None
-        
-        try:
-            from backend.db.models.agent_builder import WorkflowExecution
-            from sqlalchemy import func
-            
-            # Get recent executions
-            executions = self.db.query(WorkflowExecution).filter(
-                WorkflowExecution.workflow_id == workflow_id,
-                WorkflowExecution.started_at >= datetime.utcnow() - timedelta(days=7),
-            ).all()
-            
-            if not executions:
-                return None
-            
-            # Calculate metrics
-            durations = []
-            node_times: Dict[str, List[float]] = {}
-            success_count = 0
-            
-            for exec in executions:
-                if exec.completed_at and exec.started_at:
-                    duration = (exec.completed_at - exec.started_at).total_seconds() * 1000
-                    durations.append(duration)
-                
-                if exec.status == "completed":
-                    success_count += 1
-                
-                # Extract node times from execution context
-                context = exec.execution_context or {}
-                for node_exec in context.get("node_executions", []):
-                    node_id = node_exec.get("node_id")
-                    duration_ms = node_exec.get("duration_ms", 0)
-                    if node_id:
-                        if node_id not in node_times:
-                            node_times[node_id] = []
-                        node_times[node_id].append(duration_ms)
-            
-            if not durations:
-                return None
-            
-            durations.sort()
-            
-            # Calculate percentiles
-            def percentile(data, p):
-                idx = int(len(data) * p / 100)
-                return data[min(idx, len(data) - 1)]
-            
-            # Calculate node metrics and find bottlenecks
-            node_metrics = {}
-            bottleneck_nodes = []
-            
-            for node_id, times in node_times.items():
-                avg_time = sum(times) / len(times)
-                node_metrics[node_id] = {
-                    "avg_time_ms": avg_time,
-                    "max_time_ms": max(times),
-                    "call_count": len(times),
-                }
-                
-                # Mark as bottleneck if avg time > 1 second
-                if avg_time > 1000:
-                    bottleneck_nodes.append(node_id)
-            
-            # Sort bottlenecks by avg time
-            bottleneck_nodes.sort(
-                key=lambda n: node_metrics[n]["avg_time_ms"],
-                reverse=True,
-            )
-            
-            return PerformanceMetrics(
-                workflow_id=workflow_id,
-                avg_execution_time_ms=sum(durations) / len(durations),
-                p50_execution_time_ms=percentile(durations, 50),
-                p95_execution_time_ms=percentile(durations, 95),
-                p99_execution_time_ms=percentile(durations, 99),
-                total_executions=len(executions),
-                success_rate=success_count / len(executions) * 100,
-                node_metrics=node_metrics,
-                bottleneck_nodes=bottleneck_nodes[:5],  # Top 5 bottlenecks
-            )
-            
-        except Exception as e:
-            logger.error(f"Failed to get metrics: {e}")
-            return None
-    
-    async def apply_optimizations(
-        self,
-        workflow: Any,
-        optimization_types: List[OptimizationType],
-    ) -> Dict[str, Any]:
-        """
-        Apply automatic optimizations to workflow.
-        
-        Args:
-            workflow: Workflow to optimize
-            optimization_types: Types of optimizations to apply
-            
-        Returns:
-            Optimized graph definition
-        """
-        graph = workflow.graph_definition.copy()
-        applied = []
-        
-        if OptimizationType.NODE_CACHING in optimization_types:
-            # Enable caching on cacheable nodes
-            for node in graph.get("nodes", []):
-                node_type = node.get("type") or node.get("node_type")
-                if node_type in {"ai_agent", "tool", "http_request"}:
-                    config = node.get("configuration", {})
-                    if not config.get("cache_enabled"):
-                        config["cache_enabled"] = True
-                        config["cache_ttl"] = 300  # 5 minutes
-                        node["configuration"] = config
-                        applied.append(f"Enabled caching for {node['id']}")
-        
-        if OptimizationType.CONNECTION_POOLING in optimization_types:
-            # Enable connection pooling for HTTP nodes
-            for node in graph.get("nodes", []):
-                node_type = node.get("type") or node.get("node_type")
-                if node_type == "http_request":
-                    config = node.get("configuration", {})
-                    config["use_connection_pool"] = True
-                    config["pool_size"] = 10
-                    node["configuration"] = config
-                    applied.append(f"Enabled connection pooling for {node['id']}")
-        
+            # Extract resource usage from metrics
+            tokens = metrics.get('llm_tokens', 0)
+            memory = metrics.get('peak_memory_mb', 0)
+            cpu = metrics.get('cpu_seconds', 0)
+
+            total_tokens += tokens
+            total_memory_mb += memory
+            total_cpu_seconds += cpu
+            execution_count += 1
+
+        if execution_count == 0:
+            return {}
+
         return {
-            "optimized_graph": graph,
-            "applied_optimizations": applied,
-            "optimization_count": len(applied),
+            'avg_tokens_per_execution': total_tokens / execution_count,
+            'avg_memory_mb_per_execution': total_memory_mb / execution_count,
+            'avg_cpu_seconds_per_execution': total_cpu_seconds / execution_count,
+            'total_tokens': total_tokens,
+            'total_memory_gb_hours': (total_memory_mb / 1024) * (total_cpu_seconds / 3600),
+            'resource_efficiency_score': self._calculate_resource_efficiency(
+                total_tokens, total_memory_mb, total_cpu_seconds, execution_count
+            )
         }
 
+    def _analyze_costs(self, executions: List[FlowExecution]) -> Dict[str, float]:
+        """Analyze cost patterns and trends."""
+        total_cost = 0
+        costs_by_day = {}
 
-# Global optimizer
-_optimizer: Optional[WorkflowOptimizer] = None
+        for execution in executions:
+            if not execution.metrics:
+                continue
 
+            metrics = execution.metrics
+            cost = metrics.get('estimated_cost', 0)
+            total_cost += cost
 
-def get_optimizer(db_session=None) -> WorkflowOptimizer:
-    """Get or create global optimizer."""
-    global _optimizer
-    if _optimizer is None:
-        _optimizer = WorkflowOptimizer(db_session)
-    return _optimizer
+            # Group by day for trend analysis
+            day = execution.started_at.date()
+            if day not in costs_by_day:
+                costs_by_day[day] = []
+            costs_by_day[day].append(cost)
+
+        # Calculate cost trends
+        daily_costs = [sum(costs) for costs in costs_by_day.values()]
+        avg_daily_cost = sum(daily_costs) / len(daily_costs) if daily_costs else 0
+
+        # Calculate cost efficiency
+        avg_cost_per_execution = total_cost / len(executions) if executions else 0
+        
+        return {
+            'total_cost': total_cost,
+            'avg_cost_per_execution': avg_cost_per_execution,
+            'avg_daily_cost': avg_daily_cost,
+            'cost_trend': self._calculate_cost_trend(daily_costs),
+            'cost_efficiency_score': self._calculate_cost_efficiency(avg_cost_per_execution)
+        }
+
+    def _calculate_optimization_score(self, 
+                                    success_rate: float,
+                                    average_duration: float,
+                                    bottlenecks: List[BottleneckAnalysis],
+                                    resource_usage: Dict[str, float]) -> float:
+        """Calculate overall optimization score (0-1)."""
+        # Success rate component (40% weight)
+        success_component = success_rate * 0.4
+
+        # Performance component (30% weight)
+        # Assume 5 seconds is optimal, penalize longer durations
+        optimal_duration = 5000  # 5 seconds in ms
+        performance_score = max(0, 1 - (average_duration - optimal_duration) / optimal_duration)
+        performance_component = performance_score * 0.3
+
+        # Bottleneck component (20% weight)
+        bottleneck_penalty = sum(b.severity for b in bottlenecks) / max(1, len(bottlenecks))
+        bottleneck_component = max(0, 1 - bottleneck_penalty) * 0.2
+
+        # Resource efficiency component (10% weight)
+        resource_efficiency = resource_usage.get('resource_efficiency_score', 0.5)
+        resource_component = resource_efficiency * 0.1
+
+        total_score = success_component + performance_component + bottleneck_component + resource_component
+        return min(1.0, max(0.0, total_score))
+
+    async def _generate_optimization_suggestions(self,
+                                               workflow: Agentflow,
+                                               executions: List[FlowExecution],
+                                               bottlenecks: List[BottleneckAnalysis],
+                                               resource_usage: Dict[str, float],
+                                               cost_analysis: Dict[str, float]) -> List[OptimizationSuggestion]:
+        """Generate intelligent optimization suggestions."""
+        suggestions = []
+
+        # Performance optimizations
+        if bottlenecks:
+            for bottleneck in bottlenecks:
+                if bottleneck.bottleneck_type == 'slow_execution':
+                    suggestions.append(OptimizationSuggestion(
+                        type=OptimizationType.PERFORMANCE,
+                        title=f"{bottleneck.agent_name} 성능 최적화",
+                        description=f"이 에이전트가 전체 실행 시간의 {bottleneck.impact_on_total_time*100:.1f}%를 차지합니다. 최적화를 통해 {bottleneck.severity*30:.0f}% 성능 향상이 가능합니다.",
+                        impact=OptimizationImpact.HIGH if bottleneck.severity > 0.7 else OptimizationImpact.MEDIUM,
+                        priority=OptimizationPriority.HIGH if bottleneck.severity > 0.7 else OptimizationPriority.MEDIUM,
+                        action="에이전트 로직 최적화 및 캐싱 구현",
+                        estimated_improvement=bottleneck.severity * 0.3,
+                        confidence_score=0.8
+                    ))
+
+        # Cost optimizations
+        avg_cost = cost_analysis.get('avg_cost_per_execution', 0)
+        if avg_cost > 0.01:  # If cost per execution > $0.01
+            suggestions.append(OptimizationSuggestion(
+                type=OptimizationType.COST,
+                title="토큰 사용량 최적화",
+                description=f"실행당 평균 비용이 ${avg_cost:.4f}입니다. 프롬프트 최적화와 캐싱을 통해 비용을 30-50% 절감할 수 있습니다.",
+                impact=OptimizationImpact.MEDIUM,
+                priority=OptimizationPriority.MEDIUM,
+                action="프롬프트 최적화 및 결과 캐싱 활성화",
+                estimated_improvement=0.4,
+                confidence_score=0.7
+            ))
+
+        # Reliability optimizations
+        success_rate = len([e for e in executions if e.status == 'completed']) / len(executions)
+        if success_rate < 0.95:
+            suggestions.append(OptimizationSuggestion(
+                type=OptimizationType.RELIABILITY,
+                title="안정성 개선",
+                description=f"현재 성공률이 {success_rate*100:.1f}%입니다. 에러 처리와 재시도 로직을 개선하여 95% 이상의 성공률을 달성할 수 있습니다.",
+                impact=OptimizationImpact.HIGH,
+                priority=OptimizationPriority.HIGH,
+                action="재시도 로직 및 에러 처리 강화",
+                estimated_improvement=(0.95 - success_rate),
+                confidence_score=0.9
+            ))
+
+        # Resource optimizations
+        resource_efficiency = resource_usage.get('resource_efficiency_score', 0.5)
+        if resource_efficiency < 0.7:
+            suggestions.append(OptimizationSuggestion(
+                type=OptimizationType.RESOURCE,
+                title="리소스 사용량 최적화",
+                description="메모리 및 CPU 사용량을 최적화하여 시스템 부하를 줄이고 동시 실행 성능을 향상시킬 수 있습니다.",
+                impact=OptimizationImpact.MEDIUM,
+                priority=OptimizationPriority.MEDIUM,
+                action="메모리 풀링 및 비동기 처리 개선",
+                estimated_improvement=0.7 - resource_efficiency,
+                confidence_score=0.6
+            ))
+
+        # Parallelization suggestions
+        if len(workflow.agents) > 1:
+            # Check if agents can be parallelized
+            sequential_agents = self._identify_sequential_dependencies(workflow)
+            if len(sequential_agents) > 2:
+                suggestions.append(OptimizationSuggestion(
+                    type=OptimizationType.PERFORMANCE,
+                    title="병렬 처리 최적화",
+                    description=f"{len(sequential_agents)}개의 에이전트가 순차적으로 실행되고 있습니다. 일부를 병렬로 실행하여 전체 시간을 단축할 수 있습니다.",
+                    impact=OptimizationImpact.HIGH,
+                    priority=OptimizationPriority.HIGH,
+                    action="독립적인 에이전트들을 병렬 그룹으로 재구성",
+                    estimated_improvement=0.4,
+                    confidence_score=0.8
+                ))
+
+        return suggestions
+
+    def _identify_sequential_dependencies(self, workflow: Agentflow) -> List[str]:
+        """Identify agents that are executed sequentially."""
+        # This is a simplified implementation
+        # In a real scenario, you'd analyze the workflow graph
+        return [agent.id for agent in workflow.agents if agent.execution_order is not None]
+
+    def _calculate_resource_efficiency(self, 
+                                     total_tokens: int,
+                                     total_memory_mb: float,
+                                     total_cpu_seconds: float,
+                                     execution_count: int) -> float:
+        """Calculate resource efficiency score (0-1)."""
+        if execution_count == 0:
+            return 0.5
+
+        # Normalize metrics (these thresholds would be tuned based on actual data)
+        tokens_per_exec = total_tokens / execution_count
+        memory_per_exec = total_memory_mb / execution_count
+        cpu_per_exec = total_cpu_seconds / execution_count
+
+        # Score based on reasonable thresholds
+        token_score = max(0, 1 - (tokens_per_exec - 1000) / 10000)  # Optimal: 1000 tokens
+        memory_score = max(0, 1 - (memory_per_exec - 100) / 1000)   # Optimal: 100MB
+        cpu_score = max(0, 1 - (cpu_per_exec - 2) / 10)             # Optimal: 2 seconds
+
+        return (token_score + memory_score + cpu_score) / 3
+
+    def _calculate_cost_efficiency(self, avg_cost_per_execution: float) -> float:
+        """Calculate cost efficiency score (0-1)."""
+        # Assume $0.005 per execution is optimal
+        optimal_cost = 0.005
+        if avg_cost_per_execution <= optimal_cost:
+            return 1.0
+        else:
+            # Penalize higher costs
+            return max(0, 1 - (avg_cost_per_execution - optimal_cost) / optimal_cost)
+
+    def _calculate_cost_trend(self, daily_costs: List[float]) -> str:
+        """Calculate cost trend direction."""
+        if len(daily_costs) < 2:
+            return "stable"
+
+        recent_avg = sum(daily_costs[-3:]) / min(3, len(daily_costs))
+        older_avg = sum(daily_costs[:-3]) / max(1, len(daily_costs) - 3)
+
+        if recent_avg > older_avg * 1.1:
+            return "increasing"
+        elif recent_avg < older_avg * 0.9:
+            return "decreasing"
+        else:
+            return "stable"
+
+    def _create_empty_analysis(self, workflow_id: str) -> WorkflowAnalysis:
+        """Create empty analysis for workflows with no execution history."""
+        return WorkflowAnalysis(
+            workflow_id=workflow_id,
+            analysis_timestamp=datetime.now(),
+            execution_count=0,
+            success_rate=0.0,
+            average_duration=0.0,
+            bottlenecks=[],
+            resource_usage={},
+            cost_analysis={},
+            optimization_score=0.5,
+            suggestions=[
+                OptimizationSuggestion(
+                    type=OptimizationType.PERFORMANCE,
+                    title="워크플로우 실행 데이터 수집",
+                    description="최적화 제안을 위해 워크플로우를 몇 번 실행해보세요.",
+                    impact=OptimizationImpact.LOW,
+                    priority=OptimizationPriority.LOW,
+                    action="워크플로우 테스트 실행",
+                    confidence_score=1.0
+                )
+            ]
+        )
+
+    async def get_optimization_recommendations(self, 
+                                            workflow_id: str,
+                                            limit: int = 5) -> List[OptimizationSuggestion]:
+        """Get top optimization recommendations for a workflow."""
+        analysis = await self.analyze_workflow(workflow_id)
+        
+        # Sort suggestions by priority and impact
+        sorted_suggestions = sorted(
+            analysis.suggestions,
+            key=lambda s: (
+                s.priority == OptimizationPriority.HIGH,
+                s.impact == OptimizationImpact.HIGH,
+                s.confidence_score or 0
+            ),
+            reverse=True
+        )
+        
+        return sorted_suggestions[:limit]
+
+    def clear_cache(self):
+        """Clear the analysis cache."""
+        self.analysis_cache.clear()
+        logger.info("Workflow optimizer cache cleared")

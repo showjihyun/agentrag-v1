@@ -2,6 +2,7 @@
  * Code splitting utilities for lazy loading components
  */
 
+import React from 'react';
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Loader2 } from 'lucide-react';
@@ -127,7 +128,7 @@ export const DynamicComponents = {
   
   // Workflow canvas (React Flow)
   WorkflowCanvas: createDynamicComponent(
-    () => import('@/components/agent-builder/workflow-nodes/WorkflowCanvas'),
+    () => import('@/components/workflow/ImprovedWorkflowCanvas'),
     { loading: LoadingFallbacks.large }
   ),
   

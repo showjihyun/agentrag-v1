@@ -83,7 +83,7 @@ export default function WorkflowsPage() {
     try {
       setLoading(true);
       const response = await agentBuilderAPI.getWorkflows({
-        search: searchQuery || undefined,
+        ...(searchQuery && { search: searchQuery }),
       });
       setWorkflows(response.workflows || []);
     } catch (error: any) {

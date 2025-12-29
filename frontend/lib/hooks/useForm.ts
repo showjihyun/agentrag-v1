@@ -42,7 +42,7 @@ export function useForm<TFieldValues extends FieldValues = FieldValues>(
 ) {
   const form = useHookForm<TFieldValues>({
     ...options,
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as any, // Type assertion to handle complex generic constraints
     mode: options?.mode || 'onBlur',
   });
 

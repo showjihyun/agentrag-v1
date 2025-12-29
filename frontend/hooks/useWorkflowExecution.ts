@@ -15,11 +15,11 @@ export function useWorkflowExecution({
   setEdges,
 }: UseWorkflowExecutionProps) {
   const [isExecuting, setIsExecuting] = useState(false);
-  const debugger = useWorkflowDebugger();
+  const workflowDebugger = useWorkflowDebugger();
 
   const execute = useCallback(async () => {
     setIsExecuting(true);
-    debugger.startDebugging();
+    workflowDebugger.startDebugging();
 
     // Reset all nodes
     setNodes((nds) =>
@@ -41,7 +41,7 @@ export function useWorkflowExecution({
           )
         );
 
-        await debugger.executeNodeWithDebug(node.id, async () => {
+        await workflowDebugger.executeNodeWithDebug(node.id, async () => {
           const executionTime = Math.random() * 1000 + 500;
           await new Promise((resolve) => setTimeout(resolve, executionTime));
 
@@ -56,7 +56,7 @@ export function useWorkflowExecution({
           };
         });
 
-        const currentState = debugger.getCurrentState();
+        const currentState = workflowDebugger.getCurrentState();
         setNodes((nds) =>
           nds.map((n) =>
             n.id === node.id
@@ -83,15 +83,15 @@ export function useWorkflowExecution({
     } finally {
       setEdges((eds) => eds.map((edge) => ({ ...edge, animated: false })));
       setIsExecuting(false);
-      debugger.stopDebugging();
+      workflowDebugger.stopDebugging();
     }
-  }, [nodes, setNodes, setEdges, debugger]);
+  }, [nodes, setNodes, setEdges, workflowDebugger]);
 
   const stop = useCallback(() => {
     setIsExecuting(false);
-    debugger.stopDebugging();
+    workflowDebugger.stopDebugging();
     setEdges((eds) => eds.map((edge) => ({ ...edge, animated: false })));
-  }, [setEdges, debugger]);
+  }, [setEdges, workflowDebugger]);
 
   const reset = useCallback(() => {
     setNodes((nds) =>
@@ -104,14 +104,14 @@ export function useWorkflowExecution({
         },
       }))
     );
-    debugger.restart();
-  }, [setNodes, debugger]);
+    workflowDebugger.restart();
+  }, [setNodes, workflowDebugger]);
 
   return {
     isExecuting,
     execute,
     stop,
     reset,
-    debugger,
+    debugger: workflowDebugger,
   };
 }

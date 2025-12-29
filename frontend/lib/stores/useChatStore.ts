@@ -79,7 +79,27 @@ export const useChatStore = create<ChatStore>()(
           set((state) => {
             const index = state.messages.findIndex((msg) => msg.id === id);
             if (index !== -1) {
-              state.messages[index] = { ...state.messages[index], ...updates };
+              // Create a properly typed updated message for exactOptionalPropertyTypes compatibility
+              const currentMessage = state.messages[index];
+              const updatedMessage = {
+                ...currentMessage,
+                ...(updates.id !== undefined && { id: updates.id }),
+                ...(updates.role !== undefined && { role: updates.role }),
+                ...(updates.content !== undefined && { content: updates.content }),
+                ...(updates.timestamp !== undefined && { timestamp: updates.timestamp }),
+                ...(updates.reasoningSteps !== undefined && { reasoningSteps: updates.reasoningSteps }),
+                ...(updates.sources !== undefined && { sources: updates.sources }),
+                ...(updates.responseType !== undefined && { responseType: updates.responseType }),
+                ...(updates.pathSource !== undefined && { pathSource: updates.pathSource }),
+                ...(updates.confidenceScore !== undefined && { confidenceScore: updates.confidenceScore }),
+                ...(updates.isRefining !== undefined && { isRefining: updates.isRefining }),
+                ...(updates.previousContent !== undefined && { previousContent: updates.previousContent }),
+                ...(updates.isCached !== undefined && { isCached: updates.isCached }),
+                ...(updates.cacheSimilarity !== undefined && { cacheSimilarity: updates.cacheSimilarity }),
+                ...(updates.cacheType !== undefined && { cacheType: updates.cacheType }),
+                ...(updates.processingTime !== undefined && { processingTime: updates.processingTime }),
+              };
+              state.messages[index] = updatedMessage;
             }
           });
         },

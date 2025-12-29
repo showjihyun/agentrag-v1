@@ -23,7 +23,17 @@ def initialize_tools():
     logger.info("Initializing tool integrations...")
     
     try:
+        # Import registry to access module-level storage
+        from backend.core.tools.registry import ToolRegistry, _tools, _tool_instances
+        
+        # Clear any existing tools to avoid duplicates
+        if len(_tools) > 0:
+            logger.info(f"Clearing {len(_tools)} existing tools")
+            _tools.clear()
+            _tool_instances.clear()
+        
         # Import all tool integration modules
+        logger.info("Importing tool integration modules...")
         from backend.core.tools.integrations import ai_agent_tools
         from backend.core.tools.integrations import ai_tools
         from backend.core.tools.integrations import communication_tools
@@ -32,9 +42,8 @@ def initialize_tools():
         from backend.core.tools.integrations import search_tools
         from backend.core.tools.integrations import http_tools
         
-        # Get tool count
-        from backend.core.tools.registry import ToolRegistry
-        tool_count = len(ToolRegistry.get_tool_ids())
+        # Get tool count from module-level storage
+        tool_count = len(_tools)
         
         logger.info(f"Successfully initialized {tool_count} tools")
         
@@ -42,6 +51,10 @@ def initialize_tools():
         by_category = ToolRegistry.list_by_category()
         for category, tools in by_category.items():
             logger.info(f"  {category}: {len(tools)} tools")
+        
+        # Verify registry persistence
+        stats = ToolRegistry.get_registry_stats()
+        logger.info(f"Registry stats: {stats}")
         
         return tool_count
         
@@ -57,12 +70,12 @@ def get_tool_summary():
     Returns:
         Dict with tool statistics
     """
-    from backend.core.tools.registry import ToolRegistry
+    from backend.core.tools.registry import ToolRegistry, _tools
     
     by_category = ToolRegistry.list_by_category()
     
     return {
-        "total_tools": len(ToolRegistry.get_tool_ids()),
+        "total_tools": len(_tools),
         "by_category": {
             category: len(tools)
             for category, tools in by_category.items()

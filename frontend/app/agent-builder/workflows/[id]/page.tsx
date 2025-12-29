@@ -103,7 +103,7 @@ export default function WorkflowViewPage() {
     isComplete,
   } = useWorkflowExecutionStream({
     workflowId,
-    executionId: executionId || undefined,
+    ...(executionId && { executionId }),
     enabled: executing && !isSimulation,
     onComplete: (status) => {
       logger.log('✅ Workflow execution completed:', status);
@@ -694,20 +694,22 @@ export default function WorkflowViewPage() {
           // Mark last node as success
           setTimeout(() => {
             const lastNodeId = nodeIds[nodeIds.length - 1];
-            logger.log('✅ Marking last node as success:', lastNodeId);
-            
-            setSimulatedNodeStatuses(prev => {
-              const updated = {
-                ...prev,
-                [lastNodeId]: {
-                  ...prev[lastNodeId],
-                  status: 'success',
-                  endTime: Date.now(),
-                },
-              };
-              logger.log('✅ Final statuses:', updated);
-              return updated;
-            });
+            if (lastNodeId) {
+              logger.log('✅ Marking last node as success:', lastNodeId);
+              
+              setSimulatedNodeStatuses(prev => {
+                const updated = {
+                  ...prev,
+                  [lastNodeId]: {
+                    ...prev[lastNodeId],
+                    status: 'success',
+                    endTime: Date.now(),
+                  },
+                };
+                logger.log('✅ Final statuses:', updated);
+                return updated;
+              });
+            }
             
             setTimeout(() => {
               logger.log('🎉 Simulation complete, cleaning up');
@@ -760,6 +762,11 @@ export default function WorkflowViewPage() {
         const nodeId = nodeIds[currentIndex];
         const nodeName = nodeNames[currentIndex];
         
+        if (!nodeId) {
+          logger.error('❌ No nodeId found for index:', currentIndex);
+          return;
+        }
+        
         logger.log(`🔵 Processing node ${currentIndex + 1}/${nodeIds.length}:`, {
           id: nodeId,
           name: nodeName,
@@ -795,25 +802,37 @@ export default function WorkflowViewPage() {
           };
           
           // Generate output (this may update AI Agent messages)
-          const simulatedOutput = generateSimulatedOutput(currentNodeType, nodeName, currentNodeConfig, simulatedInput);
+          const simulatedOutput = generateSimulatedOutput(
+            currentNodeType || 'unknown', 
+            nodeName || 'Unknown Node', 
+            currentNodeConfig, 
+            simulatedInput
+          );
           
           logger.log(`🔵 Set node ${nodeId} to RUNNING`);
           
           // Update previous node to success with output
           if (currentIndex > 0) {
             const prevNodeId = nodeIds[currentIndex - 1];
-            const prevNodeType = nodeTypes[currentIndex - 1];
-            const prevNodeConfig = nodeConfigs[currentIndex - 1];
-            const prevInput = updated[prevNodeId]?.input;
-            const prevOutput = generateSimulatedOutput(prevNodeType, nodeNames[currentIndex - 1], prevNodeConfig, prevInput);
-            
-            logger.log(`🟢 Marking previous node ${prevNodeId} as SUCCESS`);
-            updated[prevNodeId] = {
-              ...updated[prevNodeId],
-              status: 'success',
+            if (prevNodeId) {
+              const prevNodeType = nodeTypes[currentIndex - 1];
+              const prevNodeConfig = nodeConfigs[currentIndex - 1];
+              const prevInput = updated[prevNodeId]?.input;
+              const prevOutput = generateSimulatedOutput(
+                prevNodeType || 'unknown', 
+                nodeNames[currentIndex - 1] || 'Unknown Node', 
+                prevNodeConfig, 
+                prevInput
+              );
+              
+              logger.log(`🟢 Marking previous node ${prevNodeId} as SUCCESS`);
+              updated[prevNodeId] = {
+                ...updated[prevNodeId],
+                status: 'success',
               endTime: Date.now(),
               output: prevOutput,
             };
+            }
           }
           
           logger.log('📊 Current statuses:', Object.keys(updated).map(id => ({
@@ -1131,8 +1150,8 @@ export default function WorkflowViewPage() {
                 <ExecutionLogPanel
                   nodeStatuses={nodeStatuses}
                   isExecuting={executing}
-                  startTime={executionStartTime}
-                  endTime={executionEndTime}
+                  {...(executionStartTime !== undefined && { startTime: executionStartTime })}
+                  {...(executionEndTime !== undefined && { endTime: executionEndTime })}
                 />
               </div>
             )}
@@ -1146,7 +1165,7 @@ export default function WorkflowViewPage() {
                   <div className="mb-4">
                     <ExecutionProgress
                       workflowId={workflowId}
-                      executionId={executionId || undefined}
+                      {...(executionId && { executionId })}
                       isExecuting={executing}
                       nodeStatuses={nodeStatuses}
                       onNodeClick={(nodeId) => {

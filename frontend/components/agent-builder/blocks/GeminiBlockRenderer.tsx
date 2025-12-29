@@ -37,8 +37,8 @@ export default function GeminiBlockRenderer({
         blockType={blockType}
         blockId={blockId}
         config={config}
-        onConfigChange={onConfigChange}
-        onExecute={onExecute}
+        {...(onConfigChange && { onConfigChange })}
+        {...(onExecute && { onExecute })}
         isExecuting={isExecuting}
       />
     );
@@ -51,8 +51,8 @@ export default function GeminiBlockRenderer({
         <GeminiVisionBlock
           blockId={blockId}
           config={config}
-          onConfigChange={onConfigChange}
-          onExecute={onExecute}
+          {...(onConfigChange && { onConfigChange })}
+          {...(onExecute && { onExecute })}
           isExecuting={isExecuting}
         />
       );
@@ -62,8 +62,8 @@ export default function GeminiBlockRenderer({
         <GeminiAudioBlock
           blockId={blockId}
           config={config}
-          onConfigChange={onConfigChange}
-          onExecute={onExecute}
+          {...(onConfigChange && { onConfigChange })}
+          {...(onExecute && { onExecute })}
           isExecuting={isExecuting}
         />
       );
@@ -73,8 +73,8 @@ export default function GeminiBlockRenderer({
         <GeminiFusionBlock
           blockId={blockId}
           config={config}
-          onConfigChange={onConfigChange}
-          onExecute={onExecute}
+          {...(onConfigChange && { onConfigChange })}
+          {...(onExecute && { onExecute })}
           isExecuting={isExecuting}
         />
       );
@@ -84,8 +84,8 @@ export default function GeminiBlockRenderer({
         <GeminiVideoBlock
           blockId={blockId}
           config={config}
-          onConfigChange={onConfigChange}
-          onExecute={onExecute}
+          {...(onConfigChange && { onConfigChange })}
+          {...(onExecute && { onExecute })}
           isExecuting={isExecuting}
         />
       );
@@ -95,8 +95,8 @@ export default function GeminiBlockRenderer({
         <GeminiAutoOptimizerBlock
           blockId={blockId}
           config={config}
-          onConfigChange={onConfigChange}
-          onExecute={onExecute}
+          {...(onConfigChange && { onConfigChange })}
+          {...(onExecute && { onExecute })}
           isExecuting={isExecuting}
         />
       );
@@ -106,8 +106,8 @@ export default function GeminiBlockRenderer({
         <GeminiDocumentBlock
           blockId={blockId}
           config={config}
-          onConfigChange={onConfigChange}
-          onExecute={onExecute}
+          {...(onConfigChange && { onConfigChange })}
+          {...(onExecute && { onExecute })}
           isExecuting={isExecuting}
         />
       );
@@ -117,8 +117,8 @@ export default function GeminiBlockRenderer({
         <GeminiMultiModalBlock
           blockId={blockId}
           config={config}
-          onConfigChange={onConfigChange}
-          onExecute={onExecute}
+          {...(onConfigChange && { onConfigChange })}
+          {...(onExecute && { onExecute })}
           isExecuting={isExecuting}
         />
       );

@@ -25,7 +25,7 @@ from backend.agents.vector_search import VectorSearchAgent
 from backend.agents.local_data import LocalDataAgent
 from backend.agents.web_search import WebSearchAgent
 from backend.agents.router import AgentRouter
-from backend.agents.parallel_executor import ParallelAgentExecutor
+from backend.agents.parallel_executor import AdaptiveParallelExecutor
 from backend.agents.error_recovery import AgentErrorRecovery
 
 logger = logging.getLogger(__name__)
@@ -72,7 +72,12 @@ class AggregatorAgent:
 
         # Initialize new components (Phase 1 improvements)
         self.router = AgentRouter(llm_manager=llm_manager)
-        self.parallel_executor = ParallelAgentExecutor(max_concurrent=3)
+        self.parallel_executor = AdaptiveParallelExecutor(
+            base_concurrent=3,
+            max_concurrent=8,
+            auto_scale=True,
+            enable_prediction=True
+        )
         self.error_recovery = AgentErrorRecovery()
 
         # Initialize observation processor (HIGH PRIORITY improvement #1)

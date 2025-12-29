@@ -38,4 +38,5 @@ interface Task {
   requirements: Record<string, any>;
   input_data: Record<string, any>;
   deadline?: string;
-  estimated_d
+  estimated_duration?: number;
+}

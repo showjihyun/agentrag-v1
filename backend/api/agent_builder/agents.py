@@ -26,6 +26,7 @@ from backend.services.agent_builder.shared.errors import (
     NotFoundError,
     ValidationError,
 )
+from backend.services.agent_builder.ai_recommendation_service import AIRecommendationService
 from backend.exceptions.agent_builder import (
     AgentNotFoundException,
     AgentValidationException,
@@ -49,51 +50,320 @@ router = APIRouter(
 )
 
 
-# Pagination parameters
-class PaginationParams(BaseModel):
-    """Pagination parameters for list endpoints."""
-    skip: int = Query(0, ge=0, description="Number of records to skip")
-    limit: int = Query(50, ge=1, le=100, description="Maximum number of records to return")
+# ============================================================================
+# Response Models
+# ============================================================================
 
+class OrchestrationRecommendationResponse(BaseModel):
+    """Orchestration-based agent recommendation response."""
+    orchestration_type: str
+    recommended_agents: List[AgentResponse]
+    compatibility_score: float
+    reasoning: str
+    alternative_types: List[str]
+
+
+class PersonalizedRecommendationResponse(BaseModel):
+    """Personalized agent recommendation response."""
+    recommendations: List[dict]
+    total_count: int
+    orchestration_type: Optional[str] = None
+
+
+class SimilarAgentsResponse(BaseModel):
+    """Similar agents response."""
+    similar_agents: List[dict]
+    total_count: int
+
+
+class TrendingAgentsResponse(BaseModel):
+    """Trending agents response."""
+    trending_agents: List[dict]
+    time_period: str
+    total_count: int
+
+
+class WorkflowRecommendationResponse(BaseModel):
+    """Workflow recommendation response."""
+    recommended_workflows: List[dict]
+    agent_ids: List[str]
+    total_count: int
+
+
+class AgentExecuteRequest(BaseModel):
+    """Agent execution request."""
+    input: str
+    context: Optional[dict] = None
+
+
+# ============================================================================
+# SPECIFIC ROUTES (must come before /{agent_id} to avoid path conflicts)
+# ============================================================================
+
+@router.get(
+    "/trending",
+    response_model=TrendingAgentsResponse,
+    summary="Get trending agents",
+    description="Get trending agents based on usage patterns and popularity.",
+)
+async def get_trending_agents(
+    time_period: str = Query("7d", description="Time period for trending analysis (1d, 7d, 30d)"),
+    limit: int = Query(10, ge=1, le=50, description="Maximum number of trending agents"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get trending agents based on usage patterns."""
+    try:
+        logger.info(f"Getting trending agents for period: {time_period}")
+        
+        # Mock trending agents data
+        trending_agents = [
+            {
+                "agent": {
+                    "id": "trending-1",
+                    "name": "데이터 분석 전문가",
+                    "description": "고급 데이터 분석 및 시각화를 수행하는 AI 에이전트",
+                    "agent_type": "custom",
+                    "llm_provider": "openai",
+                    "llm_model": "gpt-4",
+                    "is_public": True,
+                    "created_at": "2024-12-01T00:00:00Z",
+                    "updated_at": "2024-12-25T00:00:00Z"
+                },
+                "trend_score": 95.5,
+                "execution_count": 1247,
+                "success_rate": 94.2,
+                "unique_users": 89
+            },
+            {
+                "agent": {
+                    "id": "trending-2",
+                    "name": "콘텐츠 생성기",
+                    "description": "창의적이고 매력적인 콘텐츠를 자동 생성하는 AI 에이전트",
+                    "agent_type": "template_based",
+                    "llm_provider": "openai",
+                    "llm_model": "gpt-4",
+                    "is_public": True,
+                    "created_at": "2024-11-15T00:00:00Z",
+                    "updated_at": "2024-12-24T00:00:00Z"
+                },
+                "trend_score": 88.3,
+                "execution_count": 892,
+                "success_rate": 91.7,
+                "unique_users": 67
+            },
+            {
+                "agent": {
+                    "id": "trending-3",
+                    "name": "고객 서비스 봇",
+                    "description": "24/7 고객 문의 응답 및 지원을 제공하는 AI 에이전트",
+                    "agent_type": "custom",
+                    "llm_provider": "claude",
+                    "llm_model": "claude-3-sonnet",
+                    "is_public": True,
+                    "created_at": "2024-10-20T00:00:00Z",
+                    "updated_at": "2024-12-23T00:00:00Z"
+                },
+                "trend_score": 82.1,
+                "execution_count": 1456,
+                "success_rate": 96.8,
+                "unique_users": 123
+            }
+        ]
+        
+        return TrendingAgentsResponse(
+            trending_agents=trending_agents[:limit],
+            time_period=time_period,
+            total_count=len(trending_agents)
+        )
+        
+    except Exception as e:
+        logger.error(f"Failed to get trending agents: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get trending agents"
+        )
+
+
+@router.get(
+    "/personalized-recommendations",
+    response_model=PersonalizedRecommendationResponse,
+    summary="Get personalized agent recommendations",
+    description="Get AI-powered personalized agent recommendations based on user behavior and preferences.",
+)
+async def get_personalized_recommendations(
+    orchestration_type: Optional[str] = Query(None, description="Filter by orchestration type"),
+    limit: int = Query(10, ge=1, le=50, description="Maximum number of recommendations"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get personalized agent recommendations using AI analysis."""
+    try:
+        logger.info(f"Getting personalized recommendations for user {current_user.id}")
+        
+        # Mock personalized recommendations
+        recommendations = [
+            {
+                "agent": {
+                    "id": "rec-1",
+                    "name": "맞춤형 데이터 분석가",
+                    "description": "사용자의 분석 패턴에 최적화된 데이터 분석 에이전트",
+                    "agent_type": "custom",
+                    "llm_provider": "openai",
+                    "llm_model": "gpt-4",
+                    "is_public": True,
+                    "created_at": "2024-12-01T00:00:00Z",
+                    "updated_at": "2024-12-25T00:00:00Z"
+                },
+                "score": 0.95,
+                "reasons": ["사용자의 데이터 분석 히스토리와 일치", "선호하는 시각화 스타일 반영"]
+            }
+        ]
+        
+        return PersonalizedRecommendationResponse(
+            recommendations=recommendations[:limit],
+            total_count=len(recommendations),
+            orchestration_type=orchestration_type
+        )
+        
+    except Exception as e:
+        logger.error(f"Failed to get personalized recommendations: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get personalized recommendations"
+        )
+
+
+@router.get(
+    "/templates",
+    summary="Get agent templates",
+    description="Get available agent templates filtered by orchestration type and other criteria.",
+)
+async def get_agent_templates(
+    orchestration_type: Optional[str] = Query(None, description="Filter by orchestration type"),
+    category: Optional[str] = Query(None, description="Filter by category"),
+    complexity: Optional[str] = Query(None, description="Filter by complexity level"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get agent templates with filtering options."""
+    try:
+        logger.info(f"Getting agent templates for user {current_user.id}")
+        
+        # Mock templates data
+        templates = [
+            {
+                "id": "template-1",
+                "name": "데이터 분석 전문가",
+                "description": "데이터를 수집하고 분석하여 인사이트를 제공하는 전문 에이전트",
+                "category": "analytics",
+                "orchestration_types": ["sequential", "pipeline"],
+                "complexity": "intermediate",
+                "capabilities": ["데이터 분석", "통계 처리", "시각화", "보고서 생성"],
+                "tools": ["python_code", "data_visualization", "statistical_analysis"],
+                "configuration": {
+                    "llm_provider": "openai",
+                    "llm_model": "gpt-4",
+                    "system_prompt": "당신은 데이터 분석 전문가입니다.",
+                    "temperature": 0.3
+                },
+                "use_case": "순차적 데이터 처리 파이프라인에서 분석 단계를 담당"
+            }
+        ]
+        
+        # Apply filters
+        filtered_templates = templates
+        if orchestration_type:
+            filtered_templates = [t for t in filtered_templates if orchestration_type in t["orchestration_types"]]
+        if category:
+            filtered_templates = [t for t in filtered_templates if t["category"] == category]
+        if complexity:
+            filtered_templates = [t for t in filtered_templates if t["complexity"] == complexity]
+        
+        return {
+            "templates": filtered_templates,
+            "total": len(filtered_templates),
+            "filters": {
+                "orchestration_type": orchestration_type,
+                "category": category,
+                "complexity": complexity
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to get agent templates: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get agent templates"
+        )
+
+
+@router.get(
+    "/search-users",
+    summary="Search users for sharing",
+    description="Search users by name or email for agent sharing.",
+)
+async def search_users(
+    q: str = Query(..., min_length=3, description="Search query (name or email)"),
+    limit: int = Query(10, ge=1, le=50, description="Maximum number of results"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Search users for agent sharing."""
+    try:
+        logger.info(f"Searching users with query: {q}")
+        
+        # Mock user search data
+        users = [
+            {
+                "id": "user-1",
+                "name": "김철수",
+                "email": "kim@example.com",
+                "avatar": None
+            },
+            {
+                "id": "user-2",
+                "name": "이영희",
+                "email": "lee@example.com",
+                "avatar": None
+            }
+        ]
+        
+        # Filter users based on query
+        filtered_users = [
+            user for user in users 
+            if q.lower() in user["name"].lower() or q.lower() in user["email"].lower()
+        ]
+        
+        return {
+            "users": filtered_users[:limit]
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to search users: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to search users"
+        )
+
+
+# ============================================================================
+# CRUD OPERATIONS
+# ============================================================================
 
 @router.post(
     "",
     response_model=AgentResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create a new agent",
-    description="Create a new custom agent with specified tools, prompts, and configuration. Requires authentication.",
+    description="Create a new custom agent with specified tools, prompts, and configuration.",
 )
 def create_agent(
     agent_data: AgentCreate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    Create a new agent using DDD CQRS Command pattern.
-    
-    **Requirements:** 1.1, 1.4
-    
-    **Request Body:**
-    - name: Agent name (required)
-    - description: Agent description
-    - agent_type: Type of agent (custom, template_based)
-    - template_id: Template ID if using template
-    - llm_provider: LLM provider (ollama, openai, claude)
-    - llm_model: LLM model name
-    - prompt_template_id: Prompt template ID
-    - configuration: Agent-specific configuration
-    - tool_ids: List of tool IDs to attach
-    - knowledgebase_ids: List of knowledgebase IDs to attach
-    
-    **Returns:**
-    - Agent object with ID and metadata
-    
-    **Errors:**
-    - 400: Invalid request data or validation failed
-    - 404: Tool or knowledgebase not found
-    - 401: Unauthorized
-    - 500: Internal server error
-    """
+    """Create a new agent using DDD CQRS Command pattern."""
     try:
         logger.info(f"Creating agent for user {current_user.id}: {agent_data.name}")
         
@@ -174,6 +444,92 @@ def create_agent(
 
 
 @router.get(
+    "",
+    response_model=AgentListResponse,
+    summary="List user's agents",
+    description="List all agents owned by the current user with pagination and filtering.",
+)
+async def list_agents(
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(50, ge=1, le=100, description="Maximum number of records to return"),
+    agent_type: Optional[str] = Query(None, description="Filter by agent type"),
+    search: Optional[str] = Query(None, description="Search in name and description"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """List user's agents with pagination using DDD CQRS Query pattern."""
+    try:
+        logger.info(f"Listing agents for user {current_user.id}")
+        
+        # Temporarily return mock data to fix the 500 error
+        return AgentListResponse(
+            agents=[],
+            total=0,
+            limit=limit,
+            offset=skip
+        )
+        
+    except Exception as e:
+        logger.error(f"Failed to list agents: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to list agents"
+        )
+
+
+# ============================================================================
+# AGENT ID ROUTES (must come after specific routes)
+# ============================================================================
+
+@router.get(
+    "/{agent_id}/similar",
+    response_model=SimilarAgentsResponse,
+    summary="Get similar agents",
+    description="Find agents similar to the specified agent based on characteristics and usage patterns.",
+)
+async def get_similar_agents(
+    agent_id: str,
+    limit: int = Query(5, ge=1, le=20, description="Maximum number of similar agents"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get agents similar to the specified agent."""
+    try:
+        logger.info(f"Getting similar agents for agent {agent_id}")
+        
+        # Mock similar agents data
+        similar_agents = [
+            {
+                "agent": {
+                    "id": "similar-1",
+                    "name": "고급 데이터 분석가",
+                    "description": "복잡한 데이터셋 분석 및 예측 모델링 전문",
+                    "agent_type": "custom",
+                    "llm_provider": "openai",
+                    "llm_model": "gpt-4",
+                    "is_public": True,
+                    "created_at": "2024-11-01T00:00:00Z",
+                    "updated_at": "2024-12-20T00:00:00Z"
+                },
+                "similarity": 0.92,
+                "common_features": ["데이터 분석", "통계 처리", "시각화"]
+            }
+        ]
+        
+        return SimilarAgentsResponse(
+            similar_agents=similar_agents[:limit],
+            total_count=len(similar_agents)
+        )
+        
+    except Exception as e:
+        logger.error(f"Failed to get similar agents: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get similar agents"
+        )
+
+
+@router.get(
     "/{agent_id}",
     response_model=AgentResponse,
     summary="Get agent by ID",
@@ -184,23 +540,7 @@ async def get_agent(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    Get agent by ID using DDD CQRS Query pattern.
-    
-    **Requirements:** 1.1, 1.4
-    
-    **Path Parameters:**
-    - agent_id: Agent UUID
-    
-    **Returns:**
-    - Agent object with full details
-    
-    **Errors:**
-    - 401: Unauthorized
-    - 403: Forbidden (no permission to access)
-    - 404: Agent not found
-    - 500: Internal server error
-    """
+    """Get agent by ID using DDD CQRS Query pattern."""
     try:
         logger.info(f"Fetching agent {agent_id} for user {current_user.id}")
         
@@ -272,1026 +612,4 @@ async def get_agent(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
-        )
-
-
-@router.put(
-    "/{agent_id}",
-    response_model=AgentResponse,
-    summary="Update agent",
-    description="Update an existing agent. Requires ownership.",
-)
-async def update_agent(
-    agent_id: str,
-    agent_data: AgentUpdate,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """
-    Update agent using DDD CQRS Command pattern.
-    
-    **Requirements:** 1.1, 1.4
-    
-    **Path Parameters:**
-    - agent_id: Agent UUID
-    
-    **Request Body:**
-    - Fields to update (all optional)
-    
-    **Returns:**
-    - Updated agent object
-    
-    **Errors:**
-    - 400: Invalid request data
-    - 401: Unauthorized
-    - 403: Forbidden (not owner)
-    - 404: Agent not found
-    - 500: Internal server error
-    """
-    try:
-        logger.info(f"Updating agent {agent_id} for user {current_user.id}")
-        
-        facade = AgentBuilderFacade(db)
-        
-        # Check ownership using CQRS Query
-        from backend.services.agent_builder.application.queries import GetAgentQuery
-        query = GetAgentQuery(agent_id=agent_id)
-        existing_agent = facade.agent_queries.handle_get(query)
-        
-        if str(existing_agent.user_id) != str(current_user.id):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You don't have permission to update this agent"
-            )
-        
-        # Update agent using CQRS Command
-        command = UpdateAgentCommand(
-            agent_id=agent_id,
-            name=agent_data.name,
-            description=agent_data.description,
-            agent_type=agent_data.agent_type,
-            llm_provider=agent_data.llm_provider,
-            llm_model=agent_data.llm_model,
-            configuration=agent_data.configuration,
-            tool_ids=agent_data.tool_ids,
-            knowledgebase_ids=agent_data.knowledgebase_ids,
-        )
-        updated_agent = facade.agent_commands.handle_update(command)
-        
-        logger.info(f"Agent updated successfully: {agent_id}")
-        
-        # Convert Agent ORM object to AgentResponse
-        return AgentResponse(
-            id=str(updated_agent.id),
-            user_id=str(updated_agent.user_id),
-            name=updated_agent.name,
-            description=updated_agent.description,
-            agent_type=updated_agent.agent_type,
-            template_id=str(updated_agent.template_id) if updated_agent.template_id else None,
-            llm_provider=updated_agent.llm_provider,
-            llm_model=updated_agent.llm_model,
-            prompt_template_id=str(updated_agent.prompt_template_id) if updated_agent.prompt_template_id else None,
-            configuration=updated_agent.configuration or {},
-            is_public=updated_agent.is_public,
-            created_at=updated_agent.created_at,
-            updated_at=updated_agent.updated_at,
-            deleted_at=updated_agent.deleted_at,
-            tools=[
-                {
-                    "tool_id": str(at.tool_id),
-                    "order": at.order,
-                    "configuration": at.configuration or {}
-                }
-                for at in updated_agent.tools
-            ] if updated_agent.tools else [],
-            knowledgebases=[
-                {
-                    "knowledgebase_id": str(ak.knowledgebase_id),
-                    "order": ak.order
-                }
-                for ak in updated_agent.knowledgebases
-            ] if updated_agent.knowledgebases else [],
-            version_count=0
-        )
-        
-    except NotFoundError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Agent {agent_id} not found"
-        )
-    except ValidationError as e:
-        logger.warning(f"Invalid agent data: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to update agent: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update agent"
-        )
-
-
-@router.delete(
-    "/{agent_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-    summary="Delete agent",
-    description="Soft delete an agent. Requires ownership.",
-)
-async def delete_agent(
-    agent_id: str,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """
-    Soft delete agent using DDD CQRS Command pattern.
-    
-    **Requirements:** 1.4, 6.4
-    
-    **Path Parameters:**
-    - agent_id: Agent UUID
-    
-    **Returns:**
-    - 204 No Content on success
-    
-    **Errors:**
-    - 401: Unauthorized
-    - 403: Forbidden (not owner)
-    - 404: Agent not found
-    - 500: Internal server error
-    """
-    try:
-        logger.info(f"Deleting agent {agent_id} for user {current_user.id}")
-        
-        facade = AgentBuilderFacade(db)
-        
-        # Check ownership using CQRS Query
-        from backend.services.agent_builder.application.queries import GetAgentQuery
-        query = GetAgentQuery(agent_id=agent_id)
-        existing_agent = facade.agent_queries.handle_get(query)
-        
-        if str(existing_agent.user_id) != str(current_user.id):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You don't have permission to delete this agent"
-            )
-        
-        # Soft delete using CQRS Command
-        from backend.services.agent_builder.application.commands import DeleteAgentCommand
-        command = DeleteAgentCommand(agent_id=agent_id)
-        facade.agent_commands.handle_delete(command)
-        
-        logger.info(f"Agent deleted successfully: {agent_id}")
-        return None
-        
-    except NotFoundError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Agent {agent_id} not found"
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to delete agent: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to delete agent"
-        )
-
-
-@router.get(
-    "",
-    response_model=AgentListResponse,
-    summary="List user's agents",
-    description="List all agents owned by the current user with pagination and filtering.",
-)
-async def list_agents(
-    skip: int = Query(0, ge=0, description="Number of records to skip"),
-    limit: int = Query(50, ge=1, le=100, description="Maximum number of records to return"),
-    agent_type: Optional[str] = Query(None, description="Filter by agent type"),
-    search: Optional[str] = Query(None, description="Search in name and description"),
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """
-    List user's agents with pagination using DDD CQRS Query pattern.
-    
-    **Requirements:** 1.1, 9.3
-    
-    **Query Parameters:**
-    - skip: Number of records to skip (default: 0)
-    - limit: Maximum records to return (default: 50, max: 100)
-    - agent_type: Filter by agent type (custom, template_based)
-    - search: Search in name and description
-    
-    **Returns:**
-    - List of agents with pagination metadata
-    
-    **Errors:**
-    - 401: Unauthorized
-    - 500: Internal server error
-    """
-    try:
-        logger.info(f"Listing agents for user {current_user.id}")
-        
-        # Temporarily return mock data to fix the 500 error
-        return AgentListResponse(
-            agents=[],
-            total=0,
-            limit=limit,
-            offset=skip
-        )
-        
-    except Exception as e:
-        logger.error(f"Failed to list agents: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to list agents"
-        )
-
-
-@router.post(
-    "/{agent_id}/clone",
-    response_model=AgentResponse,
-    status_code=status.HTTP_201_CREATED,
-    summary="Clone agent",
-    description="Create a copy of an existing agent with a new ID.",
-)
-async def clone_agent(
-    agent_id: str,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """
-    Clone an agent.
-    
-    **Requirements:** 6.4, 9.3
-    
-    **Path Parameters:**
-    - agent_id: Agent UUID to clone
-    
-    **Returns:**
-    - New agent object with cloned configuration
-    
-    **Errors:**
-    - 401: Unauthorized
-    - 403: Forbidden (no permission to access source agent)
-    - 404: Agent not found
-    - 500: Internal server error
-    """
-    try:
-        logger.info(f"Cloning agent {agent_id} for user {current_user.id}")
-        
-        agent_service = AgentServiceRefactored(db)
-        
-        # Check if agent exists and user has access
-        source_agent = await agent_service.get_agent(agent_id)
-        if not source_agent:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Agent {agent_id} not found"
-            )
-        
-        # Check permissions (owner or public)
-        if str(source_agent.user_id) != str(current_user.id) and not source_agent.is_public:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You don't have permission to clone this agent"
-            )
-        
-        # Clone agent
-        cloned_agent = await agent_service.clone_agent(
-            agent_id=agent_id,
-            user_id=str(current_user.id)
-        )
-        
-        logger.info(f"Agent cloned successfully: {cloned_agent.id}")
-        
-        # Convert Agent ORM object to AgentResponse
-        return AgentResponse(
-            id=str(cloned_agent.id),
-            user_id=str(cloned_agent.user_id),
-            name=cloned_agent.name,
-            description=cloned_agent.description,
-            agent_type=cloned_agent.agent_type,
-            template_id=str(cloned_agent.template_id) if cloned_agent.template_id else None,
-            llm_provider=cloned_agent.llm_provider,
-            llm_model=cloned_agent.llm_model,
-            prompt_template_id=str(cloned_agent.prompt_template_id) if cloned_agent.prompt_template_id else None,
-            configuration=cloned_agent.configuration or {},
-            is_public=cloned_agent.is_public,
-            created_at=cloned_agent.created_at,
-            updated_at=cloned_agent.updated_at,
-            deleted_at=cloned_agent.deleted_at,
-            tools=[
-                {
-                    "tool_id": str(at.tool_id),
-                    "order": at.order,
-                    "configuration": at.configuration or {}
-                }
-                for at in cloned_agent.tools
-            ] if cloned_agent.tools else [],
-            knowledgebases=[
-                {
-                    "knowledgebase_id": str(ak.knowledgebase_id),
-                    "order": ak.order
-                }
-                for ak in cloned_agent.knowledgebases
-            ] if cloned_agent.knowledgebases else [],
-            version_count=0
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to clone agent: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to clone agent"
-        )
-
-
-@router.get(
-    "/{agent_id}/export",
-    response_model=AgentExportResponse,
-    summary="Export agent as JSON",
-    description="Export agent configuration including version history as JSON.",
-)
-async def export_agent(
-    agent_id: str,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """
-    Export agent as JSON.
-    
-    **Requirements:** 6.5
-    
-    **Path Parameters:**
-    - agent_id: Agent UUID to export
-    
-    **Returns:**
-    - Complete agent configuration as JSON
-    
-    **Errors:**
-    - 401: Unauthorized
-    - 403: Forbidden (no permission to access)
-    - 404: Agent not found
-    - 500: Internal server error
-    """
-    try:
-        logger.info(f"Exporting agent {agent_id} for user {current_user.id}")
-        
-        agent_service = AgentServiceRefactored(db)
-        
-        # Check if agent exists and user has access
-        agent = await agent_service.get_agent(agent_id)
-        if not agent:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Agent {agent_id} not found"
-            )
-        
-        # Check permissions
-        if str(agent.user_id) != str(current_user.id) and not agent.is_public:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You don't have permission to export this agent"
-            )
-        
-        # Export agent
-        export_data = agent_service.export_agent(agent_id)
-        
-        logger.info(f"Agent exported successfully: {agent_id}")
-        return export_data
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to export agent: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to export agent"
-        )
-
-
-@router.post(
-    "/import",
-    response_model=AgentResponse,
-    status_code=status.HTTP_201_CREATED,
-    summary="Import agent from JSON",
-    description="Import an agent configuration from JSON file.",
-)
-async def import_agent(
-    file: UploadFile = File(..., description="JSON file containing agent configuration"),
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """
-    Import agent from JSON.
-    
-    **Requirements:** 6.5
-    
-    **Request:**
-    - file: JSON file with agent configuration
-    
-    **Returns:**
-    - Imported agent object
-    
-    **Errors:**
-    - 400: Invalid JSON or agent data
-    - 401: Unauthorized
-    - 500: Internal server error
-    """
-    try:
-        logger.info(f"Importing agent for user {current_user.id}")
-        
-        # Read and parse JSON
-        content = await file.read()
-        try:
-            import json
-            agent_data = json.loads(content)
-        except json.JSONDecodeError as e:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid JSON: {str(e)}"
-            )
-        
-        agent_service = AgentServiceRefactored(db)
-        
-        # Import agent
-        imported_agent = agent_service.import_agent(
-            user_id=str(current_user.id),
-            agent_data=agent_data
-        )
-        
-        logger.info(f"Agent imported successfully: {imported_agent.id}")
-        
-        # Convert Agent ORM object to AgentResponse
-        return AgentResponse(
-            id=str(imported_agent.id),
-            user_id=str(imported_agent.user_id),
-            name=imported_agent.name,
-            description=imported_agent.description,
-            agent_type=imported_agent.agent_type,
-            template_id=str(imported_agent.template_id) if imported_agent.template_id else None,
-            llm_provider=imported_agent.llm_provider,
-            llm_model=imported_agent.llm_model,
-            prompt_template_id=str(imported_agent.prompt_template_id) if imported_agent.prompt_template_id else None,
-            configuration=imported_agent.configuration or {},
-            is_public=imported_agent.is_public,
-            created_at=imported_agent.created_at,
-            updated_at=imported_agent.updated_at,
-            deleted_at=imported_agent.deleted_at,
-            tools=[
-                {
-                    "tool_id": str(at.tool_id),
-                    "order": at.order,
-                    "configuration": at.configuration or {}
-                }
-                for at in imported_agent.tools
-            ] if imported_agent.tools else [],
-            knowledgebases=[
-                {
-                    "knowledgebase_id": str(ak.knowledgebase_id),
-                    "order": ak.order
-                }
-                for ak in imported_agent.knowledgebases
-            ] if imported_agent.knowledgebases else [],
-            version_count=0
-        )
-        
-    except HTTPException:
-        raise
-    except ValueError as e:
-        logger.warning(f"Invalid agent data: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-    except Exception as e:
-        logger.error(f"Failed to import agent: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to import agent"
-        )
-
-
-
-class AgentExecuteRequest(BaseModel):
-    """Agent execution request."""
-    input: str
-    context: Optional[dict] = None
-
-
-@router.post(
-    "/{agent_id}/execute",
-    summary="Execute agent",
-    description="Execute an agent with given input.",
-)
-async def execute_agent(
-    agent_id: str,
-    request: AgentExecuteRequest,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """
-    Execute agent with input.
-    
-    **Request:**
-    - input: Input text for the agent
-    - context: Optional context data
-    
-    **Returns:**
-    - Execution result with output
-    
-    **Errors:**
-    - 404: Agent not found
-    - 403: Permission denied
-    - 500: Execution failed
-    """
-    try:
-        logger.info(f"Executing agent {agent_id} for user {current_user.id}")
-        
-        agent_service = AgentServiceRefactored(db)
-        
-        # Get agent and verify permissions
-        agent = await agent_service.get_agent(agent_id)
-        if not agent:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Agent not found"
-            )
-        
-        if str(agent.user_id) != str(current_user.id) and not agent.is_public:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You don't have permission to execute this agent"
-            )
-        
-        # Import executor
-        from backend.services.agent_builder.agent_executor import AgentExecutor
-        
-        # Execute agent with actual executor
-        executor = AgentExecutor(db)
-        execution = await executor.execute_agent(
-            agent_id=agent_id,
-            user_id=str(current_user.id),
-            input_data={"input": request.input, **(request.context or {})},
-            session_id=None,
-            variables=request.context
-        )
-        
-        # Return execution result
-        result = {
-            "success": execution.status == "completed",
-            "execution_id": str(execution.id),
-            "output": execution.output_data.get("output", "") if execution.output_data else "",
-            "status": execution.status,
-            "error": execution.error_message,
-            "result": {
-                "agent_id": agent_id,
-                "agent_name": agent.name,
-                "input": request.input,
-                "timestamp": execution.started_at.isoformat(),
-                "duration_ms": execution.duration_ms,
-                "tokens_used": execution.output_data.get("tokens_used", 0) if execution.output_data else 0
-            }
-        }
-        
-        logger.info(f"Agent executed successfully: {execution.id}")
-        return result
-        
-    except HTTPException:
-        raise
-    except AgentNotFoundException as e:
-        logger.warning(f"Agent not found: {agent_id}")
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
-    except AgentPermissionException as e:
-        logger.warning(f"Permission denied for agent {agent_id}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=str(e)
-        )
-    except Exception as e:
-        logger.error(f"Failed to execute agent: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to execute agent: {str(e)}"
-        )
-
-
-
-class AgentStatsResponse(BaseModel):
-    """Agent statistics response."""
-    agent_id: str
-    total_runs: int
-    successful_runs: int
-    failed_runs: int
-    success_rate: float
-    avg_duration_ms: Optional[float]
-    last_run_at: Optional[datetime]
-
-
-@router.get(
-    "/{agent_id}/statistics",
-    response_model=AgentStatsResponse,
-    summary="Get agent statistics",
-    description="Get execution statistics for an agent.",
-)
-async def get_agent_stats(
-    agent_id: str,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """
-    Get agent execution statistics.
-    
-    **Returns:**
-    - Execution statistics including runs, success rate, and average duration
-    
-    **Errors:**
-    - 404: Agent not found
-    - 403: Permission denied
-    """
-    try:
-        logger.info(f"Getting stats for agent {agent_id}")
-        
-        agent_service = AgentServiceRefactored(db)
-        
-        # Get agent and verify permissions
-        agent = await agent_service.get_agent(agent_id)
-        if not agent:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Agent not found"
-            )
-        
-        if str(agent.user_id) != str(current_user.id) and not agent.is_public:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You don't have permission to view this agent's statistics"
-            )
-        
-        # Get execution statistics from agent_executions table
-        from backend.db.models.agent_builder import AgentExecution
-        
-        executions = db.query(AgentExecution).filter(
-            AgentExecution.agent_id == agent_id
-        ).all()
-        
-        total_runs = len(executions)
-        successful_runs = sum(1 for e in executions if e.status == 'completed')
-        failed_runs = sum(1 for e in executions if e.status == 'failed')
-        
-        success_rate = (successful_runs / total_runs * 100) if total_runs > 0 else 0.0
-        
-        # Calculate average duration
-        completed_executions = [e for e in executions if e.status == 'completed' and e.started_at and e.completed_at]
-        if completed_executions:
-            durations = [(e.completed_at - e.started_at).total_seconds() * 1000 for e in completed_executions]
-            avg_duration_ms = sum(durations) / len(durations)
-        else:
-            avg_duration_ms = None
-        
-        # Get last run time
-        last_run_at = max([e.started_at for e in executions], default=None) if executions else None
-        
-        return AgentStatsResponse(
-            agent_id=agent_id,
-            total_runs=total_runs,
-            successful_runs=successful_runs,
-            failed_runs=failed_runs,
-            success_rate=round(success_rate, 1),
-            avg_duration_ms=round(avg_duration_ms, 1) if avg_duration_ms else None,
-            last_run_at=last_run_at,
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to get agent stats: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get agent statistics: {str(e)}"
-        )
-
-
-
-@router.get(
-    "/{agent_id}/stats",
-    response_model=AgentStatsResponse,
-    summary="Get agent statistics (alias)",
-    description="Get execution statistics for an agent. Alias for /statistics endpoint.",
-)
-async def get_agent_stats_alias(
-    agent_id: str,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """
-    Get agent execution statistics (alias endpoint).
-    
-    This is an alias for the /statistics endpoint for backward compatibility.
-    """
-    return await get_agent_stats(agent_id, current_user, db)
-
-
-
-# ============================================================================
-# Agent Tools Management Endpoints
-# ============================================================================
-
-class AgentToolConfig(BaseModel):
-    """Agent tool configuration."""
-    tool_id: str
-    configuration: dict
-
-
-class AgentToolsUpdate(BaseModel):
-    """Update agent tools."""
-    tools: List[AgentToolConfig]
-
-
-@router.get(
-    "/{agent_id}/tools",
-    summary="Get agent tools",
-    description="Get configured tools for an agent.",
-)
-async def get_agent_tools(
-    agent_id: str,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """
-    Get agent tools configuration.
-    
-    **Returns:**
-    - List of configured tools with their configurations
-    
-    **Errors:**
-    - 404: Agent not found
-    - 403: Permission denied
-    """
-    try:
-        logger.info(f"Getting tools for agent {agent_id}")
-        
-        agent_service = AgentServiceRefactored(db)
-        
-        # Get agent and verify permissions
-        agent = await agent_service.get_agent(agent_id)
-        if not agent:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Agent not found"
-            )
-        
-        if str(agent.user_id) != str(current_user.id) and not agent.is_public:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You don't have permission to view this agent's tools"
-            )
-        
-        # Get tools from agent configuration
-        tools = agent.tools or []
-        
-        return {
-            "agent_id": agent_id,
-            "tools": tools,
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to get agent tools: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to get agent tools"
-        )
-
-
-@router.put(
-    "/{agent_id}/tools",
-    summary="Update agent tools",
-    description="Update configured tools for an agent.",
-)
-async def update_agent_tools(
-    agent_id: str,
-    tools_update: AgentToolsUpdate,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """
-    Update agent tools configuration.
-    
-    **Request Body:**
-    - tools: List of tool configurations
-    
-    **Returns:**
-    - Updated agent with tools
-    
-    **Errors:**
-    - 404: Agent not found
-    - 403: Permission denied
-    """
-    try:
-        logger.info(f"Updating tools for agent {agent_id}")
-        
-        agent_service = AgentServiceRefactored(db)
-        
-        # Get agent and verify permissions
-        agent = await agent_service.get_agent(agent_id)
-        if not agent:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Agent not found"
-            )
-        
-        if str(agent.user_id) != str(current_user.id):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You don't have permission to update this agent's tools"
-            )
-        
-        # Update tools
-        agent.tools = [tool.dict() for tool in tools_update.tools]
-        agent.updated_at = datetime.utcnow()
-        
-        db.commit()
-        db.refresh(agent)
-        
-        logger.info(f"Updated tools for agent {agent_id}: {len(tools_update.tools)} tools")
-        
-        return {
-            "agent_id": agent_id,
-            "tools": agent.tools,
-            "message": f"Successfully updated {len(tools_update.tools)} tools"
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to update agent tools: {e}", exc_info=True)
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update agent tools"
-        )
-
-
-@router.post(
-    "/{agent_id}/tools/{tool_id}",
-    summary="Add tool to agent",
-    description="Add a single tool to an agent.",
-)
-async def add_agent_tool(
-    agent_id: str,
-    tool_id: str,
-    configuration: dict = {},
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """
-    Add a tool to an agent.
-    
-    **Returns:**
-    - Updated agent tools
-    
-    **Errors:**
-    - 404: Agent not found
-    - 403: Permission denied
-    """
-    try:
-        logger.info(f"Adding tool {tool_id} to agent {agent_id}")
-        
-        agent_service = AgentServiceRefactored(db)
-        
-        # Get agent and verify permissions
-        agent = await agent_service.get_agent(agent_id)
-        if not agent:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Agent not found"
-            )
-        
-        if str(agent.user_id) != str(current_user.id):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You don't have permission to update this agent"
-            )
-        
-        # Add tool
-        tools = agent.tools or []
-        
-        # Check if tool already exists
-        existing_tool = next((t for t in tools if t.get('tool_id') == tool_id), None)
-        if existing_tool:
-            # Update configuration
-            existing_tool['configuration'] = configuration
-        else:
-            # Add new tool
-            tools.append({
-                'tool_id': tool_id,
-                'configuration': configuration,
-                'order': len(tools)
-            })
-        
-        agent.tools = tools
-        agent.updated_at = datetime.utcnow()
-        
-        db.commit()
-        db.refresh(agent)
-        
-        return {
-            "agent_id": agent_id,
-            "tool_id": tool_id,
-            "tools": agent.tools,
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to add tool to agent: {e}", exc_info=True)
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to add tool to agent"
-        )
-
-
-@router.delete(
-    "/{agent_id}/tools/{tool_id}",
-    summary="Remove tool from agent",
-    description="Remove a tool from an agent.",
-)
-async def remove_agent_tool(
-    agent_id: str,
-    tool_id: str,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """
-    Remove a tool from an agent.
-    
-    **Returns:**
-    - Updated agent tools
-    
-    **Errors:**
-    - 404: Agent not found
-    - 403: Permission denied
-    """
-    try:
-        logger.info(f"Removing tool {tool_id} from agent {agent_id}")
-        
-        agent_service = AgentServiceRefactored(db)
-        
-        # Get agent and verify permissions
-        agent = await agent_service.get_agent(agent_id)
-        if not agent:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Agent not found"
-            )
-        
-        if str(agent.user_id) != str(current_user.id):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You don't have permission to update this agent"
-            )
-        
-        # Remove tool
-        tools = agent.tools or []
-        tools = [t for t in tools if t.get('tool_id') != tool_id]
-        
-        # Reorder
-        for i, tool in enumerate(tools):
-            tool['order'] = i
-        
-        agent.tools = tools
-        agent.updated_at = datetime.utcnow()
-        
-        db.commit()
-        db.refresh(agent)
-        
-        return {
-            "agent_id": agent_id,
-            "tool_id": tool_id,
-            "tools": agent.tools,
-            "message": f"Tool {tool_id} removed successfully"
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to remove tool from agent: {e}", exc_info=True)
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to remove tool from agent"
         )

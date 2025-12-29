@@ -380,6 +380,7 @@ export default function GeminiFusionBlock({
           image: imageInputs.length,
           audio: audioInputs.length
         },
+        fusion_result: null,
         processing_time_seconds: 0
       };
       setResult(errorResult);

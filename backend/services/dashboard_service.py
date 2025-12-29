@@ -173,21 +173,8 @@ class DashboardService:
             except Exception as e:
                 logger.warning(f"Redis cache save failed: {e}")
         
-        # Save to PostgreSQL database
-        if self.db:
-            try:
-                from backend.db.models.dashboard import DashboardLayout as DBLayout, DashboardWidget as DBWidget
-                
-                # Check if layout exists
-                db_layout = self.db.query(DBLayout).filter(
-                    DBLayout.user_id == user_id,
-                    DBLayout.is_default == 1
-                ).first()
-                
-                if db_layout:
-                    # Update existing
-                    db_layout.theme = layout.theme
-                    db_layout.columns = layout.columns
+        # Dashboard models have been removed - skip database persistence
+        logger.debug("Dashboard models removed - layout saved to memory/Redis only")
                     db_layout.row_height = layout.row_height
                     db_layout.updated_at = datetime.utcnow()
                     

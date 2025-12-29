@@ -174,7 +174,7 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onClose }) => {
         pointer-events-auto
         flex items-start gap-3 p-4 rounded-lg border shadow-lg
         min-w-[320px] max-w-md
-        animate-slide-in-down
+        animate-fade-in
         ${getToastStyles(toast.type)}
       `}
       role="alert"

@@ -686,7 +686,7 @@ const PredictiveMaintenanceBlock: React.FC<PredictiveMaintenanceBlockProps> = ({
                   id="auto-healing"
                   checked={config.auto_healing_enabled}
                   onCheckedChange={(checked) => 
-                    setConfig(prev => ({ ...prev, auto_healing_enabled: checked }))
+                    setConfig((prev: typeof config) => ({ ...prev, auto_healing_enabled: checked }))
                   }
                 />
               </div>
@@ -698,7 +698,7 @@ const PredictiveMaintenanceBlock: React.FC<PredictiveMaintenanceBlockProps> = ({
                   type="number"
                   value={config.collection_interval}
                   onChange={(e) => 
-                    setConfig(prev => ({ ...prev, collection_interval: parseInt(e.target.value) }))
+                    setConfig((prev: typeof config) => ({ ...prev, collection_interval: parseInt(e.target.value) }))
                   }
                   min="10"
                   max="300"
@@ -713,7 +713,7 @@ const PredictiveMaintenanceBlock: React.FC<PredictiveMaintenanceBlockProps> = ({
                   step="0.1"
                   value={config.anomaly_threshold}
                   onChange={(e) => 
-                    setConfig(prev => ({ ...prev, anomaly_threshold: parseFloat(e.target.value) }))
+                    setConfig((prev: typeof config) => ({ ...prev, anomaly_threshold: parseFloat(e.target.value) }))
                   }
                   min="0.1"
                   max="1.0"
@@ -727,7 +727,7 @@ const PredictiveMaintenanceBlock: React.FC<PredictiveMaintenanceBlockProps> = ({
                   type="number"
                   value={config.max_concurrent_maintenance}
                   onChange={(e) => 
-                    setConfig(prev => ({ ...prev, max_concurrent_maintenance: parseInt(e.target.value) }))
+                    setConfig((prev: typeof config) => ({ ...prev, max_concurrent_maintenance: parseInt(e.target.value) }))
                   }
                   min="1"
                   max="10"

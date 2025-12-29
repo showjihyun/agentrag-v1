@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent-Builder Demo Video Generator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            overflow: hidden;
+        }
+
+        .demo-container {
+            width: 1920px;
+            height: 1080px;
+            position: relative;
+            background: #1a1a2e;
+            margin: 0 auto;
+        }
+
+        .title-card {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            opacity: 1;
+            transition: opacity 0.5s ease;
+        }
+
+        .title-card.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .title-card h1 {
+            font-size: 72px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .title-card p {
+            font-size: 32px;
+            opacity: 0.9;
+            text-align: center;
+        }
+
+        .workflow-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #1a1a2e;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        .workflow-canvas.visible {
+            opacity: 1;
+        }
+
+        .sidebar {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 300px;
+            height: 100%;
+            background: #16213e;
+            border-right: 2px solid #3b82f6;
+            padding: 20px;
+        }
+
+        .sidebar h3 {
+            color: #3b82f6;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+
+        .node-item {
+            background: #2d3748;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .node-item:hover {
+            background: #3b82f6;
+            transform: translateX(5px);
+        }
+
+        .node-item.dragging {
+            background: #10b981;
+            border-color: #10b981;
+        }
+
+        .canvas-area {
+            position: absolute;
+            left: 300px;
+            top: 0;
+            width: calc(100% - 300px);
+            height: 100%;
+            background: #1a1a2e;
+            position: relative;
+        }
+
+        .workflow-node {
+            position: absolute;
+            width: 180px;
+            height: 80px;
+            background: #2d3748;
+            border: 2px solid #3b82f6;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            opacity: 0;
+            transform: scale(0.8);
+        }
+
+        .workflow-node.visible {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .workflow-node.executing {
+            background: #f59e0b;
+            border-color: #f59e0b;
+            box-shadow: 0 0 20px rgba(245, 158, 11, 0.5);
+            animation: pulse 1s infinite;
+        }
+
+        .workflow-node.completed {
+            background: #10b981;
+            border-color: #10b981;
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.5);
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .connection-line {
+            position: absolute;
+            height: 3px;
+            background: #3b82f6;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        .connection-line.visible {
+            opacity: 1;
+        }
+
+        .connection-line.active {
+            background: #10b981;
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+        }
+
+        .overlay-text {
+            position: absolute;
+            font-size: 48px;
+            font-weight: bold;
+            color: #3b82f6;
+            opacity: 0;
+            transition: all 0.5s ease;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .overlay-text.visible {
+            opacity: 1;
+            transform: translateY(-10px);
+        }
+
+        .execution-result {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(16, 185, 129, 0.9);
+            padding: 30px 60px;
+            border-radius: 15px;
+            font-size: 36px;
+            font-weight: bold;
+            opacity: 0;
+            transition: all 0.5s ease;
+        }
+
+        .execution-result.visible {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1.1);
+        }
+
+        .github-section {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #0d1117;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        .github-section.visible {
+            opacity: 1;
+        }
+
+        .github-logo {
+            font-size: 120px;
+            margin-bottom: 30px;
+        }
+
+        .github-text {
+            font-size: 48px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .star-button {
+            background: #238636;
+            color: white;
+            padding: 20px 40px;
+            border: none;
+            border-radius: 10px;
+            font-size: 32px;
+            cursor: pointer;
+            margin: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .star-button:hover {
+            background: #2ea043;
+            transform: scale(1.05);
+        }
+
+        .progress-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            height: 5px;
+            background: #3b82f6;
+            transition: width 0.1s linear;
+        }
+
+        .control-panel {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.8);
+            padding: 20px;
+            border-radius: 10px;
+            z-index: 1000;
+        }
+
+        .control-button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .control-button:hover {
+            background: #2563eb;
+        }
+
+        .timer {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.8);
+            padding: 15px 25px;
+            border-radius: 10px;
+            font-size: 24px;
+            font-weight: bold;
+            color: #3b82f6;
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-container">
+        <!-- Title Card (0-3s) -->
+        <div class="title-card" id="titleCard">
+            <h1>Workflow Platform</h1>
+            <p>No-Code AI Agent Builder</p>
+        </div>
+
+        <!-- Workflow Canvas (3-23s) -->
+        <div class="workflow-canvas" id="workflowCanvas">
+            <div class="sidebar">
+                <h3>70+ Nodes</h3>
+                <div class="node-item" data-type="trigger">🔗 Webhook Trigger</div>
+                <div class="node-item" data-type="agent">🤖 AI Agent</div>
+                <div class="node-item" data-type="condition">🔀 Condition</div>
+                <div class="node-item" data-type="slack">💬 Slack</div>
+                <div class="node-item" data-type="email">📧 Email</div>
+                <div class="node-item" data-type="database">🗄️ Database</div>
+                <div class="node-item" data-type="api">🌐 HTTP API</div>
+            </div>
+
+            <div class="canvas-area" id="canvasArea">
+                <!-- Workflow nodes will be added here -->
+            </div>
+        </div>
+
+        <!-- GitHub Section (23-30s) -->
+        <div class="github-section" id="githubSection">
+            <div class="github-logo">⭐</div>
+            <div class="github-text">Star on GitHub</div>
+            <div class="github-text">🐳 Docker Ready</div>
+            <div class="github-text">🆓 MIT License</div>
+            <button class="star-button">Try it yourself!</button>
+        </div>
+
+        <!-- Overlay texts -->
+        <div class="overlay-text" id="overlay1" style="top: 20%; left: 40%;">70+ Pre-built Nodes</div>
+        <div class="overlay-text" id="overlay2" style="top: 30%; right: 20%;">50+ Integrations</div>
+        <div class="overlay-text" id="overlay3" style="top: 40%; left: 30%;">Multi-Agent Orchestration</div>
+        <div class="overlay-text" id="overlay4" style="top: 50%; right: 30%;">Real-time Monitoring</div>
+        <div class="overlay-text" id="overlay5" style="top: 60%; left: 50%;">< 5s Execution Time</div>
+
+        <!-- Execution Result -->
+        <div class="execution-result" id="executionResult">
+            ✅ Completed in 3.2s
+        </div>
+    </div>
+
+    <!-- Progress Bar -->
+    <div class="progress-bar" id="progressBar"></div>
+
+    <!-- Timer -->
+    <div class="timer" id="timer">00:00</div>
+
+    <!-- Control Panel -->
+    <div class="control-panel">
+        <button class="control-button" onclick="startDemo()">Start Demo</button>
+        <button class="control-button" onclick="pauseDemo()">Pause</button>
+        <button class="control-button" onclick="resetDemo()">Reset</button>
+        <button class="control-button" onclick="recordDemo()">🎥 Record</button>
+    </div>
+
+    <script>
+        let demoStartTime = 0;
+        let demoInterval = null;
+        let isPaused = false;
+        let currentPhase = 0;
+
+        const phases = [
+            { time: 0, action: 'showTitle' },
+            { time: 3000, action: 'showWorkflow' },
+            { time: 5000, action: 'addWebhookTrigger' },
+            { time: 7000, action: 'addAIAgent' },
+            { time: 9000, action: 'addCondition' },
+            { time: 11000, action: 'addSlack' },
+            { time: 13000, action: 'addEmail' },
+            { time: 15000, action: 'connectNodes' },
+            { time: 17000, action: 'startExecution' },
+            { time: 19000, action: 'showResult' },
+            { time: 21000, action: 'showOverlays' },
+            { time: 23000, action: 'showGitHub' },
+            { time: 30000, action: 'endDemo' }
+        ];
+
+        const overlaySchedule = [
+            { time: 5000, id: 'overlay1' },
+            { time: 9000, id: 'overlay2' },
+            { time: 13000, id: 'overlay3' },
+            { time: 17000, id: 'overlay4' },
+            { time: 19000, id: 'overlay5' }
+        ];
+
+        function startDemo() {
+            resetDemo();
+            demoStartTime = Date.now();
+            isPaused = false;
+            currentPhase = 0;
+            
+            demoInterval = setInterval(updateDemo, 100);
+            
+            // Start with title card
+            showTitle();
+        }
+
+        function pauseDemo() {
+            isPaused = !isPaused;
+            if (isPaused) {
+                clearInterval(demoInterval);
+            } else {
+                demoStartTime = Date.now() - getCurrentTime();
+                demoInterval = setInterval(updateDemo, 100);
+            }
+        }
+
+        function resetDemo() {
+            if (demoInterval) clearInterval(demoInterval);
+            currentPhase = 0;
+            isPaused = false;
+            
+            // Reset all elements
+            document.getElementById('titleCard').classList.remove('hidden');
+            document.getElementById('workflowCanvas').classList.remove('visible');
+            document.getElementById('githubSection').classList.remove('visible');
+            document.getElementById('executionResult').classList.remove('visible');
+            
+            // Clear canvas
+            document.getElementById('canvasArea').innerHTML = '';
+            
+            // Reset overlays
+            document.querySelectorAll('.overlay-text').forEach(el => {
+                el.classList.remove('visible');
+            });
+            
+            // Reset progress
+            document.getElementById('progressBar').style.width = '0%';
+            document.getElementById('timer').textContent = '00:00';
+        }
+
+        function getCurrentTime() {
+            return Date.now() - demoStartTime;
+        }
+
+        function updateDemo() {
+            if (isPaused) return;
+            
+            const currentTime = getCurrentTime();
+            const progress = Math.min(currentTime / 30000 * 100, 100);
+            
+            // Update progress bar
+            document.getElementById('progressBar').style.width = progress + '%';
+            
+            // Update timer
+            const seconds = Math.floor(currentTime / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = seconds % 60;
+            document.getElementById('timer').textContent = 
+                `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+            
+            // Execute phases
+            while (currentPhase < phases.length && currentTime >= phases[currentPhase].time) {
+                executePhase(phases[currentPhase].action);
+                currentPhase++;
+            }
+            
+            // Show overlays
+            overlaySchedule.forEach(overlay => {
+                if (currentTime >= overlay.time && currentTime < overlay.time + 3000) {
+                    document.getElementById(overlay.id).classList.add('visible');
+                } else {
+                    document.getElementById(overlay.id).classList.remove('visible');
+                }
+            });
+            
+            // End demo
+            if (currentTime >= 30000) {
+                clearInterval(demoInterval);
+            }
+        }
+
+        function executePhase(action) {
+            switch(action) {
+                case 'showTitle':
+                    showTitle();
+                    break;
+                case 'showWorkflow':
+                    showWorkflow();
+                    break;
+                case 'addWebhookTrigger':
+                    addNode('webhook', 'Webhook Trigger', 400, 200);
+                    break;
+                case 'addAIAgent':
+                    addNode('agent', 'Intent Analyzer', 650, 200);
+                    break;
+                case 'addCondition':
+                    addNode('condition', 'Route by Intent', 900, 200);
+                    break;
+                case 'addSlack':
+                    addNode('slack', 'Slack Notify', 1150, 150);
+                    break;
+                case 'addEmail':
+                    addNode('email', 'Email Notify', 1150, 250);
+                    break;
+                case 'connectNodes':
+                    connectNodes();
+                    break;
+                case 'startExecution':
+                    startExecution();
+                    break;
+                case 'showResult':
+                    showResult();
+                    break;
+                case 'showGitHub':
+                    showGitHub();
+                    break;
+            }
+        }
+
+        function showTitle() {
+            document.getElementById('titleCard').classList.remove('hidden');
+        }
+
+        function showWorkflow() {
+            document.getElementById('titleCard').classList.add('hidden');
+            document.getElementById('workflowCanvas').classList.add('visible');
+        }
+
+        function addNode(type, label, x, y) {
+            const canvasArea = document.getElementById('canvasArea');
+            const node = document.createElement('div');
+            node.className = 'workflow-node';
+            node.style.left = x + 'px';
+            node.style.top = y + 'px';
+            node.textContent = label;
+            node.id = `node-${type}`;
+            
+            canvasArea.appendChild(node);
+            
+            // Animate in
+            setTimeout(() => {
+                node.classList.add('visible');
+            }, 100);
+        }
+
+        function connectNodes() {
+            const connections = [
+                { from: 'webhook', to: 'agent' },
+                { from: 'agent', to: 'condition' },
+                { from: 'condition', to: 'slack' },
+                { from: 'condition', to: 'email' }
+            ];
+            
+            connections.forEach((conn, index) => {
+                setTimeout(() => {
+                    drawConnection(conn.from, conn.to);
+                }, index * 500);
+            });
+        }
+
+        function drawConnection(fromType, toType) {
+            const fromNode = document.getElementById(`node-${fromType}`);
+            const toNode = document.getElementById(`node-${toType}`);
+            
+            if (!fromNode || !toNode) return;
+            
+            const fromRect = fromNode.getBoundingClientRect();
+            const toRect = toNode.getBoundingClientRect();
+            const canvasRect = document.getElementById('canvasArea').getBoundingClientRect();
+            
+            const line = document.createElement('div');
+            line.className = 'connection-line';
+            
+            const fromX = fromRect.right - canvasRect.left;
+            const fromY = fromRect.top + fromRect.height/2 - canvasRect.top;
+            const toX = toRect.left - canvasRect.left;
+            const toY = toRect.top + toRect.height/2 - canvasRect.top;
+            
+            const length = Math.sqrt(Math.pow(toX - fromX, 2) + Math.pow(toY - fromY, 2));
+            const angle = Math.atan2(toY - fromY, toX - fromX) * 180 / Math.PI;
+            
+            line.style.left = fromX + 'px';
+            line.style.top = fromY + 'px';
+            line.style.width = length + 'px';
+            line.style.transform = `rotate(${angle}deg)`;
+            line.style.transformOrigin = '0 50%';
+            
+            document.getElementById('canvasArea').appendChild(line);
+            
+            setTimeout(() => {
+                line.classList.add('visible');
+            }, 100);
+        }
+
+        function startExecution() {
+            const nodes = ['webhook', 'agent', 'condition', 'slack', 'email'];
+            
+            nodes.forEach((nodeType, index) => {
+                setTimeout(() => {
+                    const node = document.getElementById(`node-${nodeType}`);
+                    if (node) {
+                        node.classList.add('executing');
+                        
+                        setTimeout(() => {
+                            node.classList.remove('executing');
+                            node.classList.add('completed');
+                        }, 800);
+                    }
+                }, index * 400);
+            });
+            
+            // Animate connection lines
+            setTimeout(() => {
+                document.querySelectorAll('.connection-line').forEach(line => {
+                    line.classList.add('active');
+                });
+            }, 500);
+        }
+
+        function showResult() {
+            document.getElementById('executionResult').classList.add('visible');
+        }
+
+        function showGitHub() {
+            document.getElementById('workflowCanvas').classList.remove('visible');
+            document.getElementById('executionResult').classList.remove('visible');
+            document.getElementById('githubSection').classList.add('visible');
+        }
+
+        function recordDemo() {
+            alert('🎥 Recording feature would integrate with screen recording software like OBS Studio.\n\nTo record:\n1. Set up OBS Studio\n2. Add Browser Source\n3. Point to this HTML file\n4. Start recording\n5. Click "Start Demo"');
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            resetDemo();
+        });
+    </script>
+</body>
+</html>

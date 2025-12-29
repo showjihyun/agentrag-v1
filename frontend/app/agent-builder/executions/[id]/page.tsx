@@ -48,7 +48,7 @@ export default function ExecutionDetailPage() {
       // For now, we'll need to modify the page to accept workflow_id
       // Temporary: try to get execution directly
       const data = await agentBuilderAPI.getExecution(executionId);
-      setExecution(data);
+      setExecution(data as any);
     } catch (err: any) {
       setError(err.message || 'Failed to load execution');
     } finally {
@@ -192,9 +192,7 @@ export default function ExecutionDetailPage() {
                       <div>
                         <CardTitle className="text-base">{nodeExec.node_name}</CardTitle>
                         <CardDescription>
-                          {nodeExec.node_type && <span className="mr-2">Type: {nodeExec.node_type}</span>}
-                          {nodeExec.tool_id && <span className="mr-2">Tool: {nodeExec.tool_id}</span>}
-                          {nodeExec.duration_ms && <span>Duration: {nodeExec.duration_ms}ms</span>}
+                          Node execution details
                         </CardDescription>
                       </div>
                       <Badge className={nodeExec.status === 'failed' ? 'bg-red-500' : 'bg-green-500'}>
@@ -208,24 +206,6 @@ export default function ExecutionDetailPage() {
                       <div className="text-xs text-muted-foreground">
                         {nodeExec.started_at && <div>Started: {new Date(nodeExec.started_at).toLocaleString()}</div>}
                         {nodeExec.completed_at && <div>Completed: {new Date(nodeExec.completed_at).toLocaleString()}</div>}
-                      </div>
-                    )}
-                    
-                    {/* AI Agent Details */}
-                    {nodeExec.ai_agent_details && (
-                      <div className="bg-blue-50 dark:bg-blue-950/20 p-3 rounded">
-                        <p className="text-sm font-medium mb-2">🤖 AI Agent Execution</p>
-                        <div className="text-xs space-y-1">
-                          <div><strong>Provider:</strong> {nodeExec.ai_agent_details.provider}</div>
-                          <div><strong>Model:</strong> {nodeExec.ai_agent_details.model}</div>
-                          {nodeExec.ai_agent_details.temperature && (
-                            <div><strong>Temperature:</strong> {nodeExec.ai_agent_details.temperature}</div>
-                          )}
-                          {nodeExec.ai_agent_details.max_tokens && (
-                            <div><strong>Max Tokens:</strong> {nodeExec.ai_agent_details.max_tokens}</div>
-                          )}
-                          <div><strong>Response Length:</strong> {nodeExec.ai_agent_details.response_length} chars</div>
-                        </div>
                       </div>
                     )}
                     

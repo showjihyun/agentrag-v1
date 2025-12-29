@@ -89,6 +89,7 @@ async def create_knowledgebase(
             embedding_model=kb.embedding_model,
             chunk_size=kb.chunk_size,
             chunk_overlap=kb.chunk_overlap,
+            kg_enabled=getattr(kb, 'kg_enabled', False),
             document_count=getattr(kb, 'document_count', 0),
             total_size=getattr(kb, 'total_size', 0),
             created_at=kb.created_at,
@@ -156,6 +157,20 @@ async def get_knowledgebase(
                 detail="You don't have permission to access this knowledgebase"
             )
         
+        # Calculate document count and total size
+        from backend.db.models.document import Document
+        
+        # kb.documents are KnowledgebaseDocument objects (association table)
+        # We need to get the actual Document objects
+        document_count = len(kb.documents) if kb.documents else 0
+        
+        # Get actual Document objects through the association
+        total_size = 0
+        if kb.documents:
+            document_ids = [kb_doc.document_id for kb_doc in kb.documents]
+            documents = db.query(Document).filter(Document.id.in_(document_ids)).all()
+            total_size = sum(doc.file_size_bytes for doc in documents if doc.file_size_bytes)
+        
         # Convert UUID fields to strings for response
         return KnowledgebaseResponse(
             id=str(kb.id),
@@ -166,8 +181,9 @@ async def get_knowledgebase(
             embedding_model=kb.embedding_model,
             chunk_size=kb.chunk_size,
             chunk_overlap=kb.chunk_overlap,
-            document_count=kb.document_count,
-            total_size=kb.total_size,
+            kg_enabled=getattr(kb, 'kg_enabled', False),
+            document_count=document_count,
+            total_size=total_size,
             created_at=kb.created_at,
             updated_at=kb.updated_at
         )
@@ -240,6 +256,19 @@ async def update_knowledgebase(
         
         logger.info(f"Knowledgebase updated successfully: {kb_id}")
         
+        # Calculate document count and total size
+        from backend.db.models.document import Document
+        
+        # updated_kb.documents are KnowledgebaseDocument objects (association table)
+        document_count = len(updated_kb.documents) if updated_kb.documents else 0
+        
+        # Get actual Document objects through the association
+        total_size = 0
+        if updated_kb.documents:
+            document_ids = [kb_doc.document_id for kb_doc in updated_kb.documents]
+            documents = db.query(Document).filter(Document.id.in_(document_ids)).all()
+            total_size = sum(doc.file_size_bytes for doc in documents if doc.file_size_bytes)
+        
         # Convert UUID fields to strings for response
         return KnowledgebaseResponse(
             id=str(updated_kb.id),
@@ -250,8 +279,9 @@ async def update_knowledgebase(
             embedding_model=updated_kb.embedding_model,
             chunk_size=updated_kb.chunk_size,
             chunk_overlap=updated_kb.chunk_overlap,
-            document_count=updated_kb.document_count,
-            total_size=updated_kb.total_size,
+            kg_enabled=getattr(updated_kb, 'kg_enabled', False),
+            document_count=document_count,
+            total_size=total_size,
             created_at=updated_kb.created_at,
             updated_at=updated_kb.updated_at
         )
@@ -417,6 +447,7 @@ async def list_knowledgebases(
                     embedding_model=kb.embedding_model,
                     chunk_size=kb.chunk_size,
                     chunk_overlap=kb.chunk_overlap,
+                    kg_enabled=getattr(kb, 'kg_enabled', False),
                     document_count=document_count,
                     total_size=total_size,
                     created_at=kb.created_at,

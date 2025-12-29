@@ -57,7 +57,8 @@ class PerformanceMonitor {
       try {
         const fidObserver = new PerformanceObserver((list) => {
           for (const entry of list.getEntries()) {
-            this.recordMetric('first-input-delay', entry.processingStart - entry.startTime, {
+            const firstInputEntry = entry as any;
+            this.recordMetric('first-input-delay', firstInputEntry.processingStart - firstInputEntry.startTime, {
               name: entry.name,
             });
           }
@@ -87,9 +88,11 @@ class PerformanceMonitor {
         const lcpObserver = new PerformanceObserver((list) => {
           const entries = list.getEntries();
           const lastEntry = entries[entries.length - 1];
-          this.recordMetric('lcp', lastEntry.startTime, {
-            element: (lastEntry as any).element?.tagName,
-          });
+          if (lastEntry) {
+            this.recordMetric('lcp', lastEntry.startTime, {
+              element: (lastEntry as any).element?.tagName,
+            });
+          }
         });
         lcpObserver.observe({ entryTypes: ['largest-contentful-paint'] });
         this.observers.push(lcpObserver);
@@ -124,7 +127,7 @@ class PerformanceMonitor {
       name,
       value,
       timestamp: Date.now(),
-      metadata,
+      metadata: metadata || {},
     };
 
     this.metrics.push(metric);
@@ -202,7 +205,9 @@ class PerformanceMonitor {
       try {
         performance.measure(name, startMark, endMark);
         const measure = performance.getEntriesByName(name)[0];
-        this.recordMetric(name, measure.duration);
+        if (measure) {
+          this.recordMetric(name, measure.duration);
+        }
       } catch (e) {
         console.warn('[Performance] Failed to measure:', e);
       }

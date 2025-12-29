@@ -21,7 +21,10 @@ const api = new RAGApiClient();
 export function useSessions(options?: Omit<UseQueryOptions<SessionResponse[]>, 'queryKey' | 'queryFn'>) {
   return useQuery({
     queryKey: queryKeys.chat.sessions(),
-    queryFn: () => api.getSessions(),
+    queryFn: async () => {
+      const response = await api.getSessions();
+      return response.sessions || [];
+    },
     ...options,
   });
 }
@@ -35,7 +38,10 @@ export function useMessages(
 ) {
   return useQuery({
     queryKey: queryKeys.chat.messages(sessionId),
-    queryFn: () => api.getMessages(sessionId),
+    queryFn: async () => {
+      const response = await api.getMessages(sessionId);
+      return response.messages || [];
+    },
     enabled: !!sessionId,
     ...options,
   });
@@ -104,7 +110,10 @@ export function useSendMessage() {
 export function useDocuments(options?: Omit<UseQueryOptions<DocumentResponse[]>, 'queryKey' | 'queryFn'>) {
   return useQuery({
     queryKey: queryKeys.documents.list(),
-    queryFn: () => api.getDocuments(),
+    queryFn: async () => {
+      const response = await api.getDocuments();
+      return response.documents || [];
+    },
     ...options,
   });
 }

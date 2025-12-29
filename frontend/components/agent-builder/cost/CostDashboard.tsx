@@ -217,7 +217,7 @@ export function CostDashboard({ agentId, timeRange = '30d' }: CostDashboardProps
 
             <TabsContent value="budget">
               <BudgetManager
-                agentId={agentId}
+                agentId={agentId || undefined}
                 currentCost={stats.total_cost}
                 budgetLimit={stats.budget_limit}
                 onUpdate={loadStats}
@@ -226,7 +226,7 @@ export function CostDashboard({ agentId, timeRange = '30d' }: CostDashboardProps
 
             <TabsContent value="optimizer">
               <CostOptimizer
-                agentId={agentId}
+                agentId={agentId || undefined}
                 currentStats={stats}
                 onOptimize={loadStats}
               />

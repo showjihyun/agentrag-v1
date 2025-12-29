@@ -91,7 +91,7 @@ export default function APIKeysPage() {
         service_name: serviceName,
         service_display_name: serviceInfo?.displayName || serviceName,
         api_key: apiKey,
-        description: description || undefined,
+        ...(description && { description }),
       });
 
       toast({
@@ -119,8 +119,8 @@ export default function APIKeysPage() {
     try {
       setSubmitting(true);
       await apiKeysAPI.updateAPIKey(selectedKey.id, {
-        api_key: apiKey || undefined,
-        description: description || undefined,
+        ...(apiKey && { api_key: apiKey }),
+        ...(description && { description }),
       });
 
       toast({

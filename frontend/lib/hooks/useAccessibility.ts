@@ -4,7 +4,7 @@
  * Provides utilities for improving accessibility
  */
 
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback, useRef, useState } from 'react';
 
 /**
  * Focus trap hook for modals and dialogs
@@ -168,9 +168,9 @@ export function useSkipToContent(targetId: string) {
  * @returns Whether user prefers reduced motion
  */
 export function usePrefersReducedMotion(): boolean {
-  const [prefersReducedMotion, setPrefersReducedMotion] = React.useState(false);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     setPrefersReducedMotion(mediaQuery.matches);
 

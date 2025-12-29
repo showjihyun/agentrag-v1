@@ -109,7 +109,7 @@ const WorkflowDNABlock: React.FC<WorkflowDNABlockProps> = ({
 
   useEffect(() => {
     if (population.length > 0 && !selectedWorkflow) {
-      setSelectedWorkflow(population[0]);
+      setSelectedWorkflow(population[0] || null);
     }
   }, [population, selectedWorkflow, setSelectedWorkflow]);
 
@@ -169,9 +169,11 @@ const WorkflowDNABlock: React.FC<WorkflowDNABlockProps> = ({
   };
 
   const calculateDiversityIndex = (population: WorkflowDNA[]): number => {
+    if (population.length === 0 || !population[0]) return 0;
+    
     // Calculate genetic diversity using Shannon diversity index
     const geneVariances = population[0].genes.map((_, geneIndex) => {
-      const values = population.map(w => w.genes[geneIndex].value);
+      const values = population.map(w => w.genes[geneIndex]?.value || 0);
       const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
       const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length;
       return variance;
@@ -184,36 +186,35 @@ const WorkflowDNABlock: React.FC<WorkflowDNABlockProps> = ({
     if (!currentExperiment) return;
 
     const evolve = () => {
-      setCurrentExperiment(prev => {
-        if (!prev || prev.current_generation >= prev.max_generations) {
-          setIsEvolving(false);
-          return prev;
-        }
+      if (!currentExperiment || currentExperiment.current_generation >= currentExperiment.max_generations) {
+        setIsEvolving(false);
+        return;
+      }
 
-        // Perform one generation of evolution
-        const newPopulation = performEvolutionStep(prev.population, prev);
-        const newGeneration = prev.current_generation + 1;
+      // Perform one generation of evolution
+      const newPopulation = performEvolutionStep(currentExperiment.population, currentExperiment);
+      const newGeneration = currentExperiment.current_generation + 1;
 
-        const bestFitness = Math.max(...newPopulation.map(w => w.fitness_score));
-        const averageFitness = newPopulation.reduce((sum, w) => sum + w.fitness_score, 0) / newPopulation.length;
-        const diversityIndex = calculateDiversityIndex(newPopulation);
+      const bestFitness = Math.max(...newPopulation.map(w => w.fitness_score));
+      const averageFitness = newPopulation.reduce((sum, w) => sum + w.fitness_score, 0) / newPopulation.length;
+      const diversityIndex = calculateDiversityIndex(newPopulation);
 
-        const newHistory = [...prev.evolution_history, {
-          generation: newGeneration,
-          best_fitness: bestFitness,
-          average_fitness: averageFitness,
-          diversity_index: diversityIndex,
-          extinction_events: diversityIndex < 0.01 ? 1 : 0
-        }];
+      const newHistory = [...currentExperiment.evolution_history, {
+        generation: newGeneration,
+        best_fitness: bestFitness,
+        average_fitness: averageFitness,
+        diversity_index: diversityIndex,
+        extinction_events: diversityIndex < 0.01 ? 1 : 0
+      }];
 
-        return {
-          ...prev,
-          current_generation: newGeneration,
-          population: newPopulation,
-          evolution_history: newHistory,
-          status: newGeneration >= prev.max_generations ? 'completed' : 'running'
-        };
-      });
+      const updatedExperiment = {
+        ...currentExperiment,
+        current_generation: newGeneration,
+        population: newPopulation,
+        evolution_history: newHistory
+      };
+
+      setCurrentExperiment(updatedExperiment);
 
       if (isEvolving) {
         setTimeout(() => {
@@ -236,6 +237,8 @@ const WorkflowDNABlock: React.FC<WorkflowDNABlockProps> = ({
       const parent1 = selected[i];
       const parent2 = selected[i + 1] || selected[0];
       
+      if (!parent1 || !parent2) continue;
+      
       if (Math.random() < experiment.crossover_rate) {
         const [child1, child2] = crossover(parent1, parent2, experiment.current_generation + 1);
         newPopulation.push(mutate(child1, experiment.mutation_rate));
@@ -254,33 +257,50 @@ const WorkflowDNABlock: React.FC<WorkflowDNABlockProps> = ({
   };
 
   const tournamentSelection = (population: WorkflowDNA[], size: number): WorkflowDNA[] => {
+    if (population.length === 0) return [];
+    
     const selected: WorkflowDNA[] = [];
     const tournamentSize = 3;
 
     for (let i = 0; i < size; i++) {
       const tournament: WorkflowDNA[] = [];
       for (let j = 0; j < tournamentSize; j++) {
-        tournament.push(population[Math.floor(Math.random() * population.length)]);
+        const randomIndex = Math.floor(Math.random() * population.length);
+        const selectedWorkflow = population[randomIndex];
+        if (selectedWorkflow) {
+          tournament.push(selectedWorkflow);
+        }
       }
-      tournament.sort((a, b) => b.fitness_score - a.fitness_score);
-      selected.push(tournament[0]);
+      if (tournament.length > 0) {
+        tournament.sort((a, b) => b.fitness_score - a.fitness_score);
+        const winner = tournament[0];
+        if (winner) {
+          selected.push(winner);
+        }
+      }
     }
 
     return selected;
   };
 
   const crossover = (parent1: WorkflowDNA, parent2: WorkflowDNA, generation: number): [WorkflowDNA, WorkflowDNA] => {
-    const child1Genes = parent1.genes.map((gene, index) => ({
-      ...gene,
-      value: Math.random() < 0.5 ? gene.value : parent2.genes[index].value,
-      expression_level: (gene.expression_level + parent2.genes[index].expression_level) / 2
-    }));
+    const child1Genes = parent1.genes.map((gene, index) => {
+      const parent2Gene = parent2.genes[index];
+      return {
+        ...gene,
+        value: Math.random() < 0.5 ? gene.value : (parent2Gene?.value ?? gene.value),
+        expression_level: parent2Gene ? (gene.expression_level + parent2Gene.expression_level) / 2 : gene.expression_level
+      };
+    });
 
-    const child2Genes = parent1.genes.map((gene, index) => ({
-      ...gene,
-      value: Math.random() < 0.5 ? parent2.genes[index].value : gene.value,
-      expression_level: (gene.expression_level + parent2.genes[index].expression_level) / 2
-    }));
+    const child2Genes = parent1.genes.map((gene, index) => {
+      const parent2Gene = parent2.genes[index];
+      return {
+        ...gene,
+        value: Math.random() < 0.5 ? (parent2Gene?.value ?? gene.value) : gene.value,
+        expression_level: parent2Gene ? (gene.expression_level + parent2Gene.expression_level) / 2 : gene.expression_level
+      };
+    });
 
     const child1: WorkflowDNA = {
       id: `workflow_${Date.now()}_1`,
@@ -476,7 +496,7 @@ const WorkflowDNABlock: React.FC<WorkflowDNABlockProps> = ({
               />
             </div>
           </CardContent>
-        </Card>
+        </AnimatedCard>
       )}
 
       {/* Main Content */}
@@ -498,12 +518,13 @@ const WorkflowDNABlock: React.FC<WorkflowDNABlockProps> = ({
                 .slice(0, 12)
                 .map((workflow, index) => (
                 <AnimatedListItem key={workflow.id}>
-                  <AnimatedCard 
+                  <div 
                     className={`cursor-pointer transition-all hover:shadow-md ${
                       selectedWorkflow?.id === workflow.id ? 'ring-2 ring-purple-500' : ''
                     }`}
                     onClick={() => setSelectedWorkflow(workflow)}
                   >
+                    <AnimatedCard>
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm flex items-center justify-between">
                       <span className="flex items-center gap-2">
@@ -559,6 +580,7 @@ const WorkflowDNABlock: React.FC<WorkflowDNABlockProps> = ({
                     )}
                   </CardContent>
                   </AnimatedCard>
+                  </div>
                 </AnimatedListItem>
               ))}
             </AnimatedList>
@@ -797,7 +819,9 @@ const WorkflowDNABlock: React.FC<WorkflowDNABlockProps> = ({
                   <Slider
                     value={[currentExperiment?.crossover_rate || 0.7]}
                     onValueChange={([value]) => {
-                      updateExperimentParameters({ crossover_rate: value });
+                      if (value !== undefined) {
+                        updateExperimentParameters({ crossover_rate: value });
+                      }
                     }}
                     max={1}
                     min={0}
@@ -810,7 +834,9 @@ const WorkflowDNABlock: React.FC<WorkflowDNABlockProps> = ({
                   <Slider
                     value={[currentExperiment?.mutation_rate || 0.1]}
                     onValueChange={([value]) => {
-                      updateExperimentParameters({ mutation_rate: value });
+                      if (value !== undefined) {
+                        updateExperimentParameters({ mutation_rate: value });
+                      }
                     }}
                     max={0.5}
                     min={0}
@@ -882,7 +908,11 @@ const WorkflowDNABlock: React.FC<WorkflowDNABlockProps> = ({
                   <Label>Evolution Speed: {evolutionSpeed}x</Label>
                   <Slider
                     value={[evolutionSpeed]}
-                    onValueChange={([value]) => setEvolutionSpeed(value)}
+                    onValueChange={([value]) => {
+                      if (value !== undefined) {
+                        setEvolutionSpeed(value);
+                      }
+                    }}
                     max={10}
                     min={0.1}
                     step={0.1}
@@ -895,7 +925,9 @@ const WorkflowDNABlock: React.FC<WorkflowDNABlockProps> = ({
                   <Slider
                     value={[currentExperiment?.selection_pressure || 0.8]}
                     onValueChange={([value]) => {
-                      updateExperimentParameters({ selection_pressure: value });
+                      if (value !== undefined) {
+                        updateExperimentParameters({ selection_pressure: value });
+                      }
                     }}
                     max={1}
                     min={0.1}
@@ -909,7 +941,9 @@ const WorkflowDNABlock: React.FC<WorkflowDNABlockProps> = ({
                   <Slider
                     value={[currentExperiment?.population_size || 20]}
                     onValueChange={([value]) => {
-                      updateExperimentParameters({ population_size: value });
+                      if (value !== undefined) {
+                        updateExperimentParameters({ population_size: value });
+                      }
                     }}
                     max={100}
                     min={10}

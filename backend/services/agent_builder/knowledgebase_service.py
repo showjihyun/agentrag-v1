@@ -85,7 +85,8 @@ class KnowledgebaseService:
                 milvus_collection_name=collection_name,
                 embedding_model=kb_data.embedding_model or "jhgan/ko-sroberta-multitask",
                 chunk_size=kb_data.chunk_size,
-                chunk_overlap=kb_data.chunk_overlap
+                chunk_overlap=kb_data.chunk_overlap,
+                kg_enabled=getattr(kb_data, 'kg_enabled', False)
             )
             
             self.db.add(kb)
@@ -156,6 +157,9 @@ class KnowledgebaseService:
             
             if kb_data.chunk_overlap is not None:
                 kb.chunk_overlap = kb_data.chunk_overlap
+            
+            if hasattr(kb_data, 'kg_enabled') and kb_data.kg_enabled is not None:
+                kb.kg_enabled = kb_data.kg_enabled
             
             kb.updated_at = datetime.utcnow()
             

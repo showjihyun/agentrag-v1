@@ -27,7 +27,7 @@ import {
   Star,
   Activity,
   Lightbulb,
-  Compare,
+  GitCompare,
   History,
   Gauge
 } from 'lucide-react';
@@ -454,24 +454,24 @@ const WorkflowOptimizationBlock: React.FC<WorkflowOptimizationBlockProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <div className="text-center p-4 bg-green-50 rounded-lg">
                 <Clock className="w-8 h-8 mx-auto mb-2 text-green-600" />
-                <div className={`text-2xl font-bold ${getImprovementColor(optimizationResult.predicted_improvement.execution_time)}`}>
-                  {optimizationResult.predicted_improvement.execution_time > 0 ? '+' : ''}{optimizationResult.predicted_improvement.execution_time.toFixed(1)}%
+                <div className={`text-2xl font-bold ${getImprovementColor(optimizationResult.predicted_improvement.execution_time || 0)}`}>
+                  {(optimizationResult.predicted_improvement.execution_time || 0) > 0 ? '+' : ''}{(optimizationResult.predicted_improvement.execution_time || 0).toFixed(1)}%
                 </div>
                 <div className="text-sm text-green-700">시간 개선</div>
               </div>
               
               <div className="text-center p-4 bg-blue-50 rounded-lg">
                 <DollarSign className="w-8 h-8 mx-auto mb-2 text-blue-600" />
-                <div className={`text-2xl font-bold ${getImprovementColor(optimizationResult.predicted_improvement.cost)}`}>
-                  {optimizationResult.predicted_improvement.cost > 0 ? '+' : ''}{optimizationResult.predicted_improvement.cost.toFixed(1)}%
+                <div className={`text-2xl font-bold ${getImprovementColor(optimizationResult.predicted_improvement.cost || 0)}`}>
+                  {(optimizationResult.predicted_improvement.cost || 0) > 0 ? '+' : ''}{(optimizationResult.predicted_improvement.cost || 0).toFixed(1)}%
                 </div>
                 <div className="text-sm text-blue-700">비용 개선</div>
               </div>
               
               <div className="text-center p-4 bg-purple-50 rounded-lg">
                 <Star className="w-8 h-8 mx-auto mb-2 text-purple-600" />
-                <div className={`text-2xl font-bold ${getImprovementColor(optimizationResult.predicted_improvement.quality)}`}>
-                  {optimizationResult.predicted_improvement.quality > 0 ? '+' : ''}{optimizationResult.predicted_improvement.quality.toFixed(1)}%
+                <div className={`text-2xl font-bold ${getImprovementColor(optimizationResult.predicted_improvement.quality || 0)}`}>
+                  {(optimizationResult.predicted_improvement.quality || 0) > 0 ? '+' : ''}{(optimizationResult.predicted_improvement.quality || 0).toFixed(1)}%
                 </div>
                 <div className="text-sm text-purple-700">품질 개선</div>
               </div>
@@ -499,7 +499,7 @@ const WorkflowOptimizationBlock: React.FC<WorkflowOptimizationBlockProps> = ({
                   <span className="font-medium">비용 절약:</span> ${optimizationResult.estimated_savings.cost_dollars?.toFixed(3)}
                 </div>
                 <div>
-                  <span className="font-medium">품질 향상:</span> {(optimizationResult.estimated_savings.quality_improvement * 100)?.toFixed(1)}%
+                  <span className="font-medium">품질 향상:</span> {((optimizationResult.estimated_savings.quality_improvement || 0) * 100).toFixed(1)}%
                 </div>
               </div>
 

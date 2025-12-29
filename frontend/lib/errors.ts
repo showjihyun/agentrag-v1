@@ -186,7 +186,7 @@ const ERROR_MESSAGES: Record<string, string> = {
  */
 export function getUserFriendlyMessage(errorCode?: string): string {
   if (!errorCode) return ERROR_MESSAGES.default;
-  return ERROR_MESSAGES[errorCode] || ERROR_MESSAGES.default;
+  return ERROR_MESSAGES[errorCode as keyof typeof ERROR_MESSAGES] || ERROR_MESSAGES.default;
 }
 
 /**

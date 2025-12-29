@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Database, MoreVertical, Edit, Trash, Upload, Search as SearchIcon, History, FileText, Download, Copy, Grid, List, Filter, CheckSquare, Square } from 'lucide-react';
+import { Plus, Database, MoreVertical, Edit, Trash, Upload, Search as SearchIcon, History, FileText, Download, Copy, Grid, List, Filter, CheckSquare, Square, Network, Brain, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { agentBuilderAPI, Knowledgebase, KnowledgebaseCreate } from '@/lib/api/agent-builder';
 import { useRouter } from 'next/navigation';
@@ -31,6 +32,7 @@ export default function KnowledgebaseManagerPage() {
     chunk_size: 500,
     chunk_overlap: 50,
   });
+  const [kgEnabled, setKgEnabled] = useState(false);
   const [saving, setSaving] = useState(false);
   
   // 1. Search functionality
@@ -96,6 +98,7 @@ export default function KnowledgebaseManagerPage() {
       chunk_size: 500,
       chunk_overlap: 50,
     });
+    setKgEnabled(false);
     setCreateDialogOpen(true);
   };
 
@@ -106,6 +109,7 @@ export default function KnowledgebaseManagerPage() {
       description: kb.description || '',
       embedding_model: kb.embedding_model,
     });
+    setKgEnabled(kb.kg_enabled || false);
     setCreateDialogOpen(true);
   };
 
@@ -133,8 +137,9 @@ export default function KnowledgebaseManagerPage() {
       if (editingKb) {
         await agentBuilderAPI.updateKnowledgebase(editingKb.id, {
           name: formData.name,
-          description: formData.description,
-          embedding_model: formData.embedding_model,
+          ...(formData.description && { description: formData.description }),
+          ...(formData.embedding_model && { embedding_model: formData.embedding_model }),
+          kg_enabled: kgEnabled,
         });
         
         const modelChanged = editingKb.embedding_model !== formData.embedding_model;
@@ -145,7 +150,10 @@ export default function KnowledgebaseManagerPage() {
             : `"${formData.name}" has been updated`,
         });
       } else {
-        await agentBuilderAPI.createKnowledgebase(formData);
+        await agentBuilderAPI.createKnowledgebase({
+          ...formData,
+          kg_enabled: kgEnabled,
+        });
         toast({
           title: '✅ Created Successfully',
           description: `"${formData.name}" is ready for documents`,
@@ -201,6 +209,10 @@ export default function KnowledgebaseManagerPage() {
 
   const handleSearch = (kbId: string) => {
     router.push(`/agent-builder/knowledgebases/${kbId}/search`);
+  };
+
+  const handleViewKnowledgeGraph = (kbId: string) => {
+    router.push(`/agent-builder/knowledgebases/${kbId}#knowledge-graph`);
   };
 
   const handleViewVersions = async (kbId: string) => {
@@ -372,6 +384,7 @@ export default function KnowledgebaseManagerPage() {
     total: knowledgebases.length,
     totalDocuments: knowledgebases.reduce((sum, kb) => sum + (kb.document_count || 0), 0),
     totalSize: knowledgebases.reduce((sum, kb) => sum + (kb.total_size || 0), 0),
+    kgEnabled: knowledgebases.filter(kb => kb.kg_enabled).length,
   };
 
   return (
@@ -409,7 +422,7 @@ export default function KnowledgebaseManagerPage() {
 
       {/* Statistics Dashboard */}
       {!loading && knowledgebases.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="pb-4">
               <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -438,6 +451,20 @@ export default function KnowledgebaseManagerPage() {
             </CardHeader>
             <CardContent className="pt-0">
               <div className="text-3xl font-bold">{formatBytes(stats.totalSize)}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-4">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <Network className="h-4 w-4 text-blue-600" />
+                Knowledge Graphs
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="text-3xl font-bold text-blue-600">{stats.kgEnabled}</div>
+              <div className="text-xs text-muted-foreground mt-1">
+                {stats.total > 0 ? Math.round((stats.kgEnabled / stats.total) * 100) : 0}% enabled
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -565,7 +592,7 @@ export default function KnowledgebaseManagerPage() {
               <h3 className="text-xl font-semibold mb-2">Create Your First Knowledgebase</h3>
               <p className="text-sm text-muted-foreground mb-6 max-w-md">
                 Knowledgebases store your documents and make them searchable for AI agents. 
-                Upload PDFs, Word docs, or text files to get started.
+                Upload PDFs, Word docs, or text files to get started. Enable Knowledge Graphs for advanced AI-powered insights.
               </p>
               <div className="flex flex-col gap-3 items-center">
                 <Button onClick={handleCreate} size="lg">
@@ -580,6 +607,10 @@ export default function KnowledgebaseManagerPage() {
                   <div className="flex items-center gap-1">
                     <SearchIcon className="h-4 w-4" />
                     <span>AI-powered search</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Network className="h-4 w-4" />
+                    <span>Knowledge graphs</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <Database className="h-4 w-4" />
@@ -608,6 +639,7 @@ export default function KnowledgebaseManagerPage() {
                   <TableHead>Name</TableHead>
                   <TableHead>Documents</TableHead>
                   <TableHead>Size</TableHead>
+                  <TableHead>Knowledge Graph</TableHead>
                   <TableHead>Embedding Model</TableHead>
                   <TableHead>Created</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -653,6 +685,38 @@ export default function KnowledgebaseManagerPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="py-4">
+                      {kb.kg_enabled ? (
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1">
+                            <Network className="h-4 w-4 text-green-600" />
+                            <span className="text-sm font-medium text-green-700">활성화됨</span>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleViewKnowledgeGraph(kb.id)}
+                            className="h-6 px-2 text-xs"
+                          >
+                            <BarChart3 className="h-3 w-3 mr-1" />
+                            보기
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-muted-foreground">비활성화</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => router.push(`/agent-builder/knowledgebases/${kb.id}#knowledge-graph`)}
+                            className="h-6 px-2 text-xs text-blue-600 hover:text-blue-700"
+                          >
+                            <Brain className="h-3 w-3 mr-1" />
+                            설정
+                          </Button>
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell className="py-4">
                       <code className="text-xs bg-muted px-2.5 py-1.5 rounded font-mono">
                         {kb.embedding_model}
                       </code>
@@ -661,7 +725,7 @@ export default function KnowledgebaseManagerPage() {
                       {formatDate(kb.created_at)}
                     </TableCell>
                     <TableCell className="text-right py-4">
-                      <DropdownMenu modal={false}>
+                      <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon">
                             <MoreVertical className="h-4 w-4" />
@@ -669,8 +733,6 @@ export default function KnowledgebaseManagerPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent 
                           align="end" 
-                          side="bottom"
-                          sideOffset={5}
                           className="w-56 z-[100]"
                           style={{ position: 'relative' }}
                         >
@@ -688,6 +750,15 @@ export default function KnowledgebaseManagerPage() {
                             <SearchIcon className="mr-2 h-4 w-4" />
                             Search
                           </DropdownMenuItem>
+                          {kb.kg_enabled && (
+                            <DropdownMenuItem 
+                              onClick={() => handleViewKnowledgeGraph(kb.id)}
+                              className="cursor-pointer"
+                            >
+                              <Network className="mr-2 h-4 w-4" />
+                              Knowledge Graph
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem 
                             onClick={() => handleViewVersions(kb.id)}
                             className="cursor-pointer"
@@ -780,7 +851,7 @@ export default function KnowledgebaseManagerPage() {
                 )}
               </Label>
               <Select
-                value={formData.embedding_model}
+                value={formData.embedding_model || ""}
                 onValueChange={(value) => setFormData({ ...formData, embedding_model: value })}
               >
                 <SelectTrigger className="h-11">
@@ -852,6 +923,39 @@ export default function KnowledgebaseManagerPage() {
                 </div>
               </div>
             )}
+
+            {/* Knowledge Graph Option */}
+            <div className="space-y-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Network className="h-5 w-5 text-blue-600" />
+                    <Label className="text-sm font-medium">Knowledge Graph</Label>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Enable AI-powered entity and relationship extraction for advanced insights
+                  </p>
+                </div>
+                <Switch
+                  checked={kgEnabled}
+                  onCheckedChange={setKgEnabled}
+                />
+              </div>
+              
+              {kgEnabled && (
+                <div className="space-y-2 pl-7">
+                  <div className="text-xs text-blue-700 bg-blue-100 p-2 rounded">
+                    <strong>Knowledge Graph features:</strong>
+                    <ul className="mt-1 space-y-1">
+                      <li>• Automatic entity extraction (people, organizations, locations)</li>
+                      <li>• Relationship mapping between entities</li>
+                      <li>• Interactive network visualization</li>
+                      <li>• Advanced analytics and insights</li>
+                    </ul>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           <DialogFooter className="gap-2 sm:gap-0">

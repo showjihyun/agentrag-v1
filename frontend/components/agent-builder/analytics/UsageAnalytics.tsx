@@ -22,6 +22,8 @@ export function UsageAnalytics({ agentId, timeRange }: UsageAnalyticsProps) {
   }, [agentId, timeRange]);
 
   const loadData = async () => {
+    if (!agentId) return;
+    
     try {
       const result = await agentBuilderAPI.getUsageAnalytics(agentId, timeRange);
       setData(result);

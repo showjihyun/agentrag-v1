@@ -2,7 +2,8 @@
  * Route and data prefetching utilities
  */
 
-import { queryClient, queryKeys, STALE_TIMES } from '../queryClient';
+import { queryKeys, STALE_TIMES } from '../queryKeys';
+import { queryClient } from '../queryClient';
 
 /**
  * Prefetch strategies
@@ -42,7 +43,8 @@ export function prefetchOnVisible(
   
   const observer = new IntersectionObserver(
     (entries) => {
-      if (entries[0].isIntersecting && !prefetched) {
+      const entry = entries[0];
+      if (entry && entry.isIntersecting && !prefetched) {
         prefetched = true;
         prefetchFn().catch(console.error);
         observer.disconnect();

@@ -26,7 +26,7 @@ export const useOptimistic = <T,>(
   const [isOptimistic, setIsOptimistic] = useState(false);
   const previousDataRef = useRef<T>(initialData);
   const pendingUpdatesRef = useRef<Map<string, OptimisticUpdate<T>>>(new Map());
-  const timeoutRef = useRef<NodeJS.Timeout>();
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Apply optimistic update
   const applyOptimistic = useCallback((updateId: string, newData: T) => {

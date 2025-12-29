@@ -157,7 +157,7 @@ export const usePerformanceMonitor = () => {
         name,
         value,
         timestamp: Date.now(),
-        metadata,
+        ...(metadata && { metadata }),
       });
     },
     getMetrics: performanceMonitor.getMetrics.bind(performanceMonitor),

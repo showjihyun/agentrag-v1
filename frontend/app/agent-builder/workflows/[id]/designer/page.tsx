@@ -342,7 +342,7 @@ export default function WorkflowDesignerPage() {
     try {
       // Find the start node as entry point
       const startNode = nodes.find(node => node.type === 'start' || node.type === 'trigger');
-      const entryPoint = startNode?.id || (nodes.length > 0 ? nodes[0].id : '');
+      const entryPoint = startNode?.id || (nodes.length > 0 ? nodes[0]?.id || '' : '');
 
       const response = await fetch(`/api/agent-builder/workflows/${workflowId}`, {
         method: 'PUT',

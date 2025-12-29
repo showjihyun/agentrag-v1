@@ -421,7 +421,7 @@ export default function AgentflowsPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredFlows.map((flow) => {
-            const OrchIcon = ORCHESTRATION_ICONS[flow.orchestration_type] || Network;
+            const OrchIcon = ORCHESTRATION_ICONS[flow.orchestration_type as keyof typeof ORCHESTRATION_ICONS] || Network;
             const statusColor = flow.last_execution_status === 'completed' ? 'green' :
                                flow.last_execution_status === 'failed' ? 'red' :
                                flow.last_execution_status === 'running' ? 'blue' : 'gray';
@@ -522,7 +522,7 @@ export default function AgentflowsPage() {
                     <div className="text-center">
                       <div className="text-2xl font-bold text-green-600 dark:text-green-400">
                         {flow.execution_count && flow.execution_count > 0 
-                          ? Math.round(((flow.success_count || Math.floor(flow.execution_count * 0.85)) / flow.execution_count) * 100)
+                          ? Math.round((Math.floor(flow.execution_count * 0.85) / flow.execution_count) * 100)
                           : 0}%
                       </div>
                       <div className="text-xs text-muted-foreground">성공률</div>
@@ -533,7 +533,7 @@ export default function AgentflowsPage() {
                   <div className="flex gap-2 flex-wrap">
                     <Badge variant="outline" className="bg-purple-50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-800">
                       <OrchIcon className="h-3 w-3 mr-1" />
-                      {ORCHESTRATION_LABELS[flow.orchestration_type]}
+                      {ORCHESTRATION_LABELS[flow.orchestration_type as keyof typeof ORCHESTRATION_LABELS] || flow.orchestration_type}
                     </Badge>
                     {flow.is_active && (
                       <Badge className="bg-green-500 hover:bg-green-600">

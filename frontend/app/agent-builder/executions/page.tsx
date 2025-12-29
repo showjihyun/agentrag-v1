@@ -65,8 +65,8 @@ export default function ExecutionMonitorPage() {
     try {
       const [executionsData, statsData, agentsData] = await Promise.all([
         agentBuilderAPI.getExecutions({
-          status: filterStatus !== 'all' ? filterStatus : undefined,
-          agent_id: filterAgent !== 'all' ? filterAgent : undefined,
+          ...(filterStatus !== 'all' && { status: filterStatus }),
+          ...(filterAgent !== 'all' && { agent_id: filterAgent }),
           time_range: filterTimeRange,
         }),
         agentBuilderAPI.getExecutionStats(),

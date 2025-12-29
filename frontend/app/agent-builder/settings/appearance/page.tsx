@@ -232,7 +232,7 @@ export default function AppearancePage() {
               </div>
               <Slider
                 value={[settings.fontSize]}
-                onValueChange={([value]) => updateSetting('fontSize', value)}
+                onValueChange={([value]) => updateSetting('fontSize', value ?? 14)}
                 min={12}
                 max={20}
                 step={1}
@@ -344,7 +344,7 @@ export default function AppearancePage() {
               </div>
               <Slider
                 value={[settings.editorFontSize]}
-                onValueChange={([value]) => updateSetting('editorFontSize', value)}
+                onValueChange={([value]) => updateSetting('editorFontSize', value ?? 14)}
                 min={10}
                 max={24}
                 step={1}

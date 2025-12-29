@@ -277,7 +277,7 @@ export default function BlockEditor({ blockId, onSave, onCancel }: BlockEditorPr
                           height="200px"
                           language="json"
                           theme="vs-dark"
-                          value={field.value}
+                          value={field.value || ''}
                           onChange={(value) => field.onChange(value || '')}
                           options={{
                             minimap: { enabled: false },
@@ -309,7 +309,7 @@ export default function BlockEditor({ blockId, onSave, onCancel }: BlockEditorPr
                           height="200px"
                           language="json"
                           theme="vs-dark"
-                          value={field.value}
+                          value={field.value || ''}
                           onChange={(value) => field.onChange(value || '')}
                           options={{
                             minimap: { enabled: false },
@@ -349,7 +349,7 @@ export default function BlockEditor({ blockId, onSave, onCancel }: BlockEditorPr
                             height="300px"
                             language="python"
                             theme="vs-dark"
-                            value={field.value}
+                            value={field.value || ''}
                             onChange={(value) => field.onChange(value || '')}
                             options={{
                               minimap: { enabled: false },
@@ -382,7 +382,7 @@ export default function BlockEditor({ blockId, onSave, onCancel }: BlockEditorPr
                           height="150px"
                           language="json"
                           theme="vs-dark"
-                          value={field.value}
+                          value={field.value || ''}
                           onChange={(value) => field.onChange(value || '')}
                           options={{
                             minimap: { enabled: false },

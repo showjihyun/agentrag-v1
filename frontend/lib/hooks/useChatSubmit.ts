@@ -64,12 +64,15 @@ export function useChatSubmit({ mode, onNewMessage, onLoadingStageChange, onSucc
             pathSource = responseChunk.path_source;
             
             // Update message in real-time for streaming effect
-            updateMessage(assistantMessageId, {
+            const updateData: any = {
               content: finalResponse,
               responseType: 'refinement',
-              pathSource,
               isRefining: true,
-            });
+            };
+            if (pathSource !== undefined) {
+              updateData.pathSource = pathSource;
+            }
+            updateMessage(assistantMessageId, updateData);
           }
         }
         // Handle complete response chunks
@@ -104,18 +107,29 @@ export function useChatSubmit({ mode, onNewMessage, onLoadingStageChange, onSucc
             reasoningSteps.push(...responseChunk.reasoning_steps);
           }
           
-          updateMessage(assistantMessageId, {
+          const updateData: any = {
             content: finalResponse,
-            responseType,
-            pathSource,
-            confidenceScore,
             isRefining: responseType === 'preliminary' || responseType === 'refinement',
             sources: sources.filter((s, i, arr) => 
               arr.findIndex(t => t.chunk_id === s.chunk_id) === i
             ),
             reasoningSteps: [...reasoningSteps],
-            previousContent: previousContent || undefined,
-          });
+          };
+          
+          if (responseType !== undefined) {
+            updateData.responseType = responseType;
+          }
+          if (pathSource !== undefined) {
+            updateData.pathSource = pathSource;
+          }
+          if (confidenceScore !== undefined) {
+            updateData.confidenceScore = confidenceScore;
+          }
+          if (previousContent !== undefined) {
+            updateData.previousContent = previousContent;
+          }
+          
+          updateMessage(assistantMessageId, updateData);
         } else if (chunk.type === 'step') {
           const step = chunk.data as AgentStep;
           reasoningSteps.push(step);
@@ -138,17 +152,24 @@ export function useChatSubmit({ mode, onNewMessage, onLoadingStageChange, onSucc
         }
       }
 
-      updateMessage(assistantMessageId, {
+      const finalUpdateData: any = {
         content: finalResponse || 'No response generated',
         responseType: responseType || 'final',
-        pathSource,
-        confidenceScore,
         isRefining: false,
         reasoningSteps,
         sources: sources.filter((s, i, arr) => 
           arr.findIndex(t => t.chunk_id === s.chunk_id) === i
         ),
-      });
+      };
+      
+      if (pathSource !== undefined) {
+        finalUpdateData.pathSource = pathSource;
+      }
+      if (confidenceScore !== undefined) {
+        finalUpdateData.confidenceScore = confidenceScore;
+      }
+      
+      updateMessage(assistantMessageId, finalUpdateData);
 
       if (finalResponse) {
         const endTime = Date.now();

@@ -1,6 +1,17 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { Agent, Block, Workflow } from '@/lib/api/agent-builder';
+import type { Agent, Block } from '@/lib/api/agent-builder';
+
+// Define Workflow type locally since it's not exported from agent-builder
+interface Workflow {
+  id: string;
+  name: string;
+  description?: string;
+  nodes: any[];
+  edges: any[];
+  createdAt: string;
+  updatedAt: string;
+}
 
 interface AgentBuilderState {
   // UI State

@@ -65,11 +65,11 @@ const providerIdMap: Record<string, string> = {
 const agentFormSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100),
   description: z.string().optional(),
-  agent_type: z.string().default('custom'),
-  llm_provider: z.string().min(1, 'LLM provider is required').default('ollama'),
-  llm_model: z.string().min(1, 'LLM model is required').default('llama3.1'),
+  agent_type: z.string().min(1, 'Agent type is required'),
+  llm_provider: z.string().min(1, 'LLM provider is required'),
+  llm_model: z.string().min(1, 'LLM model is required'),
   prompt_template: z.string().optional(),
-  tool_ids: z.array(z.string()).optional().default([]),
+  tool_ids: z.array(z.string()),
 });
 
 type AgentFormValues = z.infer<typeof agentFormSchema>;
@@ -110,10 +110,11 @@ const STEPS = [
 interface AgentWizardProps {
   agentId?: string;
   initialData?: any;
+  templateData?: any;
   mode?: 'create' | 'edit';
 }
 
-export function AgentWizard({ agentId, initialData, mode = 'create' }: AgentWizardProps = {}) {
+export function AgentWizard({ agentId, initialData, templateData, mode = 'create' }: AgentWizardProps = {}) {
   const router = useRouter();
   const { toast } = useToast();
   const [currentStep, setCurrentStep] = React.useState(1);
@@ -157,8 +158,9 @@ export function AgentWizard({ agentId, initialData, mode = 'create' }: AgentWiza
     }
   }, [llmConfig?.ollama?.enabled, llmConfig?.ollama?.baseUrl]);
 
-  // Get default provider/model from LLM config
+  // Get default provider/model from template, initialData, or LLM config
   const getDefaultProvider = () => {
+    if (templateData?.configuration?.llm_provider) return templateData.configuration.llm_provider;
     if (initialData?.llm_provider) return initialData.llm_provider;
     if (llmConfig?.defaultProvider) {
       // Map 'anthropic' to 'claude' for consistency with LLM_PROVIDERS
@@ -168,21 +170,34 @@ export function AgentWizard({ agentId, initialData, mode = 'create' }: AgentWiza
   };
 
   const getDefaultModel = () => {
+    if (templateData?.configuration?.llm_model) return templateData.configuration.llm_model;
     if (initialData?.llm_model) return initialData.llm_model;
     if (llmConfig?.defaultModel) return llmConfig.defaultModel;
     return 'llama3.1';
   };
 
+  const getDefaultPrompt = () => {
+    if (templateData?.configuration?.system_prompt) return templateData.configuration.system_prompt;
+    if (initialData?.prompt_template) return initialData.prompt_template;
+    return '';
+  };
+
+  const getDefaultTools = () => {
+    if (templateData?.tools) return templateData.tools;
+    if (initialData?.tools) return initialData.tools.map((t: any) => t.id || t.tool_id);
+    return [];
+  };
+
   const form = useForm<AgentFormValues>({
     resolver: zodResolver(agentFormSchema),
     defaultValues: {
-      name: initialData?.name || '',
-      description: initialData?.description || '',
+      name: templateData?.name || initialData?.name || '',
+      description: templateData?.description || initialData?.description || '',
       agent_type: initialData?.agent_type || 'custom',
       llm_provider: getDefaultProvider(),
       llm_model: getDefaultModel(),
-      prompt_template: initialData?.prompt_template || '',
-      tool_ids: initialData?.tools?.map((t: any) => t.id || t.tool_id) || [],
+      prompt_template: getDefaultPrompt(),
+      tool_ids: getDefaultTools(),
     },
   });
 
@@ -299,14 +314,14 @@ export function AgentWizard({ agentId, initialData, mode = 'create' }: AgentWiza
 
       const agentData: AgentCreate = {
         name: data.name,
-        description: data.description,
         agent_type: data.agent_type,
         llm_provider: data.llm_provider,
         llm_model: data.llm_model,
-        prompt_template: data.prompt_template,
+        ...(data.description && { description: data.description }),
+        ...(data.prompt_template && { prompt_template: data.prompt_template }),
         // Send tool configurations if available, otherwise fall back to tool_ids
-        tools: toolConfigurations.length > 0 ? toolConfigurations : undefined,
-        tool_ids: data.tool_ids && data.tool_ids.length > 0 ? data.tool_ids : undefined,
+        ...(toolConfigurations.length > 0 && { tools: toolConfigurations }),
+        ...(data.tool_ids && data.tool_ids.length > 0 && { tool_ids: data.tool_ids }),
       };
 
       if (mode === 'edit' && agentId) {
@@ -505,7 +520,7 @@ export function AgentWizard({ agentId, initialData, mode = 'create' }: AgentWiza
                     const models = value === 'ollama' && ollamaModels.length > 0
                       ? ollamaModels
                       : getModelsForProvider(value).map(m => m.id);
-                    if (models.length > 0) {
+                    if (models.length > 0 && models[0]) {
                       form.setValue('llm_model', models[0]);
                     }
                   }} value={field.value}>
@@ -883,7 +898,7 @@ export function AgentWizard({ agentId, initialData, mode = 'create' }: AgentWiza
                     Step {currentStep} of {STEPS.length}
                   </h3>
                   <p className="text-sm text-muted-foreground">
-                    {STEPS[currentStep - 1].title}
+                    {STEPS[currentStep - 1]?.title}
                   </p>
                 </div>
                 {draftSaved && (
@@ -934,8 +949,8 @@ export function AgentWizard({ agentId, initialData, mode = 'create' }: AgentWiza
         {/* Step Content */}
         <Card>
           <CardHeader>
-            <CardTitle>{STEPS[currentStep - 1].title}</CardTitle>
-            <CardDescription>{STEPS[currentStep - 1].description}</CardDescription>
+            <CardTitle>{STEPS[currentStep - 1]?.title}</CardTitle>
+            <CardDescription>{STEPS[currentStep - 1]?.description}</CardDescription>
           </CardHeader>
           <CardContent>{renderStepContent()}</CardContent>
         </Card>

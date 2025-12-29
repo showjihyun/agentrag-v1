@@ -377,7 +377,7 @@ export default function EditChatflowPage({ params }: { params: Promise<{ id: str
                 <Label>Temperature: {formData.temperature}</Label>
                 <Slider
                   value={[formData.temperature]}
-                  onValueChange={([v]) => setFormData({ ...formData, temperature: v })}
+                  onValueChange={([v]) => setFormData({ ...formData, temperature: v ?? 0.7 })}
                   min={0}
                   max={2}
                   step={0.1}

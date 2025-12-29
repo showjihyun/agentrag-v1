@@ -89,14 +89,25 @@ class AgentCommandHandler:
     
     def handle_create(self, command: CreateAgentCommand) -> AgentAggregate:
         """Handle CreateAgentCommand."""
+        # Prepare configuration
+        configuration = command.configuration.copy() if command.configuration else {}
+        
+        # Add system prompt to configuration if provided
+        if command.system_prompt:
+            configuration["system_prompt"] = command.system_prompt
+        
         aggregate = AgentAggregate.create(
             user_id=UUID(command.user_id),
             name=command.name,
             agent_type=AgentType(command.agent_type),
             description=command.description,
-            system_prompt=command.system_prompt,
-            model_config=command.model_config,
-            tools=command.tools,
+            template_id=command.template_id,
+            llm_provider=command.llm_provider or "openai",
+            llm_model=command.llm_model or "gpt-3.5-turbo",
+            prompt_template=command.system_prompt,  # Use system_prompt as prompt_template
+            configuration=configuration,
+            tool_ids=command.tool_ids,
+            knowledgebase_ids=command.knowledgebase_ids,
             is_public=command.is_public,
         )
         
@@ -109,12 +120,17 @@ class AgentCommandHandler:
         if not aggregate:
             return None
         
+        # Prepare configuration
+        configuration = {}
+        if command.system_prompt:
+            configuration["system_prompt"] = command.system_prompt
+        
         aggregate.update(
             user_id=UUID(command.user_id),
             name=command.name,
             description=command.description,
-            system_prompt=command.system_prompt,
-            model_config=command.model_config,
+            prompt_template=command.system_prompt,  # Use system_prompt as prompt_template
+            configuration=configuration,
             is_public=command.is_public,
         )
         

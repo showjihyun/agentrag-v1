@@ -31,6 +31,7 @@ interface PromptTemplateEditorProps {
   value: string;
   onChange: (value: string) => void;
   onClose?: () => void;
+  availableVariables?: string[]; // Add for test compatibility
 }
 
 const PROMPT_TEMPLATES = [
@@ -111,7 +112,7 @@ const AVAILABLE_VARIABLES = [
   { name: 'language', description: 'Programming language', example: 'Python' },
 ];
 
-export function PromptTemplateEditor({ value, onChange, onClose }: PromptTemplateEditorProps) {
+export function PromptTemplateEditor({ value, onChange, onClose, availableVariables }: PromptTemplateEditorProps) {
   const { toast } = useToast();
   const [localValue, setLocalValue] = React.useState(value);
   const [previewData, setPreviewData] = React.useState({

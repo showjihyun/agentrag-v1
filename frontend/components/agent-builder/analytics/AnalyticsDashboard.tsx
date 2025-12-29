@@ -44,6 +44,8 @@ export function AnalyticsDashboard({ agentId, timeRange = '30d' }: AnalyticsDash
   }, [agentId, timeRange]);
 
   const loadOverview = async () => {
+    if (!agentId) return;
+    
     try {
       setLoading(true);
       const data = await agentBuilderAPI.getAnalyticsOverview(agentId, timeRange);
@@ -153,15 +155,15 @@ export function AnalyticsDashboard({ agentId, timeRange = '30d' }: AnalyticsDash
             </TabsList>
 
             <TabsContent value="performance">
-              <PerformanceAnalytics agentId={agentId} timeRange={timeRange} />
+              <PerformanceAnalytics {...(agentId && { agentId })} timeRange={timeRange} />
             </TabsContent>
 
             <TabsContent value="usage">
-              <UsageAnalytics agentId={agentId} timeRange={timeRange} />
+              <UsageAnalytics {...(agentId && { agentId })} timeRange={timeRange} />
             </TabsContent>
 
             <TabsContent value="quality">
-              <QualityAnalytics agentId={agentId} timeRange={timeRange} />
+              <QualityAnalytics {...(agentId && { agentId })} timeRange={timeRange} />
             </TabsContent>
           </Tabs>
         </CardContent>

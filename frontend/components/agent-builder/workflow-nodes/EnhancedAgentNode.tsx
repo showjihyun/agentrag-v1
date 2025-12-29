@@ -173,3 +173,4 @@ const EnhancedAgentNode = ({ data, selected }: NodeProps<EnhancedAgentNodeData>)
 };
 
 export default memo(EnhancedAgentNode);
+export { EnhancedAgentNode };

@@ -237,8 +237,8 @@ export default function EnvironmentVariablesPage() {
         
         return {
           id: `imported-${Date.now()}-${index}`,
-          key: key.trim(),
-          value: value.trim(),
+          key: (key || '').trim(),
+          value: (value || '').trim(),
           description: commentParts.join('#').trim(),
           isSecret: false,
           isNew: true,

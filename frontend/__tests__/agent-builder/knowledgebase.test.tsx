@@ -3,17 +3,6 @@ import '@testing-library/jest-dom';
 import DocumentUpload from '@/components/agent-builder/DocumentUpload';
 import KnowledgebaseSearch from '@/components/agent-builder/KnowledgebaseSearch';
 import { agentBuilderAPI } from '@/lib/api/agent-builder';
-import { it } from 'zod/v4/locales';
-import { it } from 'zod/v4/locales';
-import { it } from 'zod/v4/locales';
-import { beforeEach } from 'node:test';
-import { describe } from 'node:test';
-import { it } from 'zod/v4/locales';
-import { it } from 'zod/v4/locales';
-import { it } from 'zod/v4/locales';
-import { beforeEach } from 'node:test';
-import { describe } from 'node:test';
-import { describe } from 'node:test';
 
 // Mock the API
 jest.mock('@/lib/api/agent-builder');
@@ -107,13 +96,17 @@ describe('Knowledgebase Components', () => {
     it('performs search and displays results', async () => {
       const mockResults = [
         {
+          chunk_id: 'chunk-1',
           document_id: 'doc-1',
+          text: 'Test content from document',
           content: 'Test content from document',
           score: 0.95,
           metadata: { filename: 'test.pdf' },
         },
         {
+          chunk_id: 'chunk-2',
           document_id: 'doc-2',
+          text: 'Another relevant result',
           content: 'Another relevant result',
           score: 0.85,
           metadata: { filename: 'doc2.pdf' },

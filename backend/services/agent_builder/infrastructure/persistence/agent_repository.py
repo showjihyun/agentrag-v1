@@ -35,28 +35,30 @@ class AgentRepositoryImpl(AgentRepositoryInterface):
         db_agent = self.db.query(Agent).filter(Agent.id == agent.id).first()
         
         if db_agent:
+            # Update existing
             db_agent.name = agent.name
             db_agent.description = agent.description
             db_agent.agent_type = agent.agent_type.value
-            db_agent.system_prompt = agent.system_prompt
-            db_agent.model_config = agent.model_config.to_dict() if agent.model_config else {}
-            db_agent.tools = agent.tools
+            db_agent.llm_provider = agent.llm_provider if hasattr(agent, 'llm_provider') else agent.config.llm_settings.provider.value
+            db_agent.llm_model = agent.llm_model if hasattr(agent, 'llm_model') else agent.config.llm_settings.model
+            db_agent.configuration = agent.config.to_dict() if agent.config else {}
             db_agent.is_public = agent.is_public
-            db_agent.status = agent.status.value
             db_agent.updated_at = agent.updated_at
             db_agent.deleted_at = agent.deleted_at
         else:
+            # Create new - map domain entity fields to database model fields
+            configuration = agent.config.to_dict() if agent.config else {}
+            
             db_agent = Agent(
                 id=agent.id,
                 user_id=agent.user_id,
                 name=agent.name,
                 description=agent.description,
                 agent_type=agent.agent_type.value,
-                system_prompt=agent.system_prompt,
-                model_config=agent.model_config.to_dict() if agent.model_config else {},
-                tools=agent.tools,
+                llm_provider=agent.llm_provider if hasattr(agent, 'llm_provider') else agent.config.llm_settings.provider.value,
+                llm_model=agent.llm_model if hasattr(agent, 'llm_model') else agent.config.llm_settings.model,
+                configuration=configuration,
                 is_public=agent.is_public,
-                status=agent.status.value,
             )
             self.db.add(db_agent)
         

@@ -19,7 +19,7 @@ export const usePrefetch = (
   options: UsePrefetchOptions = {}
 ) => {
   const queryClient = useQueryClient();
-  const timeoutRef = useRef<NodeJS.Timeout>();
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { enabled = true, delay = 0, priority = 'low' } = options;
 
   const prefetch = useCallback(() => {

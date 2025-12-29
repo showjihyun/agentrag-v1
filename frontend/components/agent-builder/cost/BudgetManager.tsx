@@ -37,6 +37,15 @@ export function BudgetManager({
   const remaining = Math.max(0, budgetValue - currentCost);
 
   const handleSave = async () => {
+    if (!agentId) {
+      toast({
+        title: 'Error',
+        description: 'Agent ID is required',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setSaving(true);
     try {
       await agentBuilderAPI.updateBudgetSettings(agentId, {

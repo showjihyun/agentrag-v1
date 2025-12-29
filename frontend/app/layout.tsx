@@ -1,29 +1,23 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
-import './globals.css';
 import { Providers } from './providers';
+// import { PerformanceMonitor } from '@/components/PerformanceMonitor';
+import './globals.css';
 
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Workflow Platform - Visual AI Agent Builder',
-  description: 'Create, manage, and execute AI workflows with drag-and-drop simplicity. Build custom agents, automate tasks, and integrate with 50+ tools.',
-  manifest: '/manifest.json',
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'default',
-    title: 'Workflow Platform',
-  },
-  formatDetection: {
-    telephone: false,
-  },
+  title: 'AgenticRAG - AI Workflow Platform',
+  description: 'Visual AI Agent Builder for creating sophisticated AI workflows',
+  keywords: ['AI', 'workflow', 'automation', 'agent', 'builder'],
+  authors: [{ name: 'AgenticRAG Team' }],
+  robots: 'index, follow',
 };
 
 export const viewport: Viewport = {
-  themeColor: '#3b82f6',
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
+  themeColor: '#000000',
 };
 
 export default function RootLayout({
@@ -32,13 +26,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="ko" suppressHydrationWarning>
       <head>
         <link rel="icon" href="/favicon.ico" />
-        <link rel="apple-touch-icon" href="/icon-192.png" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <link rel="manifest" href="/manifest.json" />
       </head>
       <body className={inter.className}>
-        <Providers>{children}</Providers>
+        <Providers>
+          {children}
+          {/* <PerformanceMonitor /> */}
+        </Providers>
       </body>
     </html>
   );

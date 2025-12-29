@@ -50,10 +50,7 @@ export function initSentry() {
     // Integrations - Sentry v8 uses different API
     integrations: [
       Sentry.browserTracingIntegration({
-        tracePropagationTargets: [
-          'localhost',
-          /^https:\/\/[^/]*\.yourdomain\.com/,
-        ],
+        // Remove tracePropagationTargets as it's not supported in this version
       }),
       Sentry.replayIntegration({
         maskAllText: true,
@@ -145,7 +142,7 @@ export function addBreadcrumb(
 ) {
   Sentry.addBreadcrumb({
     message,
-    data,
+    data: data || {},
     category: category || 'custom',
     level: 'info',
   });

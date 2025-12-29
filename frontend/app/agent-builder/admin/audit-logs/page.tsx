@@ -58,7 +58,7 @@ export default function AuditLogsPage() {
         params.user_id = userFilter;
       }
       
-      const response = await agentBuilderApi.getAuditLogs(params);
+      const response = await agentBuilderAPI.getAuditLogs(params);
       
       setLogs(response.logs);
       setTotalPages(response.total_pages);
@@ -90,7 +90,7 @@ export default function AuditLogsPage() {
         params.user_id = userFilter;
       }
       
-      const blob = await agentBuilderApi.exportAuditLogs(format, params);
+      const blob = await agentBuilderAPI.exportAuditLogs(format, params);
       
       // Create download link
       const url = window.URL.createObjectURL(blob);

@@ -63,7 +63,7 @@ function Phase6WorkflowCanvasInner({
 
   // Custom hooks
   const history = useWorkflowHistory(50);
-  const { isExecuting, execute, stop, reset, debugger } = useWorkflowExecution({
+  const { isExecuting, execute, stop, reset, debugger: workflowDebugger } = useWorkflowExecution({
     nodes,
     setNodes,
     setEdges,
@@ -128,4 +128,162 @@ function Phase6WorkflowCanvasInner({
   const handleRedo = useCallback(() => history.canRedo && history.redo(), [history]);
 
   // Node operations
-  const handleDelete = useCallback((
+  const handleDelete = useCallback((nodeIds: string[]) => {
+    setNodes((nds) => nds.filter((node) => !nodeIds.includes(node.id)));
+    setEdges((eds) => eds.filter((edge) => 
+      !nodeIds.includes(edge.source) && !nodeIds.includes(edge.target)
+    ));
+  }, [setNodes, setEdges]);
+
+  // Workflow metrics
+  const workflowMetrics = useMemo(() => calculateNodeMetrics(nodes), [nodes]);
+
+  return (
+    <div className="h-full flex flex-col">
+      <WorkflowErrorBoundary>
+        <KeyboardShortcuts
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          onSave={handleSave}
+          onExecute={execute}
+          onStop={stop}
+        />
+        
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as WorkflowTabValue)} className="flex-1 flex flex-col">
+          <div className="border-b px-4 py-2">
+            <TabsList className="grid w-full grid-cols-5">
+              <TabsTrigger value="canvas">Canvas</TabsTrigger>
+              <TabsTrigger value="debug">
+                <Bug className="w-4 h-4 mr-2" />
+                Debug
+              </TabsTrigger>
+              <TabsTrigger value="performance">
+                <Activity className="w-4 h-4 mr-2" />
+                Performance
+              </TabsTrigger>
+              <TabsTrigger value="settings">
+                <Settings className="w-4 h-4 mr-2" />
+                Settings
+              </TabsTrigger>
+              <TabsTrigger value="ai">
+                <Sparkles className="w-4 h-4 mr-2" />
+                AI Assistant
+              </TabsTrigger>
+            </TabsList>
+          </div>
+
+          <TabsContent value="canvas" className="flex-1 m-0">
+            <div className="h-full relative">
+              <ReactFlow
+                nodes={filteredNodes}
+                edges={edges}
+                onNodesChange={handleNodesChange}
+                onEdgesChange={handleEdgesChange}
+                onConnect={onConnect}
+                nodeTypes={nodeTypes}
+                edgeTypes={edgeTypes}
+                fitView
+                attributionPosition="bottom-left"
+                className="bg-background"
+              >
+                <Background />
+                <Controls />
+                <MiniMap
+                  nodeColor={getMinimapNodeColor}
+                  className="bg-background border border-border"
+                />
+                
+                <Panel position="top-left">
+                  <WorkflowToolbar
+                    isExecuting={isExecuting}
+                    onExecute={execute}
+                    onStop={stop}
+                    onReset={reset}
+                    onSave={handleSave}
+                    isSaving={isSaving}
+                    canUndo={history.canUndo}
+                    canRedo={history.canRedo}
+                    onUndo={handleUndo}
+                    onRedo={handleRedo}
+                    selectedNodes={selectedNodes}
+                    onDelete={handleDelete}
+                  />
+                </Panel>
+
+                <Panel position="top-right">
+                  <Card className="w-64">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm">Workflow Metrics</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      <div className="flex justify-between text-xs">
+                        <span>Nodes:</span>
+                        <span>{workflowMetrics.totalNodes}</span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span>Connections:</span>
+                        <span>{workflowMetrics.totalEdges}</span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span>Complexity:</span>
+                        <span>{workflowMetrics.complexity}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Panel>
+              </ReactFlow>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="debug" className="flex-1 m-0">
+            <DebugPanel
+              debugger={workflowDebugger}
+              nodes={nodes}
+              edges={edges}
+              onNodesChange={setNodes}
+            />
+          </TabsContent>
+
+          <TabsContent value="performance" className="flex-1 m-0">
+            <PerformanceProfiler
+              debugger={workflowDebugger}
+              nodes={nodes}
+            />
+          </TabsContent>
+
+          <TabsContent value="settings" className="flex-1 m-0">
+            <div className="p-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Workflow Settings</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground">Settings panel coming soon...</p>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="ai" className="flex-1 m-0">
+            <AIAssistantPanelImproved
+              workflowId={workflowId}
+              nodes={nodes}
+              edges={edges}
+              selectedNodes={selectedNodes}
+              onNodesChange={setNodes}
+              onEdgesChange={setEdges}
+            />
+          </TabsContent>
+        </Tabs>
+      </WorkflowErrorBoundary>
+    </div>
+  );
+}
+
+export function Phase6WorkflowCanvas(props: WorkflowCanvasProps) {
+  return (
+    <ReactFlowProvider>
+      <Phase6WorkflowCanvasInner {...props} />
+    </ReactFlowProvider>
+  );
+}

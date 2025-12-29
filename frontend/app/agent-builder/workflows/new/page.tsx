@@ -581,7 +581,7 @@ export default function NewWorkflowPage() {
       
       // Find the start node as entry point
       const startNode = convertedNodes.find(node => node.type === 'start' || node.type === 'trigger');
-      const entryPoint = startNode?.id || (convertedNodes.length > 0 ? convertedNodes[0].id : '');
+      const entryPoint = startNode?.id || (convertedNodes.length > 0 ? convertedNodes[0]?.id || '' : '');
 
       logger.log('💾 Saving with converted IDs:', {
         nodes: convertedNodes.length,

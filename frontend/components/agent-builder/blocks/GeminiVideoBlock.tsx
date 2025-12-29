@@ -273,6 +273,12 @@ export default function GeminiVideoBlock({
         success: false,
         error: error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.',
         analysis_type: analysisType,
+        video_analysis: {
+          analysis_text: '',
+          video_file_info: null,
+          processing_method: '',
+          usage: null
+        },
         processing_time_seconds: 0
       };
       setResult(errorResult);

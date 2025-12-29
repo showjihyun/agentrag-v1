@@ -411,6 +411,9 @@ class KnowledgebaseCreate(BaseModel):
     chunk_overlap: int = Field(
         default=50, ge=0, le=500, description="Chunk overlap"
     )
+    kg_enabled: Optional[bool] = Field(
+        default=False, description="Enable Knowledge Graph features"
+    )
 
 
 class KnowledgebaseUpdate(BaseModel):
@@ -421,6 +424,7 @@ class KnowledgebaseUpdate(BaseModel):
     embedding_model: Optional[str] = None
     chunk_size: Optional[int] = Field(None, ge=100, le=2000)
     chunk_overlap: Optional[int] = Field(None, ge=0, le=500)
+    kg_enabled: Optional[bool] = Field(None, description="Enable Knowledge Graph features")
 
 
 class KnowledgebaseResponse(BaseModel):
@@ -434,10 +438,12 @@ class KnowledgebaseResponse(BaseModel):
     embedding_model: str
     chunk_size: int
     chunk_overlap: int
+    kg_enabled: Optional[bool] = Field(default=False)
     created_at: datetime
     updated_at: Optional[datetime]
     
     document_count: int = Field(default=0)
+    total_size: int = Field(default=0)
     
     model_config = ConfigDict(from_attributes=True)
 
@@ -1101,3 +1107,183 @@ class APIKeyTestResponse(BaseModel):
     message: str
     service_name: str
     details: Optional[Dict[str, Any]] = None
+
+
+# ============================================================================
+# Knowledge Graph Schemas
+# ============================================================================
+
+class KnowledgeGraphCreateRequest(BaseModel):
+    """Schema for creating a knowledge graph."""
+    
+    knowledgebase_id: str = Field(..., description="Knowledgebase ID")
+    name: str = Field(..., min_length=1, max_length=255, description="Knowledge graph name")
+    description: Optional[str] = Field(None, description="Knowledge graph description")
+    auto_extraction_enabled: bool = Field(default=True, description="Enable automatic entity/relationship extraction")
+    entity_extraction_model: str = Field(default="spacy_en_core_web_sm", description="Entity extraction model")
+    relation_extraction_model: str = Field(default="rebel_large", description="Relationship extraction model")
+
+
+class KnowledgeGraphResponse(BaseModel):
+    """Schema for knowledge graph response."""
+    
+    id: str
+    knowledgebase_id: str
+    name: str
+    description: Optional[str]
+    auto_extraction_enabled: bool
+    entity_extraction_model: str
+    relation_extraction_model: str
+    entity_count: int
+    relationship_count: int
+    processing_status: str
+    processing_error: Optional[str]
+    last_processed_at: Optional[datetime]
+    created_at: datetime
+    updated_at: datetime
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
+class KGEntitySearchRequest(BaseModel):
+    """Schema for entity search request."""
+    
+    query: Optional[str] = Field(None, description="Search query")
+    entity_types: Optional[List[str]] = Field(None, description="Filter by entity types")
+    limit: int = Field(default=20, ge=1, le=100, description="Maximum number of results")
+
+
+class KGEntityResponse(BaseModel):
+    """Schema for knowledge graph entity response."""
+    
+    id: str
+    name: str
+    canonical_name: str
+    entity_type: str
+    description: Optional[str]
+    confidence_score: float
+    mention_count: int
+    relationship_count: int
+    properties: Dict[str, Any]
+    aliases: List[str]
+
+
+class KGEntitySearchResponse(BaseModel):
+    """Schema for entity search response."""
+    
+    entities: List[KGEntityResponse]
+    total_count: int
+    query: Optional[str]
+    entity_types: Optional[List[str]]
+
+
+class KGRelationshipSearchRequest(BaseModel):
+    """Schema for relationship search request."""
+    
+    entity_id: Optional[str] = Field(None, description="Filter by entity ID")
+    relation_types: Optional[List[str]] = Field(None, description="Filter by relationship types")
+    limit: int = Field(default=20, ge=1, le=100, description="Maximum number of results")
+
+
+class KGRelationshipResponse(BaseModel):
+    """Schema for knowledge graph relationship response."""
+    
+    id: str
+    relation_type: str
+    relation_label: Optional[str]
+    description: Optional[str]
+    confidence_score: float
+    mention_count: int
+    is_bidirectional: bool
+    properties: Dict[str, Any]
+    source_entity: Dict[str, Any]
+    target_entity: Dict[str, Any]
+    temporal_start: Optional[str]
+    temporal_end: Optional[str]
+
+
+class KGRelationshipSearchResponse(BaseModel):
+    """Schema for relationship search response."""
+    
+    relationships: List[KGRelationshipResponse]
+    total_count: int
+    entity_id: Optional[str]
+    relation_types: Optional[List[str]]
+
+
+class KGPathFindingRequest(BaseModel):
+    """Schema for path finding request."""
+    
+    source_entity_id: str = Field(..., description="Source entity ID")
+    target_entity_id: str = Field(..., description="Target entity ID")
+    max_depth: int = Field(default=3, ge=1, le=5, description="Maximum path depth")
+
+
+class KGPathFindingResponse(BaseModel):
+    """Schema for path finding response."""
+    
+    paths: List[List[Dict[str, Any]]]
+    source_entity_id: str
+    target_entity_id: str
+    max_depth: int
+
+
+class KGSubgraphRequest(BaseModel):
+    """Schema for subgraph request."""
+    
+    entity_ids: List[str] = Field(..., min_items=1, description="Entity IDs to include in subgraph")
+    depth: int = Field(default=1, ge=1, le=3, description="Expansion depth")
+
+
+class KGSubgraphResponse(BaseModel):
+    """Schema for subgraph response."""
+    
+    entities: List[Dict[str, Any]]
+    relationships: List[Dict[str, Any]]
+    entity_ids: List[str]
+    depth: int
+
+
+class KGExtractionJobResponse(BaseModel):
+    """Schema for extraction job response."""
+    
+    id: str
+    knowledge_graph_id: str
+    job_type: str
+    status: str
+    documents_processed: int
+    documents_total: int
+    entities_extracted: int
+    relationships_extracted: int
+    error_message: Optional[str]
+    started_at: Optional[datetime]
+    completed_at: Optional[datetime]
+    estimated_completion: Optional[datetime]
+    created_at: datetime
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
+class KGStatsResponse(BaseModel):
+    """Schema for knowledge graph statistics response."""
+    
+    entity_count: int
+    relationship_count: int
+    entity_types: List[Dict[str, Any]]
+    relationship_types: List[Dict[str, Any]]
+    last_processed_at: Optional[datetime]
+    processing_status: str
+
+
+class EntityTypeResponse(BaseModel):
+    """Schema for entity type response."""
+    
+    value: str
+    label: str
+
+
+class RelationTypeResponse(BaseModel):
+    """Schema for relation type response."""
+    
+    value: str
+    label: str

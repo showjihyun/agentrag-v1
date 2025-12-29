@@ -21,7 +21,7 @@ interface ExecutionMetricsProps {
   executionId: string;
 }
 
-export function ExecutionMetrics({ executionId }: ExecutionMetricsProps) {
+export default function ExecutionMetrics({ executionId }: ExecutionMetricsProps) {
   const [metrics, setMetrics] = useState<ExecutionMetricsType | null>(null);
   const [loading, setLoading] = useState(true);
 

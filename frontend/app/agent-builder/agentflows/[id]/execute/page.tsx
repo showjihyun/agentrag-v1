@@ -39,12 +39,24 @@ interface ExecutionStep {
   error?: string;
 }
 
+interface LocalExecutionStep {
+  id: string;
+  agent_name: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  started_at?: string;
+  completed_at?: string;
+  duration_ms?: number;
+  input?: any;
+  output?: string;
+  error?: string;
+}
+
 interface ExecutionState {
   id?: string;
   status: 'idle' | 'running' | 'completed' | 'failed';
   started_at?: string;
   completed_at?: string;
-  steps: ExecutionStep[];
+  steps: LocalExecutionStep[];
   result?: any;
   error?: string;
 }
@@ -123,11 +135,13 @@ export default function AgentflowExecutePage({ params }: { params: Promise<{ id:
             step.id === stepId 
               ? {
                   ...step,
-                  status: success ? 'completed' : 'failed',
+                  status: (success ? 'completed' : 'failed') as LocalExecutionStep['status'],
                   completed_at: new Date().toISOString(),
                   duration_ms: 2000 + Math.random() * 3000,
-                  output: success ? `${agent.name} 처리 완료` : undefined,
-                  error: success ? undefined : `${agent.name} 처리 중 오류 발생`,
+                  ...(success 
+                    ? { output: `${agent.name} 처리 완료` }
+                    : { error: `${agent.name} 처리 중 오류 발생` }
+                  ),
                 }
               : step
           )
@@ -276,7 +290,7 @@ export default function AgentflowExecutePage({ params }: { params: Promise<{ id:
               )}
               <Button 
                 onClick={handleExecute}
-                disabled={execution.status === 'running'}
+                disabled={execution.status !== 'idle'}
                 className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
               >
                 <Play className="h-4 w-4 mr-2" />

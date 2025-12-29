@@ -8,7 +8,20 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MessageSquare, Send, Trash2, Edit2 } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+
+// Simple date formatting function to replace date-fns
+const formatDistanceToNow = (date: Date): string => {
+  const now = new Date();
+  const diffInMs = now.getTime() - date.getTime();
+  const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+  const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+  const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+
+  if (diffInMinutes < 1) return 'just now';
+  if (diffInMinutes < 60) return `${diffInMinutes} minutes ago`;
+  if (diffInHours < 24) return `${diffInHours} hours ago`;
+  return `${diffInDays} days ago`;
+};
 
 interface Comment {
   id: string;
@@ -126,9 +139,7 @@ export function CommentThread({
                           {comment.author.name}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {formatDistanceToNow(new Date(comment.createdAt), {
-                            addSuffix: true,
-                          })}
+                          {formatDistanceToNow(new Date(comment.createdAt))}
                         </div>
                       </div>
                     </div>

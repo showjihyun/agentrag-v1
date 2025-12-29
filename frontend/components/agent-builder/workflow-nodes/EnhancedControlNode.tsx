@@ -189,3 +189,4 @@ const EnhancedControlNode = ({ data, selected }: NodeProps<EnhancedControlNodeDa
 };
 
 export default memo(EnhancedControlNode);
+export { EnhancedControlNode };

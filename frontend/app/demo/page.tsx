@@ -338,7 +338,7 @@ export default function DemoPage() {
               animate="visible"
               className="mt-6"
             >
-              <LazyMonitoringDashboard />
+              <LazyMonitoringDashboard isAdmin={false} />
             </motion.div>
           )}
         </motion.div>

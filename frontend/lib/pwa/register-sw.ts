@@ -140,7 +140,9 @@ export async function subscribeToPush(): Promise<PushSubscription | null> {
     const registration = await navigator.serviceWorker.ready;
     const subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+      ...(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && {
+        applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+      }),
     });
 
     console.log('[PWA] Push subscription:', subscription);

@@ -9,10 +9,6 @@ import {
   Users,
   Settings,
   Sparkles,
-  GitMerge,
-  Layers,
-  Network,
-  Zap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,41 +26,18 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { flowsAPI } from '@/lib/api/flows';
+import { 
+  ORCHESTRATION_TYPES, 
+  CORE_ORCHESTRATION_TYPES,
+  TRENDS_2025_ORCHESTRATION_TYPES,
+  TRENDS_2026_ORCHESTRATION_TYPES,
+  CATEGORY_COLORS,
+  COMPLEXITY_COLORS,
+  MATURITY_COLORS,
+  type OrchestrationTypeValue 
+} from '@/lib/constants/orchestration';
 
-const ORCHESTRATION_TYPES = [
-  {
-    id: 'sequential',
-    name: '순차 실행',
-    description: '에이전트들이 순서대로 실행됩니다',
-    icon: GitMerge,
-    color: 'text-blue-500',
-    bgColor: 'bg-blue-50 dark:bg-blue-950',
-  },
-  {
-    id: 'parallel',
-    name: '병렬 실행',
-    description: '여러 에이전트가 동시에 실행됩니다',
-    icon: Layers,
-    color: 'text-green-500',
-    bgColor: 'bg-green-50 dark:bg-green-950',
-  },
-  {
-    id: 'hierarchical',
-    name: '계층적 실행',
-    description: '상위 에이전트가 하위 에이전트들을 관리합니다',
-    icon: Network,
-    color: 'text-purple-500',
-    bgColor: 'bg-purple-50 dark:bg-purple-950',
-  },
-  {
-    id: 'adaptive',
-    name: '적응형 실행',
-    description: 'AI가 상황에 따라 실행 방식을 결정합니다',
-    icon: Zap,
-    color: 'text-orange-500',
-    bgColor: 'bg-orange-50 dark:bg-orange-950',
-  },
-];
+// Orchestration types are now imported from constants
 
 const TEMPLATES = [
   {
@@ -113,15 +86,18 @@ export default function NewAgentflowPage() {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    orchestration_type: 'sequential',
+    orchestration_type: 'sequential' as OrchestrationTypeValue,
     supervisor_config: {
       enabled: true,
       llm_provider: 'ollama',
       llm_model: 'llama3.1:8b',
       max_iterations: 10,
-      decision_strategy: 'llm_based',
+      decision_strategy: 'llm_based' as const,
     },
-    graph_definition: {},
+    graph_definition: {
+      nodes: [],
+      edges: []
+    },
     tags: [] as string[],
   });
   
@@ -139,7 +115,7 @@ export default function NewAgentflowPage() {
           ...prev,
           name: template.name,
           description: template.description,
-          orchestration_type: template.orchestration,
+          orchestration_type: template.orchestration as OrchestrationTypeValue,
           tags: template.tags,
         }));
       }
@@ -183,14 +159,12 @@ export default function NewAgentflowPage() {
       ...prev,
       name: template.name,
       description: template.description,
-      orchestration_type: template.orchestration,
+      orchestration_type: template.orchestration as OrchestrationTypeValue,
       tags: template.tags,
     }));
   };
 
-  const selectedOrchestration = ORCHESTRATION_TYPES.find(
-    type => type.id === formData.orchestration_type
-  );
+  const selectedOrchestration = ORCHESTRATION_TYPES[formData.orchestration_type];
 
   return (
     <div className="container mx-auto p-6 max-w-4xl">
@@ -279,52 +253,216 @@ export default function NewAgentflowPage() {
                 에이전트들이 어떻게 협력할지 결정하세요
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {ORCHESTRATION_TYPES.map((type) => {
-                  const Icon = type.icon;
-                  const isSelected = formData.orchestration_type === type.id;
-                  
-                  return (
-                    <Card
-                      key={type.id}
-                      className={`cursor-pointer transition-all border-2 ${
-                        isSelected 
-                          ? 'border-primary shadow-lg' 
-                          : 'border-border hover:border-primary/50'
-                      }`}
-                      onClick={() => setFormData(prev => ({ 
-                        ...prev, 
-                        orchestration_type: type.id 
-                      }))}
-                    >
-                      <CardHeader className="pb-3">
-                        <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded-lg ${type.bgColor}`}>
-                            <Icon className={`h-5 w-5 ${type.color}`} />
+            <CardContent className="space-y-8">
+              {/* Core Patterns */}
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                  <h3 className="text-lg font-semibold">핵심 패턴</h3>
+                  <Badge variant="outline" className="text-xs">안정적</Badge>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {CORE_ORCHESTRATION_TYPES.map((type) => {
+                    const Icon = type.icon;
+                    const isSelected = formData.orchestration_type === type.id;
+                    
+                    return (
+                      <Card
+                        key={type.id}
+                        className={`cursor-pointer transition-all border-2 ${
+                          isSelected 
+                            ? 'border-primary shadow-lg' 
+                            : 'border-border hover:border-primary/50'
+                        }`}
+                        onClick={() => setFormData(prev => ({ 
+                          ...prev, 
+                          orchestration_type: type.id as OrchestrationTypeValue
+                        }))}
+                      >
+                        <CardHeader className="pb-3">
+                          <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-lg bg-blue-50 dark:bg-blue-950`}>
+                              <Icon className={`h-5 w-5 text-blue-500`} />
+                            </div>
+                            <div className="flex-1">
+                              <CardTitle className="text-base">{type.name}</CardTitle>
+                              <CardDescription className="text-sm">
+                                {type.description}
+                              </CardDescription>
+                            </div>
+                            {isSelected && (
+                              <Badge className="bg-primary">선택됨</Badge>
+                            )}
                           </div>
-                          <div>
-                            <CardTitle className="text-base">{type.name}</CardTitle>
-                            <CardDescription className="text-sm">
-                              {type.description}
-                            </CardDescription>
+                        </CardHeader>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 2025 Trends */}
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-3 h-3 rounded-full bg-purple-500"></div>
+                  <h3 className="text-lg font-semibold">2025 트렌드 패턴</h3>
+                  <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700">고급</Badge>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {TRENDS_2025_ORCHESTRATION_TYPES.map((type) => {
+                    const Icon = type.icon;
+                    const isSelected = formData.orchestration_type === type.id;
+                    
+                    return (
+                      <Card
+                        key={type.id}
+                        className={`cursor-pointer transition-all border-2 ${
+                          isSelected 
+                            ? 'border-primary shadow-lg' 
+                            : 'border-border hover:border-primary/50'
+                        }`}
+                        onClick={() => setFormData(prev => ({ 
+                          ...prev, 
+                          orchestration_type: type.id as OrchestrationTypeValue
+                        }))}
+                      >
+                        <CardHeader className="pb-3">
+                          <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-lg bg-purple-50 dark:bg-purple-950`}>
+                              <Icon className={`h-5 w-5 text-purple-500`} />
+                            </div>
+                            <div className="flex-1">
+                              <CardTitle className="text-base">{type.name}</CardTitle>
+                              <CardDescription className="text-sm">
+                                {type.description}
+                              </CardDescription>
+                              <div className="flex gap-1 mt-2">
+                                <Badge variant="secondary" className="text-xs">
+                                  {type.complexity}
+                                </Badge>
+                                <Badge variant="outline" className="text-xs">
+                                  {type.maturity}
+                                </Badge>
+                              </div>
+                            </div>
+                            {isSelected && (
+                              <Badge className="bg-primary">선택됨</Badge>
+                            )}
                           </div>
-                        </div>
-                      </CardHeader>
-                    </Card>
-                  );
-                })}
+                        </CardHeader>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 2026 Trends */}
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
+                  <h3 className="text-lg font-semibold">2026 차세대 패턴</h3>
+                  <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700">실험적</Badge>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {TRENDS_2026_ORCHESTRATION_TYPES.map((type) => {
+                    const Icon = type.icon;
+                    const isSelected = formData.orchestration_type === type.id;
+                    
+                    return (
+                      <Card
+                        key={type.id}
+                        className={`cursor-pointer transition-all border-2 ${
+                          isSelected 
+                            ? 'border-primary shadow-lg' 
+                            : 'border-border hover:border-primary/50'
+                        }`}
+                        onClick={() => setFormData(prev => ({ 
+                          ...prev, 
+                          orchestration_type: type.id as OrchestrationTypeValue
+                        }))}
+                      >
+                        <CardHeader className="pb-3">
+                          <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950`}>
+                              <Icon className={`h-5 w-5 text-emerald-500`} />
+                            </div>
+                            <div className="flex-1">
+                              <CardTitle className="text-base">{type.name}</CardTitle>
+                              <CardDescription className="text-sm">
+                                {type.description}
+                              </CardDescription>
+                              <div className="flex gap-1 mt-2">
+                                <Badge variant="secondary" className="text-xs">
+                                  {type.complexity}
+                                </Badge>
+                                <Badge variant="outline" className="text-xs">
+                                  {type.maturity}
+                                </Badge>
+                              </div>
+                            </div>
+                            {isSelected && (
+                              <Badge className="bg-primary">선택됨</Badge>
+                            )}
+                          </div>
+                        </CardHeader>
+                      </Card>
+                    );
+                  })}
+                </div>
               </div>
 
               {selectedOrchestration && (
                 <div className="mt-6 p-4 rounded-lg bg-muted">
                   <div className="flex items-center gap-2 mb-2">
-                    <selectedOrchestration.icon className={`h-4 w-4 ${selectedOrchestration.color}`} />
+                    <selectedOrchestration.icon className={`h-4 w-4 text-${CATEGORY_COLORS[selectedOrchestration.category]}-500`} />
                     <span className="font-medium">{selectedOrchestration.name} 선택됨</span>
+                    <Badge variant="outline" className="text-xs">
+                      {selectedOrchestration.category === 'core' ? '핵심' : 
+                       selectedOrchestration.category === '2025_trends' ? '2025 트렌드' : '2026 차세대'}
+                    </Badge>
                   </div>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-muted-foreground mb-3">
                     {selectedOrchestration.description}
                   </p>
+                  
+                  {selectedOrchestration.useCases && (
+                    <div className="mb-3">
+                      <p className="text-sm font-medium mb-1">주요 사용 사례:</p>
+                      <div className="flex flex-wrap gap-1">
+                        {selectedOrchestration.useCases.map((useCase, index) => (
+                          <Badge key={index} variant="secondary" className="text-xs">
+                            {useCase}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {selectedOrchestration.benefits && (
+                    <div className="mb-3">
+                      <p className="text-sm font-medium mb-1">주요 장점:</p>
+                      <div className="flex flex-wrap gap-1">
+                        {selectedOrchestration.benefits.map((benefit, index) => (
+                          <Badge key={index} variant="outline" className="text-xs">
+                            {benefit}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {selectedOrchestration.requirements && (
+                    <div>
+                      <p className="text-sm font-medium mb-1">요구사항:</p>
+                      <div className="flex flex-wrap gap-1">
+                        {selectedOrchestration.requirements.map((req, index) => (
+                          <Badge key={index} variant="destructive" className="text-xs">
+                            {req}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>

@@ -4,7 +4,7 @@
  * Provides utilities for React performance optimization
  */
 
-import { useCallback, useRef, useEffect } from 'react';
+import { useCallback, useRef, useEffect, useState } from 'react';
 
 /**
  * Debounce hook for expensive operations
@@ -78,14 +78,16 @@ export function useThrottle<T extends (...args: any[]) => any>(
 export function useIntersectionObserver(
   options: IntersectionObserverInit = {}
 ): [React.RefCallback<Element>, boolean] {
-  const [isIntersecting, setIsIntersecting] = React.useState(false);
-  const [node, setNode] = React.useState<Element | null>(null);
+  const [isIntersecting, setIsIntersecting] = useState(false);
+  const [node, setNode] = useState<Element | null>(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!node) return;
 
     const observer = new IntersectionObserver(([entry]) => {
-      setIsIntersecting(entry.isIntersecting);
+      if (entry) {
+        setIsIntersecting(entry.isIntersecting);
+      }
     }, options);
 
     observer.observe(node);
@@ -105,7 +107,7 @@ export function useIntersectionObserver(
  * @returns Previous value
  */
 export function usePrevious<T>(value: T): T | undefined {
-  const ref = useRef<T>();
+  const ref = useRef<T | undefined>(undefined);
 
   useEffect(() => {
     ref.current = value;

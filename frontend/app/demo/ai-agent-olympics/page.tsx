@@ -128,6 +128,8 @@ const AIAgentOlympicsDemoPage: React.FC = () => {
     
     for (let i = 0; i < steps.length; i++) {
       const step = steps[i];
+      if (!step) continue;
+      
       setExecutionLog(prev => [...prev, `⏳ ${step.message}`]);
       
       // Simulate processing time
@@ -400,7 +402,7 @@ const AIAgentOlympicsDemoPage: React.FC = () => {
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
               {Object.entries(executionResults).map(([key, value]) => (
                 <div key={key} className="text-center p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                  <p className="text-2xl font-bold text-yellow-600">{value}</p>
+                  <p className="text-2xl font-bold text-yellow-600">{String(value)}</p>
                   <p className="text-xs text-gray-600 capitalize">
                     {key.replace(/([A-Z])/g, ' $1').toLowerCase()}
                   </p>

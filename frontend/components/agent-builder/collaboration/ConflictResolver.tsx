@@ -46,7 +46,7 @@ export function ConflictResolver({ conflicts, onResolve, onResolveAll }: Conflic
       // Move to next conflict
       const currentIndex = conflicts.findIndex((c) => c.id === selectedConflict.id);
       if (currentIndex < conflicts.length - 1) {
-        setSelectedConflict(conflicts[currentIndex + 1]);
+        setSelectedConflict(conflicts[currentIndex + 1] || null);
       } else {
         setSelectedConflict(null);
       }

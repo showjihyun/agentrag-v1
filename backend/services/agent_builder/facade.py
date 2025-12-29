@@ -117,6 +117,7 @@ class AgentBuilderFacade:
     def update_workflow(
         self,
         workflow_id: str,
+        user_id: str,
         name: Optional[str] = None,
         nodes: Optional[List[Dict[str, Any]]] = None,
         edges: Optional[List[Dict[str, Any]]] = None,
@@ -126,6 +127,7 @@ class AgentBuilderFacade:
         """Update an existing workflow."""
         return self.workflows.update_workflow(
             workflow_id=workflow_id,
+            user_id=user_id,
             name=name,
             nodes=nodes,
             edges=edges,
@@ -133,9 +135,9 @@ class AgentBuilderFacade:
             **kwargs,
         )
     
-    def delete_workflow(self, workflow_id: str, user_id: Optional[str] = None, hard: bool = False):
+    def delete_workflow(self, workflow_id: str, user_id: str, hard: bool = False):
         """Delete a workflow."""
-        return self.workflows.delete_workflow(workflow_id, user_id or "", hard)
+        return self.workflows.delete_workflow(workflow_id, user_id, hard)
     
     def list_workflows(
         self,

@@ -17,10 +17,7 @@ import {
   Settings,
   MoreVertical,
   TrendingUp,
-  GitMerge,
-  Layers,
   Network,
-  Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -48,20 +45,15 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { flowsAPI } from '@/lib/api/flows';
 import { useState } from 'react';
+import { 
+  ORCHESTRATION_TYPES,
+  ORCHESTRATION_ICONS,
+  ORCHESTRATION_LABELS,
+  CATEGORY_COLORS,
+  type OrchestrationTypeValue 
+} from '@/lib/constants/orchestration';
 
-const ORCHESTRATION_ICONS = {
-  sequential: GitMerge,
-  parallel: Layers,
-  hierarchical: Network,
-  adaptive: Sparkles,
-};
-
-const ORCHESTRATION_LABELS = {
-  sequential: '순차 실행',
-  parallel: '병렬 실행',
-  hierarchical: '계층적 실행',
-  adaptive: '적응형 실행',
-};
+// Orchestration constants are now imported from the constants file
 
 export default function AgentflowDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();

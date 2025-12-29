@@ -172,6 +172,7 @@ async def update_workflow(
         # Update workflow
         updated_workflow = facade.update_workflow(
             workflow_id=workflow_id,
+            user_id=str(current_user.id),
             name=workflow_data.name,
             nodes=workflow_data.nodes,
             edges=workflow_data.edges,

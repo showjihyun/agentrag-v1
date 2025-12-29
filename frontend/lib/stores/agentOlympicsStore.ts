@@ -17,9 +17,10 @@ interface Agent {
     wins: number;
     losses: number;
     draws: number;
-    totalCompetitions: number;
+    total_competitions: number;
     ranking: number;
     points: number;
+    win_rate: number;
   };
   status: 'competing' | 'idle' | 'training' | 'offline';
   currentPosition?: number;
@@ -29,8 +30,8 @@ interface Agent {
 interface Competition {
   id: string;
   name: string;
-  type: 'speed' | 'accuracy' | 'collaboration' | 'creativity' | 'endurance';
-  status: 'upcoming' | 'active' | 'completed';
+  type: 'speed' | 'accuracy' | 'collaboration' | 'creativity' | 'endurance' | 'efficiency';
+  status: 'upcoming' | 'active' | 'completed' | 'cancelled';
   participants: Agent[];
   startTime: Date;
   duration: number;

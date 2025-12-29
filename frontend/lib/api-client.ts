@@ -550,6 +550,36 @@ export class RAGApiClient {
 
     return this.request(`/api/feedback/history?${params.toString()}`);
   }
+
+  // Additional methods for compatibility
+  async getUserSessions(limit: number = 20, offset: number = 0): Promise<SessionListResponse> {
+    return this.getSessions(limit, offset);
+  }
+
+  async sendQuery(query: string, sessionId: string, mode?: string): Promise<MessageResponse> {
+    return this.request<MessageResponse>('/api/conversations/query', {
+      method: 'POST',
+      body: JSON.stringify({ 
+        query, 
+        session_id: sessionId, 
+        mode: mode || 'balanced' 
+      }),
+    });
+  }
+
+  async sendMessage(sessionId: string, content: string): Promise<MessageResponse> {
+    return this.request<MessageResponse>('/api/conversations/messages', {
+      method: 'POST',
+      body: JSON.stringify({ 
+        session_id: sessionId, 
+        content 
+      }),
+    });
+  }
+
+  async getCurrentUser(): Promise<any> {
+    return this.request<any>('/api/auth/me');
+  }
 }
 
 export const apiClient = new RAGApiClient();

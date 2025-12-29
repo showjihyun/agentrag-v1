@@ -58,6 +58,7 @@ export interface AgentUpdate {
   configuration?: Record<string, any>;
   tool_ids?: string[];
   tools?: ToolConfiguration[];
+  is_public?: boolean;
 }
 
 export interface AgentFilters {
@@ -93,6 +94,110 @@ export interface BlockCreate {
   implementation?: string;
 }
 
+export interface AgentflowAgent {
+  id: string;
+  agent_id: string;
+  block_id?: string;
+  name: string;
+  role: string;
+  description?: string;
+  capabilities: string[];
+  priority: number;
+  max_retries: number;
+  timeout_seconds: number;
+  dependencies: string[];
+  input_mapping?: Record<string, any>;
+  output_mapping?: Record<string, any>;
+  conditional_logic?: Record<string, any>;
+  parallel_group?: string;
+  position_x: number;
+  position_y: number;
+}
+
+export interface AgentflowEdge {
+  id: string;
+  source_agent_id: string;
+  target_agent_id: string;
+  edge_type: 'data_flow' | 'control_flow' | 'conditional';
+  condition?: Record<string, any>;
+  data_mapping?: Record<string, any>;
+  label?: string;
+  style?: Record<string, any>;
+}
+
+export interface Agentflow {
+  id: string;
+  user_id: string;
+  name: string;
+  description?: string;
+  orchestration_type: string;
+  supervisor_config: Record<string, any>;
+  graph_definition: Record<string, any>;
+  tags: string[];
+  category?: string;
+  is_public: boolean;
+  is_active: boolean;
+  execution_count: number;
+  last_execution_status?: string;
+  last_execution_at?: string;
+  created_at: string;
+  updated_at: string;
+  agents?: AgentflowAgent[];
+  edges?: AgentflowEdge[];
+}
+
+export interface AgentflowCreate {
+  name: string;
+  description?: string;
+  orchestration_type: string;
+  supervisor_config?: Record<string, any>;
+  graph_definition?: Record<string, any>;
+  tags?: string[];
+  category?: string;
+  agents_config?: Array<{
+    agent_id: string;
+    name: string;
+    role: string;
+    description?: string;
+    capabilities?: string[];
+    priority?: number;
+    max_retries?: number;
+    timeout_seconds?: number;
+    dependencies?: string[];
+    create_block?: boolean;
+    block_id?: string;
+    position_x?: number;
+    position_y?: number;
+  }>;
+  edges_config?: Array<{
+    source: string;
+    target: string;
+    edge_type?: string;
+    condition?: Record<string, any>;
+    data_mapping?: Record<string, any>;
+    label?: string;
+  }>;
+}
+
+export interface ExecutionPlan {
+  agentflow_id: string;
+  orchestration_type: string;
+  execution_plan: any;
+  supervisor_config: Record<string, any>;
+  total_agents: number;
+  total_edges: number;
+}
+
+export interface ValidationReport {
+  agentflow_id: string;
+  validation_status: 'valid' | 'invalid';
+  issues: string[];
+  recommendations: string[];
+  agent_count: number;
+  edge_count: number;
+  orchestration_type: string;
+}
+
 export interface BlockUpdate {
   name?: string;
   description?: string;
@@ -124,6 +229,9 @@ export interface Knowledgebase {
   chunk_overlap: number;
   document_count?: number;
   total_size?: number;
+  kg_enabled?: boolean;
+  kb_type?: string;
+  search_strategy?: string;
   created_at: string;
   updated_at: string;
 }
@@ -134,12 +242,14 @@ export interface KnowledgebaseCreate {
   embedding_model?: string;
   chunk_size?: number;
   chunk_overlap?: number;
+  kg_enabled?: boolean;
 }
 
 export interface KnowledgebaseUpdate {
   name?: string;
   description?: string;
   embedding_model?: string;
+  kg_enabled?: boolean;
 }
 
 export interface EmbeddingModel {
@@ -265,8 +375,107 @@ export interface VariableCreate {
 
 export interface VariableUpdate {
   name?: string;
-  value?: string;
+  scope?: 'global' | 'workspace' | 'user' | 'agent';
+  scope_id?: string;
   value_type?: 'string' | 'number' | 'boolean' | 'json';
+  value?: string;
+  is_secret?: boolean;
+}
+
+export interface AuditLog {
+  id: string;
+  user_id: string;
+  action: string;
+  resource_type?: string;
+  resource_id?: string;
+  details: Record<string, any>;
+  timestamp: string;
+  ip_address?: string;
+  user_agent?: string;
+}
+
+export interface AuditLogFilters {
+  user_id?: string;
+  action?: string;
+  resource_type?: string;
+  start_date?: string;
+  end_date?: string;
+  page?: number;
+  page_size?: number;
+}
+
+export interface AuditLogResponse {
+  logs: AuditLog[];
+  total: number;
+  total_pages: number;
+  current_page: number;
+  page_size: number;
+}
+
+// Enhanced interfaces for optimization features
+export interface OptimizationSuggestion {
+  type: 'performance' | 'cost' | 'reliability' | 'resource';
+  title: string;
+  description: string;
+  impact: 'low' | 'medium' | 'high';
+  priority: 'low' | 'medium' | 'high';
+  action?: string;
+  estimated_improvement?: number;
+  implementation_effort?: string;
+  confidence_score?: number;
+}
+
+export interface WorkflowAnalysis {
+  workflow_id: string;
+  analysis_timestamp: string;
+  execution_count: number;
+  success_rate: number;
+  average_duration_ms: number;
+  optimization_score: number;
+  bottlenecks: Array<{
+    agent_id: string;
+    agent_name: string;
+    bottleneck_type: string;
+    severity: number;
+    frequency: number;
+    impact_on_total_time: number;
+    suggested_fixes: string[];
+  }>;
+  resource_usage: {
+    avg_tokens_per_execution: number;
+    avg_memory_mb_per_execution: number;
+    avg_cpu_seconds_per_execution: number;
+    total_tokens: number;
+    resource_efficiency_score: number;
+  };
+  cost_analysis: {
+    total_cost: number;
+    avg_cost_per_execution: number;
+    avg_daily_cost: number;
+    cost_trend: string;
+    cost_efficiency_score: number;
+  };
+  suggestions: OptimizationSuggestion[];
+}
+
+export interface PerformancePrediction {
+  estimated_duration_ms: number;
+  estimated_cost: number;
+  estimated_tokens: number;
+  success_probability: number;
+  recommended_concurrency: number;
+  confidence_score: number;
+  bottleneck_warnings: string[];
+}
+
+export interface ErrorRecoveryStats {
+  total_errors: number;
+  successful_recoveries: number;
+  failed_recoveries: number;
+  recovery_success_rate: number;
+  recent_errors: number;
+  recovery_strategies_used: Record<string, number>;
+  circuit_breaker_states: Record<string, string>;
 }
 
 class AgentBuilderAPI {
@@ -437,6 +646,10 @@ class AgentBuilderAPI {
       '/api/agent-builder/tools'
     );
     return response.tools || [];
+  }
+
+  async listTools(): Promise<Tool[]> {
+    return this.getTools();
   }
 
   async getTool(toolId: string): Promise<Tool> {
@@ -813,8 +1026,11 @@ class AgentBuilderAPI {
     return response.json();
   }
 
-  async getMemories(agentId: string, params?: { type?: string; limit?: number }) {
-    const queryParams = new URLSearchParams(params as any);
+  async getMemories(agentId: string, params?: { type?: string; limit?: number }): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (params?.type) queryParams.append('type', params.type);
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    
     const response = await fetch(`${API_BASE_URL}/api/agent-builder/agents/${agentId}/memory?${queryParams}`);
     if (!response.ok) throw new Error('Failed to get memories');
     return response.json();
@@ -838,8 +1054,10 @@ class AgentBuilderAPI {
     return response.json();
   }
 
-  async getMemoryTimeline(agentId: string, params?: { limit?: number }) {
-    const queryParams = new URLSearchParams(params as any);
+  async getMemoryTimeline(agentId: string, params?: { limit?: number }): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    
     const response = await fetch(`${API_BASE_URL}/api/agent-builder/agents/${agentId}/memory/timeline?${queryParams}`);
     if (!response.ok) throw new Error('Failed to get memory timeline');
     return response.json();
@@ -879,214 +1097,326 @@ class AgentBuilderAPI {
     return response.json();
   }
 
-  async getCostBreakdown(agentId?: string, timeRange: string = '30d') {
-    const params = new URLSearchParams({ time_range: timeRange });
-    if (agentId) params.append('agent_id', agentId);
-    
-    const response = await fetch(`${API_BASE_URL}/api/agent-builder/cost/breakdown?${params}`);
-    if (!response.ok) throw new Error('Failed to get cost breakdown');
-    return response.json();
+  // Audit Log APIs
+  async getAuditLogs(params?: AuditLogFilters): Promise<AuditLogResponse> {
+    const queryParams = new URLSearchParams();
+    if (params?.user_id) queryParams.append('user_id', params.user_id);
+    if (params?.action) queryParams.append('action', params.action);
+    if (params?.resource_type) queryParams.append('resource_type', params.resource_type);
+    if (params?.start_date) queryParams.append('start_date', params.start_date);
+    if (params?.end_date) queryParams.append('end_date', params.end_date);
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.page_size) queryParams.append('page_size', params.page_size.toString());
+
+    const query = queryParams.toString();
+    return this.request(`/api/agent-builder/admin/audit-logs${query ? `?${query}` : ''}`);
   }
 
-  async getBudgetSettings(agentId?: string) {
-    const params = agentId ? `?agent_id=${agentId}` : '';
-    const response = await fetch(`${API_BASE_URL}/api/agent-builder/cost/budget${params}`);
-    if (!response.ok) throw new Error('Failed to get budget settings');
-    return response.json();
+  async exportAuditLogs(format: 'csv' | 'json', params?: Omit<AuditLogFilters, 'page' | 'page_size'>): Promise<Blob> {
+    const queryParams = new URLSearchParams({ format });
+    if (params?.user_id) queryParams.append('user_id', params.user_id);
+    if (params?.action) queryParams.append('action', params.action);
+    if (params?.resource_type) queryParams.append('resource_type', params.resource_type);
+    if (params?.start_date) queryParams.append('start_date', params.start_date);
+    if (params?.end_date) queryParams.append('end_date', params.end_date);
+
+    const response = await fetch(`${API_BASE_URL}/api/agent-builder/admin/audit-logs/export?${queryParams}`, {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('token')}`,
+      },
+    });
+
+    if (!response.ok) throw new Error('Failed to export audit logs');
+    return response.blob();
   }
 
-  async updateBudgetSettings(settings: any, agentId?: string) {
-    const params = agentId ? `?agent_id=${agentId}` : '';
-    const response = await fetch(`${API_BASE_URL}/api/agent-builder/cost/budget${params}`, {
+  // Optimization methods for agentflows
+  async getOptimizationAnalysis(
+    workflowId: string,
+    daysBack: number = 30
+  ): Promise<{ success: boolean; analysis: WorkflowAnalysis }> {
+    return this.request(
+      `/api/agent-builder/agentflows/${workflowId}/optimization-analysis?days_back=${daysBack}`
+    );
+  }
+
+  // Agentflow endpoints
+  async getAgentflow(agentflowId: string): Promise<Agentflow> {
+    return this.request(`/api/agent-builder/agentflows/${agentflowId}`);
+  }
+
+  async createAgentflow(data: AgentflowCreate): Promise<Agentflow> {
+    return this.request('/api/agent-builder/agentflows', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateAgentflow(agentflowId: string, data: Partial<AgentflowCreate>): Promise<Agentflow> {
+    return this.request(`/api/agent-builder/agentflows/${agentflowId}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteAgentflow(agentflowId: string): Promise<void> {
+    return this.request(`/api/agent-builder/agentflows/${agentflowId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async executeAgentflow(
+    agentflowId: string,
+    input_data: Record<string, any> = {},
+    variables: Record<string, any> = {}
+  ): Promise<any> {
+    return this.request(`/api/agent-builder/agentflows/${agentflowId}/execute`, {
+      method: 'POST',
+      body: JSON.stringify({ input_data, variables }),
+    });
+  }
+
+  async getAgentflows(filters?: { search?: string; category?: string; tags?: string[]; is_active?: boolean; page?: number; page_size?: number }): Promise<{ agentflows: Agentflow[]; total: number; page: number; page_size: number }> {
+    const params = new URLSearchParams();
+    if (filters?.search) params.append('search', filters.search);
+    if (filters?.category) params.append('category', filters.category);
+    if (filters?.tags) filters.tags.forEach(tag => params.append('tags', tag));
+    if (filters?.is_active !== undefined) params.append('is_active', filters.is_active.toString());
+    if (filters?.page) params.append('page', filters.page.toString());
+    if (filters?.page_size) params.append('page_size', filters.page_size.toString());
+
+    const query = params.toString();
+    return this.request(`/api/agent-builder/agentflows${query ? `?${query}` : ''}`);
+  }
+
+  async getOptimizationRecommendations(
+    workflowId: string,
+    limit: number = 5
+  ): Promise<{ success: boolean; recommendations: OptimizationSuggestion[] }> {
+    return this.request(
+      `/api/agent-builder/agentflows/${workflowId}/optimization-recommendations?limit=${limit}`
+    );
+  }
+
+  async getErrorRecoveryStats(
+    workflowId: string
+  ): Promise<{ success: boolean; error_recovery_stats: ErrorRecoveryStats }> {
+    return this.request(
+      `/api/agent-builder/agentflows/${workflowId}/error-recovery-stats`
+    );
+  }
+
+  async applyOptimizations(
+    workflowId: string,
+    suggestionIds: string[],
+    autoApply: boolean = false
+  ): Promise<{
+    success: boolean;
+    message: string;
+    applied_suggestions: string[];
+    auto_applied: boolean;
+    next_steps: string[];
+  }> {
+    return this.request(
+      `/api/agent-builder/agentflows/${workflowId}/apply-optimizations`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          suggestion_ids: suggestionIds,
+          auto_apply: autoApply,
+        }),
+      }
+    );
+  }
+
+  async getPerformancePrediction(
+    workflowId: string,
+    inputData?: Record<string, any>
+  ): Promise<{
+    success: boolean;
+    prediction: PerformancePrediction;
+    based_on_executions: number;
+    analysis_date: string;
+  }> {
+    const params = inputData ? `?input_data=${encodeURIComponent(JSON.stringify(inputData))}` : '';
+    return this.request(
+      `/api/agent-builder/agentflows/${workflowId}/performance-prediction${params}`
+    );
+  }
+
+  async executeOptimizedAgentflow(
+    workflowId: string,
+    input_data: Record<string, any> = {},
+    variables: Record<string, any> = {},
+    enablePredictions: boolean = true,
+    enableRecovery: boolean = true
+  ): Promise<any> {
+    const params = new URLSearchParams();
+    params.append('enable_predictions', enablePredictions.toString());
+    params.append('enable_recovery', enableRecovery.toString());
+
+    return this.request(
+      `/api/agent-builder/agentflows/${workflowId}/execute-optimized?${params}`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ input_data, variables }),
+      }
+    );
+  }
+
+  // Utility methods for optimization insights
+  async getWorkflowHealthScore(workflowId: string): Promise<{
+    overall_score: number;
+    performance_score: number;
+    reliability_score: number;
+    cost_efficiency_score: number;
+    recommendations_count: number;
+  }> {
+    const analysis = await this.getOptimizationAnalysis(workflowId);
+    const recommendations = await this.getOptimizationRecommendations(workflowId);
+
+    const performanceScore = analysis.analysis.optimization_score;
+    const reliabilityScore = analysis.analysis.success_rate;
+    const costEfficiencyScore = analysis.analysis.cost_analysis.cost_efficiency_score;
+    
+    const overallScore = (performanceScore + reliabilityScore + costEfficiencyScore) / 3;
+
+    return {
+      overall_score: overallScore,
+      performance_score: performanceScore,
+      reliability_score: reliabilityScore,
+      cost_efficiency_score: costEfficiencyScore,
+      recommendations_count: recommendations.recommendations.length,
+    };
+  }
+
+  async getOptimizationInsights(workflowId: string): Promise<{
+    critical_issues: OptimizationSuggestion[];
+    quick_wins: OptimizationSuggestion[];
+    long_term_improvements: OptimizationSuggestion[];
+    cost_savings_potential: number;
+    performance_improvement_potential: number;
+  }> {
+    const recommendations = await this.getOptimizationRecommendations(workflowId, 20);
+    const suggestions = recommendations.recommendations;
+
+    const criticalIssues = suggestions.filter(
+      s => s.priority === 'high' && s.impact === 'high'
+    );
+    
+    const quickWins = suggestions.filter(
+      s => s.implementation_effort === 'low' && s.impact !== 'low'
+    );
+    
+    const longTermImprovements = suggestions.filter(
+      s => s.implementation_effort === 'high' && s.impact === 'high'
+    );
+
+    const costSavingsPotential = suggestions
+      .filter(s => s.type === 'cost')
+      .reduce((sum, s) => sum + (s.estimated_improvement || 0), 0);
+
+    const performanceImprovementPotential = suggestions
+      .filter(s => s.type === 'performance')
+      .reduce((sum, s) => sum + (s.estimated_improvement || 0), 0);
+
+    return {
+      critical_issues: criticalIssues,
+      quick_wins: quickWins,
+      long_term_improvements: longTermImprovements,
+      cost_savings_potential: costSavingsPotential,
+      performance_improvement_potential: performanceImprovementPotential,
+    };
+  }
+
+  // Trending and recommendation methods
+  async getTrendingAgents(timeRange: string = '7d', limit: number = 5): Promise<Agent[]> {
+    const params = new URLSearchParams({ time_range: timeRange, limit: limit.toString() });
+    const response = await this.request<{ agents: Agent[] }>(`/api/agent-builder/agents/trending?${params}`);
+    return response.agents || [];
+  }
+
+  async getPersonalizedRecommendations(userId?: string, limit: number = 5): Promise<Agent[]> {
+    const params = new URLSearchParams({ limit: limit.toString() });
+    if (userId) params.append('user_id', userId);
+    const response = await this.request<{ agents: Agent[] }>(`/api/agent-builder/agents/recommendations?${params}`);
+    return response.agents || [];
+  }
+
+  async validateAgentflowIntegrity(agentflowId: string): Promise<any> {
+    // Placeholder method - implement actual validation logic
+    return this.request(`/api/agent-builder/agentflows/${agentflowId}/validate`);
+  }
+
+  async getAgentflowExecutionPlan(agentflowId: string): Promise<any> {
+    // Placeholder method - implement actual execution plan logic
+    return this.request(`/api/agent-builder/agentflows/${agentflowId}/execution-plan`);
+  }
+
+  async getAgentSharing(agentId: string): Promise<any> {
+    // Placeholder method - implement actual agent sharing logic
+    return this.request(`/api/agent-builder/agents/${agentId}/sharing`);
+  }
+
+  async searchUsers(query: string): Promise<any> {
+    // Placeholder method - implement actual user search logic
+    return this.request(`/api/users/search?q=${encodeURIComponent(query)}`);
+  }
+
+  async shareAgent(agentId: string, data: { email: string; permission: string; message?: string }): Promise<any> {
+    // Placeholder method - implement actual agent sharing logic
+    return this.request(`/api/agent-builder/agents/${agentId}/share`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateAgentPermission(agentId: string, userId: string, permission: string): Promise<any> {
+    // Placeholder method - implement actual permission update logic
+    return this.request(`/api/agent-builder/agents/${agentId}/permissions/${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ permission }),
+    });
+  }
+
+  async removeAgentPermission(agentId: string, userId: string): Promise<any> {
+    // Placeholder method - implement actual permission removal logic
+    return this.request(`/api/agent-builder/agents/${agentId}/permissions/${userId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Analytics methods
+  async getAnalyticsOverview(agentId: string, timeRange?: string): Promise<any> {
+    // Placeholder method - implement actual analytics overview logic
+    const params = timeRange ? `?time_range=${timeRange}` : '';
+    return this.request(`/api/agent-builder/agents/${agentId}/analytics/overview${params}`);
+  }
+
+  async getUsageAnalytics(agentId: string, timeRange?: string): Promise<any> {
+    // Placeholder method - implement actual usage analytics logic
+    const params = timeRange ? `?time_range=${timeRange}` : '';
+    return this.request(`/api/agent-builder/agents/${agentId}/analytics/usage${params}`);
+  }
+
+  async getQualityAnalytics(agentId: string, timeRange?: string): Promise<any> {
+    // Placeholder method - implement actual quality analytics logic
+    const params = timeRange ? `?time_range=${timeRange}` : '';
+    return this.request(`/api/agent-builder/agents/${agentId}/analytics/quality${params}`);
+  }
+
+  async getPerformanceAnalytics(agentId: string, timeRange?: string): Promise<any> {
+    // Placeholder method - implement actual performance analytics logic
+    const params = timeRange ? `?time_range=${timeRange}` : '';
+    return this.request(`/api/agent-builder/agents/${agentId}/analytics/performance${params}`);
+  }
+
+  // Budget management methods
+  async updateBudgetSettings(agentId: string, settings: any): Promise<any> {
+    // Placeholder method - implement actual budget settings update logic
+    return this.request(`/api/agent-builder/agents/${agentId}/budget`, {
+      method: 'PUT',
       body: JSON.stringify(settings),
-    });
-    if (!response.ok) throw new Error('Failed to update budget settings');
-    return response.json();
-  }
-
-  async analyzeCostOptimization(agentId?: string) {
-    const params = agentId ? `?agent_id=${agentId}` : '';
-    const response = await fetch(`${API_BASE_URL}/api/agent-builder/cost/analyze${params}`, {
-      method: 'POST',
-    });
-    if (!response.ok) throw new Error('Failed to analyze cost optimization');
-    return response.json();
-  }
-
-  async applyCostOptimization(optimizationId: string, agentId?: string) {
-    const params = agentId ? `?agent_id=${agentId}` : '';
-    const response = await fetch(`${API_BASE_URL}/api/agent-builder/cost/optimize/${optimizationId}${params}`, {
-      method: 'POST',
-    });
-    if (!response.ok) throw new Error('Failed to apply cost optimization');
-    return response.json();
-  }
-
-  async predictCosts(agentId?: string, days: number = 30) {
-    const params = new URLSearchParams({ days: days.toString() });
-    if (agentId) params.append('agent_id', agentId);
-    
-    const response = await fetch(`${API_BASE_URL}/api/agent-builder/cost/predict?${params}`);
-    if (!response.ok) throw new Error('Failed to predict costs');
-    return response.json();
-  }
-
-  // Branch Management APIs
-  async getBranches(workflowId: string) {
-    const response = await fetch(`${API_BASE_URL}/api/agent-builder/workflows/${workflowId}/branches`);
-    if (!response.ok) throw new Error('Failed to get branches');
-    return response.json();
-  }
-
-  async createBranch(workflowId: string, data: { name: string; description?: string }) {
-    const response = await fetch(`${API_BASE_URL}/api/agent-builder/workflows/${workflowId}/branches`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    if (!response.ok) throw new Error('Failed to create branch');
-    return response.json();
-  }
-
-  async switchBranch(workflowId: string, branchId: string) {
-    const response = await fetch(`${API_BASE_URL}/api/agent-builder/workflows/${workflowId}/branches/${branchId}/switch`, {
-      method: 'POST',
-    });
-    if (!response.ok) throw new Error('Failed to switch branch');
-    return response.json();
-  }
-
-  async mergeBranch(workflowId: string, branchId: string, data: { target_branch_id: string; resolve_conflicts?: string }) {
-    const response = await fetch(`${API_BASE_URL}/api/agent-builder/workflows/${workflowId}/branches/${branchId}/merge`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    if (!response.ok) throw new Error('Failed to merge branch');
-    return response.json();
-  }
-
-  async deleteBranch(workflowId: string, branchId: string) {
-    const response = await fetch(`${API_BASE_URL}/api/agent-builder/workflows/${workflowId}/branches/${branchId}`, {
-      method: 'DELETE',
-    });
-    if (!response.ok) throw new Error('Failed to delete branch');
-  }
-
-  async getBranchCommits(workflowId: string, branchId: string, limit: number = 50) {
-    const response = await fetch(`${API_BASE_URL}/api/agent-builder/workflows/${workflowId}/branches/${branchId}/commits?limit=${limit}`);
-    if (!response.ok) throw new Error('Failed to get branch commits');
-    return response.json();
-  }
-
-  async createCommit(workflowId: string, branchId: string, message: string) {
-    const response = await fetch(`${API_BASE_URL}/api/agent-builder/workflows/${workflowId}/branches/${branchId}/commit`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message }),
-    });
-    if (!response.ok) throw new Error('Failed to create commit');
-    return response.json();
-  }
-
-  // Collaboration REST APIs
-  async getActiveUsers(resourceType: string, resourceId: string) {
-    const response = await fetch(`${API_BASE_URL}/api/agent-builder/collaboration/${resourceType}/${resourceId}/users`);
-    if (!response.ok) throw new Error('Failed to get active users');
-    return response.json();
-  }
-
-  async getResourceVersion(resourceType: string, resourceId: string) {
-    const response = await fetch(`${API_BASE_URL}/api/agent-builder/collaboration/${resourceType}/${resourceId}/version`);
-    if (!response.ok) throw new Error('Failed to get resource version');
-    return response.json();
-  }
-
-  async acquireLock(resourceType: string, resourceId: string, userId: string, timeout: number = 300) {
-    const response = await fetch(`${API_BASE_URL}/api/agent-builder/collaboration/${resourceType}/${resourceId}/lock?user_id=${userId}&timeout=${timeout}`, {
-      method: 'POST',
-    });
-    if (!response.ok) throw new Error('Failed to acquire lock');
-    return response.json();
-  }
-
-  async releaseLock(resourceType: string, resourceId: string, userId: string) {
-    const response = await fetch(`${API_BASE_URL}/api/agent-builder/collaboration/${resourceType}/${resourceId}/lock?user_id=${userId}`, {
-      method: 'DELETE',
-    });
-    if (!response.ok) throw new Error('Failed to release lock');
-    return response.json();
-  }
-
-  // Embedding Models APIs
-  async getAvailableModels(): Promise<EmbeddingModel[]> {
-    const response = await fetch(`${API_BASE_URL}/api/agent-builder/embedding-models/available`);
-    if (!response.ok) throw new Error('Failed to get available models');
-    return response.json();
-  }
-
-  async getInstalledModels(): Promise<string[]> {
-    const response = await fetch(`${API_BASE_URL}/api/agent-builder/embedding-models/installed`);
-    if (!response.ok) throw new Error('Failed to get installed models');
-    return response.json();
-  }
-
-  async installModel(modelId: string): Promise<ModelInstallResult> {
-    const response = await fetch(`${API_BASE_URL}/api/agent-builder/embedding-models/install`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model_id: modelId }),
-    });
-    if (!response.ok) throw new Error('Failed to install model');
-    return response.json();
-  }
-
-  async checkModelInstalled(modelId: string): Promise<{ model_id: string; installed: boolean }> {
-    const response = await fetch(`${API_BASE_URL}/api/agent-builder/embedding-models/check/${encodeURIComponent(modelId)}`);
-    if (!response.ok) throw new Error('Failed to check model');
-    return response.json();
-  }
-
-  async uninstallModel(modelId: string): Promise<{ success: boolean; message: string }> {
-    const response = await fetch(`${API_BASE_URL}/api/agent-builder/embedding-models/${encodeURIComponent(modelId)}`, {
-      method: 'DELETE',
-    });
-    if (!response.ok) throw new Error('Failed to uninstall model');
-    return response.json();
-  }
-
-  // Custom Tool APIs
-  async getCustomTools(): Promise<any[]> {
-    const response = await this.request<{ tools: any[] }>('/api/agent-builder/custom-tools');
-    return response.tools || [];
-  }
-
-  async createCustomTool(data: any): Promise<any> {
-    return this.request('/api/agent-builder/custom-tools', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  }
-
-  async updateCustomTool(toolId: string, data: any): Promise<any> {
-    return this.request(`/api/agent-builder/custom-tools/${toolId}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    });
-  }
-
-  async deleteCustomTool(toolId: string): Promise<void> {
-    return this.request(`/api/agent-builder/custom-tools/${toolId}`, {
-      method: 'DELETE',
-    });
-  }
-
-  async testCustomTool(data: { implementation: string; implementationType: string; parameters: any }): Promise<any> {
-    return this.request('/api/agent-builder/tools/test-custom', {
-      method: 'POST',
-      body: JSON.stringify(data),
     });
   }
 }

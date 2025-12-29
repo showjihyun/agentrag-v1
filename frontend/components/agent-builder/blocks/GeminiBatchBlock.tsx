@@ -524,8 +524,8 @@ export default function GeminiBatchBlock({
                 <Select value={analysisType} onValueChange={(value) => {
                   setAnalysisType(value);
                   handleConfigChange({ analysis_type: value });
-                }} disabled={isProcessing}>
-                  <SelectTrigger>
+                }}>
+                  <SelectTrigger disabled={isProcessing}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -543,8 +543,8 @@ export default function GeminiBatchBlock({
                 <Select value={model} onValueChange={(value) => {
                   setModel(value);
                   handleConfigChange({ model: value });
-                }} disabled={isProcessing}>
-                  <SelectTrigger>
+                }}>
+                  <SelectTrigger disabled={isProcessing}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>

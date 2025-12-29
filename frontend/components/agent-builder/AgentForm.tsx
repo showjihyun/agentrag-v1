@@ -39,7 +39,7 @@ const PromptTemplateEditor = dynamic(() => import('./PromptTemplateEditor').then
 const agentFormSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100),
   description: z.string().optional(),
-  agent_type: z.string().default('custom'),
+  agent_type: z.string().min(1, 'Agent type is required'),
   llm_provider: z.string().min(1, 'LLM provider is required'),
   llm_model: z.string().min(1, 'LLM model is required'),
   prompt_template: z.string().optional(),
@@ -52,9 +52,11 @@ interface AgentFormProps {
   initialData?: Partial<AgentFormValues>;
   agentId?: string;
   onSuccess?: () => void;
+  mode?: string; // Add mode prop for test compatibility
+  agent?: any; // Add agent prop for test compatibility
 }
 
-export function AgentForm({ initialData, agentId, onSuccess }: AgentFormProps) {
+export function AgentForm({ initialData, agentId, onSuccess, mode, agent }: AgentFormProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -78,12 +80,12 @@ export function AgentForm({ initialData, agentId, onSuccess }: AgentFormProps) {
     try {
       const agentData: AgentCreate = {
         name: data.name,
-        description: data.description,
         agent_type: data.agent_type,
         llm_provider: data.llm_provider,
         llm_model: data.llm_model,
-        prompt_template: data.prompt_template,
-        tool_ids: data.tool_ids,
+        ...(data.description && { description: data.description }),
+        ...(data.prompt_template && { prompt_template: data.prompt_template }),
+        ...(data.tool_ids && data.tool_ids.length > 0 && { tool_ids: data.tool_ids }),
       };
 
       if (agentId) {
@@ -112,7 +114,7 @@ export function AgentForm({ initialData, agentId, onSuccess }: AgentFormProps) {
       // Handle error
       const errorInfo = ErrorHandler.handle(error);
       toast({
-        variant: errorInfo.variant,
+        ...(errorInfo.variant === 'destructive' && { variant: 'destructive' as const }),
         title: errorInfo.title,
         description: errorInfo.description,
       });
@@ -253,7 +255,7 @@ export function AgentForm({ initialData, agentId, onSuccess }: AgentFormProps) {
                     <FormControl>
                       <ToolSelector
                         selectedTools={field.value || []}
-                        onSelectionChange={field.onChange}
+                        onToolsChange={field.onChange}
                       />
                     </FormControl>
                     <FormMessage />

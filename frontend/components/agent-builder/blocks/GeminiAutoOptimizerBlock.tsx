@@ -497,10 +497,18 @@ export default function GeminiAutoOptimizerBlock({
                     id="max-time"
                     type="number"
                     value={profile.max_processing_time || ''}
-                    onChange={(e) => setProfile(prev => ({ 
-                      ...prev, 
-                      max_processing_time: e.target.value ? parseFloat(e.target.value) : undefined 
-                    }))}
+                    onChange={(e) => {
+                      const value = e.target.value ? parseFloat(e.target.value) : undefined;
+                      setProfile(prev => {
+                        const newProfile = { ...prev };
+                        if (value !== undefined) {
+                          newProfile.max_processing_time = value;
+                        } else {
+                          delete newProfile.max_processing_time;
+                        }
+                        return newProfile;
+                      });
+                    }}
                     placeholder="제한 없음"
                     min="1"
                   />

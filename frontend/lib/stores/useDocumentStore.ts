@@ -99,7 +99,20 @@ export const useDocumentStore = create<DocumentStore>()(
         set((state) => {
           const index = state.documents.findIndex((doc) => doc.id === id);
           if (index !== -1) {
-            state.documents[index] = { ...state.documents[index], ...updates };
+            // Create a properly typed updated document for exactOptionalPropertyTypes compatibility
+            const currentDocument = state.documents[index];
+            const updatedDocument = {
+              ...currentDocument,
+              ...(updates.id !== undefined && { id: updates.id }),
+              ...(updates.name !== undefined && { name: updates.name }),
+              ...(updates.size !== undefined && { size: updates.size }),
+              ...(updates.type !== undefined && { type: updates.type }),
+              ...(updates.uploadedAt !== undefined && { uploadedAt: updates.uploadedAt }),
+              ...(updates.status !== undefined && { status: updates.status }),
+              ...(updates.progress !== undefined && { progress: updates.progress }),
+              ...(updates.error !== undefined && { error: updates.error }),
+            };
+            state.documents[index] = updatedDocument;
           }
         });
       },

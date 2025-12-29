@@ -74,7 +74,7 @@ export function transformExecutionResult(
         status,
         input: result?.input,
         output: result,
-        error,
+        ...(error && { error }),
         retryCount: retryCounts[nodeId] || 0,
         duration: result?.duration_ms || result?.duration,
       };
@@ -87,7 +87,7 @@ export function transformExecutionResult(
     status: executionResult.success ? 'completed' : 'failed',
     startTime: executionContext.started_at,
     endTime: executionContext.completed_at,
-    totalDuration,
+    ...(totalDuration !== undefined && { totalDuration }),
     nodeExecutions,
   };
 }

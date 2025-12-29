@@ -120,7 +120,9 @@ export function getWebVitals(): void {
   const observer = new PerformanceObserver((list) => {
     const entries = list.getEntries();
     const lastEntry = entries[entries.length - 1];
-    console.log(`[Web Vitals] LCP: ${Math.round(lastEntry.startTime)}ms`);
+    if (lastEntry) {
+      console.log(`[Web Vitals] LCP: ${Math.round(lastEntry.startTime)}ms`);
+    }
   });
 
   observer.observe({ entryTypes: ['largest-contentful-paint'] });

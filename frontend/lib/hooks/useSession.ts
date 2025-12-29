@@ -43,7 +43,7 @@ export function useUserSessions() {
   return useQuery({
     queryKey: sessionKeys.lists(),
     queryFn: async () => {
-      return await apiClient.getUserSessions();
+      return await apiClient.getSessions();
     },
     staleTime: 2 * 60 * 1000, // 2 minutes
     refetchOnWindowFocus: true,
@@ -83,8 +83,9 @@ export function useSendMessage() {
         id: 'temp-' + Date.now(),
         content: newMessage.query,
         role: 'user',
-        timestamp: new Date().toISOString(),
         session_id: newMessage.sessionId,
+        user_id: 'current-user', // Add missing property
+        created_at: new Date().toISOString(), // Add missing property
       };
       
       queryClient.setQueryData(

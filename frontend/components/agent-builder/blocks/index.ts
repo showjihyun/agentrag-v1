@@ -1,12 +1,24 @@
 // Gemini MultiModal Blocks
-export { default as GeminiVisionBlock } from './GeminiVisionBlock';
-export { default as GeminiAudioBlock } from './GeminiAudioBlock';
-export { default as GeminiFusionBlock } from './GeminiFusionBlock';
-export { default as GeminiVideoBlock } from './GeminiVideoBlock';
-export { default as GeminiBatchBlock } from './GeminiBatchBlock';
-export { default as GeminiAutoOptimizerBlock } from './GeminiAutoOptimizerBlock';
-export { default as PredictiveRoutingBlock } from './PredictiveRoutingBlock';
-export { default as GeminiBlockRenderer } from './GeminiBlockRenderer';
+import GeminiVisionBlock from './GeminiVisionBlock';
+import GeminiAudioBlock from './GeminiAudioBlock';
+import GeminiFusionBlock from './GeminiFusionBlock';
+import GeminiVideoBlock from './GeminiVideoBlock';
+import GeminiBatchBlock from './GeminiBatchBlock';
+import GeminiAutoOptimizerBlock from './GeminiAutoOptimizerBlock';
+import PredictiveRoutingBlock from './PredictiveRoutingBlock';
+import GeminiBlockRenderer from './GeminiBlockRenderer';
+
+// Re-export for external use
+export { 
+  GeminiVisionBlock,
+  GeminiAudioBlock,
+  GeminiFusionBlock,
+  GeminiVideoBlock,
+  GeminiBatchBlock,
+  GeminiAutoOptimizerBlock,
+  PredictiveRoutingBlock,
+  GeminiBlockRenderer
+};
 
 // Block type definitions
 export interface BlockConfig {

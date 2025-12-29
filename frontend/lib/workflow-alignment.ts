@@ -120,11 +120,13 @@ export function distributeNodesHorizontal(nodes: Node[], options: AlignmentOptio
   // Sort by X position
   const sorted = [...nodes].sort((a, b) => a.position.x - b.position.x);
 
+  if (sorted.length === 0) return nodes;
+
   // Calculate total width needed
-  const minX = sorted[0].position.x;
-  const maxX = sorted[sorted.length - 1].position.x;
+  const minX = sorted[0]?.position.x ?? 0;
+  const maxX = sorted[sorted.length - 1]?.position.x ?? 0;
   const totalWidth = maxX - minX;
-  const gap = totalWidth / (sorted.length - 1);
+  const gap = sorted.length > 1 ? totalWidth / (sorted.length - 1) : 0;
 
   return sorted.map((node, index) => ({
     ...node,
@@ -146,11 +148,13 @@ export function distributeNodesVertical(nodes: Node[], options: AlignmentOptions
   // Sort by Y position
   const sorted = [...nodes].sort((a, b) => a.position.y - b.position.y);
 
+  if (sorted.length === 0) return nodes;
+
   // Calculate total height needed
-  const minY = sorted[0].position.y;
-  const maxY = sorted[sorted.length - 1].position.y;
+  const minY = sorted[0]?.position.y ?? 0;
+  const maxY = sorted[sorted.length - 1]?.position.y ?? 0;
   const totalHeight = maxY - minY;
-  const gap = totalHeight / (sorted.length - 1);
+  const gap = sorted.length > 1 ? totalHeight / (sorted.length - 1) : 0;
 
   return sorted.map((node, index) => ({
     ...node,
@@ -178,8 +182,8 @@ export function getNodesBounds(nodes: Node[]) {
 
   const minX = Math.min(...xs);
   const minY = Math.min(...ys);
-  const maxX = Math.max(...xs.map((x, i) => x + (nodes[i].width || nodeWidth)));
-  const maxY = Math.max(...ys.map((y, i) => y + (nodes[i].height || nodeHeight)));
+  const maxX = Math.max(...xs.map((x, i) => x + (nodes[i]?.width || nodeWidth)));
+  const maxY = Math.max(...ys.map((y, i) => y + (nodes[i]?.height || nodeHeight)));
 
   return {
     x: minX,

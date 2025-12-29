@@ -31,10 +31,27 @@ class FlowType(str, enum.Enum):
 
 class OrchestrationTypeEnum(str, enum.Enum):
     """Orchestration type for Agentflows."""
+    # Core patterns (existing)
     SEQUENTIAL = "sequential"
     PARALLEL = "parallel"
     HIERARCHICAL = "hierarchical"
     ADAPTIVE = "adaptive"
+    
+    # 2025 Trends - Advanced patterns
+    CONSENSUS_BUILDING = "consensus_building"
+    DYNAMIC_ROUTING = "dynamic_routing"
+    SWARM_INTELLIGENCE = "swarm_intelligence"
+    EVENT_DRIVEN = "event_driven"
+    REFLECTION = "reflection"
+    
+    # 2026 Trends - Next-generation patterns
+    NEUROMORPHIC = "neuromorphic"
+    QUANTUM_ENHANCED = "quantum_enhanced"
+    BIO_INSPIRED = "bio_inspired"
+    SELF_EVOLVING = "self_evolving"
+    FEDERATED = "federated"
+    EMOTIONAL_AI = "emotional_ai"
+    PREDICTIVE = "predictive"
 
 
 class MemoryTypeEnum(str, enum.Enum):
@@ -117,7 +134,9 @@ class Agentflow(Base):
         Index("ix_agentflows_user_active", "user_id", "is_active"),
         Index("ix_agentflows_user_created", "user_id", "created_at"),
         CheckConstraint(
-            "orchestration_type IN ('sequential', 'parallel', 'hierarchical', 'adaptive')",
+            "orchestration_type IN ('sequential', 'parallel', 'hierarchical', 'adaptive', "
+            "'consensus_building', 'dynamic_routing', 'swarm_intelligence', 'event_driven', 'reflection', "
+            "'neuromorphic', 'quantum_enhanced', 'bio_inspired', 'self_evolving', 'federated', 'emotional_ai', 'predictive')",
             name="check_orchestration_type_valid",
         ),
     )
@@ -146,6 +165,13 @@ class AgentflowAgent(Base):
         ForeignKey("agents.id", ondelete="SET NULL"),
         nullable=True,
     )
+    # NEW: Block integration for visual representation
+    block_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("blocks.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
 
     # Agent Configuration
     name = Column(String(255), nullable=False)
@@ -158,19 +184,88 @@ class AgentflowAgent(Base):
     max_retries = Column(Integer, default=3)
     timeout_seconds = Column(Integer, default=60)
     dependencies = Column(JSONB, default=list)  # List of agent IDs this depends on
+    
+    # NEW: Enhanced configuration for better integration
+    input_mapping = Column(JSONB, default=dict)  # How to map inputs from previous agents
+    output_mapping = Column(JSONB, default=dict)  # How to map outputs to next agents
+    conditional_logic = Column(JSONB, default=dict)  # Conditions for execution
+    parallel_group = Column(String(100))  # Group ID for parallel execution
+    
+    # NEW: Visual positioning for workflow editor
+    position_x = Column(Float, default=0)
+    position_y = Column(Float, default=0)
 
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     # Relationships
     agentflow = relationship("Agentflow", back_populates="agents")
+    agent = relationship("Agent", backref="agentflow_configs")
+    block = relationship("Block", backref="agentflow_usages")
 
     __table_args__ = (
         Index("ix_agentflow_agents_flow_priority", "agentflow_id", "priority"),
+        Index("ix_agentflow_agents_block", "block_id"),
     )
 
     def __repr__(self):
         return f"<AgentflowAgent(id={self.id}, name={self.name}, role={self.role})>"
+
+
+class AgentflowEdge(Base):
+    """Connections between agents in an Agentflow."""
+
+    __tablename__ = "agentflow_edges"
+
+    # Primary Key
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    # Foreign Keys
+    agentflow_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("agentflows.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    source_agent_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("agentflow_agents.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    target_agent_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("agentflow_agents.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    # Edge Configuration
+    edge_type = Column(String(50), default="data_flow")  # data_flow, control_flow, conditional
+    condition = Column(JSONB, default=dict)  # Condition for edge activation
+    data_mapping = Column(JSONB, default=dict)  # How to map data between agents
+    
+    # Visual properties
+    label = Column(String(255))
+    style = Column(JSONB, default=dict)  # Visual styling for the edge
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    # Relationships
+    agentflow = relationship("Agentflow", backref="edges")
+    source_agent = relationship("AgentflowAgent", foreign_keys=[source_agent_id], backref="outgoing_edges")
+    target_agent = relationship("AgentflowAgent", foreign_keys=[target_agent_id], backref="incoming_edges")
+
+    __table_args__ = (
+        Index("ix_agentflow_edges_flow", "agentflow_id"),
+        UniqueConstraint("source_agent_id", "target_agent_id", name="uq_agentflow_edge"),
+        CheckConstraint(
+            "edge_type IN ('data_flow', 'control_flow', 'conditional')",
+            name="check_edge_type_valid",
+        ),
+    )
+
+    def __repr__(self):
+        return f"<AgentflowEdge(id={self.id}, type={self.edge_type})>"
 
 
 # ============================================================================

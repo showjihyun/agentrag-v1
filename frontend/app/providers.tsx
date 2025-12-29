@@ -2,14 +2,8 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { useState, useEffect } from 'react';
-import { registerServiceWorker } from '@/lib/pwa/register-sw';
-import { analytics } from '@/lib/monitoring/analytics';
-import { initSentry } from '@/lib/monitoring/sentry';
-import { performanceMonitor } from '@/lib/monitoring/performance';
-import { AuthProvider } from '@/contexts/AuthContext';
-import { ThemeProvider } from '@/contexts/ThemeContext';
-import { ToastProvider } from '@/components/Toast';
+import { ThemeProvider } from 'next-themes';
+import { useState } from 'react';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -18,36 +12,36 @@ export function Providers({ children }: { children: React.ReactNode }) {
         defaultOptions: {
           queries: {
             staleTime: 60 * 1000, // 1 minute
-            refetchOnWindowFocus: false,
+            gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
+            retry: (failureCount, error) => {
+              // Don't retry on 4xx errors
+              if (error && typeof error === 'object' && 'status' in error) {
+                const status = error.status as number;
+                if (status >= 400 && status < 500) {
+                  return false;
+                }
+              }
+              return failureCount < 3;
+            },
+          },
+          mutations: {
+            retry: false,
           },
         },
       })
   );
 
-  useEffect(() => {
-    // Initialize monitoring
-    analytics.init();
-    initSentry();
-    performanceMonitor.init();
-
-    // Register service worker
-    registerServiceWorker();
-
-    return () => {
-      performanceMonitor.cleanup();
-    };
-  }, []);
-
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <ToastProvider>
-          <QueryClientProvider client={queryClient}>
-            {children}
-            {process.env.NODE_ENV === 'development' && <ReactQueryDevtools />}
-          </QueryClientProvider>
-        </ToastProvider>
-      </AuthProvider>
-    </ThemeProvider>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider
+        attribute="class"
+        defaultTheme="system"
+        enableSystem
+        disableTransitionOnChange
+      >
+        {children}
+        {process.env.NODE_ENV === 'development' && <ReactQueryDevtools />}
+      </ThemeProvider>
+    </QueryClientProvider>
   );
 }

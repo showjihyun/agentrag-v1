@@ -193,7 +193,7 @@ export default function NewChatflowPage() {
 
     try {
       setSaving(true);
-      const chatflow = await flowsAPI.createChatflow(formData);
+      const chatflow = await flowsAPI.createChatflow(formData as any);
       
       toast({
         title: '생성 완료',
@@ -372,7 +372,7 @@ export default function NewChatflowPage() {
                   value={[formData.chat_config.temperature]}
                   onValueChange={([value]) => setFormData(prev => ({
                     ...prev,
-                    chat_config: { ...prev.chat_config, temperature: value }
+                    chat_config: { ...prev.chat_config, temperature: value ?? 0.7 }
                   }))}
                   max={2}
                   min={0}

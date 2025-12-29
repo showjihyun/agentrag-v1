@@ -22,7 +22,7 @@ interface VirtualScrollResult {
   }>;
   totalHeight: number;
   scrollToIndex: (index: number) => void;
-  containerRef: React.RefObject<HTMLDivElement>;
+  containerRef: React.RefObject<HTMLDivElement | null>;
 }
 
 export const useVirtualScroll = ({
@@ -165,7 +165,7 @@ export const useAdvancedVirtualScroll = ({
     while (left <= right) {
       const mid = Math.floor((left + right) / 2);
       const position = itemPositions[mid];
-      if (position.end < scrollTop) {
+      if (position && position.end < scrollTop) {
         left = mid + 1;
       } else {
         start = mid;
@@ -176,7 +176,8 @@ export const useAdvancedVirtualScroll = ({
     // Find end
     const viewportEnd = scrollTop + containerHeight;
     for (let i = start; i < items.length; i++) {
-      if (itemPositions[i].start > viewportEnd) {
+      const position = itemPositions[i];
+      if (position && position.start > viewportEnd) {
         end = i;
         break;
       }
@@ -193,13 +194,15 @@ export const useAdvancedVirtualScroll = ({
     const result = [];
     for (let i = startIndex; i <= endIndex; i++) {
       const position = itemPositions[i];
-      result.push({
-        index: i,
-        start: position.start,
-        end: position.end,
-        height: position.height,
-        item: items[i],
-      });
+      if (position) {
+        result.push({
+          index: i,
+          start: position.start,
+          end: position.end,
+          height: position.height,
+          item: items[i],
+        });
+      }
     }
     return result;
   }, [startIndex, endIndex, itemPositions, items]);
@@ -207,7 +210,8 @@ export const useAdvancedVirtualScroll = ({
   // Total height
   const totalHeight = useMemo(() => {
     if (itemPositions.length === 0) return 0;
-    return itemPositions[itemPositions.length - 1].end;
+    const lastPosition = itemPositions[itemPositions.length - 1];
+    return lastPosition ? lastPosition.end : 0;
   }, [itemPositions]);
 
   // Handle scroll

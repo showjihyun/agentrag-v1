@@ -25,7 +25,26 @@ export interface BaseFlow {
 // Agentflow - Multi-Agent Systems
 export interface Agentflow extends BaseFlow {
   flow_type: 'agentflow';
-  orchestration_type: 'sequential' | 'parallel' | 'hierarchical' | 'adaptive';
+  orchestration_type: 
+    // Core patterns (existing)
+    | 'sequential' 
+    | 'parallel' 
+    | 'hierarchical' 
+    | 'adaptive'
+    // 2025 Trends - Advanced patterns
+    | 'consensus_building'
+    | 'dynamic_routing'
+    | 'swarm_intelligence'
+    | 'event_driven'
+    | 'reflection'
+    // 2026 Trends - Next-generation patterns
+    | 'neuromorphic'
+    | 'quantum_enhanced'
+    | 'bio_inspired'
+    | 'self_evolving'
+    | 'federated'
+    | 'emotional_ai'
+    | 'predictive';
   supervisor_config?: SupervisorConfig;
   agents: AgentflowAgent[];
   communication_protocol?: 'direct' | 'broadcast' | 'pubsub';

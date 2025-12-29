@@ -74,9 +74,9 @@ export default function AgentTestPage() {
 
       const testResult: TestResult = {
         success: result.success || false,
-        execution_id: result.execution_id,
+        ...(result.execution_id && { execution_id: result.execution_id }),
         output: result.output || result.result,
-        error: result.error,
+        ...(result.error && { error: result.error }),
         duration_ms: duration,
         timestamp: new Date().toISOString(),
       };

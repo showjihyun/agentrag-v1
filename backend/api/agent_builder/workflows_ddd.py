@@ -111,6 +111,7 @@ async def update_workflow_with_facade(
         
         workflow = facade.update_workflow(
             workflow_id=workflow_id,
+            user_id=str(current_user.id),
             name=workflow_data.name,
             nodes=workflow_data.nodes,
             edges=workflow_data.edges,
@@ -136,7 +137,7 @@ async def delete_workflow_with_facade(
         if existing.user_id != str(current_user.id):
             raise HTTPException(status_code=403, detail="Access denied")
         
-        facade.delete_workflow(workflow_id)
+        facade.delete_workflow(workflow_id, str(current_user.id))
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Workflow not found")
 

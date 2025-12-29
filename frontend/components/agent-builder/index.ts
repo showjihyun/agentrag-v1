@@ -46,3 +46,18 @@ export { TemplateMarketplace } from './TemplateMarketplace';
 export { VirtualizedFlowGrid } from './VirtualizedFlowGrid';
 export { UserPreferencesPanel } from './UserPreferencesPanel';
 export { FlowAnalytics } from './FlowAnalytics';
+// Supervisor AI Enhancement Components
+export { SupervisorDashboard } from './SupervisorDashboard';
+export { SupervisorConfigWizard } from './SupervisorConfigWizard';
+export { SupervisorAIAssistant } from './SupervisorAIAssistant';
+
+// Agent Sharing Components
+export { AgentSharingDialog } from './AgentSharingDialog';
+export { TeamTemplateManager } from './TeamTemplateManager';
+
+// Agent Management Components
+export { AgentSelector } from './AgentSelector';
+export { AgentTemplateSelector } from './AgentTemplateSelector';
+export { AgentBatchActions } from './AgentBatchActions';
+export { AgentAdvancedFilters } from './AgentAdvancedFilters';
+export { AgentMetricsDashboard } from './AgentMetricsDashboard';

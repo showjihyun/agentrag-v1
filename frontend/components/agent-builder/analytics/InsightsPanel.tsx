@@ -26,8 +26,8 @@ export function InsightsPanel({ insights, executionData, metricsData, agentId }:
   if (executionData || metricsData) {
     return (
       <EnhancedInsightsPanel
-        agentId={agentId}
-        executionData={executionData}
+        {...(agentId && { agentId })}
+        {...(executionData && { executionData })}
         metricsData={metricsData}
         autoRefresh={true}
         refreshInterval={30}

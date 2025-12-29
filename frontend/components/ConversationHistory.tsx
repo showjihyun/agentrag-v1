@@ -448,7 +448,6 @@ const ConversationHistory: React.FC<ConversationHistoryProps> = React.memo(({
       )}
     </>
   );
-  */
 });
 
 ConversationHistory.displayName = 'ConversationHistory';

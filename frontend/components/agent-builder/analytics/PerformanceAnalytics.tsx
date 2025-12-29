@@ -34,6 +34,8 @@ export function PerformanceAnalytics({ agentId, timeRange }: PerformanceAnalytic
   }, [agentId, timeRange]);
 
   const loadData = async () => {
+    if (!agentId) return;
+    
     try {
       const result = await agentBuilderAPI.getPerformanceAnalytics(agentId, timeRange);
       setData(result);

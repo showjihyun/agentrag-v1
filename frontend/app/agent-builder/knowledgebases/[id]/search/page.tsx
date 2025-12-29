@@ -3,7 +3,7 @@
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import KnowledgebaseSearch from '@/components/agent-builder/KnowledgebaseSearch';
+import HybridSearch from '@/components/agent-builder/HybridSearch';
 
 export default function KnowledgebaseSearchPage() {
   const params = useParams();
@@ -21,14 +21,14 @@ export default function KnowledgebaseSearchPage() {
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
-          <h1 className="text-2xl font-bold">Search Knowledgebase</h1>
+          <h1 className="text-2xl font-bold">지식베이스 검색</h1>
           <p className="text-sm text-muted-foreground">
-            Find relevant documents using semantic search
+            하이브리드 검색을 통해 관련 문서와 지식을 찾아보세요
           </p>
         </div>
       </div>
 
-      <KnowledgebaseSearch knowledgebaseId={kbId} />
+      <HybridSearch knowledgebaseId={kbId} />
     </div>
   );
 }

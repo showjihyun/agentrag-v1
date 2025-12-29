@@ -181,10 +181,18 @@ class ToolRegistry:
     Registry for managing tool integrations.
     
     Supports registration, lookup, and execution of 70+ tools.
+    Uses module-level storage for persistence.
     """
     
-    _tools: Dict[str, ToolConfig] = {}
-    _tool_instances: Dict[str, BaseTool] = {}
+    # Module-level storage to ensure persistence
+    pass
+
+# Module-level storage
+_tools: Dict[str, ToolConfig] = {}
+_tool_instances: Dict[str, BaseTool] = {}
+
+class ToolRegistry:
+    """Registry for managing tool integrations."""
     
     @classmethod
     def register(
@@ -247,8 +255,8 @@ class ToolRegistry:
                 docs_link=docs_link
             )
             
-            # Store configuration
-            cls._tools[tool_id] = config
+            # Store configuration in module-level storage
+            _tools[tool_id] = config
             
             # Create tool instance
             if tool_class:
@@ -261,7 +269,7 @@ class ToolRegistry:
                 # Use HTTPTool for HTTP-based tools
                 tool_instance = HTTPTool(config)
             
-            cls._tool_instances[tool_id] = tool_instance
+            _tool_instances[tool_id] = tool_instance
             
             logger.info(f"Registered tool: {tool_id} ({name})")
             
@@ -278,14 +286,14 @@ class ToolRegistry:
             config: Tool configuration
             tool_class: Tool class (defaults to HTTPTool)
         """
-        cls._tools[config.id] = config
+        _tools[config.id] = config
         
         if tool_class:
             tool_instance = tool_class(config)
         else:
             tool_instance = HTTPTool(config)
         
-        cls._tool_instances[config.id] = tool_instance
+        _tool_instances[config.id] = tool_instance
         
         logger.info(f"Registered tool: {config.id} ({config.name})")
     
@@ -300,7 +308,7 @@ class ToolRegistry:
         Returns:
             Tool instance or None if not found
         """
-        return cls._tool_instances.get(tool_id)
+        return _tool_instances.get(tool_id)
     
     @classmethod
     def get_tool_config(cls, tool_id: str) -> Optional[ToolConfig]:
@@ -313,7 +321,7 @@ class ToolRegistry:
         Returns:
             Tool configuration or None if not found
         """
-        return cls._tools.get(tool_id)
+        return _tools.get(tool_id)
     
     @classmethod
     def list_tools(
@@ -329,7 +337,7 @@ class ToolRegistry:
         Returns:
             List of tool configurations
         """
-        tools = list(cls._tools.values())
+        tools = list(_tools.values())
         
         if category:
             tools = [t for t in tools if t.category == category]
@@ -346,7 +354,7 @@ class ToolRegistry:
         """
         categorized = {}
         
-        for tool in cls._tools.values():
+        for tool in _tools.values():
             category = tool.category
             if category not in categorized:
                 categorized[category] = []
@@ -362,7 +370,7 @@ class ToolRegistry:
         Returns:
             List of tool identifiers
         """
-        return list(cls._tools.keys())
+        return list(_tools.keys())
     
     @classmethod
     def is_registered(cls, tool_id: str) -> bool:
@@ -375,7 +383,7 @@ class ToolRegistry:
         Returns:
             True if registered, False otherwise
         """
-        return tool_id in cls._tools
+        return tool_id in _tools
     
     @classmethod
     async def execute_tool(
@@ -408,9 +416,24 @@ class ToolRegistry:
     @classmethod
     def clear_registry(cls):
         """Clear all registered tools (useful for testing)."""
-        cls._tools.clear()
-        cls._tool_instances.clear()
+        _tools.clear()
+        _tool_instances.clear()
         logger.info("Cleared tool registry")
+    
+    @classmethod
+    def get_registry_stats(cls) -> Dict[str, Any]:
+        """Get registry statistics."""
+        by_category = cls.list_by_category()
+        
+        return {
+            "total_tools": len(_tools),
+            "total_instances": len(_tool_instances),
+            "categories": len(by_category),
+            "by_category": {
+                category: len(tools)
+                for category, tools in by_category.items()
+            }
+        }
 
 
 # Convenience function for external use

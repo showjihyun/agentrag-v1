@@ -1,7 +1,22 @@
 // Query Keys Factory for React Query
 // Provides consistent cache key management
 
-import { FlowFilters, AuditLogFilters } from './types/flows';
+import { FlowFilters } from './types/flows';
+
+// Define AuditLogFilters locally since it's not exported
+interface AuditLogFilters {
+  startDate?: string;
+  endDate?: string;
+  level?: string;
+  source?: string;
+}
+
+// Stale times for different types of data
+export const STALE_TIMES = {
+  SHORT: 30 * 1000, // 30 seconds
+  MEDIUM: 5 * 60 * 1000, // 5 minutes
+  LONG: 30 * 60 * 1000, // 30 minutes
+} as const;
 
 export const queryKeys = {
   // Workflows/Flows
@@ -94,5 +109,24 @@ export const queryKeys = {
   confidence: {
     all: ['confidence'] as const,
     stats: () => [...queryKeys.confidence.all, 'stats'] as const,
+  },
+
+  // Agents
+  agents: {
+    all: ['agents'] as const,
+    lists: () => [...queryKeys.agents.all, 'list'] as const,
+    list: (filters?: any) => [...queryKeys.agents.lists(), filters] as const,
+    details: () => [...queryKeys.agents.all, 'detail'] as const,
+    detail: (id: string) => [...queryKeys.agents.details(), id] as const,
+  },
+
+  // Conversations
+  conversations: {
+    all: ['conversations'] as const,
+    lists: () => [...queryKeys.conversations.all, 'list'] as const,
+    list: (filters?: any) => [...queryKeys.conversations.lists(), filters] as const,
+    details: () => [...queryKeys.conversations.all, 'detail'] as const,
+    detail: (id: string) => [...queryKeys.conversations.details(), id] as const,
+    messages: (id: string) => [...queryKeys.conversations.detail(id), 'messages'] as const,
   },
 };

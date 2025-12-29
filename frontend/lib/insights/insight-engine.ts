@@ -1,6 +1,6 @@
 /**
  * AI Insights Engine
- * 실시간 데이터 분석 및 인사이트 생성
+ * Real-time data analysis and insight generation
  */
 
 export type InsightType =
@@ -85,21 +85,21 @@ export class InsightEngine {
   private historicalData: Map<string, any[]> = new Map();
 
   /**
-   * 실시간 데이터 분석
+   * Real-time data analysis
    */
   analyzeRealtime(executions: ExecutionData[]): Insight[] {
     const insights: Insight[] = [];
 
-    // 성능 분석
+    // Performance analysis
     insights.push(...this.analyzePerformance(executions));
 
-    // 비용 분석
+    // Cost analysis
     insights.push(...this.analyzeCost(executions));
 
-    // 에러 분석
+    // Error analysis
     insights.push(...this.analyzeErrors(executions));
 
-    // 이상 탐지
+    // Anomaly detection
     insights.push(...this.detectAnomalies(executions));
 
     return insights.sort((a, b) => {
@@ -109,7 +109,7 @@ export class InsightEngine {
   }
 
   /**
-   * 성능 분석
+   * Performance analysis
    */
   private analyzePerformance(executions: ExecutionData[]): Insight[] {
     const insights: Insight[] = [];
@@ -119,7 +119,7 @@ export class InsightEngine {
     const recentExecutions = executions.slice(-20);
     const avgDuration = recentExecutions.reduce((sum, e) => sum + e.duration, 0) / recentExecutions.length;
 
-    // 느린 실행 감지
+    // Detect slow executions
     const slowExecutions = recentExecutions.filter(e => e.duration > avgDuration * 2);
     if (slowExecutions.length > 5) {
       insights.push({
@@ -127,8 +127,8 @@ export class InsightEngine {
         type: 'performance',
         severity: 'high',
         category: 'agent_performance',
-        title: '응답 시간 저하 감지',
-        description: `최근 ${slowExecutions.length}개의 실행이 평균보다 2배 이상 느립니다. 평균: ${avgDuration.toFixed(2)}s`,
+        title: 'Response Time Degradation Detected',
+        description: `${slowExecutions.length} recent executions are 2x slower than average. Average: ${avgDuration.toFixed(2)}s`,
         impact: {
           metric: 'response_time',
           current: avgDuration,
@@ -139,10 +139,10 @@ export class InsightEngine {
         actions: [
           {
             id: 'optimize-prompt',
-            label: '프롬프트 최적화',
+            label: 'Optimize Prompt',
             type: 'primary',
             handler: async () => {
-              // 프롬프트 최적화 로직
+              // Prompt optimization logic
             },
             requiresConfirmation: false,
             estimatedImpact: {
@@ -153,10 +153,10 @@ export class InsightEngine {
           },
           {
             id: 'view-details',
-            label: '상세 분석',
+            label: 'View Details',
             type: 'secondary',
             handler: async () => {
-              // 상세 분석 모달 열기
+              // Open detailed analysis modal
             },
             requiresConfirmation: false,
           },
@@ -167,25 +167,25 @@ export class InsightEngine {
       });
     }
 
-    // P95 분석
+    // P95 analysis
     const sortedDurations = [...recentExecutions.map(e => e.duration)].sort((a, b) => a - b);
     const p95Index = Math.floor(sortedDurations.length * 0.95);
     const p95 = sortedDurations[p95Index];
 
-    if (p95 > avgDuration * 3) {
+    if (p95 !== undefined && p95 > avgDuration * 3) {
       insights.push({
         id: `perf-p95-${Date.now()}`,
         type: 'performance',
         severity: 'medium',
         category: 'agent_performance',
-        title: 'P95 응답 시간 높음',
-        description: `상위 5%의 실행이 평균보다 3배 이상 느립니다. P95: ${p95.toFixed(2)}s`,
+        title: 'High P95 Response Time',
+        description: `Top 5% of executions are 3x slower than average. P95: ${p95.toFixed(2)}s`,
         confidence: 88,
         timestamp: new Date().toISOString(),
         actions: [
           {
             id: 'investigate',
-            label: '원인 조사',
+            label: 'Investigate Cause',
             type: 'primary',
             handler: async () => {},
             requiresConfirmation: false,
@@ -199,7 +199,7 @@ export class InsightEngine {
   }
 
   /**
-   * 비용 분석
+   * Cost analysis
    */
   private analyzeCost(executions: ExecutionData[]): Insight[] {
     const insights: Insight[] = [];
@@ -210,7 +210,7 @@ export class InsightEngine {
     const totalCost = recentExecutions.reduce((sum, e) => sum + e.cost, 0);
     const avgCost = totalCost / recentExecutions.length;
 
-    // 비용 급증 감지
+    // Detect cost spikes
     const last10 = recentExecutions.slice(-10);
     const prev10 = recentExecutions.slice(-20, -10);
     const recentAvg = last10.reduce((sum, e) => sum + e.cost, 0) / 10;
@@ -223,8 +223,8 @@ export class InsightEngine {
         type: 'cost',
         severity: 'high',
         category: 'cost_optimization',
-        title: '비용 급증 감지',
-        description: `최근 실행 비용이 ${increase.toFixed(1)}% 증가했습니다. 현재 평균: $${recentAvg.toFixed(4)}`,
+        title: 'Cost Spike Detected',
+        description: `Recent execution costs increased by ${increase.toFixed(1)}%. Current average: $${recentAvg.toFixed(4)}`,
         impact: {
           metric: 'cost',
           current: recentAvg,
@@ -235,7 +235,7 @@ export class InsightEngine {
         actions: [
           {
             id: 'optimize-model',
-            label: '모델 최적화',
+            label: 'Optimize Model',
             type: 'primary',
             handler: async () => {},
             requiresConfirmation: true,
@@ -247,7 +247,7 @@ export class InsightEngine {
           },
           {
             id: 'enable-caching',
-            label: '캐싱 활성화',
+            label: 'Enable Caching',
             type: 'secondary',
             handler: async () => {},
             requiresConfirmation: false,
@@ -268,7 +268,7 @@ export class InsightEngine {
   }
 
   /**
-   * 에러 분석
+   * Error analysis
    */
   private analyzeErrors(executions: ExecutionData[]): Insight[] {
     const insights: Insight[] = [];
@@ -278,12 +278,14 @@ export class InsightEngine {
     const errorRate = (errors.length / recentExecutions.length) * 100;
 
     if (errorRate > 10) {
-      // 에러 패턴 분석
+      // Error pattern analysis
       const errorTypes = new Map<string, number>();
       errors.forEach(e => {
         if (e.error) {
           const errorType = e.error.split(':')[0];
-          errorTypes.set(errorType, (errorTypes.get(errorType) || 0) + 1);
+          if (errorType) {
+            errorTypes.set(errorType, (errorTypes.get(errorType) || 0) + 1);
+          }
         }
       });
 
@@ -295,8 +297,8 @@ export class InsightEngine {
         type: 'alert',
         severity: errorRate > 20 ? 'critical' : 'high',
         category: 'system_health',
-        title: '높은 에러율 감지',
-        description: `에러율이 ${errorRate.toFixed(1)}%입니다. 가장 흔한 에러: ${mostCommonError?.[0] || 'Unknown'}`,
+        title: 'High Error Rate Detected',
+        description: `Error rate is ${errorRate.toFixed(1)}%. Most common error: ${mostCommonError?.[0] || 'Unknown'}`,
         impact: {
           metric: 'error_rate',
           current: errorRate,
@@ -307,14 +309,14 @@ export class InsightEngine {
         actions: [
           {
             id: 'auto-fix',
-            label: '자동 수정 시도',
+            label: 'Attempt Auto-Fix',
             type: 'primary',
             handler: async () => {},
             requiresConfirmation: true,
           },
           {
             id: 'view-logs',
-            label: '로그 확인',
+            label: 'View Logs',
             type: 'secondary',
             handler: async () => {},
             requiresConfirmation: false,
@@ -330,7 +332,7 @@ export class InsightEngine {
   }
 
   /**
-   * 이상 탐지 (Statistical Anomaly Detection)
+   * Anomaly detection (Statistical Anomaly Detection)
    */
   private detectAnomalies(executions: ExecutionData[]): Insight[] {
     const insights: Insight[] = [];
@@ -351,12 +353,12 @@ export class InsightEngine {
         type: 'anomaly',
         severity: 'medium',
         category: 'system_health',
-        title: '이상 실행 패턴 감지',
-        description: `${anomalies.length}개의 실행이 정상 범위를 벗어났습니다 (3σ 기준)`,
+        title: 'Anomalous Execution Pattern Detected',
+        description: `${anomalies.length} executions are outside normal range (3σ threshold)`,
         actions: [
           {
             id: 'investigate-anomalies',
-            label: '이상 실행 조사',
+            label: 'Investigate Anomalies',
             type: 'primary',
             handler: async () => {},
             requiresConfirmation: false,
@@ -372,12 +374,12 @@ export class InsightEngine {
   }
 
   /**
-   * 트렌드 예측
+   * Trend prediction
    */
   predictTrends(historicalData: MetricsData): Insight[] {
     const insights: Insight[] = [];
 
-    // 선형 회귀로 간단한 트렌드 예측
+    // Simple trend prediction using linear regression
     const costs = historicalData.costs;
     if (costs.length < 7) return insights;
 
@@ -389,39 +391,42 @@ export class InsightEngine {
 
     const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
 
-    if (slope > 0) {
-      const predicted7Days = costs[costs.length - 1] + slope * 7;
-      const increase = ((predicted7Days - costs[costs.length - 1]) / costs[costs.length - 1]) * 100;
+    if (slope > 0 && costs.length > 0) {
+      const lastCost = costs[costs.length - 1];
+      if (lastCost !== undefined) {
+        const predicted7Days = lastCost + slope * 7;
+        const increase = ((predicted7Days - lastCost) / lastCost) * 100;
 
-      if (increase > 20) {
-        insights.push({
-          id: `trend-cost-${Date.now()}`,
-          type: 'prediction',
-          severity: 'medium',
-          category: 'cost_optimization',
-          title: '비용 증가 추세 예측',
-          description: `현재 추세로 7일 후 비용이 ${increase.toFixed(1)}% 증가할 것으로 예상됩니다`,
-          impact: {
-            metric: 'cost',
-            current: costs[costs.length - 1],
-            predicted: predicted7Days,
-            change: predicted7Days - costs[costs.length - 1],
-            changePercent: increase,
-          },
-          actions: [
-            {
-              id: 'set-budget-alert',
-              label: '예산 알림 설정',
-              type: 'primary',
-              handler: async () => {},
-              requiresConfirmation: false,
+        if (increase > 20) {
+          insights.push({
+            id: `trend-cost-${Date.now()}`,
+            type: 'prediction',
+            severity: 'medium',
+            category: 'cost_optimization',
+            title: 'Cost Increase Trend Predicted',
+            description: `Current trend suggests ${increase.toFixed(1)}% cost increase in 7 days`,
+            impact: {
+              metric: 'cost',
+              current: lastCost,
+              predicted: predicted7Days,
+              change: predicted7Days - lastCost,
+              changePercent: increase,
             },
-          ],
-          confidence: 78,
-          timestamp: new Date().toISOString(),
-          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-          tags: ['prediction', 'cost', 'trend'],
-        });
+            actions: [
+              {
+                id: 'set-budget-alert',
+                label: 'Set Budget Alert',
+                type: 'primary',
+                handler: async () => {},
+                requiresConfirmation: false,
+              },
+            ],
+            confidence: 78,
+            timestamp: new Date().toISOString(),
+            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+            tags: ['prediction', 'cost', 'trend'],
+          });
+        }
       }
     }
 
@@ -429,20 +434,20 @@ export class InsightEngine {
   }
 
   /**
-   * 최적화 기회 발견
+   * Find optimization opportunities
    */
   findOptimizations(agentData: any): Insight[] {
     const insights: Insight[] = [];
 
-    // 모델 변경 제안
+    // Model change suggestion
     if (agentData.model === 'gpt-4' && agentData.success_rate > 95) {
       insights.push({
         id: `opt-model-${Date.now()}`,
         type: 'optimization',
         severity: 'low',
         category: 'cost_optimization',
-        title: '모델 다운그레이드 기회',
-        description: 'GPT-4를 GPT-3.5로 변경해도 품질 유지 가능 (95% 이상 성공률)',
+        title: 'Model Downgrade Opportunity',
+        description: 'GPT-4 can be changed to GPT-3.5 while maintaining quality (95%+ success rate)',
         impact: {
           metric: 'cost',
           current: agentData.monthly_cost,
@@ -453,7 +458,7 @@ export class InsightEngine {
         actions: [
           {
             id: 'simulate-change',
-            label: 'A/B 테스트 실행',
+            label: 'Run A/B Test',
             type: 'primary',
             handler: async () => {},
             requiresConfirmation: false,

@@ -70,7 +70,7 @@ export default function VariablesManagerPage() {
     if (!acc[variable.scope]) {
       acc[variable.scope] = [];
     }
-    acc[variable.scope].push(variable);
+    acc[variable.scope]!.push(variable);
     return acc;
   }, {} as Record<string, Variable[]>);
 
@@ -325,9 +325,11 @@ export default function VariablesManagerPage() {
           )}
         </TabsContent>
 
-        {['global', 'workspace', 'user', 'agent'].map((scope) => (
-          <TabsContent key={scope} value={scope} className="space-y-4">
-            {groupedVariables[scope]?.length > 0 ? (
+        {['global', 'workspace', 'user', 'agent'].map((scope) => {
+          const scopeVariables = groupedVariables[scope] || [];
+          return (
+            <TabsContent key={scope} value={scope} className="space-y-4">
+              {scopeVariables.length > 0 ? (
               <Card>
                 <CardContent className="pt-6">
                   <Table>
@@ -341,7 +343,7 @@ export default function VariablesManagerPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {groupedVariables[scope].map((variable) => (
+                      {scopeVariables.map((variable) => (
                         <TableRow key={variable.id}>
                           <TableCell className="font-medium">
                             <div className="flex items-center gap-2">
@@ -423,8 +425,9 @@ export default function VariablesManagerPage() {
                 </CardContent>
               </Card>
             )}
-          </TabsContent>
-        ))}
+            </TabsContent>
+          );
+        })}
       </Tabs>
 
       {/* Variable Editor Dialog */}

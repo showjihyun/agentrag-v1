@@ -36,7 +36,7 @@ interface ExecutionMetrics {
   status: 'success' | 'error';
 }
 
-export function AgentTestPanel({ agentId, agentName, open, onOpenChange }: AgentTestPanelProps) {
+export default function AgentTestPanel({ agentId, agentName, open, onOpenChange }: AgentTestPanelProps) {
   const [testQuery, setTestQuery] = React.useState('');
   const [contextVars, setContextVars] = React.useState<Array<{ key: string; value: string }>>([]);
   const [isRunning, setIsRunning] = React.useState(false);
@@ -54,8 +54,10 @@ export function AgentTestPanel({ agentId, agentName, open, onOpenChange }: Agent
 
   const updateContextVar = (index: number, field: 'key' | 'value', value: string) => {
     const updated = [...contextVars];
-    updated[index][field] = value;
-    setContextVars(updated);
+    if (updated[index]) {
+      updated[index][field] = value;
+      setContextVars(updated);
+    }
   };
 
   const handleRunTest = async () => {

@@ -47,7 +47,7 @@ const AdvancedOptions: React.FC<AdvancedOptionsProps> = memo(({
       {!autoMode && (
         <div id="mode-selector-area">
           <ModeSelector
-            selectedMode={mode}
+            selectedMode={mode as any}
             onModeChange={onModeSelect}
             disabled={isProcessing}
           />

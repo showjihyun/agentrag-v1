@@ -391,14 +391,14 @@ async def security_headers_middleware(request: Request, call_next):
     """Add security headers to all responses."""
     response = await call_next(request)
 
-    # Content Security Policy
+    # Content Security Policy - Allow Swagger UI CDN resources
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
-        "style-src 'self' 'unsafe-inline'; "
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; "
+        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
         "img-src 'self' data: https:; "
-        "font-src 'self' data:; "
-        "connect-src 'self' http://localhost:* ws://localhost:*; "
+        "font-src 'self' data: https://cdn.jsdelivr.net; "
+        "connect-src 'self' http://localhost:* ws://localhost:* https://cdn.jsdelivr.net; "
         "frame-ancestors 'none';"
     )
 
@@ -901,6 +901,10 @@ from backend.api.agent_builder import (
     workflow_dna as agent_builder_workflow_dna,  # 🧬 Workflow DNA Evolution
     realtime_updates as agent_builder_realtime_updates,  # 🔄 Real-time Updates WebSocket
     performance_monitoring as agent_builder_performance_monitoring,  # 📊 Performance Monitoring
+    knowledge_graphs as agent_builder_knowledge_graphs,  # 🕸️ Knowledge Graph API
+    hybrid_search as agent_builder_hybrid_search,  # 🔍 Hybrid Search API
+    kg_analytics as agent_builder_kg_analytics,  # 📈 Knowledge Graph Analytics API
+    team_templates as agent_builder_team_templates,  # 👥 Team Templates API
 )
 
 # Circuit Breaker Status API (Phase 1 Architecture)
@@ -912,11 +916,19 @@ from backend.api import knowledge_base
 # LLM Settings API
 from backend.api import llm_settings
 
+# Users Search API
+from backend.api import users_search
+
 app.include_router(agent_builder_dashboard.router)
 app.include_router(agent_builder_agents.router)
 app.include_router(agent_builder_blocks.router)
 app.include_router(agent_builder_workflows.router)
 app.include_router(agent_builder_knowledgebases.router)
+app.include_router(agent_builder_knowledge_graphs.router)
+app.include_router(agent_builder_hybrid_search.router)
+app.include_router(agent_builder_kg_analytics.router)
+app.include_router(agent_builder_team_templates.router)  # Team Templates API
+app.include_router(users_search.router)  # Users Search API
 app.include_router(agent_builder_variables.router)
 app.include_router(agent_builder_executions.router)
 app.include_router(agent_builder_permissions.router)

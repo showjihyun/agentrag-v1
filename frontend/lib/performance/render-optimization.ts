@@ -31,6 +31,7 @@ export function useThrottle<T>(value: T, interval: number): T {
     if (now - lastUpdated.current >= interval) {
       lastUpdated.current = now;
       setThrottledValue(value);
+      return; // No cleanup needed for immediate update
     } else {
       const timer = setTimeout(() => {
         lastUpdated.current = Date.now();
@@ -118,7 +119,11 @@ export function useIntersectionObserver(
     if (!element) return;
 
     const observer = new IntersectionObserver(
-      ([entry]) => setIsIntersecting(entry.isIntersecting),
+      ([entry]) => {
+        if (entry) {
+          setIsIntersecting(entry.isIntersecting);
+        }
+      },
       { threshold: 0.1, ...options }
     );
 

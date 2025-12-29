@@ -92,17 +92,17 @@ class ChatHistoryService:
                 json.dumps(self._session_metadata[session_id])
             )
         
-        # Store in PostgreSQL for persistence
+        # Store in PostgreSQL for persistence using existing conversation models
         if self.db:
             try:
-                from backend.db.models.chat_history import ChatSession as DBSession
+                from backend.db.models.conversation import Session as DBSession
                 
                 db_session = DBSession(
                     id=session_id,
                     user_id=user_id,
-                    agent_id=agent_id,
                     title=session_title,
-                    metadata=metadata or {},
+                    # Note: conversation.Session doesn't have agent_id or metadata fields
+                    # This is a simplified mapping to existing schema
                 )
                 self.db.add(db_session)
                 self.db.commit()
@@ -149,24 +149,26 @@ class ChatHistoryService:
             )
             self.redis.expire(f"chat:messages:{session_id}", 86400 * 30)  # 30 days
         
-        # Store in PostgreSQL for persistence
+        # Store in PostgreSQL for persistence using existing conversation models
         if self.db:
             try:
-                from backend.db.models.chat_history import ChatMessage as DBMessage, ChatSession as DBSession
+                from backend.db.models.conversation import Message as DBMessage, Session as DBSession
                 
                 db_message = DBMessage(
                     id=message_id,
                     session_id=session_id,
                     role=role,
                     content=content,
-                    metadata=metadata or {},
+                    # Note: conversation.Message has different schema than chat_history
+                    # This is a simplified mapping
                 )
                 self.db.add(db_message)
                 
-                # Update session message count
+                # Update session message count (if session exists)
                 db_session = self.db.query(DBSession).filter(DBSession.id == session_id).first()
                 if db_session:
-                    db_session.message_count = (db_session.message_count or 0) + 1
+                    # Note: conversation.Session doesn't have message_count field
+                    # Just update the updated_at timestamp
                     db_session.updated_at = datetime.utcnow()
                 
                 self.db.commit()

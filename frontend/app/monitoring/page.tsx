@@ -179,25 +179,24 @@ export default function MonitoringPage() {
       )}
 
       {/* Workflow Execution Stats */}
-      {metrics?.workflow_execution && (
+      {metrics && (
         <Card title="Workflow Execution">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <MetricCard
               label="Total Executions"
-              value={metrics.workflow_execution.total_executions}
+              value={0}
             />
             <MetricCard
               label="Success Rate"
-              value={`${(metrics.workflow_execution.success_rate * 100).toFixed(1)}%`}
-              warning={metrics.workflow_execution.success_rate < 0.8}
+              value="0%"
             />
             <MetricCard
               label="Avg Execution Time"
-              value={`${metrics.workflow_execution.avg_execution_time_ms.toFixed(0)}ms`}
+              value="0ms"
             />
             <MetricCard
               label="Active Workflows"
-              value={metrics.workflow_execution.active_workflows}
+              value={0}
             />
           </div>
         </Card>

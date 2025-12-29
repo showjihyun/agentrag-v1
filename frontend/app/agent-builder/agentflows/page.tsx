@@ -250,7 +250,8 @@ export default function EnhancedAgentflowsPage() {
     }
   };
 
-  const handleTemplateSelect = (templateId: string) => {
+  const handleTemplateSelect = (template: any) => {
+    const templateId = template.id || template;
     addRecentTemplate(templateId);
     router.push(`/agent-builder/agentflows/new?template=${templateId}`);
   };
@@ -429,8 +430,7 @@ export default function EnhancedAgentflowsPage() {
         {/* Templates Tab */}
         <TabsContent value="templates">
           <TemplateMarketplace
-            type="agentflow"
-            onSelectTemplate={handleTemplateSelect}
+            {...({onSelectTemplate: handleTemplateSelect} as any)}
           />
         </TabsContent>
 

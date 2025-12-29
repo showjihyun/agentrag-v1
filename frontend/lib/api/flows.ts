@@ -127,6 +127,121 @@ export class FlowsAPI {
   }
 
   /**
+   * Get available agents for AgentFlow
+   */
+  async getAvailableAgents(filters?: {
+    search?: string;
+    agent_type?: string;
+    page?: number;
+    page_size?: number;
+  }): Promise<{
+    agents: Array<{
+      id: string;
+      name: string;
+      description: string;
+      agent_type: string;
+      llm_provider: string;
+      llm_model: string;
+      configuration: any;
+      tools: Array<{ tool_id: string; configuration: any }>;
+      capabilities: string[];
+      created_at: string;
+      updated_at: string;
+    }>;
+    total: number;
+    page: number;
+    page_size: number;
+  }> {
+    const params = new URLSearchParams();
+    if (filters?.search) params.append('search', filters.search);
+    if (filters?.agent_type) params.append('agent_type', filters.agent_type);
+    if (filters?.page) params.append('page', filters.page.toString());
+    if (filters?.page_size) params.append('page_size', filters.page_size.toString());
+
+    return apiClient['request'](`/api/agent-builder/agentflows/available-agents?${params.toString()}`);
+  }
+
+  /**
+   * Add agent to AgentFlow
+   */
+  async addAgentToAgentflow(agentflowId: string, agentData: {
+    agent_id: string;
+    name: string;
+    role: string;
+    description?: string;
+    capabilities?: string[];
+    priority?: number;
+    max_retries?: number;
+    timeout_seconds?: number;
+    dependencies?: string[];
+  }): Promise<{
+    id: string;
+    agent_id: string;
+    name: string;
+    role: string;
+    description: string;
+    capabilities: string[];
+    priority: number;
+    max_retries: number;
+    timeout_seconds: number;
+    dependencies: string[];
+    created_at: string;
+    agent_details: {
+      name: string;
+      description: string;
+      llm_provider: string;
+      llm_model: string;
+      agent_type: string;
+    };
+  }> {
+    return apiClient['request'](`/api/agent-builder/agentflows/${agentflowId}/agents`, {
+      method: 'POST',
+      body: JSON.stringify(agentData),
+    });
+  }
+
+  /**
+   * Update agent in AgentFlow
+   */
+  async updateAgentflowAgent(agentflowId: string, agentAssociationId: string, agentData: {
+    agent_id: string;
+    name: string;
+    role: string;
+    description?: string;
+    capabilities?: string[];
+    priority?: number;
+    max_retries?: number;
+    timeout_seconds?: number;
+    dependencies?: string[];
+  }): Promise<{
+    id: string;
+    agent_id: string;
+    name: string;
+    role: string;
+    description: string;
+    capabilities: string[];
+    priority: number;
+    max_retries: number;
+    timeout_seconds: number;
+    dependencies: string[];
+    created_at: string;
+  }> {
+    return apiClient['request'](`/api/agent-builder/agentflows/${agentflowId}/agents/${agentAssociationId}`, {
+      method: 'PUT',
+      body: JSON.stringify(agentData),
+    });
+  }
+
+  /**
+   * Remove agent from AgentFlow
+   */
+  async removeAgentFromAgentflow(agentflowId: string, agentAssociationId: string): Promise<void> {
+    return apiClient['request'](`/api/agent-builder/agentflows/${agentflowId}/agents/${agentAssociationId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  /**
    * Build filter parameters for API requests
    */
   private buildFilterParams(filters?: FlowFilters): URLSearchParams {

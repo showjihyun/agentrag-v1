@@ -110,3 +110,4 @@ const AnimatedEdge = ({
 };
 
 export default memo(AnimatedEdge);
+export { AnimatedEdge };

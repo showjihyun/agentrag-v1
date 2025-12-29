@@ -10,7 +10,7 @@ from datetime import datetime
 from uuid import UUID, uuid4
 
 from .entities import AgentEntity, AgentVersionEntity, AgentToolEntity
-from .value_objects import AgentType, AgentConfig, LLMSettings, ToolBinding, KnowledgebaseBinding
+from .value_objects import AgentType, AgentConfig, LLMSettings, ToolBinding, KnowledgebaseBinding, AgentStatus
 from .events import (
     DomainEvent, AgentCreated, AgentUpdated, AgentDeleted, 
     AgentCloned, AgentToolAttached, AgentToolDetached
@@ -120,6 +120,7 @@ class AgentAggregate:
             is_public=is_public,
             tools=tools,
             knowledgebases=knowledgebases,
+            status=AgentStatus.DRAFT,  # Set default status
         )
         
         # Create aggregate

@@ -113,18 +113,17 @@ const AgentOlympicsBlock: React.FC<AgentOlympicsBlockProps> = () => {
   // Race animation logic
   const startRaceAnimation = () => {
     const animate = () => {
-      updateRaceProgress((prev: Record<string, number>) => {
-        const newProgress = { ...prev };
-        agents.forEach(agent => {
-          if (newProgress[agent.id] < 100) {
-            // Different speeds based on agent performance
-            const speedFactor = agent.performance.speed / 100;
-            const randomFactor = 0.5 + Math.random() * 0.5; // Add some randomness
-            newProgress[agent.id] = Math.min(100, (newProgress[agent.id] || 0) + speedFactor * randomFactor * 0.5);
-          }
-        });
-        return newProgress;
+      const newProgress = { ...raceProgress };
+      agents.forEach(agent => {
+        const currentProgress = newProgress[agent.id] || 0;
+        if (currentProgress < 100) {
+          // Different speeds based on agent performance
+          const speedFactor = agent.performance.speed / 100;
+          const randomFactor = 0.5 + Math.random() * 0.5; // Add some randomness
+          newProgress[agent.id] = Math.min(100, currentProgress + speedFactor * randomFactor * 0.5);
+        }
       });
+      updateRaceProgress(newProgress);
 
       if (isLive) {
         animationRef.current = requestAnimationFrame(animate);

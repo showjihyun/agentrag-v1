@@ -61,7 +61,7 @@ class Analytics {
   track(name: string, properties?: Record<string, any>) {
     const event: AnalyticsEvent = {
       name,
-      properties,
+      properties: properties || {},
       timestamp: Date.now(),
     };
 

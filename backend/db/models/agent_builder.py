@@ -1,5 +1,6 @@
 """Agent Builder database models."""
 
+import enum
 from sqlalchemy import (
     Column,
     String,
@@ -1097,6 +1098,13 @@ class WorkflowSubflow(Base):
 # ============================================================================
 
 
+class KnowledgebaseType(str, enum.Enum):
+    """Knowledgebase type enumeration."""
+    VECTOR = "vector"  # Traditional vector-based RAG
+    GRAPH = "graph"    # Knowledge Graph-based
+    HYBRID = "hybrid"  # Both vector and graph
+
+
 class Knowledgebase(Base):
     """Knowledgebase model for agent-specific document collections."""
 
@@ -1116,14 +1124,28 @@ class Knowledgebase(Base):
     # Basic Information
     name = Column(String(255), nullable=False)
     description = Column(Text)
+    
+    # Knowledgebase Type
+    kb_type = Column(String(50), nullable=False, default="vector", index=True)
 
-    # Milvus Configuration
-    milvus_collection_name = Column(String(255), unique=True, nullable=False, index=True)
-    embedding_model = Column(String(100), nullable=False)
+    # Vector Search Configuration (for vector and hybrid types)
+    milvus_collection_name = Column(String(255), unique=True, nullable=True, index=True)
+    embedding_model = Column(String(100), nullable=True)
 
     # Chunking Configuration
     chunk_size = Column(Integer, default=500)
     chunk_overlap = Column(Integer, default=50)
+    
+    # Knowledge Graph Configuration (for graph and hybrid types)
+    kg_enabled = Column(Boolean, default=False, index=True)
+    kg_auto_extraction = Column(Boolean, default=True)
+    kg_entity_extraction_model = Column(String(100), default="spacy_en_core_web_sm")
+    kg_relation_extraction_model = Column(String(100), default="rebel_large")
+    
+    # Search Configuration
+    search_strategy = Column(String(50), default="vector")  # vector, graph, hybrid
+    hybrid_weight_vector = Column(Float, default=0.7)  # Weight for vector search in hybrid mode
+    hybrid_weight_graph = Column(Float, default=0.3)   # Weight for graph search in hybrid mode
 
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
@@ -1135,15 +1157,44 @@ class Knowledgebase(Base):
     documents = relationship("KnowledgebaseDocument", back_populates="knowledgebase", cascade="all, delete-orphan")
     versions = relationship("KnowledgebaseVersion", back_populates="knowledgebase", cascade="all, delete-orphan")
     agent_links = relationship("AgentKnowledgebase", back_populates="knowledgebase", cascade="all, delete-orphan")
+    
+    # Knowledge Graph relationship (one-to-one)
+    knowledge_graph = relationship(
+        "KnowledgeGraph", 
+        uselist=False, 
+        cascade="all, delete-orphan",
+        foreign_keys="KnowledgeGraph.knowledgebase_id"
+    )
 
     # Constraints
     __table_args__ = (
         CheckConstraint("chunk_size > 0", name="check_chunk_size_positive"),
         CheckConstraint("chunk_overlap >= 0", name="check_chunk_overlap_positive"),
+        CheckConstraint(
+            "kb_type IN ('vector', 'graph', 'hybrid')",
+            name="check_kb_type_valid",
+        ),
+        CheckConstraint(
+            "search_strategy IN ('vector', 'graph', 'hybrid')",
+            name="check_search_strategy_valid",
+        ),
+        CheckConstraint(
+            "hybrid_weight_vector >= 0.0 AND hybrid_weight_vector <= 1.0",
+            name="check_hybrid_weight_vector_range",
+        ),
+        CheckConstraint(
+            "hybrid_weight_graph >= 0.0 AND hybrid_weight_graph <= 1.0",
+            name="check_hybrid_weight_graph_range",
+        ),
+        # Ensure vector configuration is present for vector/hybrid types
+        CheckConstraint(
+            "(kb_type = 'graph') OR (milvus_collection_name IS NOT NULL AND embedding_model IS NOT NULL)",
+            name="check_vector_config_required",
+        ),
     )
 
     def __repr__(self):
-        return f"<Knowledgebase(id={self.id}, name={self.name})>"
+        return f"<Knowledgebase(id={self.id}, name={self.name}, type={self.kb_type})>"
 
 
 class KnowledgebaseDocument(Base):

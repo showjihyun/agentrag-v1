@@ -57,9 +57,13 @@ export const SuspenseProvider: React.FC<SuspenseProviderProps> = ({
   fallback = <DefaultLoadingFallback />,
   errorFallback,
 }) => {
+  const ErrorFallbackComponent = errorFallback 
+    ? ({ error, resetErrorBoundary }: any) => <>{errorFallback}</>
+    : DefaultErrorFallback;
+
   return (
     <ErrorBoundary
-      FallbackComponent={errorFallback || DefaultErrorFallback}
+      FallbackComponent={ErrorFallbackComponent}
       onReset={() => window.location.reload()}
     >
       <Suspense fallback={fallback}>

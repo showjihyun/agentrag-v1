@@ -1,829 +1,503 @@
 """
-Agent Builder Execution API endpoints.
+Execution monitoring and streaming API endpoints.
 
-Provides endpoints for executing agents/workflows and managing execution schedules.
+Provides real-time execution monitoring through Server-Sent Events (SSE)
+and execution history management.
 """
 
-import logging
-from typing import List, Optional
+from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi.responses import StreamingResponse
+from sqlalchemy.orm import Session
+from typing import Optional, List, AsyncGenerator
+import asyncio
+import json
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
-from sqlalchemy.orm import Session
-from pydantic import BaseModel, Field
-
+from backend.core.dependencies import get_db
 from backend.core.auth_dependencies import get_current_user
-from backend.db.database import get_db
 from backend.db.models.user import User
-from backend.db.models.agent_builder import ExecutionSchedule, AgentExecution
-from backend.services.agent_builder.scheduler import ExecutionScheduler
-from backend.services.auth_service import AuthService
-from backend.db.repositories.user_repository import UserRepository
+from backend.db.models.flows import FlowExecution, NodeExecution, ExecutionLog
+from backend.core.structured_logging import get_logger
 
-logger = logging.getLogger(__name__)
-
-router = APIRouter(prefix="/api/agent-builder/executions", tags=["agent-builder-executions"])
+logger = get_logger(__name__)
+router = APIRouter(prefix="/api/agent-builder/executions", tags=["Executions"])
 
 
-# Pydantic Models
-class ScheduleCreate(BaseModel):
-    """Request model for creating execution schedule."""
-    agent_id: str = Field(..., description="Agent ID to execute")
-    cron_expression: str = Field(..., description="Cron expression for scheduling")
-    input_data: dict = Field(default_factory=dict, description="Input data for execution")
-    timezone: str = Field(default="UTC", description="Timezone for schedule")
-    is_active: bool = Field(default=True, description="Whether schedule is active")
-
-
-class ScheduleUpdate(BaseModel):
-    """Request model for updating execution schedule."""
-    cron_expression: Optional[str] = Field(None, description="New cron expression")
-    input_data: Optional[dict] = Field(None, description="New input data")
-    timezone: Optional[str] = Field(None, description="New timezone")
-    is_active: Optional[bool] = Field(None, description="New active status")
-
-
-class ScheduleResponse(BaseModel):
-    """Response model for execution schedule."""
-    id: str
-    agent_id: str
-    user_id: str
-    cron_expression: str
-    timezone: str
-    input_data: dict
-    is_active: bool
-    last_execution_at: Optional[datetime]
-    next_execution_at: Optional[datetime]
-    created_at: datetime
-    
-    class Config:
-        from_attributes = True
-
-
-class ExecutionResponse(BaseModel):
-    """Response model for agent execution."""
-    id: str
-    agent_id: str
-    user_id: str
-    session_id: Optional[str]
-    input_data: dict
-    output_data: Optional[dict]
-    execution_context: dict
-    status: str
-    error_message: Optional[str]
-    started_at: datetime
-    completed_at: Optional[datetime]
-    duration_ms: Optional[int]
-    
-    class Config:
-        from_attributes = True
-
-
-# Schedule Endpoints
-
-@router.post("/schedules", response_model=ScheduleResponse, status_code=status.HTTP_201_CREATED)
-async def create_schedule(
-    schedule_data: ScheduleCreate,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+@router.get("/stats/summary")
+async def get_execution_stats(
+    days: int = Query(7, ge=1, le=90, description="Number of days to include in stats"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
-    Create a new execution schedule.
-    
-    Creates a cron-based schedule for recurring agent executions.
+    Get execution statistics summary for the user.
     """
     try:
-        # Initialize scheduler
-        scheduler = ExecutionScheduler(db)
+        from datetime import timedelta
+        from sqlalchemy import func
         
-        # Create schedule
-        schedule = await scheduler.create_schedule(
-            agent_id=schedule_data.agent_id,
-            user_id=str(current_user.id),
-            cron_expression=schedule_data.cron_expression,
-            input_data=schedule_data.input_data,
-            timezone_str=schedule_data.timezone,
-            is_active=schedule_data.is_active
-        )
+        # Calculate date range
+        end_date = datetime.utcnow()
+        start_date = end_date - timedelta(days=days)
         
-        logger.info(f"Created schedule {schedule.id} for user {current_user.id}")
+        # Get executions in date range
+        executions = db.query(FlowExecution).filter(
+            FlowExecution.user_id == current_user.id,
+            FlowExecution.started_at >= start_date,
+            FlowExecution.started_at <= end_date
+        ).all()
         
-        return schedule
+        # Calculate statistics
+        total_executions = len(executions)
+        completed_executions = len([e for e in executions if e.status == "completed"])
+        failed_executions = len([e for e in executions if e.status == "failed"])
+        cancelled_executions = len([e for e in executions if e.status == "cancelled"])
         
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-    except Exception as e:
-        logger.error(f"Failed to create schedule: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create schedule"
-        )
-
-
-@router.get("/schedules", response_model=List[ScheduleResponse])
-async def list_schedules(
-    agent_id: Optional[str] = None,
-    is_active: Optional[bool] = None,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """
-    List execution schedules.
-    
-    Returns schedules for the current user with optional filters.
-    """
-    try:
-        scheduler = ExecutionScheduler(db)
+        success_rate = (completed_executions / total_executions * 100) if total_executions > 0 else 0
         
-        schedules = scheduler.list_schedules(
-            user_id=str(current_user.id),
-            agent_id=agent_id,
-            is_active=is_active
-        )
+        # Calculate average duration for completed executions
+        completed_durations = [e.duration_ms for e in executions if e.status == "completed" and e.duration_ms]
+        avg_duration_ms = sum(completed_durations) / len(completed_durations) if completed_durations else 0
         
-        return schedules
+        # Calculate total costs
+        total_cost = 0
+        total_tokens = 0
+        for execution in executions:
+            if execution.metrics:
+                total_cost += execution.metrics.get("estimated_cost", 0)
+                total_tokens += execution.metrics.get("total_tokens", 0)
         
-    except Exception as e:
-        logger.error(f"Failed to list schedules: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to list schedules"
-        )
-
-
-@router.get("/schedules/{schedule_id}", response_model=ScheduleResponse)
-async def get_schedule(
-    schedule_id: str,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Get execution schedule by ID.
-    
-    Returns schedule details if user has access.
-    """
-    try:
-        scheduler = ExecutionScheduler(db)
-        schedule = scheduler.get_schedule(schedule_id)
+        # Group by flow type
+        agentflow_count = len([e for e in executions if e.flow_type == "agentflow"])
+        chatflow_count = len([e for e in executions if e.flow_type == "chatflow"])
         
-        if not schedule:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Schedule not found"
-            )
-        
-        # Check ownership
-        if str(schedule.user_id) != str(current_user.id):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access denied"
-            )
-        
-        return schedule
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to get schedule: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to get schedule"
-        )
-
-
-@router.put("/schedules/{schedule_id}", response_model=ScheduleResponse)
-async def update_schedule(
-    schedule_id: str,
-    schedule_data: ScheduleUpdate,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Update execution schedule.
-    
-    Updates schedule configuration. User must own the schedule.
-    """
-    try:
-        scheduler = ExecutionScheduler(db)
-        
-        # Check ownership
-        schedule = scheduler.get_schedule(schedule_id)
-        if not schedule:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Schedule not found"
-            )
-        
-        if str(schedule.user_id) != str(current_user.id):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access denied"
-            )
-        
-        # Update schedule
-        updated_schedule = await scheduler.update_schedule(
-            schedule_id=schedule_id,
-            cron_expression=schedule_data.cron_expression,
-            input_data=schedule_data.input_data,
-            timezone_str=schedule_data.timezone,
-            is_active=schedule_data.is_active
-        )
-        
-        logger.info(f"Updated schedule {schedule_id} for user {current_user.id}")
-        
-        return updated_schedule
-        
-    except HTTPException:
-        raise
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-    except Exception as e:
-        logger.error(f"Failed to update schedule: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update schedule"
-        )
-
-
-@router.delete("/schedules/{schedule_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_schedule(
-    schedule_id: str,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Delete execution schedule.
-    
-    Removes schedule and stops future executions. User must own the schedule.
-    """
-    try:
-        scheduler = ExecutionScheduler(db)
-        
-        # Check ownership
-        schedule = scheduler.get_schedule(schedule_id)
-        if not schedule:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Schedule not found"
-            )
-        
-        if str(schedule.user_id) != str(current_user.id):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access denied"
-            )
-        
-        # Delete schedule
-        await scheduler.delete_schedule(schedule_id)
-        
-        logger.info(f"Deleted schedule {schedule_id} for user {current_user.id}")
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to delete schedule: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to delete schedule"
-        )
-
-
-@router.post("/schedules/{schedule_id}/pause", response_model=ScheduleResponse)
-async def pause_schedule(
-    schedule_id: str,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Pause execution schedule.
-    
-    Temporarily stops scheduled executions without deleting the schedule.
-    """
-    try:
-        scheduler = ExecutionScheduler(db)
-        
-        # Check ownership
-        schedule = scheduler.get_schedule(schedule_id)
-        if not schedule:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Schedule not found"
-            )
-        
-        if str(schedule.user_id) != str(current_user.id):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access denied"
-            )
-        
-        # Pause schedule
-        updated_schedule = await scheduler.pause_schedule(schedule_id)
-        
-        logger.info(f"Paused schedule {schedule_id} for user {current_user.id}")
-        
-        return updated_schedule
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to pause schedule: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to pause schedule"
-        )
-
-
-@router.post("/schedules/{schedule_id}/resume", response_model=ScheduleResponse)
-async def resume_schedule(
-    schedule_id: str,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Resume paused execution schedule.
-    
-    Resumes scheduled executions for a paused schedule.
-    """
-    try:
-        scheduler = ExecutionScheduler(db)
-        
-        # Check ownership
-        schedule = scheduler.get_schedule(schedule_id)
-        if not schedule:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Schedule not found"
-            )
-        
-        if str(schedule.user_id) != str(current_user.id):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access denied"
-            )
-        
-        # Resume schedule
-        updated_schedule = await scheduler.resume_schedule(schedule_id)
-        
-        logger.info(f"Resumed schedule {schedule_id} for user {current_user.id}")
-        
-        return updated_schedule
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to resume schedule: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to resume schedule"
-        )
-
-
-# Execution Endpoints
-
-@router.get("")
-async def list_executions(
-    agent_id: Optional[str] = None,
-    status_filter: Optional[str] = None,
-    limit: int = 50,
-    offset: int = 0,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """
-    List all executions (agents and workflows).
-    
-    Returns execution history for the current user with optional filters.
-    Combines both AgentExecution and WorkflowExecution records.
-    """
-    try:
-        from backend.db.models.agent_builder import WorkflowExecution
-        
-        # Query agent executions
-        agent_query = db.query(AgentExecution).filter(
-            AgentExecution.user_id == str(current_user.id)
-        )
-        
-        if agent_id:
-            agent_query = agent_query.filter(AgentExecution.agent_id == agent_id)
-        
-        if status_filter:
-            agent_query = agent_query.filter(AgentExecution.status == status_filter)
-        
-        # Query workflow executions
-        workflow_query = db.query(WorkflowExecution).filter(
-            WorkflowExecution.user_id == current_user.id
-        )
-        
-        if status_filter:
-            workflow_query = workflow_query.filter(WorkflowExecution.status == status_filter)
-        
-        # Get all executions
-        agent_executions = agent_query.all()
-        workflow_executions = workflow_query.all()
-        
-        # Combine and format executions
-        combined_executions = []
-        
-        # Add agent executions
-        for exec in agent_executions:
-            combined_executions.append({
-                "id": str(exec.id),
-                "type": "agent",
-                "agent_id": str(exec.agent_id) if exec.agent_id else None,
-                "workflow_id": None,
-                "user_id": str(exec.user_id),
-                "session_id": exec.session_id,
-                "input_data": exec.input_data,
-                "output_data": exec.output_data,
-                "execution_context": exec.execution_context,
-                "status": exec.status,
-                "error_message": exec.error_message,
-                "started_at": exec.started_at.isoformat() if exec.started_at else None,
-                "completed_at": exec.completed_at.isoformat() if exec.completed_at else None,
-                "duration_ms": exec.duration_ms
-            })
-        
-        # Add workflow executions
-        for exec in workflow_executions:
-            combined_executions.append({
-                "id": str(exec.id),
-                "type": "workflow",
-                "agent_id": None,
-                "workflow_id": str(exec.workflow_id) if exec.workflow_id else None,
-                "user_id": str(exec.user_id),
-                "session_id": None,
-                "input_data": exec.input_data,
-                "output_data": exec.output_data,
-                "execution_context": exec.execution_context,
-                "status": exec.status,
-                "error_message": exec.error_message,
-                "started_at": exec.started_at.isoformat() if exec.started_at else None,
-                "completed_at": exec.completed_at.isoformat() if exec.completed_at else None,
-                "duration_ms": int((exec.completed_at - exec.started_at).total_seconds() * 1000) if exec.completed_at and exec.started_at else None
-            })
-        
-        # Sort by started_at descending
-        combined_executions.sort(key=lambda x: x["started_at"] or "", reverse=True)
-        
-        # Apply pagination
-        total = len(combined_executions)
-        paginated_executions = combined_executions[offset:offset + limit]
-        
-        # Return in expected format
         return {
-            "executions": paginated_executions,
-            "total": total,
-            "limit": limit,
-            "offset": offset
+            "period": {
+                "start_date": start_date.isoformat(),
+                "end_date": end_date.isoformat(),
+                "days": days
+            },
+            "totals": {
+                "total_executions": total_executions,
+                "completed_executions": completed_executions,
+                "failed_executions": failed_executions,
+                "cancelled_executions": cancelled_executions,
+                "success_rate": round(success_rate, 2)
+            },
+            "performance": {
+                "avg_duration_ms": round(avg_duration_ms, 2),
+                "total_tokens": total_tokens,
+                "estimated_cost": round(total_cost, 4)
+            },
+            "by_flow_type": {
+                "agentflow_executions": agentflow_count,
+                "chatflow_executions": chatflow_count
+            }
         }
         
     except Exception as e:
-        logger.error(f"Failed to list executions: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to list executions"
-        )
+        logger.error(f"Failed to get execution stats: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/agents/{agent_id}")
-async def list_agent_executions(
-    agent_id: str,
-    status_filter: Optional[str] = None,
-    limit: int = 50,
-    offset: int = 0,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+@router.get("/stats")
+async def get_execution_stats_short(
+    days: int = Query(7, ge=1, le=90, description="Number of days to include in stats"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
-    List executions for a specific agent.
-    
-    Returns execution history for a specific agent with optional filters.
+    Get execution statistics summary for the user (short URL).
+    """
+    return await get_execution_stats(days, db, current_user)
+
+
+@router.get("/{execution_id}")
+async def get_execution(
+    execution_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get execution details by ID.
     """
     try:
-        query = db.query(AgentExecution).filter(
-            AgentExecution.agent_id == agent_id,
-            AgentExecution.user_id == str(current_user.id)
+        execution = db.query(FlowExecution).filter(
+            FlowExecution.id == execution_id,
+            FlowExecution.user_id == current_user.id
+        ).first()
+        
+        if not execution:
+            raise HTTPException(status_code=404, detail="Execution not found")
+        
+        # Get node executions
+        node_executions = db.query(NodeExecution).filter(
+            NodeExecution.flow_execution_id == execution_id
+        ).order_by(NodeExecution.started_at).all()
+        
+        # Get execution logs
+        logs = db.query(ExecutionLog).filter(
+            ExecutionLog.flow_execution_id == execution_id
+        ).order_by(ExecutionLog.timestamp.desc()).limit(100).all()
+        
+        return {
+            "id": str(execution.id),
+            "flow_id": str(execution.agentflow_id) if execution.agentflow_id else str(execution.chatflow_id),
+            "flow_type": execution.flow_type,
+            "flow_name": execution.flow_name,
+            "status": execution.status,
+            "started_at": execution.started_at.isoformat(),
+            "completed_at": execution.completed_at.isoformat() if execution.completed_at else None,
+            "duration_ms": execution.duration_ms,
+            "input_data": execution.input_data,
+            "output_data": execution.output_data,
+            "error_message": execution.error_message,
+            "metrics": execution.metrics,
+            "node_executions": [
+                {
+                    "id": str(node.id),
+                    "node_id": node.node_id,
+                    "node_type": node.node_type,
+                    "node_label": node.node_label,
+                    "status": node.status,
+                    "started_at": node.started_at.isoformat() if node.started_at else None,
+                    "completed_at": node.completed_at.isoformat() if node.completed_at else None,
+                    "duration_ms": node.duration_ms,
+                    "input_data": node.input_data,
+                    "output_data": node.output_data,
+                    "error_message": node.error_message,
+                    "retry_count": node.retry_count
+                }
+                for node in node_executions
+            ],
+            "logs": [
+                {
+                    "id": str(log.id),
+                    "level": log.level,
+                    "message": log.message,
+                    "metadata": log.log_metadata,
+                    "timestamp": log.timestamp.isoformat()
+                }
+                for log in logs
+            ]
+        }
+        
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid execution ID")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get execution {execution_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/{execution_id}/stream")
+async def stream_execution(
+    execution_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Stream real-time execution updates via Server-Sent Events (SSE).
+    """
+    try:
+        # Verify execution exists and user has access
+        execution = db.query(FlowExecution).filter(
+            FlowExecution.id == execution_id,
+            FlowExecution.user_id == current_user.id
+        ).first()
+        
+        if not execution:
+            raise HTTPException(status_code=404, detail="Execution not found")
+        
+        async def event_stream() -> AsyncGenerator[str, None]:
+            """Generate SSE events for execution updates."""
+            
+            # Send initial status
+            yield f"data: {json.dumps({'type': 'execution_start', 'execution_id': execution_id})}\n\n"
+            
+            last_update = datetime.utcnow()
+            
+            while True:
+                try:
+                    # Get current execution status
+                    current_execution = db.query(FlowExecution).filter(
+                        FlowExecution.id == execution_id
+                    ).first()
+                    
+                    if not current_execution:
+                        break
+                    
+                    # Get node executions that have been updated
+                    node_executions = db.query(NodeExecution).filter(
+                        NodeExecution.flow_execution_id == execution_id
+                    ).all()
+                    
+                    # Calculate progress
+                    total_nodes = len(node_executions) if node_executions else 1
+                    completed_nodes = len([n for n in node_executions if n.status == "completed"])
+                    failed_nodes = len([n for n in node_executions if n.status == "failed"])
+                    running_nodes = len([n for n in node_executions if n.status == "running"])
+                    
+                    progress = (completed_nodes / total_nodes) * 100 if total_nodes > 0 else 0
+                    
+                    # Create update event
+                    update_data = {
+                        "type": "execution_update",
+                        "execution_id": execution_id,
+                        "status": current_execution.status,
+                        "progress": round(progress, 2),
+                        "metrics": {
+                            "total_nodes": total_nodes,
+                            "completed_nodes": completed_nodes,
+                            "failed_nodes": failed_nodes,
+                            "running_nodes": running_nodes,
+                            **(current_execution.metrics or {})
+                        },
+                        "node_updates": [
+                            {
+                                "node_id": node.node_id,
+                                "status": node.status,
+                                "duration_ms": node.duration_ms,
+                                "error_message": node.error_message
+                            }
+                            for node in node_executions
+                        ],
+                        "error_message": current_execution.error_message,
+                        "error_details": current_execution.metrics.get("error_details", []) if current_execution.metrics else [],
+                        "timestamp": datetime.utcnow().isoformat()
+                    }
+                    
+                    yield f"data: {json.dumps(update_data)}\n\n"
+                    
+                    # Check if execution is complete
+                    if current_execution.status in ["completed", "failed", "cancelled"]:
+                        # Send final event
+                        final_data = {
+                            "type": "execution_complete",
+                            "execution_id": execution_id,
+                            "status": current_execution.status,
+                            "duration_ms": current_execution.duration_ms,
+                            "output_data": current_execution.output_data,
+                            "error_message": current_execution.error_message,
+                            "error_details": current_execution.metrics.get("error_details", []) if current_execution.metrics else [],
+                            "final_metrics": current_execution.metrics,
+                            "timestamp": datetime.utcnow().isoformat()
+                        }
+                        yield f"data: {json.dumps(final_data)}\n\n"
+                        break
+                    
+                    # Wait before next update
+                    await asyncio.sleep(0.5)
+                    
+                except Exception as e:
+                    logger.error(f"Error in execution stream: {str(e)}")
+                    error_data = {
+                        "type": "execution_error",
+                        "execution_id": execution_id,
+                        "error": str(e),
+                        "timestamp": datetime.utcnow().isoformat()
+                    }
+                    yield f"data: {json.dumps(error_data)}\n\n"
+                    break
+        
+        return StreamingResponse(
+            event_stream(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "Cache-Control"
+            }
         )
         
-        if status_filter:
-            query = query.filter(AgentExecution.status == status_filter)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid execution ID")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to stream execution {execution_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("")
+async def list_executions(
+    flow_id: Optional[str] = Query(None, description="Filter by flow ID"),
+    flow_type: Optional[str] = Query(None, description="Filter by flow type"),
+    status: Optional[str] = Query(None, description="Filter by status"),
+    limit: int = Query(20, ge=1, le=100, description="Number of executions to return"),
+    offset: int = Query(0, ge=0, description="Number of executions to skip"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    List executions with optional filtering.
+    """
+    try:
+        query = db.query(FlowExecution).filter(
+            FlowExecution.user_id == current_user.id
+        )
+        
+        # Apply filters
+        if flow_id:
+            query = query.filter(
+                (FlowExecution.agentflow_id == flow_id) |
+                (FlowExecution.chatflow_id == flow_id)
+            )
+        
+        if flow_type:
+            query = query.filter(FlowExecution.flow_type == flow_type)
+        
+        if status:
+            query = query.filter(FlowExecution.status == status)
         
         # Get total count
         total = query.count()
         
+        # Apply pagination and ordering
         executions = query.order_by(
-            AgentExecution.started_at.desc()
-        ).limit(limit).offset(offset).all()
+            FlowExecution.started_at.desc()
+        ).offset(offset).limit(limit).all()
         
-        # Return in expected format
         return {
-            "executions": executions,
+            "executions": [
+                {
+                    "id": str(execution.id),
+                    "flow_id": str(execution.agentflow_id) if execution.agentflow_id else str(execution.chatflow_id),
+                    "flow_type": execution.flow_type,
+                    "flow_name": execution.flow_name,
+                    "status": execution.status,
+                    "started_at": execution.started_at.isoformat(),
+                    "completed_at": execution.completed_at.isoformat() if execution.completed_at else None,
+                    "duration_ms": execution.duration_ms,
+                    "error_message": execution.error_message,
+                    "metrics": execution.metrics
+                }
+                for execution in executions
+            ],
             "total": total,
             "limit": limit,
             "offset": offset
         }
         
     except Exception as e:
-        logger.error(f"Failed to list agent executions: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to list agent executions"
-        )
+        logger.error(f"Failed to list executions: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-async def _get_execution_statistics_impl(current_user: User, db: Session):
-    """Internal implementation for execution statistics."""
-    from backend.db.models.agent_builder import AgentExecution
-    
-    # Get all executions for current user
-    executions = db.query(AgentExecution).filter(
-        AgentExecution.user_id == str(current_user.id)
-    ).all()
-    
-    total = len(executions)
-    completed = sum(1 for e in executions if e.status == 'completed')
-    failed = sum(1 for e in executions if e.status == 'failed')
-    running = sum(1 for e in executions if e.status == 'running')
-    
-    # Calculate average duration for completed executions
-    completed_execs = [e for e in executions if e.status == 'completed' and e.duration_ms]
-    avg_duration = sum(e.duration_ms for e in completed_execs) / len(completed_execs) if completed_execs else 0
-    
-    # Get recent executions (last 10)
-    recent = db.query(AgentExecution).filter(
-        AgentExecution.user_id == str(current_user.id)
-    ).order_by(AgentExecution.started_at.desc()).limit(10).all()
-    
-    return {
-        "total_executions": total,
-        "completed": completed,
-        "failed": failed,
-        "running": running,
-        "success_rate": round((completed / total * 100) if total > 0 else 0, 1),
-        "avg_duration_ms": round(avg_duration, 1),
-        "recent_executions": [
-            {
-                "id": str(e.id),
-                "agent_id": str(e.agent_id),
-                "status": e.status,
-                "started_at": e.started_at.isoformat() if e.started_at else None,
-                "duration_ms": e.duration_ms
-            }
-            for e in recent
-        ]
-    }
-
-
-@router.get("/stats")
-async def get_execution_stats(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Get overall execution statistics for the current user.
-    
-    Alias for /statistics endpoint for backward compatibility.
-    
-    Returns:
-    - Total executions
-    - Success/failure rates
-    - Average duration
-    - Recent activity
-    """
-    try:
-        return await _get_execution_statistics_impl(current_user, db)
-    except Exception as e:
-        logger.error(f"Failed to get execution statistics: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to get execution statistics"
-        )
-
-
-@router.get("/statistics")
-async def get_execution_statistics(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Get overall execution statistics for the current user.
-    
-    Returns:
-    - Total executions
-    - Success/failure rates
-    - Average duration
-    - Recent activity
-    """
-    try:
-        return await _get_execution_statistics_impl(current_user, db)
-    except Exception as e:
-        logger.error(f"Failed to get execution statistics: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to get execution statistics"
-        )
-
-
-@router.get("/{execution_id}", response_model=ExecutionResponse)
-async def get_execution(
+@router.post("/{execution_id}/cancel")
+async def cancel_execution(
     execution_id: str,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
-    Get execution details by ID.
-    
-    Returns execution details if user has access.
+    Cancel a running execution.
     """
     try:
-        execution = db.query(AgentExecution).filter(
-            AgentExecution.id == execution_id
+        execution = db.query(FlowExecution).filter(
+            FlowExecution.id == execution_id,
+            FlowExecution.user_id == current_user.id
         ).first()
         
         if not execution:
+            raise HTTPException(status_code=404, detail="Execution not found")
+        
+        if execution.status not in ["running", "pending"]:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Execution not found"
+                status_code=400, 
+                detail=f"Cannot cancel execution with status: {execution.status}"
             )
         
-        # Check ownership
-        if str(execution.user_id) != str(current_user.id):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access denied"
+        # Update execution status
+        execution.status = "cancelled"
+        execution.completed_at = datetime.utcnow()
+        
+        if execution.started_at:
+            execution.duration_ms = int(
+                (execution.completed_at - execution.started_at).total_seconds() * 1000
             )
         
-        # Convert UUID fields to strings for response
-        return ExecutionResponse(
-            id=str(execution.id),
-            agent_id=str(execution.agent_id),
-            user_id=str(execution.user_id),
-            session_id=execution.session_id,
-            input_data=execution.input_data or {},
-            output_data=execution.output_data,
-            execution_context=execution.execution_context or {},
-            status=execution.status,
-            error_message=execution.error_message,
-            started_at=execution.started_at,
-            completed_at=execution.completed_at,
-            duration_ms=execution.duration_ms,
-        )
+        # Cancel any running node executions
+        db.query(NodeExecution).filter(
+            NodeExecution.flow_execution_id == execution_id,
+            NodeExecution.status == "running"
+        ).update({"status": "cancelled"})
         
+        db.commit()
+        
+        logger.info(f"Execution {execution_id} cancelled by user {current_user.id}")
+        
+        return {"message": "Execution cancelled successfully"}
+        
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid execution ID")
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to get execution: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to get execution"
-        )
+        logger.error(f"Failed to cancel execution {execution_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-
-# Agent Execution SSE Endpoint
-
-@router.get("/agents/{agent_id}/execute")
-async def execute_agent_stream(
-    agent_id: str,
-    query: str,
-    token: Optional[str] = None,
-    db: Session = Depends(get_db)
+@router.get("/{execution_id}/logs")
+async def get_execution_logs(
+    execution_id: str,
+    level: Optional[str] = Query(None, description="Filter by log level"),
+    limit: int = Query(100, ge=1, le=1000, description="Number of logs to return"),
+    offset: int = Query(0, ge=0, description="Number of logs to skip"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
-    Execute agent with Server-Sent Events streaming.
-    
-    This endpoint streams agent execution progress in real-time.
-    Used by the frontend Agent Builder UI.
-    
-    Args:
-        agent_id: Agent ID to execute
-        query: Query/input for the agent
-        token: Authentication token (from query param for SSE)
-        
-    Returns:
-        StreamingResponse with SSE events
+    Get execution logs with optional filtering.
     """
-    from fastapi.responses import StreamingResponse
-    from backend.services.auth_service import AuthService
-    from backend.services.agent_builder.agent_executor import AgentExecutor
-    import json
-    import asyncio
-    
-    async def event_generator():
-        """Generate SSE events for agent execution."""
-        try:
-            # Authenticate user from token
-            from uuid import UUID
-            from backend.config import settings
-            
-            user = None
-            
-            # DEBUG MODE: Use test user if no token provided
-            if settings.DEBUG and (not token or token == 'null'):
-                logger.debug("DEBUG mode: Using test user for SSE execution")
-                user_repo = UserRepository(db)
-                user = user_repo.get_user_by_email("test@example.com")
-                
-                if not user:
-                    # Create test user if doesn't exist
-                    from backend.db.models.user import User as UserModel
-                    user = UserModel(
-                        email="test@example.com",
-                        username="testuser",
-                        password_hash=AuthService.hash_password("test1234"),
-                        role="admin",
-                        is_active=True,
-                    )
-                    db.add(user)
-                    db.commit()
-                    db.refresh(user)
-                    logger.info("Created test user for DEBUG mode")
-            
-            # Production mode or token provided: validate token
-            elif not token or token == 'null':
-                yield f"data: {json.dumps({'type': 'error', 'data': {'message': 'Authentication required'}})}\n\n"
-                return
-            else:
-                try:
-                    payload = AuthService.decode_token(token)
-                    if not payload:
-                        yield f"data: {json.dumps({'type': 'error', 'data': {'message': 'Invalid token'}})}\n\n"
-                        return
-                    
-                    user_id_str = payload.get("sub")
-                    if not user_id_str:
-                        yield f"data: {json.dumps({'type': 'error', 'data': {'message': 'Invalid token payload'}})}\n\n"
-                        return
-                    
-                    user_id = UUID(user_id_str)
-                    user_repo = UserRepository(db)
-                    user = user_repo.get_user_by_id(user_id)
-                    
-                    if not user:
-                        yield f"data: {json.dumps({'type': 'error', 'data': {'message': 'User not found'}})}\n\n"
-                        return
-                        
-                except Exception as e:
-                    logger.error(f"Authentication failed: {e}")
-                    yield f"data: {json.dumps({'type': 'error', 'data': {'message': 'Authentication failed'}})}\n\n"
-                    return
-            
-            if not user:
-                yield f"data: {json.dumps({'type': 'error', 'data': {'message': 'User authentication failed'}})}\n\n"
-                return
-            
-            # Send start event
-            yield f"data: {json.dumps({'type': 'start', 'data': {'agent_id': agent_id, 'query': query}})}\n\n"
-            
-            # Execute agent
-            executor = AgentExecutor(db)
-            
-            try:
-                execution = await executor.execute_agent(
-                    agent_id=agent_id,
-                    user_id=str(user.id),
-                    input_data={"query": query, "input": query},
-                    session_id=None,
-                    variables={}
-                )
-                
-                # Send progress events (simulated for now)
-                yield f"data: {json.dumps({'type': 'step', 'data': {'step': 'processing', 'message': 'Executing agent...'}})}\n\n"
-                await asyncio.sleep(0.1)
-                
-                # Send completion event
-                result_data = {
-                    'type': 'complete',
-                    'data': {
-                        'execution_id': str(execution.id),
-                        'status': execution.status,
-                        'output': execution.output_data.get('output', '') if execution.output_data else '',
-                        'duration_ms': execution.duration_ms,
-                        'error': execution.error_message
-                    }
+    try:
+        # Verify execution exists and user has access
+        execution = db.query(FlowExecution).filter(
+            FlowExecution.id == execution_id,
+            FlowExecution.user_id == current_user.id
+        ).first()
+        
+        if not execution:
+            raise HTTPException(status_code=404, detail="Execution not found")
+        
+        query = db.query(ExecutionLog).filter(
+            ExecutionLog.flow_execution_id == execution_id
+        )
+        
+        # Apply level filter
+        if level:
+            query = query.filter(ExecutionLog.level == level)
+        
+        # Get total count
+        total = query.count()
+        
+        # Apply pagination and ordering (newest first)
+        logs = query.order_by(
+            ExecutionLog.timestamp.desc()
+        ).offset(offset).limit(limit).all()
+        
+        return {
+            "logs": [
+                {
+                    "id": str(log.id),
+                    "level": log.level,
+                    "message": log.message,
+                    "metadata": log.log_metadata,
+                    "timestamp": log.timestamp.isoformat()
                 }
-                yield f"data: {json.dumps(result_data)}\n\n"
-                
-            except Exception as e:
-                logger.error(f"Agent execution failed: {e}", exc_info=True)
-                yield f"data: {json.dumps({'type': 'error', 'data': {'message': str(e)}})}\n\n"
-                
-        except Exception as e:
-            logger.error(f"SSE stream error: {e}", exc_info=True)
-            yield f"data: {json.dumps({'type': 'error', 'data': {'message': 'Internal server error'}})}\n\n"
-    
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
+                for log in logs
+            ],
+            "total": total,
+            "limit": limit,
+            "offset": offset
         }
-    )
+        
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid execution ID")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get execution logs {execution_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))

@@ -459,10 +459,18 @@ export default function PredictiveRoutingBlock({
                       id="budget-limit"
                       type="number"
                       value={routingRequest.budget_limit || ''}
-                      onChange={(e) => setRoutingRequest(prev => ({
-                        ...prev,
-                        budget_limit: e.target.value ? parseFloat(e.target.value) : undefined
-                      }))}
+                      onChange={(e) => {
+                        const value = e.target.value ? parseFloat(e.target.value) : undefined;
+                        setRoutingRequest(prev => {
+                          const newRequest = { ...prev };
+                          if (value !== undefined) {
+                            newRequest.budget_limit = value;
+                          } else {
+                            delete newRequest.budget_limit;
+                          }
+                          return newRequest;
+                        });
+                      }}
                       placeholder="제한 없음"
                       min="0"
                       step="0.01"
@@ -475,10 +483,18 @@ export default function PredictiveRoutingBlock({
                       id="deadline"
                       type="datetime-local"
                       value={routingRequest.deadline_constraint || ''}
-                      onChange={(e) => setRoutingRequest(prev => ({
-                        ...prev,
-                        deadline_constraint: e.target.value || undefined
-                      }))}
+                      onChange={(e) => {
+                        const value = e.target.value || undefined;
+                        setRoutingRequest(prev => {
+                          const newRequest = { ...prev };
+                          if (value !== undefined) {
+                            newRequest.deadline_constraint = value;
+                          } else {
+                            delete newRequest.deadline_constraint;
+                          }
+                          return newRequest;
+                        });
+                      }}
                     />
                   </div>
                 </div>
@@ -763,7 +779,7 @@ export default function PredictiveRoutingBlock({
                         <span className="text-sm">{strategy}</span>
                         <div className="flex items-center gap-2">
                           <Progress value={percentage as number} className="w-20 h-2" />
-                          <span className="text-sm font-medium">{percentage}%</span>
+                          <span className="text-sm font-medium">{percentage as number}%</span>
                         </div>
                       </div>
                     ))}

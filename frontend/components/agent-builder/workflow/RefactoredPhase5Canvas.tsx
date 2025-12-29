@@ -69,15 +69,14 @@ function RefactoredPhase5CanvasInner({
   const history = useWorkflowHistory(50);
 
   // Debugger
-  const debugger = useWorkflowDebugger();
+  const workflowDebugger = useWorkflowDebugger();
 
   // Workflow execution
-  const { isExecuting, execute, stop, reset } = useWorkflowExecution(
+  const { isExecuting, execute, stop, reset } = useWorkflowExecution({
     nodes,
     setNodes,
     setEdges,
-    debugger
-  );
+  });
 
   // Debounce node changes
   const debouncedNodes = useDebounce(nodes, 100);
@@ -211,7 +210,7 @@ function RefactoredPhase5CanvasInner({
         }
         debugContent={
           <DebugPanel
-            debugger={debugger}
+            debugger={workflowDebugger}
             nodes={nodes}
             edges={edges}
             onNodesChange={setNodes}
@@ -219,7 +218,7 @@ function RefactoredPhase5CanvasInner({
         }
         performanceContent={
           <PerformanceProfiler
-            debugger={debugger}
+            debugger={workflowDebugger}
             nodes={nodes}
           />
         }

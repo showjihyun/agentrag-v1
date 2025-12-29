@@ -76,6 +76,8 @@ export default function WorkflowBuilderPage() {
       
       return () => clearTimeout(timer);
     }
+    
+    return () => {}; // Return empty cleanup function for other code paths
   }, [searchParams, nodes.length]);
   
   const handleAddNode = useCallback((type: string, toolId?: string) => {
@@ -473,7 +475,7 @@ export default function WorkflowBuilderPage() {
           <div className="w-96 border-l bg-white dark:bg-gray-950">
             <WorkflowExecutionPanel
               workflowId="workflow-1"
-              currentExecution={currentExecution || undefined}
+              {...(currentExecution && { currentExecution })}
               executionHistory={executionHistory}
               onExecute={handleExecuteWorkflow}
               onStop={() => setIsExecuting(false)}

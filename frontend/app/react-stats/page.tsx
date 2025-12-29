@@ -72,6 +72,8 @@ export default function ReactStatsPage() {
       const interval = setInterval(fetchStats, 10000); // Refresh every 10 seconds
       return () => clearInterval(interval);
     }
+    
+    return () => {}; // Return empty cleanup function for other code paths
   }, [autoRefresh]);
 
   const handleReset = async () => {

@@ -274,7 +274,7 @@ function App() {
                 <Label>버튼 크기: {config.buttonSize}px</Label>
                 <Slider
                   value={[config.buttonSize]}
-                  onValueChange={([v]) => setConfig({ ...config, buttonSize: v })}
+                  onValueChange={([v]) => setConfig({ ...config, buttonSize: v ?? 60 })}
                   min={40}
                   max={80}
                   step={4}
@@ -286,7 +286,7 @@ function App() {
                   <Label>창 너비: {config.windowWidth}px</Label>
                   <Slider
                     value={[config.windowWidth]}
-                    onValueChange={([v]) => setConfig({ ...config, windowWidth: v })}
+                    onValueChange={([v]) => setConfig({ ...config, windowWidth: v ?? 400 })}
                     min={300}
                     max={600}
                     step={20}
@@ -296,7 +296,7 @@ function App() {
                   <Label>창 높이: {config.windowHeight}px</Label>
                   <Slider
                     value={[config.windowHeight]}
-                    onValueChange={([v]) => setConfig({ ...config, windowHeight: v })}
+                    onValueChange={([v]) => setConfig({ ...config, windowHeight: v ?? 600 })}
                     min={400}
                     max={800}
                     step={20}
@@ -370,7 +370,7 @@ function App() {
                   <Label>자동 열기 지연: {config.autoOpenDelay}초</Label>
                   <Slider
                     value={[config.autoOpenDelay]}
-                    onValueChange={([v]) => setConfig({ ...config, autoOpenDelay: v })}
+                    onValueChange={([v]) => setConfig({ ...config, autoOpenDelay: v ?? 3 })}
                     min={0}
                     max={10}
                     step={1}

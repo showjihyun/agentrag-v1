@@ -68,7 +68,7 @@ export function useRealtimeMessages(sessionId: string | null) {
 export function useTypingIndicator(sessionId: string | null) {
   const { send, subscribe } = useWebSocket();
   const [isTyping, setIsTyping] = useState(false);
-  const typingTimeoutRef = useRef<NodeJS.Timeout>();
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (!sessionId) return;

@@ -20,6 +20,8 @@ export function QualityAnalytics({ agentId, timeRange }: QualityAnalyticsProps) 
   }, [agentId, timeRange]);
 
   const loadData = async () => {
+    if (!agentId) return;
+    
     try {
       const result = await agentBuilderAPI.getQualityAnalytics(agentId, timeRange);
       setData(result);
