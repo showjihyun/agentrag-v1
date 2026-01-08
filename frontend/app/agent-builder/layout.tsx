@@ -29,6 +29,7 @@ import {
   UserCheck,
   Sparkles,
   ChevronRight,
+  Globe,
 } from 'lucide-react';
 
 const navigation = [
@@ -116,6 +117,14 @@ const navigation = [
     href: '/agent-builder/api-keys', 
     icon: Key,
     description: 'External integrations'
+  },
+  { 
+    name: 'A2A Protocol', 
+    href: '/agent-builder/a2a', 
+    icon: Globe,
+    badge: 'New',
+    badgeVariant: 'outline' as const,
+    description: 'Agent-to-Agent connections'
   },
   { 
     name: 'Embed', 

@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { getAvailableProviders, getModelsForProvider } from '@/lib/llm-models';
 import {
   CheckCircle,
   ChevronLeft,
@@ -254,9 +255,11 @@ export function WorkflowWizard({ onComplete, onCancel }: WorkflowWizardProps) {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="ollama">Ollama (로컬)</SelectItem>
-                      <SelectItem value="openai">OpenAI</SelectItem>
-                      <SelectItem value="anthropic">Anthropic (Claude)</SelectItem>
+                      {getAvailableProviders().map((provider) => (
+                        <SelectItem key={provider.id} value={provider.id}>
+                          {provider.name} {provider.type === 'local' ? '(로컬)' : ''}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -270,25 +273,11 @@ export function WorkflowWizard({ onComplete, onCancel }: WorkflowWizardProps) {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {formData.llmProvider === 'ollama' && (
-                        <>
-                          <SelectItem value="llama3.1">Llama 3.1</SelectItem>
-                          <SelectItem value="mistral">Mistral</SelectItem>
-                          <SelectItem value="gemma">Gemma</SelectItem>
-                        </>
-                      )}
-                      {formData.llmProvider === 'openai' && (
-                        <>
-                          <SelectItem value="gpt-4">GPT-4</SelectItem>
-                          <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo</SelectItem>
-                        </>
-                      )}
-                      {formData.llmProvider === 'anthropic' && (
-                        <>
-                          <SelectItem value="claude-3-opus">Claude 3 Opus</SelectItem>
-                          <SelectItem value="claude-3-sonnet">Claude 3 Sonnet</SelectItem>
-                        </>
-                      )}
+                      {getModelsForProvider(formData.llmProvider).map((model) => (
+                        <SelectItem key={model.id} value={model.id}>
+                          {model.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

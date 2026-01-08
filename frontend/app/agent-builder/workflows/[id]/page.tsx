@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { agentBuilderAPI } from '@/lib/api/agent-builder';
-import { ArrowLeft, Edit, Play, Copy, Trash, GitBranch, Clock, CheckCircle, XCircle, Eye, FileText, X } from 'lucide-react';
+import { ArrowLeft, Edit, Play, Copy, Trash, GitBranch, Clock, CheckCircle, XCircle, Eye, FileText, X, Settings } from 'lucide-react';
 import type { Node, Edge } from 'reactflow';
 import { useWorkflowExecutionStream } from '@/hooks/useWorkflowExecutionStream';
 import { ExecutionProgress } from '@/components/workflow/ExecutionProgress';
@@ -1011,99 +1011,111 @@ export default function WorkflowViewPage() {
   }));
 
   return (
-    <div className="h-screen flex flex-col">
-      {/* Header */}
-      <div className="border-b bg-background p-4">
-        <div className="container mx-auto">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-4">
+    <div className="h-screen flex flex-col bg-background">
+      {/* Compact Header with Tabs */}
+      <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
+        <div className="px-4 py-2">
+          <div className="flex items-center justify-between">
+            {/* Left: Back + Title */}
+            <div className="flex items-center gap-3 min-w-0">
               <Button
                 variant="ghost"
                 size="icon"
+                className="h-8 w-8 shrink-0"
                 onClick={() => router.push('/agent-builder/workflows')}
               >
                 <ArrowLeft className="h-4 w-4" />
               </Button>
-              <div>
-                <div className="flex items-center gap-2">
-                  <GitBranch className="h-6 w-6" />
-                  <h1 className="text-2xl font-bold">{workflow.name}</h1>
-                  {workflow.is_active && (
-                    <Badge variant="default">Active</Badge>
-                  )}
-                </div>
-                {workflow.description && (
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {workflow.description}
-                  </p>
+              <div className="flex items-center gap-2 min-w-0">
+                <GitBranch className="h-5 w-5 text-muted-foreground shrink-0" />
+                <h1 className="text-lg font-semibold truncate">{workflow.name}</h1>
+                {workflow.is_active && (
+                  <Badge variant="default" className="shrink-0">Active</Badge>
                 )}
+              </div>
+              <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground ml-4">
+                <span>{nodes.length} nodes</span>
+                <span>•</span>
+                <span>{edges.length} edges</span>
               </div>
             </div>
 
+            {/* Center: Tabs */}
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="hidden sm:block">
+              <TabsList className="h-9">
+                <TabsTrigger value="canvas" className="text-sm px-4">
+                  <Eye className="h-4 w-4 mr-2" />
+                  Canvas
+                </TabsTrigger>
+                <TabsTrigger value="executions" className="text-sm px-4">
+                  <Clock className="h-4 w-4 mr-2" />
+                  Executions
+                </TabsTrigger>
+                <TabsTrigger value="settings" className="text-sm px-4">
+                  <Settings className="h-4 w-4 mr-2" />
+                  Settings
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+
+            {/* Right: Actions */}
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
+                size="sm"
                 onClick={handleDuplicate}
+                className="hidden lg:flex"
               >
                 <Copy className="mr-2 h-4 w-4" />
                 Duplicate
               </Button>
               <Button
-                variant="default"
+                size="sm"
                 onClick={handleExecute}
                 disabled={executing}
-                className="bg-blue-600 hover:bg-blue-700"
+                className="bg-green-600 hover:bg-green-700"
               >
-                <Play className="mr-2 h-4 w-4" />
-                {executing ? 'Executing...' : 'Execute'}
+                <Play className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">{executing ? 'Running...' : 'Execute'}</span>
               </Button>
               <Button
                 variant="outline"
+                size="sm"
                 onClick={() => router.push(`/agent-builder/workflows/${workflowId}/edit`)}
               >
-                <Edit className="mr-2 h-4 w-4" />
-                Edit
+                <Edit className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Edit</span>
               </Button>
               <Button
-                variant="destructive"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-destructive hover:text-destructive"
                 onClick={() => setDeleteDialogOpen(true)}
               >
-                <Trash className="mr-2 h-4 w-4" />
-                Delete
+                <Trash className="h-4 w-4" />
               </Button>
             </div>
           </div>
-
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-            <span>{nodes.length} nodes</span>
-            <span>•</span>
-            <span>{edges.length} connections</span>
-            <span>•</span>
-            <span>Created {new Date(workflow.created_at).toLocaleDateString()}</span>
-            {workflow.updated_at && (
-              <>
-                <span>•</span>
-                <span>Updated {new Date(workflow.updated_at).toLocaleDateString()}</span>
-              </>
-            )}
-          </div>
+          
+          {/* Mobile Tabs */}
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="sm:hidden mt-2">
+            <TabsList className="w-full">
+              <TabsTrigger value="canvas" className="flex-1">Canvas</TabsTrigger>
+              <TabsTrigger value="executions" className="flex-1">Executions</TabsTrigger>
+              <TabsTrigger value="settings" className="flex-1">Settings</TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Main Content */}
       <div className="flex-1 overflow-hidden">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-          <div className="border-b px-4">
-            <TabsList>
-              <TabsTrigger value="canvas">Canvas</TabsTrigger>
-              <TabsTrigger value="executions">Executions</TabsTrigger>
-              <TabsTrigger value="settings">Settings</TabsTrigger>
-            </TabsList>
-          </div>
+          <div className="hidden"></div>
 
-          <TabsContent value="canvas" className="flex-1 m-0 bg-muted/20 flex overflow-hidden relative">
-            {/* Canvas Area */}
-            <div className="flex-1 overflow-hidden">
+          <TabsContent value="canvas" className="flex-1 m-0 data-[state=active]:flex overflow-hidden relative">
+            {/* Full-screen Canvas Area */}
+            <div className="flex-1 overflow-hidden bg-slate-50 dark:bg-slate-900/50">
               <WorkflowEditor
                 workflowId={workflowId}
                 initialNodes={nodes}
@@ -1122,6 +1134,26 @@ export default function WorkflowViewPage() {
               />
             </div>
             
+            {/* Floating Execution Status */}
+            {executing && (
+              <div className="absolute top-4 left-4 z-50">
+                <div className="bg-background/95 backdrop-blur border rounded-lg shadow-lg px-4 py-2 flex items-center gap-3">
+                  <div className="h-3 w-3 bg-green-500 rounded-full animate-pulse" />
+                  <span className="text-sm font-medium">Executing workflow...</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setExecuting(false);
+                      setExecutionId(null);
+                    }}
+                  >
+                    Stop
+                  </Button>
+                </div>
+              </div>
+            )}
+            
             {/* Toggle Button - Show when there are logs */}
             {Object.keys(nodeStatuses).length > 0 && !showExecutionLog && (
               <Button
@@ -1131,22 +1163,24 @@ export default function WorkflowViewPage() {
                 className="absolute bottom-4 right-4 z-50 shadow-lg"
               >
                 <FileText className="mr-2 h-4 w-4" />
-                Show Execution Log
+                Show Log ({Object.keys(nodeStatuses).length})
               </Button>
             )}
             
-            {/* Execution Log Panel - Show when toggled on and has logs */}
+            {/* Execution Log Panel - Slide-in from right */}
             {showExecutionLog && Object.keys(nodeStatuses).length > 0 && (
-              <div className="w-96 border-l bg-background overflow-hidden flex flex-col relative">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setShowExecutionLog(false)}
-                  className="absolute top-2 right-2 z-10 h-8 w-8"
-                  title="Hide execution log"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+              <div className="w-80 lg:w-96 border-l bg-background overflow-hidden flex flex-col relative shadow-xl animate-in slide-in-from-right duration-200">
+                <div className="flex items-center justify-between p-3 border-b bg-muted/50">
+                  <h3 className="font-semibold text-sm">Execution Log</h3>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setShowExecutionLog(false)}
+                    className="h-7 w-7"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
                 <ExecutionLogPanel
                   nodeStatuses={nodeStatuses}
                   isExecuting={executing}
@@ -1157,182 +1191,247 @@ export default function WorkflowViewPage() {
             )}
           </TabsContent>
 
-          <TabsContent value="executions" className="flex-1 m-0 flex flex-col overflow-hidden">
-            <div className="flex-1 overflow-auto">
-              <div className="container mx-auto p-6">
+          <TabsContent value="executions" className="flex-1 m-0 data-[state=active]:flex flex-col overflow-hidden">
+            <div className="flex-1 overflow-auto p-4 lg:p-6">
+              <div className="max-w-6xl mx-auto space-y-4">
                 {/* Real-time Execution Progress */}
                 {executing && (
-                  <div className="mb-4">
-                    <ExecutionProgress
-                      workflowId={workflowId}
-                      {...(executionId && { executionId })}
-                      isExecuting={executing}
-                      nodeStatuses={nodeStatuses}
-                      onNodeClick={(nodeId) => {
-                        logger.log('Node clicked:', nodeId);
-                        // Could highlight node in canvas
-                      }}
-                    />
-                  </div>
+                  <Card className="border-green-500/50 bg-green-500/5">
+                    <CardContent className="p-4">
+                      <ExecutionProgress
+                        workflowId={workflowId}
+                        {...(executionId && { executionId })}
+                        isExecuting={executing}
+                        nodeStatuses={nodeStatuses}
+                        onNodeClick={(nodeId) => {
+                          logger.log('Node clicked:', nodeId);
+                          setActiveTab('canvas');
+                        }}
+                      />
+                    </CardContent>
+                  </Card>
                 )}
                 
+                {/* Execution History */}
                 <Card>
-                  <CardHeader>
-                    <CardTitle>Execution History</CardTitle>
-                    <CardDescription>
-                      View past workflow executions and their results
-                    </CardDescription>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="text-lg">Execution History</CardTitle>
+                        <CardDescription>
+                          {executions.length} total executions
+                        </CardDescription>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={loadExecutions}
+                        disabled={loadingExecutions}
+                      >
+                        {loadingExecutions ? 'Loading...' : 'Refresh'}
+                      </Button>
+                    </div>
                   </CardHeader>
-                  <CardContent>
-                  {loadingExecutions ? (
-                    <div className="text-center py-8">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-                      <p className="mt-4 text-muted-foreground">Loading executions...</p>
-                    </div>
-                  ) : executions.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <Clock className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                      <p>No executions yet</p>
-                      <p className="text-sm mt-2">Run this workflow to see execution history</p>
-                    </div>
-                  ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Execution ID</TableHead>
-                          <TableHead>Duration</TableHead>
-                          <TableHead>Started At</TableHead>
-                          <TableHead>Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {executions.map((exec) => (
-                          <TableRow key={exec.id} className={exec.status === 'failed' ? 'bg-destructive/5' : ''}>
-                            <TableCell>
-                              <div className="flex flex-col gap-1">
-                                <div className="flex items-center gap-2">
-                                  {exec.status === 'success' ? (
-                                    <CheckCircle className="h-4 w-4 text-green-500" />
-                                  ) : null}
-                                  {exec.status === 'failed' && (
-                                    <XCircle className="h-4 w-4 text-red-500" />
-                                  )}
-                                  {exec.status === 'running' && (
-                                    <Clock className="h-4 w-4 text-blue-500 animate-spin" />
-                                  )}
-                                  <Badge
-                                    variant={
-                                      exec.status === 'success'
-                                        ? 'default'
-                                        : exec.status === 'failed'
-                                        ? 'destructive'
-                                        : 'secondary'
-                                    }
-                                  >
-                                    {exec.status}
-                                  </Badge>
-                                  {exec.output_data?.simulation && (
-                                    <Badge variant="outline" className="text-xs">
-                                      Simulation
-                                    </Badge>
-                                  )}
-                                </div>
-                                {exec.status === 'failed' && exec.error_message && (
-                                  <div className="text-xs text-destructive truncate max-w-xs" title={exec.error_message}>
-                                    {exec.error_message}
-                                  </div>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell className="font-mono text-sm">
-                              {exec.id.startsWith('sim-') ? (
-                                <span className="text-muted-foreground" title={exec.id}>
-                                  {exec.id.substring(0, 12)}...
-                                </span>
-                              ) : (
-                                <span title={exec.id}>
-                                  {exec.id.substring(0, 8)}...
-                                </span>
-                              )}
-                            </TableCell>
-                            <TableCell>{exec.duration.toFixed(2)}s</TableCell>
-                            <TableCell>
-                              {new Date(exec.started_at).toLocaleString()}
-                            </TableCell>
-                            <TableCell>
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
+                  <CardContent className="p-0">
+                    {loadingExecutions ? (
+                      <div className="flex items-center justify-center py-12">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                      </div>
+                    ) : executions.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-12 text-center">
+                        <Clock className="h-12 w-12 text-muted-foreground/50 mb-4" />
+                        <p className="text-muted-foreground font-medium">No executions yet</p>
+                        <p className="text-sm text-muted-foreground mt-1">Run this workflow to see execution history</p>
+                        <Button
+                          className="mt-4"
+                          onClick={handleExecute}
+                        >
+                          <Play className="mr-2 h-4 w-4" />
+                          Execute Now
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="bg-muted/50">
+                              <TableHead className="w-[140px]">Status</TableHead>
+                              <TableHead>Execution ID</TableHead>
+                              <TableHead className="w-[100px]">Duration</TableHead>
+                              <TableHead>Started</TableHead>
+                              <TableHead className="w-[100px] text-right">Actions</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {executions.map((exec) => (
+                              <TableRow 
+                                key={exec.id} 
+                                className={`cursor-pointer hover:bg-muted/50 transition-colors ${exec.status === 'failed' ? 'bg-destructive/5' : ''}`}
                                 onClick={() => {
                                   setSelectedExecution(exec);
                                   setExecutionDetailsOpen(true);
                                 }}
                               >
-                                <Eye className="h-4 w-4 mr-2" />
-                                View Details
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  )}
-                </CardContent>
-              </Card>
+                                <TableCell>
+                                  <div className="flex items-center gap-2">
+                                    {exec.status === 'success' && (
+                                      <CheckCircle className="h-4 w-4 text-green-500" />
+                                    )}
+                                    {exec.status === 'failed' && (
+                                      <XCircle className="h-4 w-4 text-red-500" />
+                                    )}
+                                    {exec.status === 'running' && (
+                                      <Clock className="h-4 w-4 text-blue-500 animate-spin" />
+                                    )}
+                                    <Badge
+                                      variant={
+                                        exec.status === 'success' ? 'default' :
+                                        exec.status === 'failed' ? 'destructive' : 'secondary'
+                                      }
+                                      className="capitalize"
+                                    >
+                                      {exec.status}
+                                    </Badge>
+                                    {exec.output_data?.simulation && (
+                                      <Badge variant="outline" className="text-xs">Sim</Badge>
+                                    )}
+                                  </div>
+                                </TableCell>
+                                <TableCell className="font-mono text-xs text-muted-foreground">
+                                  {exec.id.substring(0, 12)}...
+                                </TableCell>
+                                <TableCell className="tabular-nums">
+                                  {exec.duration.toFixed(2)}s
+                                </TableCell>
+                                <TableCell className="text-sm">
+                                  {new Date(exec.started_at).toLocaleString()}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedExecution(exec);
+                                      setExecutionDetailsOpen(true);
+                                    }}
+                                  >
+                                    <Eye className="h-4 w-4" />
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               </div>
             </div>
           </TabsContent>
 
-          <TabsContent value="settings" className="flex-1 m-0 overflow-auto">
-            <div className="container mx-auto p-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Workflow Settings</CardTitle>
-                  <CardDescription>
-                    Configure workflow behavior and notifications
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
+          <TabsContent value="settings" className="flex-1 m-0 data-[state=active]:flex flex-col overflow-auto">
+            <div className="flex-1 p-4 lg:p-6">
+              <div className="max-w-3xl mx-auto space-y-6">
+                {/* Workflow Info Card */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <GitBranch className="h-5 w-5" />
+                      Workflow Information
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-1">
+                        <Label className="text-muted-foreground text-xs uppercase tracking-wide">Name</Label>
+                        <p className="font-medium">{workflow?.name}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-muted-foreground text-xs uppercase tracking-wide">Status</Label>
+                        <div>
+                          <Badge variant={workflow?.is_active ? 'default' : 'secondary'}>
+                            {workflow?.is_active ? 'Active' : 'Inactive'}
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-muted-foreground text-xs uppercase tracking-wide">Created</Label>
+                        <p className="text-sm">{new Date(workflow?.created_at || '').toLocaleString()}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-muted-foreground text-xs uppercase tracking-wide">Last Updated</Label>
+                        <p className="text-sm">
+                          {workflow?.updated_at 
+                            ? new Date(workflow.updated_at).toLocaleString()
+                            : 'Never'}
+                        </p>
+                      </div>
+                    </div>
+                    {workflow?.description && (
+                      <div className="space-y-1 pt-2 border-t">
+                        <Label className="text-muted-foreground text-xs uppercase tracking-wide">Description</Label>
+                        <p className="text-sm text-muted-foreground">{workflow.description}</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Statistics Card */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Statistics</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                      <div className="text-center p-4 bg-muted/50 rounded-lg">
+                        <div className="text-2xl font-bold text-primary">{nodes.length}</div>
+                        <div className="text-xs text-muted-foreground mt-1">Nodes</div>
+                      </div>
+                      <div className="text-center p-4 bg-muted/50 rounded-lg">
+                        <div className="text-2xl font-bold text-primary">{edges.length}</div>
+                        <div className="text-xs text-muted-foreground mt-1">Connections</div>
+                      </div>
+                      <div className="text-center p-4 bg-muted/50 rounded-lg">
+                        <div className="text-2xl font-bold text-green-600">{executions.filter(e => e.status === 'success').length}</div>
+                        <div className="text-xs text-muted-foreground mt-1">Successful</div>
+                      </div>
+                      <div className="text-center p-4 bg-muted/50 rounded-lg">
+                        <div className="text-2xl font-bold text-red-600">{executions.filter(e => e.status === 'failed').length}</div>
+                        <div className="text-xs text-muted-foreground mt-1">Failed</div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Danger Zone */}
+                <Card className="border-destructive/50">
+                  <CardHeader>
+                    <CardTitle className="text-lg text-destructive">Danger Zone</CardTitle>
+                    <CardDescription>
+                      Irreversible actions for this workflow
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center justify-between p-4 border border-destructive/30 rounded-lg">
                       <div>
-                        <div className="font-medium">Active Status</div>
-                        <div className="text-sm text-muted-foreground">
-                          Enable or disable this workflow
-                        </div>
+                        <p className="font-medium">Delete Workflow</p>
+                        <p className="text-sm text-muted-foreground">
+                          Permanently delete this workflow and all its execution history
+                        </p>
                       </div>
-                      <Badge variant={workflow?.is_active ? 'default' : 'secondary'}>
-                        {workflow?.is_active ? 'Active' : 'Inactive'}
-                      </Badge>
+                      <Button
+                        variant="destructive"
+                        onClick={() => setDeleteDialogOpen(true)}
+                      >
+                        <Trash className="mr-2 h-4 w-4" />
+                        Delete
+                      </Button>
                     </div>
-                    
-                    <div className="pt-4 border-t">
-                      <div className="font-medium mb-2">Workflow Information</div>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Created:</span>
-                          <span>{new Date(workflow?.created_at || '').toLocaleString()}</span>
-                        </div>
-                        {workflow?.updated_at && (
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Last Updated:</span>
-                            <span>{new Date(workflow.updated_at).toLocaleString()}</span>
-                          </div>
-                        )}
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Nodes:</span>
-                          <span>{nodes.length}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Connections:</span>
-                          <span>{edges.length}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
           </TabsContent>
         </Tabs>

@@ -142,30 +142,57 @@ export function getModel(providerId: string, modelId: string): LLMModel | undefi
 
 /**
  * Get all models for a provider
+ * For Settings-configured providers, loads from localStorage (set by LLM settings page)
  * For Ollama, tries to load from localStorage first (set by LLM settings page)
  */
 export function getModelsForProvider(providerId: string): LLMModel[] {
-  const provider = getProvider(providerId);
-  
-  // For Ollama, try to get models from localStorage (set by LLM settings page)
-  if (providerId === 'ollama') {
-    try {
-      const savedModels = localStorage.getItem('ollama_models');
-      if (savedModels) {
-        const models = JSON.parse(savedModels) as string[];
-        if (models.length > 0) {
-          return models.map(modelName => ({
-            id: modelName,
-            name: modelName,
-            description: 'Local model',
-          }));
+  // First, try to get models from Settings configuration
+  try {
+    const savedConfig = localStorage.getItem('llm_config');
+    if (savedConfig) {
+      const config = JSON.parse(savedConfig);
+      
+      // For Ollama, use the models fetched from Ollama API and saved in Settings
+      if (providerId === 'ollama') {
+        const ollamaModels = localStorage.getItem('ollama_models');
+        if (ollamaModels) {
+          const models = JSON.parse(ollamaModels) as string[];
+          if (models.length > 0) {
+            return models.map(modelName => ({
+              id: modelName,
+              name: modelName,
+              description: 'Local model',
+            }));
+          }
         }
+        // Fallback to default Ollama models if none found
+        return OFFLINE_MODELS;
       }
-    } catch (error) {
-      console.warn('Failed to load Ollama models from localStorage:', error);
+      
+      // For cloud providers, use the models defined in Settings
+      const settingsProviderModels: Record<string, string[]> = {
+        openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo'],
+        anthropic: ['claude-3-5-sonnet-20241022', 'claude-3-opus-20240229', 'claude-3-sonnet-20240229', 'claude-3-haiku-20240307'],
+        claude: ['claude-3-5-sonnet-20241022', 'claude-3-opus-20240229', 'claude-3-sonnet-20240229', 'claude-3-haiku-20240307'], // alias for anthropic
+        gemini: ['gemini-2.0-flash-exp', 'gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-pro'],
+        google: ['gemini-2.0-flash-exp', 'gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-pro'], // alias for gemini
+      };
+      
+      const models = settingsProviderModels[providerId];
+      if (models) {
+        return models.map(modelId => ({
+          id: modelId,
+          name: modelId,
+          description: `${providerId} model`,
+        }));
+      }
     }
+  } catch (error) {
+    console.warn('Failed to load models from Settings configuration:', error);
   }
   
+  // Fallback to hardcoded models if Settings config not available
+  const provider = getProvider(providerId);
   return provider?.models || [];
 }
 
@@ -182,14 +209,49 @@ export function saveOllamaModels(models: string[]): void {
 }
 
 /**
- * Get Ollama models from localStorage
+ * Get available providers based on Settings configuration
+ * Only returns providers that are properly configured in Settings
  */
-export function getOllamaModels(): string[] {
+export function getAvailableProviders(): LLMProvider[] {
   try {
-    const saved = localStorage.getItem('ollama_models');
-    return saved ? JSON.parse(saved) : [];
+    const savedConfig = localStorage.getItem('llm_config');
+    if (!savedConfig) {
+      // If no config, return all providers (fallback)
+      return LLM_PROVIDERS;
+    }
+    
+    const config = JSON.parse(savedConfig);
+    const availableProviders: LLMProvider[] = [];
+    
+    // Check each provider's configuration
+    for (const provider of LLM_PROVIDERS) {
+      let isAvailable = false;
+      
+      if (provider.id === 'ollama') {
+        // Ollama is available if enabled in settings
+        isAvailable = config.ollama?.enabled === true;
+      } else {
+        // Cloud providers are available if they have API keys
+        const apiKey = config.apiKeys?.[provider.id];
+        isAvailable = apiKey && apiKey.trim().length > 0;
+      }
+      
+      if (isAvailable) {
+        availableProviders.push(provider);
+      }
+    }
+    
+    return availableProviders.length > 0 ? availableProviders : LLM_PROVIDERS;
   } catch (error) {
-    console.warn('Failed to load Ollama models from localStorage:', error);
-    return [];
+    console.warn('Failed to load provider configuration:', error);
+    return LLM_PROVIDERS;
   }
+}
+
+/**
+ * Check if a specific provider is available based on Settings configuration
+ */
+export function isProviderAvailable(providerId: string): boolean {
+  const availableProviders = getAvailableProviders();
+  return availableProviders.some(p => p.id === providerId);
 }

@@ -1,830 +1,432 @@
-"""
-Performance monitoring service for hybrid RAG system.
-
-Tracks timing metrics, confidence scores, error rates, and provides
-analytics for path effectiveness and system performance.
-"""
+"""Performance monitoring service for chatflow operations."""
 
 import logging
 import time
-import json
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 from dataclasses import dataclass, asdict
-from enum import Enum
-import redis.asyncio as redis
-
-from backend.models.hybrid import QueryMode, PathSource
+from collections import defaultdict, deque
+import asyncio
+import json
 
 logger = logging.getLogger(__name__)
 
-
-class MetricType(str, Enum):
-    """Types of metrics tracked by the performance monitor."""
-
-    TIMING = "timing"
-    CONFIDENCE = "confidence"
-    ERROR = "error"
-    CACHE = "cache"
-    MODE_USAGE = "mode_usage"
-
-
 @dataclass
-class TimingMetrics:
-    """Timing metrics for a query execution.
-
-    Requirements: 11.1, 11.3
-    """
-
-    query_id: str
-    mode: str
-    speculative_time: Optional[float] = None  # seconds
-    agentic_time: Optional[float] = None  # seconds
-    total_time: float = 0.0  # seconds
-    first_response_time: Optional[float] = None  # Time to first chunk
-    path_completed_first: Optional[str] = None  # "speculative" or "agentic"
-    timestamp: datetime = None
-
-    def __post_init__(self):
-        if self.timestamp is None:
-            self.timestamp = datetime.now()
-
-        # Determine which path completed first
-        if self.speculative_time and self.agentic_time:
-            self.path_completed_first = (
-                "speculative"
-                if self.speculative_time < self.agentic_time
-                else "agentic"
-            )
-        elif self.speculative_time:
-            self.path_completed_first = "speculative"
-        elif self.agentic_time:
-            self.path_completed_first = "agentic"
-
-
-@dataclass
-class ConfidenceMetrics:
-    """Confidence score tracking for responses.
-
-    Requirements: 11.2
-    """
-
-    query_id: str
-    mode: str
-    initial_speculative_confidence: Optional[float] = None
-    final_agentic_confidence: Optional[float] = None
-    confidence_improvement: Optional[float] = None  # final - initial
-    timestamp: datetime = None
-
-    def __post_init__(self):
-        if self.timestamp is None:
-            self.timestamp = datetime.now()
-
-        # Calculate improvement
-        if (
-            self.initial_speculative_confidence is not None
-            and self.final_agentic_confidence is not None
-        ):
-            self.confidence_improvement = (
-                self.final_agentic_confidence - self.initial_speculative_confidence
-            )
-
-
-@dataclass
-class ErrorMetrics:
-    """Error tracking for path failures.
-
-    Requirements: 11.4, 11.5
-    """
-
-    query_id: str
-    mode: str
-    path: str  # "speculative", "agentic", or "both"
-    error_type: str
-    error_message: str
-    timestamp: datetime = None
-
-    def __post_init__(self):
-        if self.timestamp is None:
-            self.timestamp = datetime.now()
-
+class PerformanceMetric:
+    """Performance metric data structure."""
+    timestamp: datetime
+    operation: str
+    duration_ms: float
+    memory_type: str
+    session_id: str
+    success: bool
+    error_message: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
 
 class PerformanceMonitor:
-    """
-    Performance monitoring service for hybrid RAG system.
+    """Monitor and analyze chatflow performance metrics."""
+    
+    def __init__(self, max_metrics: int = 10000):
+        self.max_metrics = max_metrics
+        self.metrics: deque = deque(maxlen=max_metrics)
+        self.operation_stats = defaultdict(list)
+        self.memory_type_stats = defaultdict(list)
+        self.error_counts = defaultdict(int)
+        
+        # Performance thresholds (ms)
+        self.thresholds = {
+            'chat_response': 5000,  # 5s for chat response
+            'memory_retrieval': 1000,  # 1s for memory operations
+            'context_analysis': 500,  # 500ms for context analysis
+            'embedding_generation': 2000,  # 2s for embeddings
+            'vector_search': 1500,  # 1.5s for vector search
+        }
+        
+        # Real-time monitoring
+        self._monitoring_active = False
+        self._alert_callbacks = []
+    
+    def record_metric(
+        self,
+        operation: str,
+        duration_ms: float,
+        memory_type: str,
+        session_id: str,
+        success: bool = True,
+        error_message: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """Record a performance metric."""
+        metric = PerformanceMetric(
+            timestamp=datetime.utcnow(),
+            operation=operation,
+            duration_ms=duration_ms,
+            memory_type=memory_type,
+            session_id=session_id,
+            success=success,
+            error_message=error_message,
+            metadata=metadata or {}
+        )
+        
+        self.metrics.append(metric)
+        self.operation_stats[operation].append(duration_ms)
+        self.memory_type_stats[memory_type].append(duration_ms)
+        
+        if not success:
+            self.error_counts[operation] += 1
+        
+        # Check for performance alerts
+        self._check_performance_alerts(metric)
+    
+    def get_performance_summary(
+        self,
+        time_window_minutes: int = 60
+    ) -> Dict[str, Any]:
+        """Get performance summary for the specified time window."""
+        cutoff_time = datetime.utcnow() - timedelta(minutes=time_window_minutes)
+        recent_metrics = [
+            m for m in self.metrics 
+            if m.timestamp >= cutoff_time
+        ]
+        
+        if not recent_metrics:
+            return {
+                'time_window_minutes': time_window_minutes,
+                'total_operations': 0,
+                'summary': 'No operations in time window'
+            }
+        
+        # Overall statistics
+        total_ops = len(recent_metrics)
+        successful_ops = sum(1 for m in recent_metrics if m.success)
+        success_rate = (successful_ops / total_ops) * 100 if total_ops > 0 else 0
+        
+        # Duration statistics
+        durations = [m.duration_ms for m in recent_metrics]
+        avg_duration = sum(durations) / len(durations) if durations else 0
+        max_duration = max(durations) if durations else 0
+        min_duration = min(durations) if durations else 0
+        
+        # Operation breakdown
+        operation_breakdown = defaultdict(lambda: {'count': 0, 'avg_duration': 0, 'success_rate': 0})
+        for metric in recent_metrics:
+            op_stats = operation_breakdown[metric.operation]
+            op_stats['count'] += 1
+            op_stats['total_duration'] = op_stats.get('total_duration', 0) + metric.duration_ms
+            op_stats['successful'] = op_stats.get('successful', 0) + (1 if metric.success else 0)
+        
+        # Calculate averages and success rates
+        for op, stats in operation_breakdown.items():
+            stats['avg_duration'] = stats['total_duration'] / stats['count']
+            stats['success_rate'] = (stats['successful'] / stats['count']) * 100
+            del stats['total_duration']  # Remove intermediate calculation
+            del stats['successful']  # Remove intermediate calculation
+        
+        # Memory type breakdown
+        memory_breakdown = defaultdict(lambda: {'count': 0, 'avg_duration': 0})
+        for metric in recent_metrics:
+            mem_stats = memory_breakdown[metric.memory_type]
+            mem_stats['count'] += 1
+            mem_stats['total_duration'] = mem_stats.get('total_duration', 0) + metric.duration_ms
+        
+        for mem_type, stats in memory_breakdown.items():
+            stats['avg_duration'] = stats['total_duration'] / stats['count']
+            del stats['total_duration']
+        
+        # Performance alerts
+        alerts = self._generate_performance_alerts(recent_metrics)
+        
+        return {
+            'time_window_minutes': time_window_minutes,
+            'total_operations': total_ops,
+            'success_rate': round(success_rate, 2),
+            'duration_stats': {
+                'avg_ms': round(avg_duration, 2),
+                'min_ms': round(min_duration, 2),
+                'max_ms': round(max_duration, 2)
+            },
+            'operation_breakdown': dict(operation_breakdown),
+            'memory_type_breakdown': dict(memory_breakdown),
+            'alerts': alerts,
+            'recommendations': self._generate_recommendations(recent_metrics)
+        }
+    
+    def get_memory_performance_comparison(self) -> Dict[str, Any]:
+        """Compare performance across different memory types."""
+        memory_comparison = {}
+        
+        for memory_type, durations in self.memory_type_stats.items():
+            if durations:
+                memory_comparison[memory_type] = {
+                    'avg_duration_ms': round(sum(durations) / len(durations), 2),
+                    'min_duration_ms': round(min(durations), 2),
+                    'max_duration_ms': round(max(durations), 2),
+                    'operation_count': len(durations),
+                    'p95_duration_ms': round(self._calculate_percentile(durations, 95), 2),
+                    'p99_duration_ms': round(self._calculate_percentile(durations, 99), 2)
+                }
+        
+        # Rank by performance
+        if memory_comparison:
+            sorted_by_performance = sorted(
+                memory_comparison.items(),
+                key=lambda x: x[1]['avg_duration_ms']
+            )
+            
+            return {
+                'comparison': memory_comparison,
+                'ranking': {
+                    'fastest': sorted_by_performance[0][0] if sorted_by_performance else None,
+                    'slowest': sorted_by_performance[-1][0] if sorted_by_performance else None,
+                    'recommended': self._recommend_memory_type(memory_comparison)
+                }
+            }
+        
+        return {'comparison': {}, 'ranking': {}}
+    
+    def get_session_performance(self, session_id: str) -> Dict[str, Any]:
+        """Get performance metrics for a specific session."""
+        session_metrics = [m for m in self.metrics if m.session_id == session_id]
+        
+        if not session_metrics:
+            return {'session_id': session_id, 'metrics': 'No metrics found'}
+        
+        # Session statistics
+        total_ops = len(session_metrics)
+        successful_ops = sum(1 for m in session_metrics if m.success)
+        durations = [m.duration_ms for m in session_metrics]
+        
+        # Operation timeline
+        timeline = [
+            {
+                'timestamp': m.timestamp.isoformat(),
+                'operation': m.operation,
+                'duration_ms': m.duration_ms,
+                'success': m.success,
+                'memory_type': m.memory_type
+            }
+            for m in sorted(session_metrics, key=lambda x: x.timestamp)
+        ]
+        
+        return {
+            'session_id': session_id,
+            'total_operations': total_ops,
+            'success_rate': (successful_ops / total_ops) * 100 if total_ops > 0 else 0,
+            'avg_duration_ms': sum(durations) / len(durations) if durations else 0,
+            'total_duration_ms': sum(durations),
+            'timeline': timeline,
+            'memory_types_used': list(set(m.memory_type for m in session_metrics))
+        }
+    
+    def start_monitoring(self, alert_threshold_ms: float = 5000) -> None:
+        """Start real-time performance monitoring."""
+        self._monitoring_active = True
+        self._alert_threshold = alert_threshold_ms
+        logger.info(f"Performance monitoring started with {alert_threshold_ms}ms threshold")
+    
+    def stop_monitoring(self) -> None:
+        """Stop real-time performance monitoring."""
+        self._monitoring_active = False
+        logger.info("Performance monitoring stopped")
+    
+    def add_alert_callback(self, callback) -> None:
+        """Add callback for performance alerts."""
+        self._alert_callbacks.append(callback)
+    
+    def export_metrics(
+        self,
+        format: str = 'json',
+        time_window_hours: int = 24
+    ) -> str:
+        """Export metrics data."""
+        cutoff_time = datetime.utcnow() - timedelta(hours=time_window_hours)
+        recent_metrics = [
+            asdict(m) for m in self.metrics 
+            if m.timestamp >= cutoff_time
+        ]
+        
+        # Convert datetime objects to ISO strings
+        for metric in recent_metrics:
+            metric['timestamp'] = metric['timestamp'].isoformat()
+        
+        if format == 'json':
+            return json.dumps({
+                'export_timestamp': datetime.utcnow().isoformat(),
+                'time_window_hours': time_window_hours,
+                'metrics_count': len(recent_metrics),
+                'metrics': recent_metrics
+            }, indent=2)
+        
+        # Add other formats as needed (CSV, etc.)
+        return json.dumps(recent_metrics, indent=2)
+    
+    def _check_performance_alerts(self, metric: PerformanceMetric) -> None:
+        """Check if metric triggers any performance alerts."""
+        if not self._monitoring_active:
+            return
+        
+        threshold = self.thresholds.get(metric.operation, self._alert_threshold)
+        
+        if metric.duration_ms > threshold:
+            alert = {
+                'type': 'performance_threshold_exceeded',
+                'operation': metric.operation,
+                'duration_ms': metric.duration_ms,
+                'threshold_ms': threshold,
+                'session_id': metric.session_id,
+                'memory_type': metric.memory_type,
+                'timestamp': metric.timestamp.isoformat()
+            }
+            
+            # Trigger alert callbacks
+            for callback in self._alert_callbacks:
+                try:
+                    callback(alert)
+                except Exception as e:
+                    logger.error(f"Alert callback failed: {e}")
+    
+    def _generate_performance_alerts(self, metrics: List[PerformanceMetric]) -> List[Dict[str, Any]]:
+        """Generate performance alerts based on metrics."""
+        alerts = []
+        
+        # Check for high error rates
+        error_rate = (len([m for m in metrics if not m.success]) / len(metrics)) * 100 if metrics else 0
+        if error_rate > 10:  # 10% error rate threshold
+            alerts.append({
+                'type': 'high_error_rate',
+                'error_rate': round(error_rate, 2),
+                'threshold': 10,
+                'severity': 'high' if error_rate > 25 else 'medium'
+            })
+        
+        # Check for slow operations
+        slow_operations = [m for m in metrics if m.duration_ms > self.thresholds.get(m.operation, 5000)]
+        if len(slow_operations) > len(metrics) * 0.1:  # More than 10% slow operations
+            alerts.append({
+                'type': 'high_latency',
+                'slow_operations_count': len(slow_operations),
+                'total_operations': len(metrics),
+                'percentage': round((len(slow_operations) / len(metrics)) * 100, 2),
+                'severity': 'medium'
+            })
+        
+        return alerts
+    
+    def _generate_recommendations(self, metrics: List[PerformanceMetric]) -> List[str]:
+        """Generate performance recommendations."""
+        recommendations = []
+        
+        if not metrics:
+            return recommendations
+        
+        # Analyze memory type performance
+        memory_performance = defaultdict(list)
+        for metric in metrics:
+            memory_performance[metric.memory_type].append(metric.duration_ms)
+        
+        if len(memory_performance) > 1:
+            # Find fastest memory type
+            avg_durations = {
+                mem_type: sum(durations) / len(durations)
+                for mem_type, durations in memory_performance.items()
+            }
+            fastest = min(avg_durations, key=avg_durations.get)
+            slowest = max(avg_durations, key=avg_durations.get)
+            
+            if avg_durations[slowest] > avg_durations[fastest] * 1.5:
+                recommendations.append(
+                    f"Consider using {fastest} memory type instead of {slowest} "
+                    f"for better performance ({avg_durations[fastest]:.0f}ms vs {avg_durations[slowest]:.0f}ms avg)"
+                )
+        
+        # Check for frequent errors
+        error_operations = defaultdict(int)
+        for metric in metrics:
+            if not metric.success:
+                error_operations[metric.operation] += 1
+        
+        for operation, error_count in error_operations.items():
+            if error_count > 5:
+                recommendations.append(
+                    f"High error rate detected for {operation} ({error_count} errors). "
+                    "Consider investigating root cause."
+                )
+        
+        return recommendations
+    
+    def _calculate_percentile(self, values: List[float], percentile: int) -> float:
+        """Calculate percentile value."""
+        if not values:
+            return 0.0
+        
+        sorted_values = sorted(values)
+        index = int((percentile / 100) * len(sorted_values))
+        index = min(index, len(sorted_values) - 1)
+        return sorted_values[index]
+    
+    def _recommend_memory_type(self, comparison: Dict[str, Any]) -> str:
+        """Recommend best memory type based on performance data."""
+        if not comparison:
+            return 'buffer'  # Default recommendation
+        
+        # Score each memory type based on multiple factors
+        scores = {}
+        for mem_type, stats in comparison.items():
+            # Lower duration is better
+            duration_score = 1000 / (stats['avg_duration_ms'] + 1)
+            
+            # More operations indicate reliability
+            operation_score = min(stats['operation_count'] / 100, 1.0)
+            
+            # Combined score
+            scores[mem_type] = duration_score * 0.7 + operation_score * 0.3
+        
+        return max(scores, key=scores.get) if scores else 'buffer'
 
-    Features:
-    - Timing metrics collection for both paths
-    - Confidence score tracking and improvement analysis
-    - Error rate monitoring per path
-    - Mode usage pattern tracking
-    - Performance analytics and reporting
-    - Alert triggering for degraded performance
+# Global performance monitor instance
+_performance_monitor = None
 
-    Requirements: 11.1, 11.2, 11.3, 11.4, 11.5, 11.6
-    """
+def get_performance_monitor() -> PerformanceMonitor:
+    """Get global performance monitor instance."""
+    global _performance_monitor
+    if _performance_monitor is None:
+        _performance_monitor = PerformanceMonitor()
+    return _performance_monitor
 
+# Context manager for performance tracking
+class PerformanceTracker:
+    """Context manager for tracking operation performance."""
+    
     def __init__(
         self,
-        redis_client: redis.Redis,
-        metrics_ttl: int = 86400 * 7,  # 7 days
-        alert_threshold_error_rate: float = 0.1,  # 10% error rate
-        alert_threshold_slow_response: float = 5.0,  # 5 seconds
-        metrics_prefix: str = "metrics:",
+        operation: str,
+        memory_type: str,
+        session_id: str,
+        metadata: Optional[Dict[str, Any]] = None
     ):
-        """
-        Initialize PerformanceMonitor.
-
-        Args:
-            redis_client: Redis client for storing metrics
-            metrics_ttl: Time-to-live for metrics in seconds (default: 7 days)
-            alert_threshold_error_rate: Error rate threshold for alerts (0-1)
-            alert_threshold_slow_response: Response time threshold for alerts (seconds)
-            metrics_prefix: Prefix for Redis keys
-        """
-        self.redis_client = redis_client
-        self.metrics_ttl = metrics_ttl
-        self.alert_threshold_error_rate = alert_threshold_error_rate
-        self.alert_threshold_slow_response = alert_threshold_slow_response
-        self.metrics_prefix = metrics_prefix
-
-        logger.info(
-            f"PerformanceMonitor initialized with "
-            f"metrics_ttl={metrics_ttl}s, "
-            f"error_rate_threshold={alert_threshold_error_rate}, "
-            f"slow_response_threshold={alert_threshold_slow_response}s"
-        )
-
-    def _get_key(self, metric_type: MetricType, suffix: str = "") -> str:
-        """Generate Redis key for metric storage."""
-        key = f"{self.metrics_prefix}{metric_type.value}"
-        if suffix:
-            key = f"{key}:{suffix}"
-        return key
-
-    async def log_timing_metrics(
-        self,
-        query_id: str,
-        mode: QueryMode,
-        speculative_time: Optional[float] = None,
-        agentic_time: Optional[float] = None,
-        total_time: float = 0.0,
-        first_response_time: Optional[float] = None,
-    ) -> None:
-        """
-        Log timing metrics for a query execution.
-
-        Tracks:
-        - Speculative path completion time
-        - Agentic path completion time
-        - Which path completed first
-        - End-to-end query processing time
-        - Time to first response
-
-        Args:
-            query_id: Query identifier
-            mode: Query processing mode
-            speculative_time: Time taken by speculative path (seconds)
-            agentic_time: Time taken by agentic path (seconds)
-            total_time: Total end-to-end processing time (seconds)
-            first_response_time: Time to first response chunk (seconds)
-
-        Requirements: 11.1, 11.3
-        """
-        try:
-            metrics = TimingMetrics(
-                query_id=query_id,
-                mode=mode.value,
-                speculative_time=speculative_time,
-                agentic_time=agentic_time,
-                total_time=total_time,
-                first_response_time=first_response_time,
+        self.operation = operation
+        self.memory_type = memory_type
+        self.session_id = session_id
+        self.metadata = metadata or {}
+        self.start_time = None
+        self.monitor = get_performance_monitor()
+    
+    def __enter__(self):
+        self.start_time = time.time()
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.start_time:
+            duration_ms = (time.time() - self.start_time) * 1000
+            success = exc_type is None
+            error_message = str(exc_val) if exc_val else None
+            
+            self.monitor.record_metric(
+                operation=self.operation,
+                duration_ms=duration_ms,
+                memory_type=self.memory_type,
+                session_id=self.session_id,
+                success=success,
+                error_message=error_message,
+                metadata=self.metadata
             )
-
-            # Store in Redis as sorted set (by timestamp)
-            key = self._get_key(MetricType.TIMING)
-            timestamp_score = time.time()
-
-            await self.redis_client.zadd(
-                key, {json.dumps(asdict(metrics), default=str): timestamp_score}
-            )
-
-            # Set TTL
-            await self.redis_client.expire(key, self.metrics_ttl)
-
-            # Update aggregated stats
-            await self._update_timing_stats(metrics)
-
-            # Check for performance degradation
-            await self._check_timing_alerts(metrics)
-
-            logger.info(
-                f"Logged timing metrics for {query_id}: "
-                f"mode={mode.value}, total={total_time:.2f}s, "
-                f"spec={speculative_time:.2f}s if speculative_time else 'N/A', "
-                f"agent={agentic_time:.2f}s if agentic_time else 'N/A', "
-                f"first_completed={metrics.path_completed_first or 'N/A'}"
-            )
-
-        except Exception as e:
-            logger.error(f"Failed to log timing metrics: {e}")
-
-    async def log_confidence_metrics(
-        self,
-        query_id: str,
-        mode: QueryMode,
-        initial_speculative_confidence: Optional[float] = None,
-        final_agentic_confidence: Optional[float] = None,
-    ) -> None:
-        """
-        Log confidence score metrics for a query.
-
-        Tracks:
-        - Initial speculative confidence
-        - Final agentic confidence
-        - Confidence improvement over time
-
-        Args:
-            query_id: Query identifier
-            mode: Query processing mode
-            initial_speculative_confidence: Initial confidence from speculative path
-            final_agentic_confidence: Final confidence from agentic path
-
-        Requirements: 11.2
-        """
-        try:
-            metrics = ConfidenceMetrics(
-                query_id=query_id,
-                mode=mode.value,
-                initial_speculative_confidence=initial_speculative_confidence,
-                final_agentic_confidence=final_agentic_confidence,
-            )
-
-            # Store in Redis
-            key = self._get_key(MetricType.CONFIDENCE)
-            timestamp_score = time.time()
-
-            await self.redis_client.zadd(
-                key, {json.dumps(asdict(metrics), default=str): timestamp_score}
-            )
-
-            # Set TTL
-            await self.redis_client.expire(key, self.metrics_ttl)
-
-            # Update aggregated stats
-            await self._update_confidence_stats(metrics)
-
-            logger.info(
-                f"Logged confidence metrics for {query_id}: "
-                f"initial={initial_speculative_confidence:.3f if initial_speculative_confidence else 'N/A'}, "
-                f"final={final_agentic_confidence:.3f if final_agentic_confidence else 'N/A'}, "
-                f"improvement={metrics.confidence_improvement:.3f if metrics.confidence_improvement else 'N/A'}"
-            )
-
-        except Exception as e:
-            logger.error(f"Failed to log confidence metrics: {e}")
-
-    async def log_error_metrics(
-        self,
-        query_id: str,
-        mode: QueryMode,
-        path: PathSource,
-        error_type: str,
-        error_message: str,
-    ) -> None:
-        """
-        Log error metrics for path failures.
-
-        Tracks:
-        - Failure rates per path
-        - Error types and frequencies
-        - Error patterns over time
-
-        Args:
-            query_id: Query identifier
-            mode: Query processing mode
-            path: Path that failed (speculative/agentic/hybrid)
-            error_type: Type of error (e.g., "timeout", "llm_error", "search_error")
-            error_message: Error message
-
-        Requirements: 11.4, 11.5
-        """
-        try:
-            metrics = ErrorMetrics(
-                query_id=query_id,
-                mode=mode.value,
-                path=path.value,
-                error_type=error_type,
-                error_message=error_message[:200],  # Truncate long messages
-            )
-
-            # Store in Redis
-            key = self._get_key(MetricType.ERROR)
-            timestamp_score = time.time()
-
-            await self.redis_client.zadd(
-                key, {json.dumps(asdict(metrics), default=str): timestamp_score}
-            )
-
-            # Set TTL
-            await self.redis_client.expire(key, self.metrics_ttl)
-
-            # Update error rate stats
-            await self._update_error_stats(metrics)
-
-            # Check for high error rates
-            await self._check_error_alerts(metrics)
-
-            logger.warning(
-                f"Logged error metrics for {query_id}: "
-                f"path={path.value}, type={error_type}"
-            )
-
-        except Exception as e:
-            logger.error(f"Failed to log error metrics: {e}")
-
-    async def log_mode_usage(
-        self, mode: QueryMode, session_id: Optional[str] = None
-    ) -> None:
-        """
-        Log mode usage patterns.
-
-        Tracks which modes are being used most frequently.
-
-        Args:
-            mode: Query processing mode used
-            session_id: Optional session identifier
-
-        Requirements: 11.6
-        """
-        try:
-            key = self._get_key(MetricType.MODE_USAGE)
-
-            # Increment counter for this mode
-            await self.redis_client.hincrby(key, mode.value, 1)
-
-            # Set TTL
-            await self.redis_client.expire(key, self.metrics_ttl)
-
-            logger.debug(f"Logged mode usage: {mode.value}")
-
-        except Exception as e:
-            logger.error(f"Failed to log mode usage: {e}")
-
-    async def _update_timing_stats(self, metrics: TimingMetrics) -> None:
-        """Update aggregated timing statistics."""
-        try:
-            stats_key = self._get_key(MetricType.TIMING, "stats")
-
-            # Update counters and sums for averages
-            pipe = self.redis_client.pipeline()
-
-            # Total queries
-            pipe.hincrby(stats_key, "total_queries", 1)
-
-            # Mode-specific counters
-            pipe.hincrby(stats_key, f"{metrics.mode}_count", 1)
-
-            # Sum of times for averages
-            if metrics.speculative_time:
-                pipe.hincrbyfloat(
-                    stats_key, "speculative_time_sum", metrics.speculative_time
-                )
-                pipe.hincrby(stats_key, "speculative_count", 1)
-
-            if metrics.agentic_time:
-                pipe.hincrbyfloat(stats_key, "agentic_time_sum", metrics.agentic_time)
-                pipe.hincrby(stats_key, "agentic_count", 1)
-
-            pipe.hincrbyfloat(stats_key, "total_time_sum", metrics.total_time)
-
-            # Path completion tracking
-            if metrics.path_completed_first:
-                pipe.hincrby(
-                    stats_key, f"{metrics.path_completed_first}_first_count", 1
-                )
-
-            await pipe.execute()
-            await self.redis_client.expire(stats_key, self.metrics_ttl)
-
-        except Exception as e:
-            logger.error(f"Failed to update timing stats: {e}")
-
-    async def _update_confidence_stats(self, metrics: ConfidenceMetrics) -> None:
-        """Update aggregated confidence statistics."""
-        try:
-            stats_key = self._get_key(MetricType.CONFIDENCE, "stats")
-
-            pipe = self.redis_client.pipeline()
-
-            if metrics.initial_speculative_confidence is not None:
-                pipe.hincrbyfloat(
-                    stats_key,
-                    "speculative_confidence_sum",
-                    metrics.initial_speculative_confidence,
-                )
-                pipe.hincrby(stats_key, "speculative_confidence_count", 1)
-
-            if metrics.final_agentic_confidence is not None:
-                pipe.hincrbyfloat(
-                    stats_key,
-                    "agentic_confidence_sum",
-                    metrics.final_agentic_confidence,
-                )
-                pipe.hincrby(stats_key, "agentic_confidence_count", 1)
-
-            if metrics.confidence_improvement is not None:
-                pipe.hincrbyfloat(
-                    stats_key,
-                    "confidence_improvement_sum",
-                    metrics.confidence_improvement,
-                )
-                pipe.hincrby(stats_key, "confidence_improvement_count", 1)
-
-            await pipe.execute()
-            await self.redis_client.expire(stats_key, self.metrics_ttl)
-
-        except Exception as e:
-            logger.error(f"Failed to update confidence stats: {e}")
-
-    async def _update_error_stats(self, metrics: ErrorMetrics) -> None:
-        """Update aggregated error statistics."""
-        try:
-            stats_key = self._get_key(MetricType.ERROR, "stats")
-
-            pipe = self.redis_client.pipeline()
-
-            # Total errors
-            pipe.hincrby(stats_key, "total_errors", 1)
-
-            # Per-path errors
-            pipe.hincrby(stats_key, f"{metrics.path}_errors", 1)
-
-            # Per-type errors
-            pipe.hincrby(stats_key, f"type_{metrics.error_type}", 1)
-
-            # Per-mode errors
-            pipe.hincrby(stats_key, f"{metrics.mode}_errors", 1)
-
-            await pipe.execute()
-            await self.redis_client.expire(stats_key, self.metrics_ttl)
-
-        except Exception as e:
-            logger.error(f"Failed to update error stats: {e}")
-
-    async def _check_timing_alerts(self, metrics: TimingMetrics) -> None:
-        """
-        Check for timing-based performance degradation and trigger alerts.
-
-        Requirements: 11.5
-        """
-        try:
-            # Check if response time exceeds threshold
-            if metrics.total_time > self.alert_threshold_slow_response:
-                logger.warning(
-                    f"PERFORMANCE ALERT: Slow response detected for query {metrics.query_id} - "
-                    f"total_time={metrics.total_time:.2f}s exceeds threshold "
-                    f"of {self.alert_threshold_slow_response}s"
-                )
-
-                # Store alert
-                alert_key = self._get_key(MetricType.TIMING, "alerts")
-                alert_data = {
-                    "query_id": metrics.query_id,
-                    "alert_type": "slow_response",
-                    "total_time": metrics.total_time,
-                    "threshold": self.alert_threshold_slow_response,
-                    "timestamp": datetime.now().isoformat(),
-                }
-
-                await self.redis_client.zadd(
-                    alert_key, {json.dumps(alert_data): time.time()}
-                )
-                await self.redis_client.expire(alert_key, self.metrics_ttl)
-
-        except Exception as e:
-            logger.error(f"Failed to check timing alerts: {e}")
-
-    async def _check_error_alerts(self, metrics: ErrorMetrics) -> None:
-        """
-        Check for high error rates and trigger alerts.
-
-        Requirements: 11.5
-        """
-        try:
-            # Get recent error rate for this path
-            stats_key = self._get_key(MetricType.ERROR, "stats")
-            timing_stats_key = self._get_key(MetricType.TIMING, "stats")
-
-            # Get error count and total query count
-            path_errors = await self.redis_client.hget(
-                stats_key, f"{metrics.path}_errors"
-            )
-            total_queries = await self.redis_client.hget(
-                timing_stats_key, "total_queries"
-            )
-
-            if path_errors and total_queries:
-                error_count = int(path_errors)
-                query_count = int(total_queries)
-
-                if query_count > 0:
-                    error_rate = error_count / query_count
-
-                    if error_rate > self.alert_threshold_error_rate:
-                        logger.error(
-                            f"PERFORMANCE ALERT: High error rate detected for {metrics.path} path - "
-                            f"error_rate={error_rate:.2%} exceeds threshold "
-                            f"of {self.alert_threshold_error_rate:.2%} "
-                            f"({error_count}/{query_count} queries)"
-                        )
-
-                        # Store alert
-                        alert_key = self._get_key(MetricType.ERROR, "alerts")
-                        alert_data = {
-                            "path": metrics.path,
-                            "alert_type": "high_error_rate",
-                            "error_rate": error_rate,
-                            "error_count": error_count,
-                            "query_count": query_count,
-                            "threshold": self.alert_threshold_error_rate,
-                            "timestamp": datetime.now().isoformat(),
-                        }
-
-                        await self.redis_client.zadd(
-                            alert_key, {json.dumps(alert_data): time.time()}
-                        )
-                        await self.redis_client.expire(alert_key, self.metrics_ttl)
-
-        except Exception as e:
-            logger.error(f"Failed to check error alerts: {e}")
-
-    async def get_timing_stats(self, time_window_hours: int = 24) -> Dict[str, Any]:
-        """
-        Get aggregated timing statistics.
-
-        Args:
-            time_window_hours: Time window for stats (hours)
-
-        Returns:
-            Dictionary with timing statistics
-
-        Requirements: 11.1, 11.3, 11.6
-        """
-        try:
-            stats_key = self._get_key(MetricType.TIMING, "stats")
-            stats = await self.redis_client.hgetall(stats_key)
-
-            if not stats:
-                return {}
-
-            # Decode and convert to proper types
-            decoded_stats = {
-                k.decode() if isinstance(k, bytes) else k: (
-                    float(v) if b"." in v else int(v)
-                )
-                for k, v in stats.items()
-            }
-
-            # Calculate averages
-            result = {
-                "total_queries": decoded_stats.get("total_queries", 0),
-                "time_window_hours": time_window_hours,
-            }
-
-            # Average times
-            if decoded_stats.get("speculative_count", 0) > 0:
-                result["avg_speculative_time"] = (
-                    decoded_stats.get("speculative_time_sum", 0)
-                    / decoded_stats["speculative_count"]
-                )
-
-            if decoded_stats.get("agentic_count", 0) > 0:
-                result["avg_agentic_time"] = (
-                    decoded_stats.get("agentic_time_sum", 0)
-                    / decoded_stats["agentic_count"]
-                )
-
-            if decoded_stats.get("total_queries", 0) > 0:
-                result["avg_total_time"] = (
-                    decoded_stats.get("total_time_sum", 0)
-                    / decoded_stats["total_queries"]
-                )
-
-            # Path completion stats
-            spec_first = decoded_stats.get("speculative_first_count", 0)
-            agent_first = decoded_stats.get("agentic_first_count", 0)
-            total_both = spec_first + agent_first
-
-            if total_both > 0:
-                result["speculative_first_percentage"] = (spec_first / total_both) * 100
-                result["agentic_first_percentage"] = (agent_first / total_both) * 100
-
-            # Mode usage
-            for mode in ["fast", "balanced", "deep"]:
-                count = decoded_stats.get(f"{mode}_count", 0)
-                result[f"{mode}_mode_count"] = count
-
-            return result
-
-        except Exception as e:
-            logger.error(f"Failed to get timing stats: {e}")
-            return {}
-
-    async def get_confidence_stats(self, time_window_hours: int = 24) -> Dict[str, Any]:
-        """
-        Get aggregated confidence statistics.
-
-        Args:
-            time_window_hours: Time window for stats (hours)
-
-        Returns:
-            Dictionary with confidence statistics
-
-        Requirements: 11.2, 11.6
-        """
-        try:
-            stats_key = self._get_key(MetricType.CONFIDENCE, "stats")
-            stats = await self.redis_client.hgetall(stats_key)
-
-            if not stats:
-                return {}
-
-            # Decode and convert
-            decoded_stats = {
-                k.decode() if isinstance(k, bytes) else k: (
-                    float(v) if b"." in v else int(v)
-                )
-                for k, v in stats.items()
-            }
-
-            result = {"time_window_hours": time_window_hours}
-
-            # Average confidence scores
-            if decoded_stats.get("speculative_confidence_count", 0) > 0:
-                result["avg_speculative_confidence"] = (
-                    decoded_stats.get("speculative_confidence_sum", 0)
-                    / decoded_stats["speculative_confidence_count"]
-                )
-
-            if decoded_stats.get("agentic_confidence_count", 0) > 0:
-                result["avg_agentic_confidence"] = (
-                    decoded_stats.get("agentic_confidence_sum", 0)
-                    / decoded_stats["agentic_confidence_count"]
-                )
-
-            # Average confidence improvement
-            if decoded_stats.get("confidence_improvement_count", 0) > 0:
-                result["avg_confidence_improvement"] = (
-                    decoded_stats.get("confidence_improvement_sum", 0)
-                    / decoded_stats["confidence_improvement_count"]
-                )
-
-            return result
-
-        except Exception as e:
-            logger.error(f"Failed to get confidence stats: {e}")
-            return {}
-
-    async def get_error_stats(self, time_window_hours: int = 24) -> Dict[str, Any]:
-        """
-        Get aggregated error statistics.
-
-        Args:
-            time_window_hours: Time window for stats (hours)
-
-        Returns:
-            Dictionary with error statistics
-
-        Requirements: 11.4, 11.5, 11.6
-        """
-        try:
-            stats_key = self._get_key(MetricType.ERROR, "stats")
-            timing_stats_key = self._get_key(MetricType.TIMING, "stats")
-
-            error_stats = await self.redis_client.hgetall(stats_key)
-            timing_stats = await self.redis_client.hgetall(timing_stats_key)
-
-            if not error_stats:
-                return {"total_errors": 0, "error_rate": 0.0}
-
-            # Decode stats
-            decoded_errors = {
-                k.decode() if isinstance(k, bytes) else k: int(v)
-                for k, v in error_stats.items()
-            }
-
-            total_queries = 0
-            if timing_stats:
-                total_queries_bytes = timing_stats.get(b"total_queries", b"0")
-                total_queries = int(total_queries_bytes)
-
-            result = {
-                "total_errors": decoded_errors.get("total_errors", 0),
-                "total_queries": total_queries,
-                "time_window_hours": time_window_hours,
-            }
-
-            # Calculate error rate
-            if total_queries > 0:
-                result["error_rate"] = (
-                    decoded_errors.get("total_errors", 0) / total_queries
-                )
-            else:
-                result["error_rate"] = 0.0
-
-            # Per-path error rates
-            for path in ["speculative", "agentic", "hybrid"]:
-                path_errors = decoded_errors.get(f"{path}_errors", 0)
-                result[f"{path}_errors"] = path_errors
-                if total_queries > 0:
-                    result[f"{path}_error_rate"] = path_errors / total_queries
-
-            # Error types
-            error_types = {}
-            for key, value in decoded_errors.items():
-                if key.startswith("type_"):
-                    error_type = key.replace("type_", "")
-                    error_types[error_type] = value
-
-            result["error_types"] = error_types
-
-            return result
-
-        except Exception as e:
-            logger.error(f"Failed to get error stats: {e}")
-            return {}
-
-    async def get_mode_usage_stats(self) -> Dict[str, int]:
-        """
-        Get mode usage statistics.
-
-        Returns:
-            Dictionary with mode usage counts
-
-        Requirements: 11.6
-        """
-        try:
-            key = self._get_key(MetricType.MODE_USAGE)
-            stats = await self.redis_client.hgetall(key)
-
-            if not stats:
-                return {}
-
-            # Decode and convert
-            result = {
-                k.decode() if isinstance(k, bytes) else k: int(v)
-                for k, v in stats.items()
-            }
-
-            return result
-
-        except Exception as e:
-            logger.error(f"Failed to get mode usage stats: {e}")
-            return {}
-
-    async def get_recent_alerts(self, limit: int = 10) -> List[Dict[str, Any]]:
-        """
-        Get recent performance alerts.
-
-        Args:
-            limit: Maximum number of alerts to return
-
-        Returns:
-            List of recent alerts
-
-        Requirements: 11.5
-        """
-        try:
-            alerts = []
-
-            # Get timing alerts
-            timing_alert_key = self._get_key(MetricType.TIMING, "alerts")
-            timing_alerts = await self.redis_client.zrevrange(
-                timing_alert_key, 0, limit - 1, withscores=False
-            )
-
-            for alert_json in timing_alerts:
-                alert_data = json.loads(alert_json)
-                alert_data["category"] = "timing"
-                alerts.append(alert_data)
-
-            # Get error alerts
-            error_alert_key = self._get_key(MetricType.ERROR, "alerts")
-            error_alerts = await self.redis_client.zrevrange(
-                error_alert_key, 0, limit - 1, withscores=False
-            )
-
-            for alert_json in error_alerts:
-                alert_data = json.loads(alert_json)
-                alert_data["category"] = "error"
-                alerts.append(alert_data)
-
-            # Sort by timestamp and limit
-            alerts.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
-
-            return alerts[:limit]
-
-        except Exception as e:
-            logger.error(f"Failed to get recent alerts: {e}")
-            return []

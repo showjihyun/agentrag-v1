@@ -28,6 +28,13 @@ export class RAGApiClient {
   }
 
   /**
+   * Get the base URL for external access
+   */
+  get baseURL(): string {
+    return this.baseUrl;
+  }
+
+  /**
    * Get authorization headers if token exists.
    */
   private getAuthHeaders(): Record<string, string> {

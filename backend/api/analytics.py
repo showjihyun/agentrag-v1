@@ -10,8 +10,8 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Query, HTTPException
 from pydantic import BaseModel, Field
 
-from backend.services.performance_monitor import PerformanceMonitor
 from backend.core.dependencies import get_performance_monitor
+from backend.services.performance_monitor import PerformanceMonitor
 
 logger = logging.getLogger(__name__)
 
@@ -123,7 +123,7 @@ async def get_timing_analytics(
     time_window_hours: int = Query(
         24, ge=1, le=168, description="Time window in hours (1-168)"
     ),
-    monitor: PerformanceMonitor = Depends(get_performance_monitor),
+    monitor = Depends(get_performance_monitor),
 ) -> TimingAnalytics:
     """
     Get timing analytics for the hybrid RAG system.
@@ -161,7 +161,7 @@ async def get_confidence_analytics(
     time_window_hours: int = Query(
         24, ge=1, le=168, description="Time window in hours (1-168)"
     ),
-    monitor: PerformanceMonitor = Depends(get_performance_monitor),
+    monitor = Depends(get_performance_monitor),
 ) -> ConfidenceAnalytics:
     """
     Get confidence score analytics.
@@ -197,7 +197,7 @@ async def get_error_analytics(
     time_window_hours: int = Query(
         24, ge=1, le=168, description="Time window in hours (1-168)"
     ),
-    monitor: PerformanceMonitor = Depends(get_performance_monitor),
+    monitor = Depends(get_performance_monitor),
 ) -> ErrorAnalytics:
     """
     Get error rate analytics.
@@ -236,7 +236,7 @@ async def get_error_analytics(
     description="Retrieve statistics on query mode usage patterns",
 )
 async def get_mode_usage_analytics(
-    monitor: PerformanceMonitor = Depends(get_performance_monitor),
+    monitor = Depends(get_performance_monitor),
 ) -> ModeUsageAnalytics:
     """
     Get mode usage analytics.
@@ -278,7 +278,7 @@ async def get_path_effectiveness_report(
     time_window_hours: int = Query(
         24, ge=1, le=168, description="Time window in hours (1-168)"
     ),
-    monitor: PerformanceMonitor = Depends(get_performance_monitor),
+    monitor = Depends(get_performance_monitor),
 ) -> PathEffectivenessReport:
     """
     Get comprehensive path effectiveness report.

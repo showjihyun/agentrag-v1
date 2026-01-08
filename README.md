@@ -1,117 +1,75 @@
 <div align="center">
 
-# 🚀 AgenticFlow
+# 🧪 AgenticFlow
 
-### Visual AI Workflow Builder with Multi-Agent Orchestration
+### Experimental Visual AI Workflow Builder
 
-**Build powerful AI automations in minutes, not months.**
+**An open-source experiment in building AI automations visually.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/)
 [![Next.js 15](https://img.shields.io/badge/Next.js-15-black)](https://nextjs.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.109+-green.svg)](https://fastapi.tiangolo.com/)
-[![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://www.docker.com/)
+[![Experimental](https://img.shields.io/badge/Status-Experimental-orange.svg)](#)
 
-[Demo](#-demo) • [Features](#-features) • [Quick Start](#-quick-start) • [Architecture](#-architecture) • [Docs](#-documentation)
-
-<img src="docs/images/workflow-demo.gif" alt="AgenticFlow Demo" width="800"/>
+[Features](#-features) • [Architecture](#-architecture) • [Quick Start](#-quick-start) • [Contributing](#-contributing)
 
 </div>
 
 ---
 
-## 🎯 Why AgenticFlow?
+## 🎯 What is this?
 
-| Traditional Approach | With AgenticFlow |
-|---------------------|------------------|
-| ❌ Weeks of coding | ✅ Minutes with drag-and-drop |
-| ❌ Complex integrations | ✅ 70+ pre-built nodes |
-| ❌ Single AI model | ✅ Multi-agent orchestration |
-| ❌ Manual monitoring | ✅ Real-time execution tracking |
+AgenticFlow is an **experimental project** exploring how to build AI workflows visually. Think n8n meets AI agents - drag, drop, connect, and run.
+
+> ⚠️ **Experimental**: This is a learning/exploration project. Not production-ready, but functional and fun to play with!
 
 ---
 
 ## ✨ Features
 
-<table>
-<tr>
-<td width="50%">
-
-### 🎨 Visual Workflow Builder
-- Drag-and-drop interface
-- 70+ pre-built nodes
-- Real-time execution monitoring
-- Version control & history
-
-</td>
-<td width="50%">
-
-### 🤖 Multi-Agent System
-- ReAct + Chain-of-Thought reasoning
-- Vector, Local, Web search agents
-- Adaptive query routing
-- Memory management (STM/LTM)
-
-</td>
-</tr>
-<tr>
-<td width="50%">
-
-### 🔗 50+ Integrations
-- **AI**: OpenAI, Claude, Gemini, Grok, Ollama
-- **Comms**: Slack, Discord, Email, SMS
-- **Storage**: S3, Google Drive, Dropbox
-- **DB**: PostgreSQL, MongoDB, Redis
-
-</td>
-<td width="50%">
-
-### 📊 Enterprise Ready
-- API key management
-- Human-in-the-loop approvals
-- Cost tracking & analytics
-- Circuit breaker & retry patterns
-
-</td>
-</tr>
-</table>
+| Feature | Description |
+|---------|-------------|
+| 🎨 **Visual Builder** | Drag-and-drop workflow editor with ReactFlow |
+| 🤖 **Multi-Agent** | Orchestrate multiple AI agents (ReAct + CoT) |
+| 🔗 **50+ Integrations** | Slack, Email, HTTP, Databases, and more |
+| ⚡ **Real-time** | Live execution monitoring via SSE |
+| 🧠 **Multi-LLM** | OpenAI, Claude, Gemini, Grok, Ollama |
+| 📊 **RAG Tools** | Vector search, hybrid search, document processing |
 
 ---
 
-## 🎬 Demo
+## 🏗 Architecture
 
-### Workflow Builder
-```mermaid
-graph LR
-    A[📨 Webhook] --> B[🤖 AI: Analyze Intent]
-    B --> C{Intent?}
-    C -->|FAQ| D[🔍 Search KB]
-    C -->|Support| E[📝 Create Ticket]
-    C -->|Other| F[👤 Human Review]
-    D --> G[💬 Slack Response]
-    E --> H[📧 Email Team]
-    F --> I[🤖 AI Response]
+```
+┌──────────────────────────────────────────────────┐
+│           Frontend (Next.js 15 + React 19)       │
+│              ReactFlow Visual Editor             │
+└─────────────────────┬────────────────────────────┘
+                      │ REST / SSE
+┌─────────────────────┴────────────────────────────┐
+│              Backend (FastAPI)                   │
+│  ┌─────────────────┬─────────────────────────┐  │
+│  │ Workflow Engine │   Multi-Agent System    │  │
+│  │ • Node Executor │   • Aggregator (ReAct)  │  │
+│  │ • Triggers      │   • Vector Search Agent │  │
+│  │ • Integrations  │   • Web Search Agent    │  │
+│  └─────────────────┴─────────────────────────┘  │
+└─────────────────────┬────────────────────────────┘
+                      │
+┌─────────────────────┴────────────────────────────┐
+│  PostgreSQL  │  Milvus  │  Redis  │  LLM APIs   │
+└──────────────────────────────────────────────────┘
 ```
 
-### Node Types
-
-| Category | Nodes |
-|----------|-------|
-| **Triggers** | Manual, Schedule, Webhook, Email, Event, Database |
-| **AI Agents** | Custom Agent, Template Agent, Manager, Consensus |
-| **Logic** | Condition, Loop, Parallel, Switch, Delay, Merge |
-| **Integrations** | Slack, Discord, Email, HTTP, Database, Storage |
-| **Tools** | Code Execution, Data Transform, Vector Search |
+**Tech Stack:**
+- **Frontend**: Next.js 15, React 19, TypeScript, Tailwind, ReactFlow
+- **Backend**: FastAPI, LangChain, LangGraph, LiteLLM
+- **Storage**: PostgreSQL, Milvus (vectors), Redis (cache)
+- **AI**: Multi-LLM support via LiteLLM
 
 ---
 
 ## 🚀 Quick Start
-
-### Prerequisites
-- Docker & Docker Compose
-- (Optional) Python 3.10+, Node.js 18+
-
-### 1-Minute Setup
 
 ```bash
 # Clone
@@ -120,173 +78,65 @@ cd agenticflow
 
 # Configure
 cp .env.example .env
+# Edit .env with your LLM API keys
 
-# Launch
+# Run
 docker-compose up -d
+
+# Access
+open http://localhost:3000
 ```
 
-### Access
-
-| Service | URL |
-|---------|-----|
-| 🎨 **Workflow Builder** | http://localhost:3000 |
-| 📚 **API Docs** | http://localhost:8000/docs |
-
-### Configure LLM Provider
-
-```env
-# .env - Choose your provider
-LLM_PROVIDER=ollama          # ollama, openai, claude, gemini, grok
-LLM_MODEL=llama3.3:70b
-
-# API Keys (if using cloud providers)
-OPENAI_API_KEY=sk-...
-ANTHROPIC_API_KEY=sk-ant-...
-```
+**Default ports:**
+- Frontend: `3000`
+- Backend API: `8000`
+- API Docs: `8000/docs`
 
 ---
 
-## 🏗️ Architecture
+## 📸 Screenshots
 
-```
-┌─────────────────────────────────────────────────────────┐
-│              Frontend (Next.js 15 + React 19)           │
-│         ReactFlow Visual Editor + Shadcn/ui             │
-└────────────────────────┬────────────────────────────────┘
-                         │ REST/SSE
-┌────────────────────────┴────────────────────────────────┐
-│                  Backend (FastAPI)                      │
-│  ┌────────────────────────────────────────────────────┐│
-│  │  Workflow Engine    │    Multi-Agent System        ││
-│  │  ├─ Node Executor   │    ├─ Aggregator (ReAct+CoT) ││
-│  │  ├─ Trigger Manager │    ├─ Vector Search Agent    ││
-│  │  └─ Integration Hub │    ├─ Local Data Agent       ││
-│  │                     │    └─ Web Search Agent       ││
-│  └────────────────────────────────────────────────────┘│
-└────────────────────────┬────────────────────────────────┘
-                         │
-┌────────────────────────┴────────────────────────────────┐
-│  PostgreSQL    │    Milvus     │   Redis   │    LLM    │
-│  (Metadata)    │   (Vectors)   │  (Cache)  │ (Ollama)  │
-└─────────────────────────────────────────────────────────┘
-```
-
-### Tech Stack
-
-| Layer | Technology |
-|-------|------------|
-| **Frontend** | Next.js 15, React 19, TypeScript, Tailwind CSS, ReactFlow |
-| **Backend** | FastAPI, LangChain, LangGraph, LiteLLM |
-| **Database** | PostgreSQL, Milvus (Vector), Redis (Cache) |
-| **AI/ML** | Multi-LLM (GPT-4, Claude, Gemini, Grok, Ollama) |
-| **Infra** | Docker, Docker Compose |
+| Workflow Builder | Execution Monitor |
+|-----------------|-------------------|
+| ![Builder](docs/images/builder.png) | ![Monitor](docs/images/monitor.png) |
 
 ---
 
-## 📊 Performance
-
-| Metric | Target | Result |
-|--------|--------|--------|
-| Fast Query | < 1s | ✅ 0.8s |
-| Workflow Execution | < 5s | ✅ 3s |
-| Cache Hit Rate | > 60% | ✅ 65% |
-| Uptime | 99.9% | ✅ 99.9% |
-
----
-
-## 📁 Project Structure
-
-```
-agenticflow/
-├── frontend/          # Next.js 15 App
-│   ├── app/          # App Router pages
-│   ├── components/   # React components
-│   └── lib/          # Utilities & API client
-├── backend/          # FastAPI Server
-│   ├── api/          # REST endpoints
-│   ├── agents/       # Multi-agent system
-│   ├── services/     # Business logic (DDD)
-│   ├── core/         # Infrastructure
-│   └── db/           # Database layer
-├── docker-compose.yml
-└── .env.example
-```
-
----
-
-## 🛠️ Development
+## 🛠 Development
 
 ```bash
 # Backend
-cd backend
-python -m venv venv && source venv/bin/activate
-pip install -r requirements.txt
+cd backend && pip install -r requirements.txt
 uvicorn main:app --reload
 
 # Frontend
-cd frontend
-npm install && npm run dev
+cd frontend && npm install && npm run dev
 ```
-
-### Testing
-
-```bash
-# Backend
-pytest --cov=backend
-
-# Frontend
-npm test && npm run e2e
-```
-
----
-
-## 📚 Documentation
-
-- [Quick Start Guide](docs/QUICK_START_GUIDE.md)
-- [Workflow Builder Guide](docs/WORKFLOW_BUILDER_GUIDE.md)
-- [API Reference](docs/API_REFERENCE.md)
-- [Integration Guide](docs/INTEGRATION_GUIDE.md)
-
----
-
-## 🗺️ Roadmap
-
-- [x] Visual Workflow Builder (70+ nodes)
-- [x] Multi-Agent Orchestration
-- [x] 50+ Integrations
-- [x] Real-time Monitoring
-- [ ] GraphRAG Integration
-- [ ] Workflow Marketplace
-- [ ] Mobile App
-- [ ] Multi-tenant Support
 
 ---
 
 ## 🤝 Contributing
 
-Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+This is an experimental project - contributions, ideas, and feedback are welcome!
 
-```bash
-# Fork → Clone → Branch → Commit → PR
-git checkout -b feature/amazing-feature
-git commit -m 'Add amazing feature'
-git push origin feature/amazing-feature
-```
+1. Fork it
+2. Create your branch (`git checkout -b feature/cool-idea`)
+3. Commit (`git commit -m 'Add cool idea'`)
+4. Push (`git push origin feature/cool-idea`)
+5. Open a PR
 
 ---
 
-## 📄 License
+## 📝 License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT - do whatever you want with it.
 
 ---
 
 <div align="center">
 
-**⭐ Star us on GitHub — it motivates us to build more!**
+**⭐ If you find this interesting, a star would be appreciated!**
 
-[Report Bug](https://github.com/yourusername/agenticflow/issues) · [Request Feature](https://github.com/yourusername/agenticflow/issues)
-
-Made with ❤️ by the AgenticFlow Team
+*Built with curiosity and too much coffee ☕*
 
 </div>

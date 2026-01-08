@@ -1026,6 +1026,14 @@ app.include_router(ai_agent_stream.router)
 from backend.api.agent_builder import memory_management
 app.include_router(memory_management.router)
 
+# A2A Protocol API (Google Agent-to-Agent)
+try:
+    from backend.api.agent_builder.a2a_simple import router as a2a_router
+    app.include_router(a2a_router, prefix="/api/agent-builder", tags=["a2a-protocol"])
+    print("✅ A2A router registered successfully in main.py")
+except Exception as e:
+    print(f"❌ Failed to register A2A router in main.py: {e}")
+
 # Cache Management API (Priority 9)
 from backend.api import cache_management
 app.include_router(cache_management.router)

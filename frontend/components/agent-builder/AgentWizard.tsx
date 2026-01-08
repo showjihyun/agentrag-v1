@@ -38,7 +38,7 @@ import {
 import { ToolSelector } from './ToolSelector';
 import { PromptTemplateEditor } from './PromptTemplateEditor';
 import { AgentToolsPanel } from './AgentToolsPanel';
-import { LLM_PROVIDERS, getModelsForProvider, LLMProvider } from '@/lib/llm-models';
+import { LLM_PROVIDERS, getModelsForProvider, getAvailableProviders, LLMProvider } from '@/lib/llm-models';
 
 // LLM Config interface matching settings page
 interface LLMConfig {
@@ -530,7 +530,7 @@ export function AgentWizard({ agentId, initialData, templateData, mode = 'create
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {LLM_PROVIDERS.map((provider) => {
+                      {getAvailableProviders().map((provider) => {
                         const configured = isProviderConfigured(provider.id);
                         const isDisabled = !configured && provider.type === 'cloud';
                         return (

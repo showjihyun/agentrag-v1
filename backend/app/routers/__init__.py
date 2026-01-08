@@ -134,72 +134,88 @@ def register_core_routers(app: FastAPI) -> None:
 
 def register_agent_builder_routers(app: FastAPI) -> None:
     """Register Agent Builder API routers."""
-    from backend.api.agent_builder import (
-        agents,
-        blocks,
-        workflows,
-        knowledgebases,
-        variables,
-        executions,
-        permissions,
-        audit_logs,
-        dashboard,
-        oauth,
-        webhooks,
-        chat,
-        memory,
-        cost,
-        branches,
-        collaboration,
-        prompt_optimization,
-        insights as insights_old,
-        marketplace,
-        advanced_export,
-        tools,
-        analytics,
-        custom_tools,
-        api_keys,
-        workflow_generator,
-        agent_chat,
-        kb_monitoring,
-        embedding_models,
-        milvus_admin,
-        triggers,
-        approvals,
-        templates,
-        versions,
-        tool_execution,
-        tool_metrics,
-        tool_marketplace,
-        tool_config,
-        workflow_debug,
-        workflow_monitoring,
-        ai_assistant,
-        ai_agent_chat,
-        cost_tracking,
-        agent_team,
-        workflow_templates,
-        workflow_nlp_generator,
-        code_execution,
-        ai_copilot,
-        code_debugger,
-        code_analyzer,
-        code_profiler,
-        code_secrets,
-        flows,
-        embed,
-        flow_templates,
-        chatflow_chat,
-        prometheus_metrics,
-        agentflow_execution,
-        environment_variables,
-        user_settings,
-        workflow_execution_stream,
-        ai_agent_stream,
-        memory_management,
-        nlp_generator,
-        insights,
-    )
+    logger.info("Starting Agent Builder router registration...")
+    
+    try:
+        from backend.api.agent_builder import (
+            agents,
+            blocks,
+            workflows,
+            knowledgebases,
+            variables,
+            executions,
+            permissions,
+            audit_logs,
+            dashboard,
+            oauth,
+            webhooks,
+            chat,
+            memory,
+            cost,
+            branches,
+            collaboration,
+            prompt_optimization,
+            insights as insights_old,
+            marketplace,
+            advanced_export,
+            tools,
+            analytics,
+            custom_tools,
+            api_keys,
+            workflow_generator,
+            agent_chat,
+            kb_monitoring,
+            embedding_models,
+            milvus_admin,
+            triggers,
+            approvals,
+            templates,
+            versions,
+            tool_execution,
+            tool_metrics,
+            tool_marketplace,
+            tool_config,
+            workflow_debug,
+            workflow_monitoring,
+            ai_assistant,
+            ai_agent_chat,
+            cost_tracking,
+            agent_team,
+            workflow_templates,
+            workflow_nlp_generator,
+            code_execution,
+            ai_copilot,
+            code_debugger,
+            code_analyzer,
+            code_profiler,
+            code_secrets,
+            flows,
+            embed,
+            flow_templates,
+            chatflow_chat,
+            prometheus_metrics,
+            agentflow_execution,
+            environment_variables,
+            user_settings,
+            workflow_execution_stream,
+            ai_agent_stream,
+            memory_management,
+            nlp_generator,
+            insights,
+        )
+        logger.info("Standard Agent Builder modules imported successfully")
+    except Exception as e:
+        logger.error(f"Failed to import standard Agent Builder modules: {e}")
+        raise
+    
+    # Try to import A2A module separately
+    try:
+        from backend.api.agent_builder import a2a_simple as a2a
+        logger.info("A2A simple module imported successfully")
+    except Exception as e:
+        logger.error(f"Failed to import A2A simple module: {e}")
+        # Continue without A2A for now
+        a2a = None
 
     # Dashboard & Core
     app.include_router(dashboard.router)
@@ -302,6 +318,16 @@ def register_agent_builder_routers(app: FastAPI) -> None:
     
     # Memory Management
     app.include_router(memory_management.router)
+    
+    # A2A Protocol (Google Agent-to-Agent)
+    if a2a is not None:
+        try:
+            app.include_router(a2a.router, prefix="/api/agent-builder", tags=["a2a-protocol"])
+            logger.info("A2A router registered successfully")
+        except Exception as e:
+            logger.error(f"Failed to register A2A router: {e}")
+    else:
+        logger.warning("A2A module not available, skipping router registration")
     
     logger.info("Agent Builder routers registered")
 

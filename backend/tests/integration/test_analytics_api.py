@@ -15,7 +15,7 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from backend.main import app
-from backend.services.performance_monitor import PerformanceMonitor
+from backend.services.performance_monitor import get_performance_monitor
 from backend.models.hybrid import QueryMode, PathSource
 
 

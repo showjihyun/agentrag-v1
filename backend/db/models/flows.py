@@ -409,7 +409,7 @@ class ChatflowTool(Base):
 
 
 class ChatSession(Base):
-    """Chat session for Chatflow conversations."""
+    """Chat session for Chatflow conversations with enhanced memory management."""
 
     __tablename__ = "chat_sessions"
 
@@ -433,8 +433,51 @@ class ChatSession(Base):
     session_token = Column(String(255), unique=True, index=True)
     title = Column(String(255))
     
-    # Memory State
-    memory_state = Column(JSONB, default=dict)
+    # Memory Management
+    memory_type = Column(
+        String(50),
+        default='buffer',
+        nullable=False
+    )
+    memory_config = Column(JSONB, default=lambda: {
+        'buffer_size': 20,           # Buffer memory: 최근 N개 메시지
+        'summary_threshold': 50,     # Summary memory: 요약 시작 메시지 수
+        'summary_interval': 20,      # Summary memory: 요약 주기
+        'vector_top_k': 5,          # Vector memory: 검색할 메시지 수
+        'hybrid_weights': {         # Hybrid memory: 각 전략 가중치
+            'buffer': 0.4,
+            'summary': 0.3,
+            'vector': 0.3
+        }
+    })
+    
+    # Session Status
+    status = Column(
+        String(50),
+        default='active',
+        nullable=False
+    )
+    
+    # Enhanced Memory State
+    memory_state = Column(JSONB, default=lambda: {
+        'summary_text': '',          # 요약된 대화 내용
+        'last_summary_at': None,     # 마지막 요약 시점
+        'context_embeddings': [],    # 벡터 메모리용 임베딩 ID들
+        'important_messages': [],    # 중요 메시지 ID들
+        'user_preferences': {},      # 사용자 선호도 학습
+        'conversation_topics': []    # 대화 주제 태그들
+    })
+    
+    # Performance and Statistics
+    total_tokens_used = Column(Integer, default=0)
+    avg_response_time = Column(Float, default=0.0)
+    last_activity_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Expiration Management
+    expires_at = Column(DateTime)
+    auto_archive_after_days = Column(Integer, default=30)
+    
+    # Basic Fields
     message_count = Column(Integer, default=0)
 
     # Timestamps
@@ -445,17 +488,29 @@ class ChatSession(Base):
     # Relationships
     chatflow = relationship("Chatflow", back_populates="sessions")
     messages = relationship("ChatMessage", back_populates="session", cascade="all, delete-orphan")
+    summaries = relationship("ChatSummary", back_populates="session", cascade="all, delete-orphan")
 
     __table_args__ = (
         Index("ix_chat_sessions_chatflow_updated", "chatflow_id", "updated_at"),
+        Index("ix_chat_sessions_user_status", "user_id", "status"),
+        Index("ix_chat_sessions_memory_type", "memory_type"),
+        Index("ix_chat_sessions_last_activity", "last_activity_at"),
+        CheckConstraint(
+            "memory_type IN ('buffer', 'summary', 'vector', 'hybrid')",
+            name="check_memory_type_valid",
+        ),
+        CheckConstraint(
+            "status IN ('active', 'archived', 'deleted')",
+            name="check_session_status_valid",
+        ),
     )
 
     def __repr__(self):
-        return f"<ChatSession(id={self.id}, chatflow_id={self.chatflow_id})>"
+        return f"<ChatSession(id={self.id}, chatflow_id={self.chatflow_id}, memory_type={self.memory_type})>"
 
 
 class ChatMessage(Base):
-    """Chat message within a session."""
+    """Enhanced chat message with memory features."""
 
     __tablename__ = "chat_messages"
 
@@ -474,9 +529,27 @@ class ChatMessage(Base):
     role = Column(String(50), nullable=False)  # user, assistant, system, tool
     content = Column(Text, nullable=False)
     
-    # Message Metadata (renamed from 'metadata' to avoid SQLAlchemy reserved word conflict)
-    message_metadata = Column(JSONB, default=dict)
-    # Can include: tool_calls, tool_results, sources, tokens_used, etc.
+    # Enhanced Message Metadata
+    message_metadata = Column(JSONB, default=lambda: {
+        'tokens_used': {'input': 0, 'output': 0},
+        'response_time': 0.0,
+        'model_used': '',
+        'temperature': 0.7,
+        'sources': [],              # RAG 소스들
+        'tool_calls': [],           # 도구 호출들
+        'importance_score': 0.5,    # 메시지 중요도 (0-1)
+        'topics': [],               # 메시지 주제 태그들
+        'sentiment': 'neutral',     # 감정 분석 결과
+        'intent': '',               # 의도 분석 결과
+        'references': []            # 다른 메시지 참조들
+    })
+    
+    # Vector Search Support
+    embedding_id = Column(String(255))  # Milvus 벡터 ID
+    
+    # Message State
+    is_summarized = Column(Boolean, default=False)  # 요약에 포함되었는지
+    is_archived = Column(Boolean, default=False)    # 아카이브 여부
 
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
@@ -486,6 +559,8 @@ class ChatMessage(Base):
 
     __table_args__ = (
         Index("ix_chat_messages_session_created", "session_id", "created_at"),
+        Index("ix_chat_messages_embedding", "embedding_id"),
+        Index("ix_chat_messages_importance", "message_metadata", postgresql_using="gin"),
         CheckConstraint(
             "role IN ('user', 'assistant', 'system', 'tool')",
             name="check_message_role_valid",
@@ -493,7 +568,59 @@ class ChatMessage(Base):
     )
 
     def __repr__(self):
-        return f"<ChatMessage(id={self.id}, role={self.role})>"
+        return f"<ChatMessage(id={self.id}, role={self.role}, session_id={self.session_id})>"
+
+
+class ChatSummary(Base):
+    """Conversation summaries for memory management."""
+
+    __tablename__ = "chat_summaries"
+
+    # Primary Key
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # Foreign Keys
+    session_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("chat_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    
+    # Summary Content
+    summary_text = Column(Text, nullable=False)
+    summary_type = Column(String(50), default='conversation')  # conversation, topic, decision
+    
+    # Summary Range
+    start_message_id = Column(UUID(as_uuid=True), ForeignKey("chat_messages.id"))
+    end_message_id = Column(UUID(as_uuid=True), ForeignKey("chat_messages.id"))
+    message_count = Column(Integer, nullable=False)
+    
+    # Extracted Metadata
+    topics = Column(JSONB, default=list)  # 추출된 주제들
+    key_points = Column(JSONB, default=list)  # 핵심 포인트들
+    decisions_made = Column(JSONB, default=list)  # 내린 결정들
+    
+    # Vector Search Support
+    embedding_id = Column(String(255))  # Milvus 벡터 ID
+    
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    
+    # Relationships
+    session = relationship("ChatSession", back_populates="summaries")
+
+    __table_args__ = (
+        Index("ix_chat_summaries_session_created", "session_id", "created_at"),
+        Index("ix_chat_summaries_embedding", "embedding_id"),
+        CheckConstraint(
+            "summary_type IN ('conversation', 'topic', 'decision')",
+            name="check_summary_type_valid",
+        ),
+    )
+
+    def __repr__(self):
+        return f"<ChatSummary(id={self.id}, session_id={self.session_id}, type={self.summary_type})>"
 
 
 # ============================================================================

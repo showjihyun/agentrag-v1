@@ -555,34 +555,104 @@ async def execute_flow(
         ).first()
         
         if chatflow:
-            # Execute Chatflow (placeholder for now)
-            execution_id = str(uuid.uuid4())
-            
-            # Create execution record
-            flow_execution = FlowExecution(
-                id=execution_id,
-                chatflow_id=chatflow.id,
-                user_id=current_user.id,
-                flow_type="chatflow",
-                flow_name=chatflow.name,
-                input_data=request.input_data,
-                status="completed",
-                started_at=datetime.utcnow(),
-                completed_at=datetime.utcnow(),
-                output_data={"response": "Chatflow executed successfully"}
-            )
-            
-            db.add(flow_execution)
-            db.commit()
-            
-            return FlowExecutionResponse(
-                id=execution_id,
-                flow_id=flow_id,
-                flow_type="chatflow",
-                status="completed",
-                started_at=flow_execution.started_at.isoformat(),
-                input_data=request.input_data
-            )
+            # Execute Chatflow using ChatflowService
+            try:
+                from backend.services.agent_builder.chatflow_service import ChatflowService
+                
+                execution_id = str(uuid.uuid4())
+                
+                # Initialize ChatflowService
+                chatflow_service = ChatflowService(db)
+                
+                # Extract message from input_data
+                message = request.input_data.get("message", "")
+                if not message:
+                    raise ValueError("Message is required for chatflow execution")
+                
+                # Generate session ID for this execution
+                session_id = f"exec-{execution_id}"
+                
+                # Prepare chat configuration
+                chat_config = chatflow.chat_config or {}
+                config = {
+                    "provider": chat_config.get("llm_provider", "ollama"),
+                    "model": chat_config.get("llm_model", "llama3.3:70b"),
+                    "temperature": chat_config.get("temperature", 0.7),
+                    "max_tokens": chat_config.get("max_tokens", 2000),
+                    "system_prompt": chat_config.get("system_prompt", ""),
+                }
+                
+                # Execute chat
+                chat_result = await chatflow_service.chat(
+                    session_id=session_id,
+                    user_message=message,
+                    config=config,
+                    user_id=str(current_user.id),
+                    workflow_id=str(chatflow.id)
+                )
+                
+                # Create execution record
+                flow_execution = FlowExecution(
+                    id=execution_id,
+                    chatflow_id=chatflow.id,
+                    user_id=current_user.id,
+                    flow_type="chatflow",
+                    flow_name=chatflow.name,
+                    input_data=request.input_data,
+                    status="completed",
+                    started_at=datetime.utcnow(),
+                    completed_at=datetime.utcnow(),
+                    output_data={
+                        "response": chat_result.get("response", ""),
+                        "session_id": session_id,
+                        "usage": chat_result.get("usage", {}),
+                        "message_count": chat_result.get("message_count", 1)
+                    }
+                )
+                
+                db.add(flow_execution)
+                db.commit()
+                
+                return FlowExecutionResponse(
+                    id=execution_id,
+                    flow_id=flow_id,
+                    flow_type="chatflow",
+                    status="completed",
+                    started_at=flow_execution.started_at.isoformat(),
+                    input_data=request.input_data,
+                    output_data=flow_execution.output_data
+                )
+                
+            except Exception as e:
+                logger.error(f"Chatflow execution failed: {str(e)}")
+                
+                # Create failed execution record
+                execution_id = str(uuid.uuid4())
+                flow_execution = FlowExecution(
+                    id=execution_id,
+                    chatflow_id=chatflow.id,
+                    user_id=current_user.id,
+                    flow_type="chatflow",
+                    flow_name=chatflow.name,
+                    input_data=request.input_data,
+                    status="failed",
+                    started_at=datetime.utcnow(),
+                    completed_at=datetime.utcnow(),
+                    output_data={"error": str(e)}
+                )
+                
+                db.add(flow_execution)
+                db.commit()
+                
+                return FlowExecutionResponse(
+                    id=execution_id,
+                    flow_id=flow_id,
+                    flow_type="chatflow",
+                    status="failed",
+                    started_at=flow_execution.started_at.isoformat(),
+                    input_data=request.input_data,
+                    output_data=flow_execution.output_data
+                )
         
         raise HTTPException(status_code=404, detail="Flow not found")
         

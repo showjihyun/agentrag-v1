@@ -250,50 +250,152 @@ def create_customer_support_agentflow(db: Session, user_id: str, agents: list) -
     return agentflow
 
 
-def create_sample_chatflow(db: Session, user_id: str) -> Chatflow:
-    """Create sample chatflow for conversational AI."""
+def create_sample_chatflows(db: Session, user_id: str) -> list[Chatflow]:
+    """Create 3 representative sample chatflows."""
     
-    chatflow = Chatflow(
+    # Clear existing sample chatflows first
+    existing_chatflows = db.query(Chatflow).filter(Chatflow.user_id == user_id).all()
+    for chatflow in existing_chatflows:
+        db.delete(chatflow)
+    db.commit()
+    print("🗑️  Cleared existing chatflows")
+    
+    chatflows = []
+    
+    # 1. Customer Support Chatbot
+    customer_support = Chatflow(
         user_id=user_id,
-        name="Product Assistant Chatbot",
-        description="AI chatbot that helps users find products and answer questions",
+        name="고객 지원 챗봇",
+        description="고객 문의를 처리하고 FAQ를 제공하는 AI 챗봇입니다. 실시간으로 고객의 질문에 답변하고 적절한 부서로 연결해드립니다.",
         chat_config={
-            "llm_provider": "openai",
-            "llm_model": "gpt-4",
-            "system_prompt": "You are a helpful product assistant. Help users find products and answer their questions.",
-            "temperature": 0.7,
-            "max_tokens": 2000,
+            "llm_provider": "ollama",
+            "llm_model": "llama3.3:70b",
+            "system_prompt": "당신은 친절하고 전문적인 고객 지원 담당자입니다. 고객의 문의사항을 정확히 파악하고 도움이 되는 답변을 제공하세요. 해결할 수 없는 문제는 적절한 부서로 안내해주세요.",
+            "temperature": 0.3,
+            "max_tokens": 1500,
             "streaming": True,
-            "welcome_message": "Hi! I'm your product assistant. How can I help you today?",
+            "welcome_message": "안녕하세요! 고객 지원팀입니다. 어떤 도움이 필요하신가요?",
             "suggested_questions": [
-                "What are your best-selling products?",
-                "Can you help me find a laptop?",
-                "What's your return policy?"
+                "주문 상태를 확인하고 싶어요",
+                "환불 정책이 궁금합니다",
+                "제품 사용법을 알려주세요",
+                "기술 지원이 필요해요"
             ]
         },
         memory_config={
-            "type": "buffer",
-            "max_messages": 10
+            "type": "hybrid",
+            "buffer_size": 15,
+            "summary_threshold": 30,
+            "vector_top_k": 5,
+            "hybrid_weights": {
+                "buffer": 0.4,
+                "summary": 0.3,
+                "vector": 0.3
+            }
         },
         rag_config={
             "enabled": True,
-            "knowledgebase_ids": ["product_kb_001"],
+            "knowledgebase_ids": ["customer_support_kb"],
             "retrieval_strategy": "hybrid",
-            "top_k": 5,
+            "top_k": 7,
+            "score_threshold": 0.75,
+            "reranking_enabled": True
+        },
+        is_active=True,
+        tags=["고객지원", "FAQ", "실시간채팅"],
+        created_at=datetime.utcnow()
+    )
+    
+    # 2. Product Recommendation Assistant
+    product_assistant = Chatflow(
+        user_id=user_id,
+        name="상품 추천 어시스턴트",
+        description="사용자의 취향과 요구사항을 분석하여 맞춤형 상품을 추천하는 AI 어시스턴트입니다. 개인화된 쇼핑 경험을 제공합니다.",
+        chat_config={
+            "llm_provider": "ollama",
+            "llm_model": "llama3.3:70b",
+            "system_prompt": "당신은 전문적인 상품 추천 어시스턴트입니다. 고객의 선호도, 예산, 용도를 파악하여 최적의 상품을 추천해주세요. 상품의 특징과 장단점을 명확히 설명하고, 비교 분석도 제공하세요.",
+            "temperature": 0.5,
+            "max_tokens": 2000,
+            "streaming": True,
+            "welcome_message": "안녕하세요! 상품 추천 어시스턴트입니다. 어떤 상품을 찾고 계신가요?",
+            "suggested_questions": [
+                "노트북 추천해주세요",
+                "가성비 좋은 스마트폰 찾아요",
+                "운동화 추천 부탁드려요",
+                "선물용 상품 추천해주세요"
+            ]
+        },
+        memory_config={
+            "type": "vector",
+            "vector_top_k": 8,
+            "buffer_size": 10,
+            "max_context_messages": 25
+        },
+        rag_config={
+            "enabled": True,
+            "knowledgebase_ids": ["product_catalog_kb", "reviews_kb"],
+            "retrieval_strategy": "hybrid",
+            "top_k": 10,
             "score_threshold": 0.7,
             "reranking_enabled": True
         },
         is_active=True,
-        tags=["chatbot", "product-support", "rag"],
+        tags=["상품추천", "개인화", "쇼핑"],
         created_at=datetime.utcnow()
     )
     
-    db.add(chatflow)
-    db.commit()
-    db.refresh(chatflow)
+    # 3. Learning & Tutorial Assistant
+    learning_assistant = Chatflow(
+        user_id=user_id,
+        name="학습 도우미",
+        description="복잡한 개념을 쉽게 설명하고 단계별 학습을 도와주는 AI 튜터입니다. 개인 맞춤형 학습 경험을 제공합니다.",
+        chat_config={
+            "llm_provider": "ollama",
+            "llm_model": "llama3.3:70b",
+            "system_prompt": "당신은 친근하고 인내심 있는 AI 튜터입니다. 복잡한 개념을 단계별로 쉽게 설명하고, 학습자의 수준에 맞춰 설명을 조정하세요. 예시와 비유를 활용하여 이해를 돕고, 학습자가 스스로 생각할 수 있도록 질문도 던져주세요.",
+            "temperature": 0.7,
+            "max_tokens": 2500,
+            "streaming": True,
+            "welcome_message": "안녕하세요! 학습 도우미입니다. 무엇을 배우고 싶으신가요?",
+            "suggested_questions": [
+                "프로그래밍 기초를 배우고 싶어요",
+                "수학 개념을 쉽게 설명해주세요",
+                "영어 문법을 도와주세요",
+                "과학 원리를 알려주세요"
+            ]
+        },
+        memory_config={
+            "type": "summary",
+            "summary_threshold": 40,
+            "summary_interval": 15,
+            "buffer_size": 20
+        },
+        rag_config={
+            "enabled": True,
+            "knowledgebase_ids": ["educational_content_kb", "tutorials_kb"],
+            "retrieval_strategy": "semantic",
+            "top_k": 6,
+            "score_threshold": 0.8,
+            "reranking_enabled": True
+        },
+        is_active=True,
+        tags=["교육", "튜터링", "학습지원"],
+        created_at=datetime.utcnow()
+    )
     
-    print(f"✅ Created Product Assistant Chatflow: {chatflow.id}")
-    return chatflow
+    # Add all chatflows to database
+    chatflows = [customer_support, product_assistant, learning_assistant]
+    for chatflow in chatflows:
+        db.add(chatflow)
+    
+    db.commit()
+    
+    for chatflow in chatflows:
+        db.refresh(chatflow)
+        print(f"✅ Created Chatflow: {chatflow.name} ({chatflow.id})")
+    
+    return chatflows
 
 
 def create_sample_executions(db: Session, agentflow_id: str, user_id: str):
@@ -359,8 +461,8 @@ def main():
         # 3. Create customer support agentflow
         agentflow = create_customer_support_agentflow(db, demo_user.id, agents)
         
-        # 4. Create sample chatflow
-        chatflow = create_sample_chatflow(db, demo_user.id)
+        # 4. Create sample chatflows (3 representative examples)
+        chatflows = create_sample_chatflows(db, demo_user.id)
         
         # 5. Create sample executions
         create_sample_executions(db, agentflow.id, demo_user.id)

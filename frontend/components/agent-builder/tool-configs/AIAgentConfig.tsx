@@ -35,7 +35,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { MessageSquare, Settings, Brain, Zap, AlertCircle, RefreshCw, Loader2, HelpCircle, RotateCcw, Sparkles, Copy, Check } from "lucide-react";
-import { LLM_PROVIDERS, getModelsForProvider } from "@/lib/llm-models";
+import { LLM_PROVIDERS, getModelsForProvider, getAvailableProviders } from "@/lib/llm-models";
 
 // ============================================
 // Constants (moved outside component for performance)
@@ -459,7 +459,7 @@ export function AIAgentConfig({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {LLM_PROVIDERS.map((p) => (
+                  {getAvailableProviders().map((p) => (
                     <SelectItem key={p.id} value={p.id}>
                       <div className="flex items-center gap-2">
                         <span>{p.icon}</span>

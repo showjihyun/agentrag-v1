@@ -24,7 +24,7 @@ import { Save, X, Trash, Bot, Zap, Brain, AlertTriangle, Loader2 } from 'lucide-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
-import { LLM_PROVIDERS, getModelsForProvider } from '@/lib/llm-models';
+import { LLM_PROVIDERS, getModelsForProvider, getAvailableProviders } from '@/lib/llm-models';
 import { getToolConfig } from '@/components/workflow/tool-configs/ToolConfigRegistry';
 import { cn } from '@/lib/utils';
 
@@ -376,7 +376,7 @@ export const SimplifiedPropertiesPanel = ({
                               <SelectValue placeholder="Select provider" />
                             </SelectTrigger>
                             <SelectContent>
-                              {LLM_PROVIDERS.map((provider) => (
+                              {getAvailableProviders().map((provider) => (
                                 <SelectItem key={provider.id} value={provider.id}>
                                   <span className="flex items-center gap-2">
                                     <span>{provider.icon}</span>

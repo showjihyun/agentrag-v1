@@ -1,23 +1,9 @@
-"""Database repositories package."""
+"""Repository pattern implementations for data access layer."""
 
-from backend.db.repositories.user_repository import UserRepository
-from backend.db.repositories.session_repository import SessionRepository
-from backend.db.repositories.message_repository import MessageRepository
-from backend.db.repositories.message_source_repository import MessageSourceRepository
-from backend.db.repositories.document_repository import DocumentRepository
-from backend.db.repositories.batch_upload_repository import BatchUploadRepository
-from backend.db.repositories.feedback_repository import FeedbackRepository
-from backend.db.repositories.permission_repository import PermissionRepository
-from backend.db.repositories.usage_repository import UsageRepository
+from .chat_session_repository import ChatSessionRepository
+from .chat_message_repository import ChatMessageRepository
 
 __all__ = [
-    "UserRepository",
-    "SessionRepository",
-    "MessageRepository",
-    "MessageSourceRepository",
-    "DocumentRepository",
-    "BatchUploadRepository",
-    "FeedbackRepository",
-    "PermissionRepository",
-    "UsageRepository",
+    "ChatSessionRepository",
+    "ChatMessageRepository",
 ]

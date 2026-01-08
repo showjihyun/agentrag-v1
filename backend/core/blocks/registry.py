@@ -268,6 +268,29 @@ class BlockRegistry:
         cls._blocks.clear()
         cls._block_classes.clear()
         logger.info("Cleared block registry")
+    
+    @classmethod
+    def register_block_config(
+        cls,
+        block_type: str,
+        config: Dict[str, Any],
+        executor: Any = None
+    ):
+        """
+        Register a block configuration directly (without decorator).
+        
+        Args:
+            block_type: Block type identifier
+            config: Block configuration dict
+            executor: Optional executor function
+        """
+        cls._blocks[block_type] = {
+            "type": block_type,
+            **config
+        }
+        if executor:
+            cls._block_classes[block_type] = executor
+        logger.info(f"Registered block config: {block_type}")
 
 
 # Convenience function for external use
@@ -297,3 +320,20 @@ def register_block(
         description=description,
         **kwargs
     )
+
+
+# Register A2A block
+def _register_a2a_block():
+    """Register A2A protocol block."""
+    try:
+        from backend.core.blocks.a2a_block import A2A_BLOCK_DEFINITION, execute_a2a_block
+        BlockRegistry.register_block_config(
+            "a2a_agent",
+            A2A_BLOCK_DEFINITION,
+            execute_a2a_block
+        )
+    except ImportError as e:
+        logger.warning(f"Failed to register A2A block: {e}")
+
+# Auto-register A2A block on module load
+_register_a2a_block()

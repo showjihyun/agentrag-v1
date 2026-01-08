@@ -12,6 +12,54 @@ import {
   FlowExecution,
 } from '../types/flows';
 
+// Chat-related types
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  timestamp: Date;
+  isStreaming?: boolean;
+}
+
+export interface ChatRequest {
+  message: string;
+  session_id?: string;
+  workflow_id?: string;
+  config?: {
+    provider?: string;
+    model?: string;
+    temperature?: number;
+    max_tokens?: number;
+    system_prompt?: string;
+    memory_type?: string;
+    memory_config?: any;
+  };
+}
+
+export interface ChatResponse {
+  success: boolean;
+  response?: string;
+  error?: string;
+  session_id: string;
+  message_count: number;
+  usage?: {
+    input_tokens: number;
+    output_tokens: number;
+    total_tokens: number;
+  };
+}
+
+export interface ChatHistoryResponse {
+  messages: Array<{
+    id: string;
+    role: string;
+    content: string;
+    created_at: string;
+    message_metadata?: any;
+  }>;
+  message_count: number;
+}
+
 export class FlowsAPI {
   /**
    * Create a new Agentflow
@@ -259,6 +307,159 @@ export class FlowsAPI {
     
     return params;
   }
+
+  // ============================================================================
+  // CHATFLOW CHAT METHODS
+  // ============================================================================
+
+  /**
+   * Send a chat message to a chatflow
+   */
+  async sendChatMessage(request: ChatRequest): Promise<ChatResponse> {
+    return apiClient['request']('/api/agent-builder/chatflow/chat', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  /**
+   * Send a chat message to a specific workflow
+   */
+  async sendWorkflowChatMessage(workflowId: string, request: Omit<ChatRequest, 'workflow_id'>): Promise<ChatResponse> {
+    return apiClient['request'](`/api/agent-builder/chatflow/workflows/${workflowId}/chat`, {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  /**
+   * Get chat history for a session
+   */
+  async getChatHistory(sessionId: string): Promise<ChatHistoryResponse> {
+    return apiClient['request'](`/api/agent-builder/chatflow/sessions/${sessionId}/history`);
+  }
+
+  /**
+   * Clear chat session
+   */
+  async clearChatSession(sessionId: string): Promise<void> {
+    return apiClient['request'](`/api/agent-builder/chatflow/sessions/${sessionId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  /**
+   * Create a streaming chat connection
+   */
+  createChatStream(request: ChatRequest): EventSource {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+    const params = new URLSearchParams({
+      message: request.message,
+      ...(request.session_id && { session_id: request.session_id }),
+      ...(request.workflow_id && { workflow_id: request.workflow_id }),
+      ...(request.config && { config: JSON.stringify(request.config) }),
+      ...(token && { token: token }),
+    });
+
+    return new EventSource(`${apiClient.baseURL}/api/agent-builder/chatflow/chat/stream?${params.toString()}`);
+  }
+
+  /**
+   * Create a streaming chat connection for a specific workflow
+   */
+  createWorkflowChatStream(workflowId: string, request: Omit<ChatRequest, 'workflow_id'>): EventSource {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    
+    console.log('Token from localStorage:', token ? 'Present' : 'Missing');
+    console.log('Environment:', isDevelopment ? 'Development' : 'Production');
+    
+    const params = new URLSearchParams({
+      message: request.message,
+      ...(request.session_id && { session_id: request.session_id }),
+      ...(request.config && { config: JSON.stringify(request.config) }),
+    });
+
+    // Add token to URL params since EventSource doesn't support custom headers
+    if (token) {
+      // Use the actual token (real or fake)
+      params.append('token', token);
+      console.log('Token added to URL params');
+    } else if (isDevelopment) {
+      // In development mode, use dummy token if no token exists at all
+      console.log('🔧 Development mode: Using dummy token for EventSource');
+      params.append('token', 'dev-dummy-token');
+    } else {
+      console.warn('No token available for EventSource authentication');
+    }
+
+    const url = `${apiClient.baseURL}/api/agent-builder/chatflow/workflows/${workflowId}/chat/stream?${params.toString()}`;
+    console.log('Creating EventSource with URL:', url.replace(/token=[^&]+/, 'token=***'));
+    
+    return new EventSource(url);
+  }
 }
 
 export const flowsAPI = new FlowsAPI();
+
+// Session management API methods
+export const sessionAPI = {
+  // List user sessions
+  async listSessions(params?: {
+    chatflow_id?: string;
+    limit?: number;
+    offset?: number;
+  }) {
+    const searchParams = new URLSearchParams();
+    if (params?.chatflow_id) searchParams.append('chatflow_id', params.chatflow_id);
+    if (params?.limit) searchParams.append('limit', params.limit.toString());
+    if (params?.offset) searchParams.append('offset', params.offset.toString());
+
+    return apiClient['request'](`/api/agent-builder/chatflow/sessions?${searchParams}`);
+  },
+
+  // Get session details with messages
+  async getSession(sessionId: string) {
+    return apiClient['request'](`/api/agent-builder/chatflow/sessions/${sessionId}`);
+  },
+
+  // Delete session
+  async deleteSession(sessionId: string) {
+    return apiClient['request'](`/api/agent-builder/chatflow/sessions/${sessionId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // Export session data
+  async exportSession(sessionId: string) {
+    return apiClient['request'](`/api/agent-builder/chatflow/sessions/${sessionId}/export`);
+  },
+
+  // Clear session messages
+  async clearSession(sessionId: string) {
+    return apiClient['request'](`/api/agent-builder/chatflow/sessions/${sessionId}/clear`, {
+      method: 'POST',
+    });
+  },
+
+  // Get available memory strategies
+  async getMemoryStrategies() {
+    return apiClient['request']('/api/agent-builder/chatflow/memory/strategies');
+  },
+
+  // Update session memory configuration
+  async updateSessionMemory(sessionId: string, memoryConfig: {
+    strategy?: string;
+    max_messages?: number;
+    summary_threshold?: number;
+    similarity_threshold?: number;
+    buffer_weight?: number;
+    summary_weight?: number;
+    vector_weight?: number;
+  }) {
+    return apiClient['request'](`/api/agent-builder/chatflow/sessions/${sessionId}/memory`, {
+      method: 'PUT',
+      body: JSON.stringify(memoryConfig),
+    });
+  },
+};

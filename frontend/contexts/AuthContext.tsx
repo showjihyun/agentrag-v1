@@ -9,6 +9,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { UserResponse } from '@/lib/types';
 import { apiClient } from '@/lib/api-client';
 import { setTokens, clearTokens, getAccessToken, isTokenExpired } from '@/lib/auth';
+import { useToast } from '@/hooks/use-toast';
 
 interface AuthContextType {
   user: UserResponse | null;
@@ -29,6 +30,7 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<UserResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
 
   const isAuthenticated = user !== null;
 
@@ -38,23 +40,78 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     const loadUser = async () => {
       const token = getAccessToken();
+      const isDevelopment = process.env.NODE_ENV === 'development';
+      
+      // Development mode: Create fake user and token if none exists
+      if (isDevelopment && !token) {
+        console.log('🔧 Development mode: Creating fake user and token using backend test account');
+        
+        // Create fake token (not a real JWT, just for development)
+        const fakeToken = 'dev-fake-token-' + Date.now();
+        const fakeRefreshToken = 'dev-fake-refresh-token-' + Date.now();
+        
+        // Store fake tokens
+        setTokens(fakeToken, fakeRefreshToken);
+        
+        // Create fake user matching backend test account
+        const fakeUser: UserResponse = {
+          id: 'dev-user-id',
+          email: 'test@example.com',  // 백엔드 테스트 계정과 동일
+          username: 'testuser',       // 백엔드 테스트 계정과 동일
+          full_name: 'Test User (Dev Mode)',
+          role: 'admin',              // 백엔드 테스트 계정과 동일
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          storage_used_bytes: 0,
+          storage_limit_bytes: 1073741824, // 1GB
+        };
+        
+        setUser(fakeUser);
+        setIsLoading(false);
+        
+        toast({
+          title: '개발 모드 자동 로그인',
+          description: 'test@example.com 테스트 계정으로 자동 로그인되었습니다.',
+        });
+        
+        return;
+      }
       
       if (!token) {
         setIsLoading(false);
         return;
       }
 
-      // Check if token is expired
-      if (isTokenExpired(token)) {
+      // Check if token is expired (skip for fake tokens)
+      if (!token.startsWith('dev-fake-token-') && isTokenExpired(token)) {
         clearTokens();
         setIsLoading(false);
         return;
       }
 
       try {
-        // Fetch user info from API
-        const userData = await apiClient.me();
-        setUser(userData);
+        // Skip API call for fake tokens in development
+        if (isDevelopment && token.startsWith('dev-fake-token-')) {
+          console.log('🔧 Development mode: Using fake user matching backend test account');
+          const fakeUser: UserResponse = {
+            id: 'dev-user-id',
+            email: 'test@example.com',  // 백엔드 테스트 계정과 동일
+            username: 'testuser',       // 백엔드 테스트 계정과 동일
+            full_name: 'Test User (Dev Mode)',
+            role: 'admin',              // 백엔드 테스트 계정과 동일
+            is_active: true,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            storage_used_bytes: 0,
+            storage_limit_bytes: 1073741824, // 1GB
+          };
+          setUser(fakeUser);
+        } else {
+          // Fetch user info from API for real tokens
+          const userData = await apiClient.me();
+          setUser(userData);
+        }
       } catch (error) {
         console.error('Failed to load user:', error);
         clearTokens();

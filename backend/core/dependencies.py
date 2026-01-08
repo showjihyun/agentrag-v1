@@ -39,7 +39,6 @@ from backend.services.reranker import RerankerService
 from backend.services.speculative_processor import SpeculativeProcessor
 from backend.services.response_coordinator import ResponseCoordinator
 from backend.services.hybrid_query_router import HybridQueryRouter
-from backend.services.performance_monitor import PerformanceMonitor
 from backend.services.intelligent_mode_router import IntelligentModeRouter
 from backend.services.adaptive_rag_service import AdaptiveRAGService
 
@@ -120,16 +119,21 @@ class ServiceContainer:
                 f"Embedding Service initialized with model: {settings.EMBEDDING_MODEL}"
             )
 
-            # Initialize Milvus Manager
+            # Initialize Milvus Manager (optional - for Vector Memory strategy)
             logger.info("Connecting to Milvus...")
-            self._milvus_manager = MilvusManager(
-                host=settings.MILVUS_HOST,
-                port=settings.MILVUS_PORT,
-                collection_name=settings.MILVUS_COLLECTION_NAME,
-                embedding_dim=self._embedding_service.dimension,
-            )
-            self._milvus_manager.connect()
-            logger.info("Milvus connected successfully")
+            try:
+                self._milvus_manager = MilvusManager(
+                    host=settings.MILVUS_HOST,
+                    port=settings.MILVUS_PORT,
+                    collection_name=settings.MILVUS_COLLECTION_NAME,
+                    embedding_dim=self._embedding_service.dimension,
+                )
+                self._milvus_manager.connect()
+                logger.info("Milvus connected successfully")
+            except Exception as e:
+                logger.warning(f"Milvus connection failed: {e}")
+                logger.warning("Vector Memory strategy will not be available, but other memory strategies will work")
+                self._milvus_manager = None
 
             # Initialize LLM Manager
             logger.info("Initializing LLM Manager...")
@@ -159,20 +163,25 @@ class ServiceContainer:
 
             # Initialize LTM with separate Milvus collection
             logger.info("Initializing LTM with separate Milvus collection...")
-            ltm_milvus = MilvusManager(
-                host=settings.MILVUS_HOST,
-                port=settings.MILVUS_PORT,
-                collection_name="long_term_memory",  # Separate collection for LTM
-                embedding_dim=self._embedding_service.dimension,
-            )
-            ltm_milvus.connect()
+            try:
+                ltm_milvus = MilvusManager(
+                    host=settings.MILVUS_HOST,
+                    port=settings.MILVUS_PORT,
+                    collection_name="long_term_memory",  # Separate collection for LTM
+                    embedding_dim=self._embedding_service.dimension,
+                )
+                ltm_milvus.connect()
 
-            # Create LTM collection with appropriate schema
-            from backend.models.milvus_schema import get_ltm_collection_schema
+                # Create LTM collection with appropriate schema
+                from backend.models.milvus_schema import get_ltm_collection_schema
 
-            ltm_schema = get_ltm_collection_schema(self._embedding_service.dimension)
-            ltm_milvus.create_collection(schema=ltm_schema, drop_existing=False)
-            logger.info("LTM Milvus collection initialized")
+                ltm_schema = get_ltm_collection_schema(self._embedding_service.dimension)
+                ltm_milvus.create_collection(schema=ltm_schema, drop_existing=False)
+                logger.info("LTM Milvus collection initialized")
+            except Exception as e:
+                logger.warning(f"LTM Milvus initialization failed: {e}")
+                logger.warning("Long-term memory features will be limited")
+                ltm_milvus = None
 
             ltm = LongTermMemory(
                 milvus_manager=ltm_milvus, embedding_service=self._embedding_service
@@ -257,16 +266,8 @@ class ServiceContainer:
 
             # Initialize Performance Monitor
             logger.info("Initializing Performance Monitor...")
-            self._performance_monitor = PerformanceMonitor(
-                redis_client=self._redis_client,
-                metrics_ttl=getattr(settings, "METRICS_TTL", 86400 * 7),
-                alert_threshold_error_rate=getattr(
-                    settings, "ALERT_THRESHOLD_ERROR_RATE", 0.1
-                ),
-                alert_threshold_slow_response=getattr(
-                    settings, "ALERT_THRESHOLD_SLOW_RESPONSE", 5.0
-                ),
-            )
+            from backend.services.performance_monitor import get_performance_monitor
+            self._performance_monitor = get_performance_monitor()
             logger.info("Performance Monitor initialized")
 
             # Initialize Hybrid Query System (Speculative RAG)
@@ -386,8 +387,12 @@ class ServiceContainer:
 
         if self._mcp_manager:
             try:
-                await self._mcp_manager.disconnect_all()
-                logger.info("MCP servers disconnected")
+                # Check if _mcp_manager has the required attributes
+                if hasattr(self._mcp_manager, '_connected_servers'):
+                    await self._mcp_manager.disconnect_all()
+                    logger.info("MCP servers disconnected")
+                else:
+                    logger.warning("MCP manager not properly initialized, skipping disconnect")
             except Exception as e:
                 logger.error(f"Error disconnecting MCP servers: {e}")
 
@@ -458,7 +463,7 @@ class ServiceContainer:
         """Get HybridQueryRouter (may be None if disabled)."""
         return self._hybrid_query_router
 
-    def get_performance_monitor(self) -> PerformanceMonitor:
+    def get_performance_monitor(self):
         """Get PerformanceMonitor."""
         if not self._initialized or self._performance_monitor is None:
             raise RuntimeError("PerformanceMonitor not initialized")
@@ -596,7 +601,7 @@ async def get_hybrid_query_router() -> Optional[HybridQueryRouter]:
     return get_container().get_hybrid_query_router()
 
 
-async def get_performance_monitor() -> PerformanceMonitor:
+async def get_performance_monitor():
     """FastAPI dependency for PerformanceMonitor."""
     return get_container().get_performance_monitor()
 

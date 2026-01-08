@@ -140,6 +140,14 @@ def _configure_routers(app: FastAPI) -> None:
     """Configure API routers."""
     from backend.app.routers import register_all_routers
     register_all_routers(app)
+    
+    # Add A2A router directly as fallback
+    try:
+        from backend.api.agent_builder.a2a_simple import router as a2a_router
+        app.include_router(a2a_router, prefix="/api/agent-builder", tags=["a2a-protocol"])
+        print("✅ A2A router registered directly in factory.py")
+    except Exception as e:
+        print(f"❌ Failed to register A2A router directly: {e}")
 
 
 def _configure_health_endpoints(app: FastAPI) -> None:

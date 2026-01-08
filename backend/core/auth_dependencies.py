@@ -322,3 +322,107 @@ def require_role(required_role: str) -> Callable:
         logger.debug(f"User {current_user.email} has required role: {required_role}")
 
     return role_checker
+
+
+async def get_user_from_token(token: str, db: Session) -> User:
+    """
+    Extract and validate user from JWT token string.
+    
+    This is a utility function for cases where the token is passed
+    as a query parameter or other non-header method.
+
+    Args:
+        token: JWT token string
+        db: Database session
+
+    Returns:
+        User object if authentication is successful
+
+    Raises:
+        HTTPException: 401 Unauthorized if authentication fails
+    """
+    # DEBUG MODE: Always use test user when DEBUG=True
+    if settings.DEBUG:
+        logger.debug(f"🔧 DEBUG mode enabled: Using default test user")
+        user_repo = UserRepository(db)
+        
+        # Try to get existing test user
+        test_user = user_repo.get_user_by_email("test@example.com")
+        
+        # Create test user if doesn't exist
+        if not test_user:
+            logger.info("Creating default test user for DEBUG mode")
+            try:
+                test_user = User(
+                    email="test@example.com",
+                    username="testuser",
+                    password_hash=AuthService.hash_password("test1234"),
+                    role="admin",
+                    is_active=True,
+                )
+                db.add(test_user)
+                db.commit()
+                db.refresh(test_user)
+                logger.info("✓ Test user created: test@example.com / test1234 (admin)")
+            except Exception as e:
+                logger.error(f"Failed to create test user: {e}")
+                db.rollback()
+                # Try to get it again in case it was created by another request
+                test_user = user_repo.get_user_by_email("test@example.com")
+                if not test_user:
+                    raise HTTPException(
+                        status_code=500,
+                        detail="Failed to create or retrieve test user"
+                    )
+        
+        return test_user
+
+    # Decode token
+    payload = AuthService.decode_token(token)
+    if not payload:
+        logger.warning("Invalid or expired token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+        )
+
+    # Extract user ID from token
+    user_id_str = payload.get("sub")
+    if not user_id_str:
+        logger.warning("Token missing 'sub' claim")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+        )
+
+    # Convert to UUID
+    try:
+        user_id = UUID(user_id_str)
+    except ValueError:
+        logger.warning(f"Invalid user ID format in token: {user_id_str}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+        )
+
+    # Get user from database
+    user_repo = UserRepository(db)
+    user = user_repo.get_user_by_id(user_id)
+
+    if not user:
+        logger.warning(f"User not found: {user_id}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+        )
+
+    # Check if user is active
+    if not user.is_active:
+        logger.warning(f"Inactive user attempted access: {user.email}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User account is inactive",
+        )
+
+    logger.debug(f"Authenticated user: {user.email} (id={user.id})")
+    return user
