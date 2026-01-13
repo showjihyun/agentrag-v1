@@ -14,7 +14,7 @@
 
 [🎯 Features](#-features) • [🏗 Architecture](#-architecture) • [🚀 Quick Start](#-quick-start) • [📖 Documentation](#-documentation) • [🤝 Contributing](#-contributing)
 
-![Agent Builder Agent Builder - Visual Workflow Editor](demo_images/workflow-builder-screenshot.png)
+![Agent Builder Agent Builder - Visual Workflow Editor](demo_images/agent_builder_screenshot.png)
 
 *🎨 **Visual Agent Builder Interface** - Create sophisticated AI workflows with drag-and-drop simplicity. The screenshot shows the intuitive Block Palette with 50+ pre-built components, real-time workflow canvas, and seamless agent orchestration capabilities.*
 
