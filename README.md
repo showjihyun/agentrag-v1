@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🚀 AgenticRAG - Visual AI Workflow Builder
+# 🚀 AgenticBuilder - Visual AI Workflow Builder
 
 ### Build, Deploy, and Scale AI Agent Workflows Visually
 
@@ -14,7 +14,9 @@
 
 [🎯 Features](#-features) • [🏗 Architecture](#-architecture) • [🚀 Quick Start](#-quick-start) • [📖 Documentation](#-documentation) • [🤝 Contributing](#-contributing)
 
-![AgenticRAG Workflow Builder](demo_images/workflow-builder-screenshot.png)
+![AgenticRAG Agent Builder - Visual Workflow Editor](demo_images/workflow-builder-screenshot.png)
+
+*🎨 **Visual Agent Builder Interface** - Create sophisticated AI workflows with drag-and-drop simplicity. The screenshot shows the intuitive Block Palette with 50+ pre-built components, real-time workflow canvas, and seamless agent orchestration capabilities.*
 
 </div>
 
@@ -23,6 +25,20 @@
 ## 🎯 What is AgenticRAG?
 
 AgenticRAG is a **revolutionary visual AI workflow builder** that empowers developers and businesses to create sophisticated multi-agent AI systems without writing complex code. Think of it as the **"Zapier for AI Agents"** - but with enterprise-grade capabilities, advanced orchestration patterns, and unlimited customization.
+
+### 📸 **What You See in the Screenshot**
+
+The interface above demonstrates AgenticRAG's powerful visual workflow builder in action:
+
+- **🎛 Left Panel**: Comprehensive Block Palette with categorized components
+  - **Agents**: General Agent, Control Agent, AI Agent blocks
+  - **Popular Blocks**: Most-used components with popularity indicators
+  - **Categories**: Organized seor Plugins, Workflows, Triggers, Data & Knowledge
+- **🎨 Center Canvas**: Visual workflow designer showing a sample automation
+  - **Connected Blocks**: Email → Database → End workflow with visual connections
+  - **Real-time Status**: Live execution indicators and data flow visualization
+- **🔧 Right Panel**: Properties and configuration for selected blocks
+- **🌐 Multi-language**: Korean interface demonstrating global accessibility
 
 ### 🌟 Why Choose AgenticRAG?
 
@@ -45,6 +61,25 @@ AgenticRAG is a **revolutionary visual AI workflow builder** that empowers devel
 | **Real-time Preview** | See your workflow execute in real-time with live data flow |
 | **Smart Validation** | Intelligent validation with helpful error messages and suggestions |
 | **Version Control** | Built-in versioning with diff visualization and rollback capabilities |
+
+### 🏗 **Agent Builder Interface**
+The screenshot above showcases our powerful Agent Builder interface with:
+
+| Component | Description |
+|-----------|-------------|
+| **🎛 Block Palette** | Comprehensive library of 50+ pre-built blocks organized by category |
+| **📋 Block Categories** | Agents, Plugins, Workflows, Triggers, Data & Knowledge, Orchestration, and Developers sections |
+| **🔧 Popular Blocks** | Quick access to frequently used components like General Agent, Control Agent, and specialized agents |
+| **🎨 Visual Canvas** | Drag-and-drop workflow designer with real-time connection visualization |
+| **⚡ Live Execution** | Real-time workflow execution with visual feedback and status indicators |
+| **🔗 Smart Connections** | Intelligent block linking with automatic data flow validation |
+
+**Key Interface Features:**
+- **Korean/English Support**: Fully localized interface for global accessibility
+- **Dark/Light Theme**: Professional UI that adapts to your preference
+- **Responsive Design**: Works seamlessly across desktop, tablet, and mobile devices
+- **Contextual Help**: Built-in tooltips and guidance for every component
+- **Keyboard Shortcuts**: Power-user shortcuts for rapid workflow development
 
 ### 🤖 **Advanced Agent Orchestration**
 | Pattern Category | Patterns | Use Cases |
@@ -170,8 +205,8 @@ graph TB
 
 ### 1. Clone & Setup
 ```bash
-git clone https://github.com/yourusername/agenticrag.git
-cd agenticrag
+git clone https://github.com/yourusername/Agent Builder.git
+cd Agent Builder
 
 # Copy environment configuration
 cp .env.example .env
@@ -187,7 +222,7 @@ GOOGLE_API_KEY=your_gemini_key
 GROQ_API_KEY=your_groq_key
 
 # Database Configuration
-POSTGRES_DB=agenticrag
+POSTGRES_DB=Agent Builder
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=your_secure_password
 
@@ -266,21 +301,18 @@ docker-compose ps
 
 ## 🛣 Roadmap
 
-### 🎯 **Current (Q1 2025)**
+### 🎯 **Previous (2025)**
 - [x] Visual workflow builder with 50+ blocks
 - [x] 17 orchestration patterns including 2025 trends
 - [x] Multi-LLM support with intelligent routing
 - [x] Real-time execution monitoring
 - [x] Enterprise RAG with vector search
 
-### 🚀 **Next Quarter (Q2 2025)**
+### 🚀 **Next (2026)**
 - [ ] **Marketplace**: Community plugin marketplace
 - [ ] **Collaboration**: Real-time collaborative editing
 - [ ] **Templates**: Pre-built workflow templates library
-- [ ] **Mobile App**: iOS/Android companion app
 - [ ] **API Gateway**: Advanced API management features
-
-### 🌟 **Future (Q3-Q4 2025)**
 - [ ] **AI Assistant**: Natural language workflow creation
 - [ ] **Auto-optimization**: ML-powered workflow optimization
 - [ ] **Enterprise SSO**: SAML, LDAP, and enterprise authentication
@@ -327,14 +359,14 @@ Help improve our documentation:
 ## 📊 Community & Support
 
 ### 💬 **Community**
-- [Discord Server](https://discord.gg/agenticrag) - Real-time chat and support
-- [GitHub Discussions](https://github.com/yourusername/agenticrag/discussions) - Feature requests and Q&A
-- [Reddit Community](https://reddit.com/r/agenticrag) - Share workflows and tips
+- [Discord Server](https://discord.gg/Agent Builder) - Real-time chat and support
+- [GitHub Discussions](https://github.com/yourusername/Agent Builder/discussions) - Feature requests and Q&A
+- [Reddit Community](https://reddit.com/r/Agent Builder) - Share workflows and tips
 
 ### 📧 **Support**
 - **Community Support**: GitHub Issues and Discord
-- **Enterprise Support**: Contact us at enterprise@agenticrag.com
-- **Security Issues**: security@agenticrag.com
+- **Enterprise Support**: Contact us at enterprise@Agent Builder.com
+- **Security Issues**: security@Agent Builder.com
 
 ### 📈 **Stats**
 - ⭐ **GitHub Stars**: Growing daily!
@@ -360,8 +392,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🙏 Acknowledgments
 
 Special thanks to:
-- **LangChain Team** for the amazing AI framework
-- **ReactFlow Team** for the visual workflow foundation
+- **LangChain,LangGraph Team** for the amazing AI framework
+- **React,ReactFlow Team** for the visual workflow foundation
 - **FastAPI Team** for the high-performance backend framework
 - **Open Source Community** for continuous inspiration and contributions
 
@@ -373,6 +405,6 @@ Special thanks to:
 
 **Built with ❤️ by developers, for developers**
 
-[⬆ Back to Top](#-agenticrag---visual-ai-workflow-builder)
+[⬆ Back to Top](#-Agent Builder---visual-ai-workflow-builder)
 
 </div>
