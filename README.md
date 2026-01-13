@@ -14,7 +14,7 @@
 
 [🎯 Features](#-features) • [🏗 Architecture](#-architecture) • [🚀 Quick Start](#-quick-start) • [📖 Documentation](#-documentation) • [🤝 Contributing](#-contributing)
 
-![AgenticRAG Agent Builder - Visual Workflow Editor](demo_images/workflow-builder-screenshot.png)
+![Agent Builder Agent Builder - Visual Workflow Editor](demo_images/workflow-builder-screenshot.png)
 
 *🎨 **Visual Agent Builder Interface** - Create sophisticated AI workflows with drag-and-drop simplicity. The screenshot shows the intuitive Block Palette with 50+ pre-built components, real-time workflow canvas, and seamless agent orchestration capabilities.*
 
@@ -22,13 +22,13 @@
 
 ---
 
-## 🎯 What is AgenticRAG?
+## 🎯 What is Agent Builder?
 
-AgenticRAG is a **revolutionary visual AI workflow builder** that empowers developers and businesses to create sophisticated multi-agent AI systems without writing complex code. Think of it as the **"Zapier for AI Agents"** - but with enterprise-grade capabilities, advanced orchestration patterns, and unlimited customization.
+Agent Builder is a **revolutionary visual AI workflow builder** that empowers developers and businesses to create sophisticated multi-agent AI systems without writing complex code. Think of it as the **"Zapier for AI Agents"** - but with enterprise-grade capabilities, advanced orchestration patterns, and unlimited customization.
 
 ### 📸 **What You See in the Screenshot**
 
-The interface above demonstrates AgenticRAG's powerful visual workflow builder in action:
+The interface above demonstrates Agent Builder's powerful visual workflow builder in action:
 
 - **🎛 Left Panel**: Comprehensive Block Palette with categorized components
   - **Agents**: General Agent, Control Agent, AI Agent blocks
@@ -40,7 +40,7 @@ The interface above demonstrates AgenticRAG's powerful visual workflow builder i
 - **🔧 Right Panel**: Properties and configuration for selected blocks
 - **🌐 Multi-language**: Korean interface demonstrating global accessibility
 
-### 🌟 Why Choose AgenticRAG?
+### 🌟 Why Choose Agent Builder?
 
 - **🎨 Visual First**: Drag-and-drop interface powered by ReactFlow
 - **🤖 Multi-Agent Orchestration**: 17 advanced orchestration patterns including 2025 trends
