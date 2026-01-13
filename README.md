@@ -269,7 +269,7 @@ docker-compose ps
 - [Plugin Development](docs/plugin-development.md)
 - [Contributing Guide](docs/contributing.md)
 
-### 🏢 **Enterprise**
+### 🏢 **Enterprise(Future)**
 - [Deployment Guide](docs/deployment.md)
 - [Security Best Practices](docs/security.md)
 - [Monitoring & Observability](docs/monitoring.md)
