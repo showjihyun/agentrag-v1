@@ -202,6 +202,7 @@ def register_agent_builder_routers(app: FastAPI) -> None:
             memory_management,
             nlp_generator,
             insights,
+            orchestration_patterns,  # 새로운 오케스트레이션 API 추가
         )
         logger.info("Standard Agent Builder modules imported successfully")
     except Exception as e:
@@ -318,6 +319,25 @@ def register_agent_builder_routers(app: FastAPI) -> None:
     
     # Memory Management
     app.include_router(memory_management.router)
+    
+    # Orchestration Patterns (NEW)
+    app.include_router(orchestration_patterns.router)
+    
+    # Agent Plugins (NEW)
+    try:
+        from backend.api.agent_builder import (
+            agent_plugins,
+            plugin_config,
+            plugin_monitoring,
+            plugin_installation
+        )
+        app.include_router(agent_plugins.router)
+        app.include_router(plugin_config.router)
+        app.include_router(plugin_monitoring.router)
+        app.include_router(plugin_installation.router)
+        logger.info("Agent Plugins routers registered successfully")
+    except Exception as e:
+        logger.error(f"Failed to register Agent Plugins routers: {e}")
     
     # A2A Protocol (Google Agent-to-Agent)
     if a2a is not None:

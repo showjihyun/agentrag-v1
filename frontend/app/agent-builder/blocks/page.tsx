@@ -116,10 +116,6 @@ export default function BuildingBlocksPage() {
     router.push('/agent-builder/blocks/new');
   };
 
-  const handleCreateAgent = () => {
-    router.push('/agent-builder/agents/new');
-  };
-
   const handleEdit = (item: BuildingBlock) => {
     if (item.type === 'block') {
       router.push(`/agent-builder/blocks/${item.id}/edit`);
@@ -262,10 +258,6 @@ export default function BuildingBlocksPage() {
             <Plus className="mr-2 h-4 w-4" />
             Block 생성
           </Button>
-          <Button onClick={handleCreateAgent}>
-            <Plus className="mr-2 h-4 w-4" />
-            Agent 생성
-          </Button>
         </div>
       </div>
 
@@ -376,12 +368,6 @@ export default function BuildingBlocksPage() {
                     <Button variant="outline" onClick={handleCreateBlock}>
                       <Plus className="mr-2 h-4 w-4" />
                       Block 생성
-                    </Button>
-                  )}
-                  {activeTab !== 'blocks' && (
-                    <Button onClick={handleCreateAgent}>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Agent 생성
                     </Button>
                   )}
                 </div>

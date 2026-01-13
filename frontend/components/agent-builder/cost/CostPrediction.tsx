@@ -15,7 +15,7 @@ import {
   Area,
   AreaChart,
 } from 'recharts';
-import { useTheme } from 'next-themes';
+import { useTheme } from '@/contexts/ThemeContext';
 import { TrendingUp, Calendar } from 'lucide-react';
 
 interface CostPredictionProps {

@@ -83,10 +83,16 @@ class PerformanceOptimizer:
             "last_update_times": defaultdict(float)
         }
         
-        # 백그라운드 작업 시작
-        asyncio.create_task(self._start_background_tasks())
+        # 백그라운드 작업 시작 플래그
+        self._background_tasks_started = False
         
         logger.info("Performance Optimizer initialized")
+    
+    async def _ensure_background_tasks_started(self):
+        """백그라운드 작업이 시작되었는지 확인하고 필요시 시작"""
+        if not self._background_tasks_started:
+            await self._start_background_tasks()
+            self._background_tasks_started = True
     
     async def _start_background_tasks(self):
         """백그라운드 작업 시작"""
@@ -285,6 +291,9 @@ class PerformanceOptimizer:
     async def optimize_response(self, data: Any, compress: bool = True) -> Any:
         """응답 최적화"""
         try:
+            # 백그라운드 작업 시작 확인
+            await self._ensure_background_tasks_started()
+            
             # JSON 직렬화 최적화
             if isinstance(data, dict) or isinstance(data, list):
                 # 불필요한 필드 제거

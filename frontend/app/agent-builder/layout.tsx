@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -26,10 +26,10 @@ import {
   Key,
   Code,
   Store,
-  UserCheck,
   Sparkles,
   ChevronRight,
   Globe,
+  Puzzle,
 } from 'lucide-react';
 
 const navigation = [
@@ -64,12 +64,12 @@ const navigation = [
     description: 'AI agent configurations'
   },
   { 
-    name: 'Team Templates', 
-    href: '/agent-builder/team-templates', 
-    icon: UserCheck, 
+    name: 'Plugins', 
+    href: '/agent-builder/plugins', 
+    icon: Puzzle, 
     badge: 'New',
     badgeVariant: 'outline' as const,
-    description: 'Collaborative templates'
+    description: 'Agent plugin system'
   },
   { 
     name: 'Blocks', 
@@ -161,13 +161,23 @@ export default function AgentBuilderLayout({
 }) {
   const pathname = usePathname();
   const { sidebarOpen, setSidebarOpen } = useAgentBuilderStore();
+  
+  // Add mounting state to prevent hydration mismatch
+  const [mounted, setMounted] = useState(false);
+  
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  
+  // Use safe sidebar state during SSR
+  const safeSidebarOpen = mounted ? sidebarOpen : false;
 
   return (
     <AgentBuilderErrorBoundary>
       <ToastProvider>
-        <div className="flex h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+        <div className="flex h-screen bg-background">
           {/* Mobile sidebar backdrop */}
-          {sidebarOpen && (
+          {safeSidebarOpen && (
             <div
               className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
               onClick={() => setSidebarOpen(false)}
@@ -177,22 +187,22 @@ export default function AgentBuilderLayout({
           {/* Sidebar */}
           <aside
             className={cn(
-              "fixed inset-y-0 left-0 z-50 w-72 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-r border-slate-200/60 dark:border-slate-700/60 shadow-xl transition-all duration-300 lg:static lg:translate-x-0",
-              sidebarOpen ? "translate-x-0" : "-translate-x-full"
+              "fixed inset-y-0 left-0 z-50 w-64 border-r bg-card transition-transform duration-300 lg:static lg:translate-x-0",
+              safeSidebarOpen ? "translate-x-0" : "-translate-x-full"
             )}
           >
             {/* Header */}
-            <div className="flex h-16 items-center justify-between border-b border-slate-200/60 dark:border-slate-700/60 px-6 lg:justify-center bg-gradient-to-r from-blue-600 to-purple-600">
+            <div className="flex h-16 items-center justify-between border-b px-4 lg:justify-center">
               <Link href="/agent-builder" className="group flex items-center gap-2 hover:opacity-90 transition-opacity">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/20 backdrop-blur-sm">
-                  <Sparkles className="h-4 w-4 text-white" />
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
+                  <Sparkles className="h-4 w-4 text-primary-foreground" />
                 </div>
-                <h2 className="text-lg font-bold text-white cursor-pointer">Agent Builder</h2>
+                <h2 className="text-lg font-semibold">Agent Builder</h2>
               </Link>
               <Button
                 variant="ghost"
                 size="icon"
-                className="lg:hidden text-white hover:bg-white/20"
+                className="lg:hidden"
                 onClick={() => setSidebarOpen(false)}
               >
                 <X className="h-5 w-5" />
@@ -531,25 +541,24 @@ export default function AgentBuilderLayout({
           {/* Main content */}
           <div className="flex flex-1 flex-col overflow-hidden">
             {/* Mobile header */}
-            <header className="flex h-16 items-center border-b border-slate-200/60 dark:border-slate-700/60 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl px-4 lg:hidden shadow-sm">
+            <header className="flex h-16 items-center border-b bg-background px-4 lg:hidden">
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => setSidebarOpen(true)}
-                className="hover:bg-slate-100 dark:hover:bg-slate-800"
               >
                 <Menu className="h-5 w-5" />
               </Button>
               <Link href="/agent-builder" className="ml-4 flex items-center gap-2 hover:opacity-80 transition-opacity">
-                <div className="flex h-6 w-6 items-center justify-center rounded bg-gradient-to-br from-blue-500 to-purple-500">
-                  <Sparkles className="h-3 w-3 text-white" />
+                <div className="flex h-6 w-6 items-center justify-center rounded bg-primary">
+                  <Sparkles className="h-3 w-3 text-primary-foreground" />
                 </div>
-                <h1 className="text-lg font-semibold cursor-pointer">Agent Builder</h1>
+                <h1 className="text-lg font-semibold">Agent Builder</h1>
               </Link>
             </header>
 
             {/* Page content */}
-            <main className="flex-1 overflow-auto bg-slate-50/50 dark:bg-slate-900/50">
+            <main className="flex-1 overflow-auto">
               {children}
             </main>
           </div>

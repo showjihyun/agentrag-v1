@@ -59,6 +59,15 @@ export const SimplifiedPropertiesPanel = ({
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Memoize the tool config onChange callback to prevent infinite loops
+  const handleToolConfigChange = useCallback((updates: any) => {
+    setLocalData((prev: any) => ({
+      ...prev,
+      parameters: { ...prev.parameters, ...updates }
+    }));
+    setHasUnsavedChanges(true);
+  }, []);
+
   useEffect(() => {
     if (node) {
       const nodeData = node.data || {};
@@ -335,13 +344,7 @@ export const SimplifiedPropertiesPanel = ({
                       <Suspense fallback={<ConfigLoadingFallback />}>
                         <ToolConfigComponent
                           data={localData.parameters || localData}
-                          onChange={(updates: any) => {
-                            setLocalData((prev: any) => ({
-                              ...prev,
-                              parameters: { ...prev.parameters, ...updates }
-                            }));
-                            setHasUnsavedChanges(true);
-                          }}
+                          onChange={handleToolConfigChange}
                         />
                       </Suspense>
                     );

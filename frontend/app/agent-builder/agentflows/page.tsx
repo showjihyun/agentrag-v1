@@ -93,8 +93,8 @@ export default function EnhancedAgentflowsPage() {
     } catch (error: any) {
       console.error('Failed to load agentflows:', error);
       toast({
-        title: '오류',
-        description: error.message || 'Agentflow 목록을 불러오는데 실패했습니다',
+        title: 'Error',
+        description: error.message || 'Failed to load Agentflow list',
         variant: 'destructive',
       });
       setAgentflows([]);
@@ -189,19 +189,19 @@ export default function EnhancedAgentflowsPage() {
           try {
             const duplicatedFlow = {
               ...flow,
-              name: `${flow.name} (복사본)`,
+              name: `${flow.name} (Copy)`,
               id: undefined,
             };
             await flowsAPI.createAgentflow(duplicatedFlow);
             toast({
-              title: '복제 완료',
-              description: `"${flow.name}" 복제가 완료되었습니다`,
+              title: 'Duplication Complete',
+              description: `"${flow.name}" has been duplicated successfully`,
             });
             loadAgentflows();
           } catch (error: any) {
             toast({
-              title: '오류',
-              description: error.message || '복제에 실패했습니다',
+              title: 'Error',
+              description: error.message || 'Duplication failed',
               variant: 'destructive',
             });
           }
@@ -210,15 +210,15 @@ export default function EnhancedAgentflowsPage() {
       case 'pin':
         pinFlow(flowId);
         toast({
-          title: '고정 완료',
-          description: '플로우가 목록 상단에 고정되었습니다',
+          title: 'Pinned',
+          description: 'Flow has been pinned to the top of the list',
         });
         break;
       case 'unpin':
         unpinFlow(flowId);
         toast({
-          title: '고정 해제',
-          description: '플로우 고정이 해제되었습니다',
+          title: 'Unpinned',
+          description: 'Flow has been unpinned',
         });
         break;
       case 'delete':
@@ -234,14 +234,14 @@ export default function EnhancedAgentflowsPage() {
     try {
       await flowsAPI.deleteFlow(flowToDelete);
       toast({
-        title: '삭제 완료',
-        description: 'Agentflow가 삭제되었습니다',
+        title: 'Deleted',
+        description: 'Agentflow has been deleted',
       });
       loadAgentflows();
     } catch (error: any) {
       toast({
-        title: '오류',
-        description: error.message || '삭제에 실패했습니다',
+        title: 'Error',
+        description: error.message || 'Deletion failed',
         variant: 'destructive',
       });
     } finally {
@@ -282,7 +282,7 @@ export default function EnhancedAgentflowsPage() {
                 Agentflows
               </h1>
               <p className="text-muted-foreground text-lg">
-                멀티 에이전트 시스템을 구축하고 오케스트레이션하세요
+                Build and orchestrate multi-agent systems
               </p>
             </div>
           </div>
@@ -297,15 +297,15 @@ export default function EnhancedAgentflowsPage() {
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="flows" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
-            플로우 관리
+            Flow Management
           </TabsTrigger>
           <TabsTrigger value="templates" className="flex items-center gap-2">
             <Zap className="h-4 w-4" />
-            템플릿 마켓플레이스
+            Template Marketplace
           </TabsTrigger>
           <TabsTrigger value="analytics" className="flex items-center gap-2">
             <BarChart3 className="h-4 w-4" />
-            분석 및 인사이트
+            Analytics & Insights
           </TabsTrigger>
         </TabsList>
 
@@ -327,7 +327,7 @@ export default function EnhancedAgentflowsPage() {
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                   <Users className="h-4 w-4" />
-                  전체 Agentflow
+                  Total Agentflows
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -338,7 +338,7 @@ export default function EnhancedAgentflowsPage() {
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4" />
-                  활성화
+                  Active
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -349,7 +349,7 @@ export default function EnhancedAgentflowsPage() {
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                   <TrendingUp className="h-4 w-4" />
-                  총 실행 횟수
+                  Total Executions
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -360,7 +360,7 @@ export default function EnhancedAgentflowsPage() {
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                   <Zap className="h-4 w-4" />
-                  평균 에이전트 수
+                  Avg Agents
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -448,15 +448,15 @@ export default function EnhancedAgentflowsPage() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Agentflow 삭제</AlertDialogTitle>
+            <AlertDialogTitle>Delete Agentflow</AlertDialogTitle>
             <AlertDialogDescription>
-              이 Agentflow를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
+              Are you sure you want to delete this Agentflow? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>취소</AlertDialogCancel>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
-              삭제
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

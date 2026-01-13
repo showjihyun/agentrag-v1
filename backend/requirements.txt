@@ -1,6 +1,7 @@
 # Core Framework
 fastapi>=0.109.0
 uvicorn[standard]>=0.27.0
+websockets>=12.0  # Required for WebSocket support
 pydantic>=2.7.4,<3.0.0
 pydantic-settings>=2.1.0
 python-multipart>=0.0.6
@@ -113,6 +114,7 @@ tenacity==8.2.3  # Retry logic for LLM calls
 RestrictedPython==7.0  # Secure Python code execution for logic blocks
 cryptography>=41.0.0  # Encryption for secrets management
 bleach>=6.0.0  # HTML sanitization for XSS prevention
+docker>=7.0.0  # Docker client for plugin sandboxing
 
 # Token Management
 tiktoken==0.5.2  # Token counting for LLM optimization

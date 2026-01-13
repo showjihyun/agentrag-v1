@@ -37,9 +37,17 @@ export const useToast = () => {
 
 export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [mounted, setMounted] = useState(false);
+  const idCounterRef = React.useRef(0);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const showToast = useCallback((type: ToastType, message: string, duration = 5000) => {
-    const id = Math.random().toString(36).substring(7);
+    if (!mounted) return; // Don't show toasts during SSR
+    
+    const id = `toast-${++idCounterRef.current}`;
     const toast: Toast = { id, type, message, duration };
     
     setToasts((prev) => [...prev, toast]);
@@ -49,7 +57,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         hideToast(id);
       }, duration);
     }
-  }, []);
+  }, [mounted]);
 
   const hideToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((toast) => toast.id !== id));
@@ -57,13 +65,15 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Convenience function that matches the expected API
   const toast = useCallback((options: ToastOptions) => {
+    if (!mounted) return; // Don't show toasts during SSR
+    
     const message = options.description 
       ? `${options.title}: ${options.description}` 
       : options.title;
     const type = options.variant || 'info';
     const duration = options.duration || 5000;
     showToast(type, message, duration);
-  }, [showToast]);
+  }, [showToast, mounted]);
 
   return (
     <ToastContext.Provider value={{ showToast, hideToast, toast }}>

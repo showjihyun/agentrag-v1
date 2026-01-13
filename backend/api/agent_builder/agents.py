@@ -120,7 +120,7 @@ async def get_trending_agents(
         trending_agents = [
             {
                 "agent": {
-                    "id": "trending-1",
+                    "id": "550e8400-e29b-41d4-a716-446655440010",
                     "name": "데이터 분석 전문가",
                     "description": "고급 데이터 분석 및 시각화를 수행하는 AI 에이전트",
                     "agent_type": "custom",
@@ -137,7 +137,7 @@ async def get_trending_agents(
             },
             {
                 "agent": {
-                    "id": "trending-2",
+                    "id": "550e8400-e29b-41d4-a716-446655440011",
                     "name": "콘텐츠 생성기",
                     "description": "창의적이고 매력적인 콘텐츠를 자동 생성하는 AI 에이전트",
                     "agent_type": "template_based",
@@ -154,7 +154,7 @@ async def get_trending_agents(
             },
             {
                 "agent": {
-                    "id": "trending-3",
+                    "id": "550e8400-e29b-41d4-a716-446655440012",
                     "name": "고객 서비스 봇",
                     "description": "24/7 고객 문의 응답 및 지원을 제공하는 AI 에이전트",
                     "agent_type": "custom",
@@ -205,7 +205,7 @@ async def get_personalized_recommendations(
         recommendations = [
             {
                 "agent": {
-                    "id": "rec-1",
+                    "id": "550e8400-e29b-41d4-a716-446655440001",
                     "name": "맞춤형 데이터 분석가",
                     "description": "사용자의 분석 패턴에 최적화된 데이터 분석 에이전트",
                     "agent_type": "custom",
@@ -217,6 +217,36 @@ async def get_personalized_recommendations(
                 },
                 "score": 0.95,
                 "reasons": ["사용자의 데이터 분석 히스토리와 일치", "선호하는 시각화 스타일 반영"]
+            },
+            {
+                "agent": {
+                    "id": "550e8400-e29b-41d4-a716-446655440002",
+                    "name": "스마트 콘텐츠 생성기",
+                    "description": "사용자의 글쓰기 스타일을 학습한 콘텐츠 생성 에이전트",
+                    "agent_type": "custom",
+                    "llm_provider": "openai",
+                    "llm_model": "gpt-4",
+                    "is_public": True,
+                    "created_at": "2024-12-01T00:00:00Z",
+                    "updated_at": "2024-12-25T00:00:00Z"
+                },
+                "score": 0.88,
+                "reasons": ["사용자의 콘텐츠 생성 패턴 분석", "선호하는 톤앤매너 반영"]
+            },
+            {
+                "agent": {
+                    "id": "550e8400-e29b-41d4-a716-446655440003",
+                    "name": "개인화된 고객 서비스",
+                    "description": "사용자의 고객 응대 스타일에 맞춘 서비스 에이전트",
+                    "agent_type": "custom",
+                    "llm_provider": "anthropic",
+                    "llm_model": "claude-3-sonnet",
+                    "is_public": True,
+                    "created_at": "2024-12-01T00:00:00Z",
+                    "updated_at": "2024-12-25T00:00:00Z"
+                },
+                "score": 0.82,
+                "reasons": ["고객 응대 히스토리 분석", "선호하는 커뮤니케이션 스타일"]
             }
         ]
         
@@ -253,7 +283,7 @@ async def get_agent_templates(
         # Mock templates data
         templates = [
             {
-                "id": "template-1",
+                "id": "550e8400-e29b-41d4-a716-446655440030",
                 "name": "데이터 분석 전문가",
                 "description": "데이터를 수집하고 분석하여 인사이트를 제공하는 전문 에이전트",
                 "category": "analytics",
@@ -316,13 +346,13 @@ async def search_users(
         # Mock user search data
         users = [
             {
-                "id": "user-1",
+                "id": "550e8400-e29b-41d4-a716-446655440040",
                 "name": "김철수",
                 "email": "kim@example.com",
                 "avatar": None
             },
             {
-                "id": "user-2",
+                "id": "550e8400-e29b-41d4-a716-446655440041",
                 "name": "이영희",
                 "email": "lee@example.com",
                 "avatar": None
@@ -501,7 +531,7 @@ async def get_similar_agents(
         similar_agents = [
             {
                 "agent": {
-                    "id": "similar-1",
+                    "id": "550e8400-e29b-41d4-a716-446655440020",
                     "name": "고급 데이터 분석가",
                     "description": "복잡한 데이터셋 분석 및 예측 모델링 전문",
                     "agent_type": "custom",

@@ -323,6 +323,160 @@ class ChatflowService:
             self._sessions[session_id] = ConversationHistory()
         return self._sessions[session_id]
     
+    async def execute_streaming(
+        self,
+        chatflow_id: str,
+        message: str,
+        session_id: str,
+        user_id: str,
+        context: Optional[Dict[str, Any]] = None
+    ) -> AsyncGenerator[Dict[str, Any], None]:
+        """
+        Execute chatflow with streaming response for SSE integration.
+        
+        Args:
+            chatflow_id: Chatflow ID
+            message: User message
+            session_id: Session ID
+            user_id: User ID
+            context: Optional context data
+            
+        Yields:
+            Dict with streaming events (type, content, etc.)
+        """
+        try:
+            # Get chatflow configuration (mock for now)
+            config = {
+                "provider": "ollama",
+                "model": "llama3.3:70b",
+                "temperature": 0.7,
+                "max_tokens": 1000,
+                "system_prompt": "You are a helpful AI assistant."
+            }
+            
+            # Get or create conversation history
+            history = self._get_or_create_session(session_id)
+            
+            # Add system prompt if not already present
+            system_prompt = config.get("system_prompt", "")
+            if system_prompt and (not history.messages or history.messages[0].role != "system"):
+                history.messages.insert(0, ChatMessage(role="system", content=system_prompt))
+            
+            # Add user message
+            history.add_message("user", message)
+            
+            # Yield thinking event
+            yield {
+                "type": "thinking",
+                "step": "processing",
+                "description": "AI가 응답을 준비하고 있습니다..."
+            }
+            
+            # Get LLM configuration
+            provider = config.get("provider", "ollama")
+            model = config.get("model", "llama3.3:70b")
+            temperature = config.get("temperature", 0.7)
+            max_tokens = config.get("max_tokens", 1000)
+            
+            # Initialize LLM manager
+            api_key = config.get("api_key")
+            llm_manager = LLMManager(
+                provider=LLMProvider(provider),
+                model=model,
+                api_key=api_key,
+            )
+            
+            # Get messages for LLM
+            messages = history.get_messages_for_llm()
+            
+            # Stream response
+            accumulated_content = ""
+            input_tokens = sum(len(m["content"]) // 4 for m in messages)
+            
+            try:
+                response_stream = await llm_manager.generate(
+                    messages=messages,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    stream=True,
+                )
+                
+                async for chunk in response_stream:
+                    if chunk:
+                        accumulated_content += chunk
+                        yield {
+                            "type": "token",
+                            "content": chunk
+                        }
+                        await asyncio.sleep(0.01)
+                
+            except Exception as e:
+                logger.error(f"LLM streaming failed: {e}", exc_info=True)
+                yield {
+                    "type": "error",
+                    "error": str(e)
+                }
+                return
+            
+            # Add assistant response to history
+            history.add_message("assistant", accumulated_content)
+            
+            # Calculate output tokens
+            output_tokens = len(accumulated_content) // 4
+            
+            # Record token usage
+            if user_id:
+                await self._record_token_usage(
+                    user_id=user_id,
+                    workflow_id=chatflow_id,
+                    provider=provider,
+                    model=model,
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                )
+            
+            # Yield completion
+            yield {
+                "type": "complete",
+                "usage": {
+                    "input_tokens": input_tokens,
+                    "output_tokens": output_tokens,
+                    "total_tokens": input_tokens + output_tokens
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"Execute streaming failed: {e}", exc_info=True)
+            yield {
+                "type": "error",
+                "error": str(e)
+            }
+
+    async def get_chatflow(self, chatflow_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get chatflow configuration by ID.
+        
+        Args:
+            chatflow_id: Chatflow ID
+            
+        Returns:
+            Chatflow configuration or None if not found
+        """
+        # Mock implementation - in real app, this would query the database
+        return {
+            "id": chatflow_id,
+            "name": f"Chatflow {chatflow_id[:8]}",
+            "user_id": "test-user",
+            "is_public": True,
+            "config": {
+                "provider": "ollama",
+                "model": "llama3.3:70b",
+                "temperature": 0.7,
+                "max_tokens": 1000,
+                "system_prompt": "You are a helpful AI assistant."
+            }
+        }
+
     async def _record_token_usage(
         self,
         user_id: str,

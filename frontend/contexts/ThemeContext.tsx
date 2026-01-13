@@ -2,96 +2,104 @@
 
 /**
  * Theme Context
- * Manages dark mode state with manual toggle and system preference detection
+ * Safe wrapper around next-themes useTheme hook
+ * Provides fallback values when used outside ThemeProvider
  */
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
-
-type Theme = 'light' | 'dark' | 'system';
+import { useTheme as useNextTheme } from 'next-themes';
+import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 
 interface ThemeContextType {
-  theme: Theme;
-  effectiveTheme: 'light' | 'dark';
-  setTheme: (theme: Theme) => void;
-  toggleTheme: () => void;
+  theme: string | undefined;
+  setTheme: (theme: string) => void;
+  resolvedTheme: string | undefined;
+  themes: string[];
+  systemTheme: string | undefined;
+  mounted: boolean;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>('system');
-  const [effectiveTheme, setEffectiveTheme] = useState<'light' | 'dark'>('light');
+interface ThemeProviderWrapperProps {
+  children: ReactNode;
+}
 
-  // Load theme from localStorage on mount
+export function ThemeProviderWrapper({ children }: ThemeProviderWrapperProps) {
+  const [mounted, setMounted] = useState(false);
+  
+  // Use a try-catch to handle cases where useTheme is called outside ThemeProvider
+  let themeData;
+  try {
+    themeData = useNextTheme();
+  } catch (error) {
+    // Fallback if useTheme is called outside ThemeProvider
+    console.warn('useTheme called outside ThemeProvider, using fallback values');
+    themeData = {
+      theme: 'light',
+      setTheme: () => {},
+      resolvedTheme: 'light',
+      themes: ['light', 'dark', 'system'],
+      systemTheme: 'light',
+    };
+  }
+
   useEffect(() => {
-    const savedTheme = localStorage.getItem('theme') as Theme | null;
-    if (savedTheme) {
-      setThemeState(savedTheme);
-    }
+    setMounted(true);
   }, []);
 
-  // Update effective theme based on theme setting and system preference
-  useEffect(() => {
-    const updateEffectiveTheme = () => {
-      if (theme === 'system') {
-        const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        setEffectiveTheme(systemPrefersDark ? 'dark' : 'light');
-      } else {
-        setEffectiveTheme(theme);
-      }
-    };
-
-    updateEffectiveTheme();
-
-    // Listen for system theme changes
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handler = () => {
-      if (theme === 'system') {
-        updateEffectiveTheme();
-      }
-    };
-
-    mediaQuery.addEventListener('change', handler);
-    return () => mediaQuery.removeEventListener('change', handler);
-  }, [theme]);
-
-  // Apply theme to document
-  useEffect(() => {
-    const root = document.documentElement;
-    
-    if (effectiveTheme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
-  }, [effectiveTheme]);
-
-  const setTheme = (newTheme: Theme) => {
-    setThemeState(newTheme);
-    localStorage.setItem('theme', newTheme);
-  };
-
-  const toggleTheme = () => {
-    if (theme === 'light') {
-      setTheme('dark');
-    } else if (theme === 'dark') {
-      setTheme('system');
-    } else {
-      setTheme('light');
-    }
+  const value: ThemeContextType = {
+    ...themeData,
+    theme: mounted ? themeData.theme : 'light',
+    resolvedTheme: mounted ? themeData.resolvedTheme : 'light',
+    systemTheme: mounted ? themeData.systemTheme : 'light',
+    mounted,
   };
 
   return (
-    <ThemeContext.Provider value={{ theme, effectiveTheme, setTheme, toggleTheme }}>
+    <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
   );
 }
 
-export function useTheme() {
+/**
+ * Safe useTheme hook that provides fallback values
+ * Use this instead of next-themes useTheme directly
+ */
+export function useTheme(): ThemeContextType {
   const context = useContext(ThemeContext);
+  
   if (context === undefined) {
-    throw new Error('useTheme must be used within a ThemeProvider');
+    // Fallback when used outside ThemeProviderWrapper
+    console.warn('useTheme called outside ThemeProviderWrapper, using fallback values');
+    return {
+      theme: 'light',
+      setTheme: () => {},
+      resolvedTheme: 'light',
+      themes: ['light', 'dark', 'system'],
+      systemTheme: 'light',
+      mounted: false,
+    };
   }
+  
   return context;
+}
+
+/**
+ * Hook for components that need to wait for theme to be mounted
+ * Prevents hydration mismatches
+ */
+export function useThemeWithMounted() {
+  const theme = useTheme();
+  
+  if (!theme.mounted) {
+    return {
+      ...theme,
+      theme: undefined,
+      resolvedTheme: undefined,
+      systemTheme: undefined,
+    };
+  }
+  
+  return theme;
 }

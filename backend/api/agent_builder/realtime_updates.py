@@ -49,11 +49,20 @@ class ConnectionManager:
         self.performance_optimizer = get_performance_optimizer()
         self.update_throttling = {}
         
-        # 백그라운드 업데이트 시작
-        asyncio.create_task(self._start_update_loops())
+        # 백그라운드 업데이트 시작 플래그
+        self._update_loops_started = False
+    
+    async def _ensure_update_loops_started(self):
+        """업데이트 루프가 시작되었는지 확인하고 필요시 시작"""
+        if not self._update_loops_started:
+            await self._start_update_loops()
+            self._update_loops_started = True
     
     async def connect(self, websocket: WebSocket, client_id: str):
         """클라이언트 연결"""
+        # 업데이트 루프 시작 확인
+        await self._ensure_update_loops_started()
+        
         await websocket.accept()
         self.active_connections[client_id] = websocket
         self.connection_metadata[client_id] = {

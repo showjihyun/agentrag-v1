@@ -46,9 +46,8 @@ async def detailed_health_check(db: Session = Depends(get_db)) -> Dict:
             db=settings.REDIS_DB,
             password=settings.REDIS_PASSWORD
         )
-        redis = pool.get_connection()
-        redis.ping()
-        pool.release(redis)
+        redis = pool.get_client()
+        await redis.ping()
     except Exception as e:
         redis_health = {"status": "unhealthy", "message": str(e)}
 

@@ -54,6 +54,10 @@ export function useToolConfig<T extends object>({
   
   // Debounce timer ref
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Store latest onChange callback to avoid stale closures
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
 
   // Sync config changes to parent (skip first render)
   useEffect(() => {
@@ -67,10 +71,10 @@ export function useToolConfig<T extends object>({
         clearTimeout(debounceTimerRef.current);
       }
       debounceTimerRef.current = setTimeout(() => {
-        onChange(config);
+        onChangeRef.current(config);
       }, debounceMs);
     } else {
-      onChange(config);
+      onChangeRef.current(config);
     }
 
     return () => {
@@ -78,7 +82,7 @@ export function useToolConfig<T extends object>({
         clearTimeout(debounceTimerRef.current);
       }
     };
-  }, [config, onChange, debounceMs]);
+  }, [config, debounceMs]); // Only depend on config and debounceMs
 
   // Update a single field
   const updateField = useCallback(<K extends keyof T>(key: K, value: T[K]) => {

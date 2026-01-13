@@ -1022,6 +1022,10 @@ app.include_router(workflow_execution_stream.router, prefix="/api/agent-builder"
 from backend.api.agent_builder import ai_agent_stream
 app.include_router(ai_agent_stream.router)
 
+# Chatflow Streaming API (SSE)
+from backend.api.agent_builder import chatflow_streaming
+app.include_router(chatflow_streaming.router)
+
 # Memory Management API (Priority 4)
 from backend.api.agent_builder import memory_management
 app.include_router(memory_management.router)
@@ -1058,9 +1062,9 @@ app.include_router(enhanced_audit_logs.router)
 from backend.api import auth_sessions
 app.include_router(auth_sessions.router)
 
-# Enhanced Notifications API
-from backend.api import notifications as notifications_api
-app.include_router(notifications_api.router)
+# Advanced Monitoring API
+from backend.api.agent_builder import advanced_monitoring as agent_builder_advanced_monitoring
+app.include_router(agent_builder_advanced_monitoring.router)
 
 # PDF Export API
 from backend.api import exports as exports_api
@@ -1183,12 +1187,45 @@ async def startup_event():
         logger.info("KB cache scheduler started")
     except Exception as e:
         logger.warning(f"Failed to start KB cache scheduler: {e}")
+    
+    # Initialize advanced systems
+    try:
+        from backend.app.lifecycle.advanced_systems_startup import initialize_advanced_systems
+        
+        config = {
+            'auto_scaling_enabled': True,
+            'target_cpu_utilization': 70.0,
+            'target_memory_utilization': 80.0,
+            'target_response_time': 3.0,
+            'scale_up_cooldown': 300,
+            'scale_down_cooldown': 600,
+            'vector_search_max_instances': 5,
+            'web_search_max_instances': 3,
+            'local_data_max_instances': 3,
+            'aggregator_max_instances': 2
+        }
+        
+        success = await initialize_advanced_systems(config)
+        if success:
+            logger.info("Advanced systems initialized successfully")
+        else:
+            logger.error("Failed to initialize advanced systems")
+    except Exception as e:
+        logger.error(f"Failed to initialize advanced systems: {e}")
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Application shutdown event"""
     logger.info("Shutting down Agentic RAG application...")
+    
+    # Shutdown advanced systems
+    try:
+        from backend.app.lifecycle.advanced_systems_startup import shutdown_advanced_systems
+        await shutdown_advanced_systems()
+        logger.info("Advanced systems shutdown completed")
+    except Exception as e:
+        logger.error(f"Failed to shutdown advanced systems: {e}")
     
     # Stop KB cache scheduler
     try:

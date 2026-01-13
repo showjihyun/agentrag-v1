@@ -47,7 +47,17 @@ import ManagerAgentNode from './nodes/ManagerAgentNode';
 import MemoryNode from './nodes/MemoryNode';
 import ConsensusNode from './nodes/ConsensusNode';
 import HumanApprovalNode from './nodes/HumanApprovalNode';
+import { OrchestrationAgentNode } from './nodes/OrchestrationAgentNode';
+import { SupervisorAgentNode } from './nodes/SupervisorAgentNode';
+import { VotingNode } from './nodes/VotingNode';
+import { SyncPointNode } from './nodes/SyncPointNode';
 import { CustomEdge } from './edges/CustomEdge';
+import { CommunicationEdge } from './edges/CommunicationEdge';
+import { NegotiationEdge } from './edges/NegotiationEdge';
+import { ConsensusEdge } from './edges/ConsensusEdge';
+import { FeedbackEdge } from './edges/FeedbackEdge';
+import { BroadcastEdge } from './edges/BroadcastEdge';
+import { OrchestrationControlPanel } from '../agent-builder/orchestration/OrchestrationControlPanel';
 import { NodeConfigPanel } from './NodeConfigPanel';
 import { NodeConfigurationPanel } from './NodeConfigurationPanel';
 import { SimplifiedPropertiesPanel } from '../agent-builder/workflow/SimplifiedPropertiesPanel';
@@ -97,6 +107,11 @@ interface WorkflowEditorProps {
   isExecutionConnected?: boolean;
   isExecutionComplete?: boolean;
   aiAgentMessages?: any[]; // AI Agent chat messages from workflow execution
+  // Orchestration props
+  orchestrationMode?: boolean;
+  orchestrationType?: string;
+  supervisorConfig?: any;
+  onOrchestrationChange?: (config: any) => void;
 }
 
 const nodeTypes: NodeTypes = {
@@ -129,10 +144,20 @@ const nodeTypes: NodeTypes = {
   memory: MemoryNode,
   consensus: ConsensusNode,
   human_approval: HumanApprovalNode,
+  // Orchestration nodes
+  orchestration_agent: OrchestrationAgentNode,
+  supervisor_agent: SupervisorAgentNode,
+  voting: VotingNode,
+  sync_point: SyncPointNode,
 };
 
 const edgeTypes: EdgeTypes = {
   custom: CustomEdge,
+  communication: CommunicationEdge,
+  negotiation: NegotiationEdge,
+  consensus: ConsensusEdge,
+  feedback: FeedbackEdge,
+  broadcast: BroadcastEdge,
 };
 
 // Helper component for execution history to avoid TypeScript IIFE issues
@@ -248,6 +273,11 @@ function WorkflowEditorInner({
   isExecutionConnected: isExecutionConnectedProp,
   isExecutionComplete: isExecutionCompleteProp,
   aiAgentMessages = [],
+  // Orchestration props
+  orchestrationMode = false,
+  orchestrationType,
+  supervisorConfig,
+  onOrchestrationChange,
 }: WorkflowEditorProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
@@ -1532,6 +1562,39 @@ function WorkflowEditorInner({
         )}
       </ReactFlow>
       </div>
+      
+      {/* Orchestration Control Panel */}
+      {orchestrationMode && orchestrationType && !readOnly && (
+        <div className="w-80 border-l bg-background overflow-y-auto">
+          <OrchestrationControlPanel
+            orchestrationType={orchestrationType as any}
+            supervisorConfig={supervisorConfig}
+            onConfigChange={onOrchestrationChange}
+            onExecutionStart={onExecutionStart}
+            onExecutionPause={() => {
+              // TODO: Implement orchestration pause
+              console.log('Orchestration paused');
+            }}
+            onExecutionStop={onExecutionStop}
+            onExecutionReset={() => {
+              // TODO: Implement orchestration reset
+              console.log('Orchestration reset');
+            }}
+            isExecuting={executionMode}
+            executionStatus={executionMode ? 'running' : 'idle'}
+            // Mock data - replace with real orchestration metrics
+            activeAgents={nodes.filter(n => n.type === 'orchestration_agent' || n.type === 'agent').length}
+            totalAgents={nodes.filter(n => n.type === 'orchestration_agent' || n.type === 'agent').length}
+            completedTasks={0}
+            failedTasks={0}
+            averageResponseTime={0}
+            tokenUsage={0}
+            agentStatuses={{}}
+            communicationCount={0}
+            consensusProgress={0}
+          />
+        </div>
+      )}
       
       {/* Node Configuration Panel */}
       {selectedNode && !readOnly && !showExecutionDetails && (

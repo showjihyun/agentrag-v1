@@ -177,18 +177,21 @@ export function useAIAgentChat({
         } else if (event.code === 1005) {
           // No status code received (common when server doesn't exist or endpoint not found)
           console.warn('⚠️ WebSocket closed without status code (1005) - Server may not be running');
-          setError('Cannot connect to AI Agent server. Please check if the backend is running.');
-          onError?.('Cannot connect to AI Agent server. Please check if the backend is running.');
+          const errorMsg = 'Cannot connect to AI Agent server. Please check if the backend is running on http://localhost:8000';
+          setError(errorMsg);
+          onError?.(errorMsg);
         } else if (event.code === 1006) {
           // Abnormal closure (connection lost)
           console.warn('⚠️ WebSocket connection lost abnormally (1006)');
-          setError('Connection lost unexpectedly. Click Reconnect to try again.');
-          onError?.('Connection lost unexpectedly. Click Reconnect to try again.');
+          const errorMsg = 'Connection lost unexpectedly. The backend server may have restarted. Click Reconnect to try again.';
+          setError(errorMsg);
+          onError?.(errorMsg);
         } else {
           // Other unexpected closures
           console.warn(`⚠️ WebSocket closed unexpectedly (code: ${event.code})`);
-          setError(`Connection closed (code: ${event.code}). Click Reconnect to try again.`);
-          onError?.(`Connection closed (code: ${event.code}). Click Reconnect to try again.`);
+          const errorMsg = `Connection closed (code: ${event.code}). Click Reconnect to try again.`;
+          setError(errorMsg);
+          onError?.(errorMsg);
         }
       };
     } catch (err) {

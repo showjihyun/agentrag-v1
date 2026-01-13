@@ -52,6 +52,9 @@ async def startup_handler():
         
         # Start KB cache scheduler
         _start_kb_scheduler()
+        
+        # Initialize Agent Plugin System
+        await _initialize_agent_plugins()
 
         logger.info(
             "Startup complete!", system_version="1.0.0", debug_mode=settings.DEBUG
@@ -272,3 +275,18 @@ def _start_kb_scheduler():
         logger.info("KB cache scheduler started")
     except Exception as e:
         logger.warning(f"Failed to start KB cache scheduler: {e}")
+
+
+async def _initialize_agent_plugins():
+    """Initialize Agent Plugin System."""
+    try:
+        from backend.app.lifecycle.agent_plugin_startup import initialize_agent_plugins
+        
+        success = await initialize_agent_plugins()
+        if success:
+            logger.info("✅ Agent Plugin System initialized successfully")
+        else:
+            logger.warning("⚠️  Agent Plugin System initialization failed - continuing without agent features")
+            
+    except Exception as e:
+        logger.warning(f"Failed to initialize Agent Plugin System: {e} - continuing without agent features")

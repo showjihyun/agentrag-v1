@@ -18,7 +18,7 @@ import {
   LineChart,
   Line,
 } from 'recharts';
-import { useTheme } from 'next-themes';
+import { useTheme } from '@/contexts/ThemeContext';
 import { TrendingUp, TrendingDown, Minus, Target, Clock, DollarSign } from 'lucide-react';
 
 interface PromptMetricsProps {

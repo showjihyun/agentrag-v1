@@ -43,12 +43,12 @@ import { SupervisorDashboard } from '@/components/agent-builder/SupervisorDashbo
 import { SupervisorConfigWizard } from '@/components/agent-builder/SupervisorConfigWizard';
 
 const ORCHESTRATION_TYPES = [
-  { id: 'sequential', name: '순차 실행', description: '에이전트들이 순서대로 실행됩니다' },
-  { id: 'parallel', name: '병렬 실행', description: '에이전트들이 동시에 실행됩니다' },
-  { id: 'hierarchical', name: '계층적 실행', description: '의존성에 따라 계층적으로 실행됩니다' },
-  { id: 'adaptive', name: '적응형 실행', description: 'AI가 상황에 따라 실행 순서를 결정합니다' },
-  { id: 'consensus_building', name: '합의 구축', description: '에이전트들이 합의를 통해 결정합니다' },
-  { id: 'dynamic_routing', name: '동적 라우팅', description: '조건에 따라 실행 경로가 변경됩니다' },
+  { id: 'sequential', name: 'Sequential Execution', description: 'Agents execute in order' },
+  { id: 'parallel', name: 'Parallel Execution', description: 'Agents execute simultaneously' },
+  { id: 'hierarchical', name: 'Hierarchical Execution', description: 'Execute hierarchically based on dependencies' },
+  { id: 'adaptive', name: 'Adaptive Execution', description: 'AI determines execution order based on situation' },
+  { id: 'consensus_building', name: 'Consensus Building', description: 'Agents make decisions through consensus' },
+  { id: 'dynamic_routing', name: 'Dynamic Routing', description: 'Execution path changes based on conditions' },
 ];
 
 export default function EnhancedAgentflowEditPage({ params }: { params: Promise<{ id: string }> }) {
@@ -116,15 +116,15 @@ export default function EnhancedAgentflowEditPage({ params }: { params: Promise<
     },
     onSuccess: () => {
       toast({
-        title: '저장 완료',
-        description: 'Agentflow가 성공적으로 저장되었습니다.',
+        title: 'Save Complete',
+        description: 'Agentflow has been successfully saved.',
       });
       queryClient.invalidateQueries({ queryKey: ['agentflow', id] });
     },
     onError: () => {
       toast({
-        title: '저장 실패',
-        description: '저장 중 오류가 발생했습니다.',
+        title: 'Save Failed',
+        description: 'An error occurred while saving.',
         variant: 'destructive',
       });
     },
@@ -138,15 +138,15 @@ export default function EnhancedAgentflowEditPage({ params }: { params: Promise<
     }),
     onSuccess: (result) => {
       toast({
-        title: '실행 시작',
-        description: `실행 ID: ${result.execution_id}`,
+        title: 'Execution Started',
+        description: `Execution ID: ${result.execution_id}`,
       });
       setActiveTab('monitoring');
     },
     onError: () => {
       toast({
-        title: '실행 실패',
-        description: '실행 중 오류가 발생했습니다.',
+        title: 'Execution Failed',
+        description: 'An error occurred during execution.',
         variant: 'destructive',
       });
     },
@@ -183,7 +183,7 @@ export default function EnhancedAgentflowEditPage({ params }: { params: Promise<
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p>Agentflow 로딩 중...</p>
+          <p>Loading Agentflow...</p>
         </div>
       </div>
     );
@@ -202,13 +202,13 @@ export default function EnhancedAgentflowEditPage({ params }: { params: Promise<
                 onClick={() => router.back()}
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
-                뒤로
+                Back
               </Button>
               <Separator orientation="vertical" className="h-6" />
               <div>
-                <h1 className="text-xl font-semibold">{formData.name || 'Agentflow 편집'}</h1>
+                <h1 className="text-xl font-semibold">{formData.name || 'Edit Agentflow'}</h1>
                 <p className="text-sm text-muted-foreground">
-                  고급 시각적 에디터로 워크플로우를 설계하고 관리하세요
+                  Design and manage workflows with advanced visual editor
                 </p>
               </div>
             </div>
@@ -220,7 +220,7 @@ export default function EnhancedAgentflowEditPage({ params }: { params: Promise<
                 disabled={saving || saveMutation.isPending}
               >
                 <Save className="w-4 h-4 mr-2" />
-                {saving || saveMutation.isPending ? '저장 중...' : '저장'}
+                {saving || saveMutation.isPending ? 'Saving...' : 'Save'}
               </Button>
               <Button
                 onClick={handleExecute}
@@ -228,7 +228,7 @@ export default function EnhancedAgentflowEditPage({ params }: { params: Promise<
                 className="bg-green-600 hover:bg-green-700"
               >
                 <Play className="w-4 h-4 mr-2" />
-                {executeMutation.isPending ? '실행 중...' : '실행'}
+                {executeMutation.isPending ? 'Executing...' : 'Execute'}
               </Button>
             </div>
           </div>
@@ -241,27 +241,27 @@ export default function EnhancedAgentflowEditPage({ params }: { params: Promise<
           <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="design" className="flex items-center gap-2">
               <Layers className="w-4 h-4" />
-              <span className="hidden sm:inline">디자인</span>
+              <span className="hidden sm:inline">Design</span>
             </TabsTrigger>
             <TabsTrigger value="visual" className="flex items-center gap-2">
               <Eye className="w-4 h-4" />
-              <span className="hidden sm:inline">시각적 편집</span>
+              <span className="hidden sm:inline">Visual Editor</span>
             </TabsTrigger>
             <TabsTrigger value="agents" className="flex items-center gap-2">
               <Users className="w-4 h-4" />
-              <span className="hidden sm:inline">에이전트</span>
+              <span className="hidden sm:inline">Agents</span>
             </TabsTrigger>
             <TabsTrigger value="supervisor" className="flex items-center gap-2">
               <Zap className="w-4 h-4" />
-              <span className="hidden sm:inline">슈퍼바이저</span>
+              <span className="hidden sm:inline">Supervisor</span>
             </TabsTrigger>
             <TabsTrigger value="integration" className="flex items-center gap-2">
               <Settings className="w-4 h-4" />
-              <span className="hidden sm:inline">통합 관리</span>
+              <span className="hidden sm:inline">Integration</span>
             </TabsTrigger>
             <TabsTrigger value="monitoring" className="flex items-center gap-2">
               <BarChart3 className="w-4 h-4" />
-              <span className="hidden sm:inline">모니터링</span>
+              <span className="hidden sm:inline">Monitoring</span>
             </TabsTrigger>
           </TabsList>
 
@@ -272,33 +272,33 @@ export default function EnhancedAgentflowEditPage({ params }: { params: Promise<
                 {/* Basic Information */}
                 <Card>
                   <CardHeader>
-                    <CardTitle>기본 정보</CardTitle>
+                    <CardTitle>Basic Information</CardTitle>
                     <CardDescription>
-                      Agentflow의 기본 설정을 구성하세요
+                      Configure basic settings for your Agentflow
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div>
-                      <Label>이름</Label>
+                      <Label>Name</Label>
                       <Input
                         value={formData.name}
                         onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                        placeholder="Agentflow 이름을 입력하세요"
+                        placeholder="Enter Agentflow name"
                       />
                     </div>
                     
                     <div>
-                      <Label>설명</Label>
+                      <Label>Description</Label>
                       <Textarea
                         value={formData.description}
                         onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                        placeholder="이 Agentflow의 목적과 기능을 설명하세요"
+                        placeholder="Describe the purpose and functionality of this Agentflow"
                         rows={3}
                       />
                     </div>
                     
                     <div>
-                      <Label>오케스트레이션 유형</Label>
+                      <Label>Orchestration Type</Label>
                       <Select
                         value={formData.orchestration_type}
                         onValueChange={(value) => setFormData(prev => ({ ...prev, orchestration_type: value }))}
@@ -307,7 +307,7 @@ export default function EnhancedAgentflowEditPage({ params }: { params: Promise<
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {ORCHESTRATION_TYPES.map((type) => (
+                          {Object.values(ORCHESTRATION_TYPES).map((type) => (
                             <SelectItem key={type.id} value={type.id}>
                               <div>
                                 <div className="font-medium">{type.name}</div>
@@ -324,9 +324,9 @@ export default function EnhancedAgentflowEditPage({ params }: { params: Promise<
                 {/* Tags */}
                 <Card>
                   <CardHeader>
-                    <CardTitle>태그</CardTitle>
+                    <CardTitle>Tags</CardTitle>
                     <CardDescription>
-                      검색과 분류를 위한 태그를 추가하세요
+                      Add tags for search and categorization
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
@@ -344,7 +344,7 @@ export default function EnhancedAgentflowEditPage({ params }: { params: Promise<
                     </div>
                     <div className="flex gap-2">
                       <Input
-                        placeholder="태그 입력 후 Enter"
+                        placeholder="Enter tag and press Enter"
                         onKeyPress={(e) => {
                           if (e.key === 'Enter') {
                             handleAddTag(e.currentTarget.value);
@@ -362,33 +362,33 @@ export default function EnhancedAgentflowEditPage({ params }: { params: Promise<
                 {/* Quick Stats */}
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-lg">빠른 통계</CardTitle>
+                    <CardTitle className="text-lg">Quick Statistics</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">에이전트 수</span>
+                      <span className="text-sm text-muted-foreground">Agent Count</span>
                       <Badge variant="outline">
-                        {agentflow?.agents?.length || 0}개
+                        {agentflow?.agents?.length || 0}
                       </Badge>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">연결 수</span>
+                      <span className="text-sm text-muted-foreground">Connection Count</span>
                       <Badge variant="outline">
-                        {agentflow?.edges?.length || 0}개
+                        {agentflow?.edges?.length || 0}
                       </Badge>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">실행 횟수</span>
+                      <span className="text-sm text-muted-foreground">Execution Count</span>
                       <Badge variant="outline">
-                        {agentflow?.execution_count || 0}회
+                        {agentflow?.execution_count || 0}
                       </Badge>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">마지막 실행</span>
+                      <span className="text-sm text-muted-foreground">Last Execution</span>
                       <span className="text-xs text-muted-foreground">
                         {agentflow?.last_execution_at
                           ? new Date(agentflow.last_execution_at).toLocaleDateString()
-                          : '없음'}
+                          : 'None'}
                       </span>
                     </div>
                   </CardContent>
@@ -397,7 +397,7 @@ export default function EnhancedAgentflowEditPage({ params }: { params: Promise<
                 {/* Quick Actions */}
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-lg">빠른 작업</CardTitle>
+                    <CardTitle className="text-lg">Quick Actions</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2">
                     <Button
@@ -406,7 +406,7 @@ export default function EnhancedAgentflowEditPage({ params }: { params: Promise<
                       onClick={() => setActiveTab('visual')}
                     >
                       <Eye className="w-4 h-4 mr-2" />
-                      시각적 편집기 열기
+                      Open Visual Editor
                     </Button>
                     <Button
                       variant="outline"
@@ -414,7 +414,7 @@ export default function EnhancedAgentflowEditPage({ params }: { params: Promise<
                       onClick={() => setActiveTab('integration')}
                     >
                       <Settings className="w-4 h-4 mr-2" />
-                      통합성 검증
+                      Validate Integrity
                     </Button>
                     <Button
                       variant="outline"
@@ -422,7 +422,7 @@ export default function EnhancedAgentflowEditPage({ params }: { params: Promise<
                       onClick={() => setActiveTab('monitoring')}
                     >
                       <BarChart3 className="w-4 h-4 mr-2" />
-                      실행 모니터링
+                      Execution Monitoring
                     </Button>
                   </CardContent>
                 </Card>
@@ -434,9 +434,9 @@ export default function EnhancedAgentflowEditPage({ params }: { params: Promise<
           <TabsContent value="visual" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>시각적 워크플로우 편집기</CardTitle>
+                <CardTitle>Visual Workflow Editor</CardTitle>
                 <CardDescription>
-                  드래그 앤 드롭으로 에이전트를 배치하고 연결하세요
+                  Place and connect agents with drag and drop
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-0">
@@ -445,8 +445,8 @@ export default function EnhancedAgentflowEditPage({ params }: { params: Promise<
                   {...(agentflow && { initialData: agentflow })}
                   onSave={(data) => {
                     toast({
-                      title: '시각적 워크플로우 저장됨',
-                      description: '변경사항이 성공적으로 저장되었습니다.',
+                      title: 'Visual Workflow Saved',
+                      description: 'Changes have been successfully saved.',
                     });
                   }}
                 />
@@ -458,21 +458,21 @@ export default function EnhancedAgentflowEditPage({ params }: { params: Promise<
           <TabsContent value="agents" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>에이전트 관리</CardTitle>
+                <CardTitle>Agent Management</CardTitle>
                 <CardDescription>
-                  워크플로우에 포함된 에이전트들을 관리하세요
+                  Manage agents included in the workflow
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="text-center py-12 text-muted-foreground">
-                  에이전트 관리 기능은 시각적 편집기에서 사용할 수 있습니다.
+                  Agent management features are available in the visual editor.
                   <br />
                   <Button
                     variant="outline"
                     className="mt-4"
                     onClick={() => setActiveTab('visual')}
                   >
-                    시각적 편집기로 이동
+                    Go to Visual Editor
                   </Button>
                 </div>
               </CardContent>

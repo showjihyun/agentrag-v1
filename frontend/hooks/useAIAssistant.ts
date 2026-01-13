@@ -1,128 +1,390 @@
-import { useState, useCallback } from 'react';
-import { useAPI } from './useAPI';
-import {
-  ErrorDiagnosis,
-  BreakpointSuggestion,
-  OptimizationSuggestion,
-  ChatMessage,
-} from '@/types/workflow';
-
-interface DebugQueryRequest {
-  workflow_id: string;
-  query: string;
-  workflow_context: Record<string, any>;
-}
-
-interface DebugQueryResponse {
-  answer: string;
-  suggestions?: string[];
-}
-
 /**
- * Unified hook for AI Assistant functionality
+ * AI Assistant Hook
+ * 
+ * 지능형 블록 추천 및 워크플로우 최적화를 위한 AI 어시스턴트
  */
-export function useAIAssistant(workflowId: string) {
-  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
-  const [query, setQuery] = useState('');
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Node, Edge } from 'reactflow';
 
-  // API hooks for different AI features
-  const breakpoints = useAPI<BreakpointSuggestion[]>(
-    `/api/agent-builder/ai-assistant/${workflowId}/suggest-breakpoints`
-  );
+export interface WorkflowContext {
+  blocks: Node[];
+  edges: Edge[];
+  intent: string;
+  history: WorkflowPattern[];
+  userPreferences: UserPreferences;
+  currentSelection?: string;
+}
 
-  const optimizations = useAPI<OptimizationSuggestion[]>(
-    `/api/agent-builder/ai-assistant/${workflowId}/suggest-optimizations`
-  );
+export interface WorkflowPattern {
+  id: string;
+  name: string;
+  description: string;
+  blocks: string[];
+  connections: Array<{ from: string; to: string }>;
+  usage_count: number;
+  success_rate: number;
+  avg_execution_time: number;
+  tags: string[];
+}
 
-  const errorDiagnosis = useAPI<ErrorDiagnosis>(
-    `/api/agent-builder/ai-assistant/${workflowId}/diagnose-error`,
-    { method: 'POST' }
-  );
+export interface UserPreferences {
+  preferred_llm_models: string[];
+  frequently_used_tools: string[];
+  workflow_complexity: 'simple' | 'medium' | 'complex';
+  domain_expertise: string[];
+}
 
-  const debugQuery = useAPI<DebugQueryResponse>(
-    '/api/agent-builder/ai-assistant/debug-query',
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-    }
-  );
+export interface BlockSuggestion {
+  id: string;
+  block_type: string;
+  display_name: string;
+  description: string;
+  confidence: number;
+  reasoning: string;
+  estimated_benefit: string;
+  configuration_suggestion?: any;
+  position_suggestion?: { x: number; y: number };
+  connection_suggestions?: Array<{ target: string; type: string }>;
+}
 
-  // Send chat query
-  const sendQuery = useCallback(
-    async (userQuery: string) => {
-      if (!userQuery.trim()) return;
+export interface OptimizationSuggestion {
+  type: 'performance' | 'reliability' | 'cost' | 'maintainability';
+  title: string;
+  description: string;
+  impact: 'low' | 'medium' | 'high';
+  effort: 'low' | 'medium' | 'high';
+  changes: Array<{
+    action: 'add' | 'remove' | 'modify' | 'reorder';
+    target: string;
+    details: any;
+  }>;
+}
 
-      // Add user message to history
-      setChatHistory((prev) => [
-        ...prev,
-        { role: 'user', content: userQuery, timestamp: new Date() },
-      ]);
+interface UseAIAssistantOptions {
+  enabled?: boolean;
+  suggestionLimit?: number;
+  autoSuggest?: boolean;
+  learningMode?: boolean;
+}
 
-      try {
-        const response = await fetch('/api/agent-builder/ai-assistant/debug-query', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            workflow_id: workflowId,
-            query: userQuery,
-            workflow_context: {},
-          } as DebugQueryRequest),
-        });
+export const useAIAssistant = (options: UseAIAssistantOptions = {}) => {
+  const {
+    enabled = true,
+    suggestionLimit = 5,
+    autoSuggest = true,
+    learningMode = true
+  } = options;
 
-        const data: DebugQueryResponse = await response.json();
+  const [isLoading, setIsLoading] = useState(false);
+  const [suggestions, setSuggestions] = useState<BlockSuggestion[]>([]);
+  const [optimizations, setOptimizations] = useState<OptimizationSuggestion[]>([]);
+  const [workflowPatterns, setWorkflowPatterns] = useState<WorkflowPattern[]>([]);
+  const [userPreferences, setUserPreferences] = useState<UserPreferences>({
+    preferred_llm_models: ['gpt-4', 'claude-3'],
+    frequently_used_tools: [],
+    workflow_complexity: 'medium',
+    domain_expertise: []
+  });
 
-        // Add assistant response to history
-        setChatHistory((prev) => [
-          ...prev,
-          { role: 'assistant', content: data.answer, timestamp: new Date() },
-        ]);
-
-        return data;
-      } catch (error) {
-        const errorMessage = 'Sorry, I encountered an error. Please try again.';
-        setChatHistory((prev) => [
-          ...prev,
-          { role: 'assistant', content: errorMessage, timestamp: new Date() },
-        ]);
-        throw error;
+  // Load workflow patterns
+  const loadWorkflowPatterns = useCallback(async () => {
+    try {
+      const response = await fetch('/api/v1/ai-assistant/workflow-patterns');
+      if (response.ok) {
+        const patterns = await response.json();
+        setWorkflowPatterns(patterns);
       }
-    },
-    [workflowId]
-  );
-
-  // Clear chat history
-  const clearChat = useCallback(() => {
-    setChatHistory([]);
+    } catch (error) {
+      console.error('Failed to load workflow patterns:', error);
+    }
   }, []);
 
-  return {
-    // Chat
-    chatHistory,
-    query,
-    setQuery,
-    sendQuery,
-    clearChat,
+  // Load user preferences
+  const loadUserPreferences = useCallback(async () => {
+    try {
+      const response = await fetch('/api/v1/ai-assistant/user-preferences');
+      if (response.ok) {
+        const preferences = await response.json();
+        setUserPreferences(preferences);
+      }
+    } catch (error) {
+      console.error('Failed to load user preferences:', error);
+    }
+  }, []);
 
-    // Breakpoints
-    breakpointSuggestions: breakpoints.data,
-    isLoadingBreakpoints: breakpoints.isLoading,
-    fetchBreakpoints: breakpoints.execute,
+  // Suggest next blocks
+  const suggestNextBlocks = useCallback(async (context: WorkflowContext): Promise<BlockSuggestion[]> => {
+    if (!enabled) return [];
 
-    // Optimizations
-    optimizationSuggestions: optimizations.data,
-    isLoadingOptimizations: optimizations.isLoading,
-    fetchOptimizations: optimizations.execute,
+    setIsLoading(true);
+    
+    try {
+      const response = await fetch('/api/v1/ai-assistant/suggest-blocks', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          context,
+          user_preferences: userPreferences,
+          limit: suggestionLimit,
+          patterns: workflowPatterns
+        })
+      });
 
-    // Error Diagnosis
-    errorDiagnosisResult: errorDiagnosis.data,
-    isLoadingDiagnosis: errorDiagnosis.isLoading,
-    diagnoseError: errorDiagnosis.execute,
+      if (response.ok) {
+        const suggestions = await response.json();
+        setSuggestions(suggestions);
+        return suggestions;
+      }
+    } catch (error) {
+      console.error('Failed to get block suggestions:', error);
+    } finally {
+      setIsLoading(false);
+    }
 
-    // Overall loading state
-    isLoading:
-      breakpoints.isLoading ||
-      optimizations.isLoading ||
-      errorDiagnosis.isLoading ||
-      debugQuery.isLoading,
+    return [];
+  }, [enabled, suggestionLimit, userPreferences, workflowPatterns]);
+
+  // Suggest workflow optimizations
+  const suggestOptimizations = useCallback(async (context: WorkflowContext): Promise<OptimizationSuggestion[]> => {
+    if (!enabled) return [];
+
+    try {
+      const response = await fetch('/api/v1/ai-assistant/suggest-optimizations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          context,
+          user_preferences: userPreferences,
+          patterns: workflowPatterns
+        })
+      });
+
+      if (response.ok) {
+        const optimizations = await response.json();
+        setOptimizations(optimizations);
+        return optimizations;
+      }
+    } catch (error) {
+      console.error('Failed to get optimization suggestions:', error);
+    }
+
+    return [];
+  }, [enabled, userPreferences, workflowPatterns]);
+
+  // Analyze workflow pattern
+  const analyzeWorkflowPattern = useCallback((context: WorkflowContext) => {
+    const { blocks, edges } = context;
+    
+    // Analyze block types
+    const blockTypes = blocks.map(block => block.type || 'unknown');
+    const blockTypeCount = blockTypes.reduce((acc, type) => {
+      acc[type] = (acc[type] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    // Analyze connection patterns
+    const connectionPatterns = edges.map(edge => ({
+      from: blocks.find(b => b.id === edge.source)?.type || 'unknown',
+      to: blocks.find(b => b.id === edge.target)?.type || 'unknown'
+    }));
+
+    // Calculate complexity
+    const complexity = calculateWorkflowComplexity(blocks, edges);
+
+    // Find similar patterns
+    const similarPatterns = findSimilarPatterns(blockTypes, connectionPatterns, workflowPatterns);
+
+    return {
+      blockTypeCount,
+      connectionPatterns,
+      complexity,
+      similarPatterns,
+      recommendations: generatePatternRecommendations(blockTypes, connectionPatterns, similarPatterns)
+    };
+  }, [workflowPatterns]);
+
+  // Calculate workflow complexity
+  const calculateWorkflowComplexity = (blocks: Node[], edges: Edge[]) => {
+    const nodeCount = blocks.length;
+    const edgeCount = edges.length;
+    const avgConnections = nodeCount > 0 ? edgeCount / nodeCount : 0;
+    
+    // Calculate branching points (nodes with 2+ outputs)
+    const branchingNodes = blocks.filter(block => {
+      const outgoingEdges = edges.filter(edge => edge.source === block.id);
+      return outgoingEdges.length > 1;
+    }).length;
+
+    // Complexity score (0-100)
+    const complexityScore = Math.min(100, 
+      (nodeCount * 2) + 
+      (edgeCount * 1.5) + 
+      (branchingNodes * 5) + 
+      (avgConnections * 3)
+    );
+
+    let level: 'simple' | 'medium' | 'complex';
+    if (complexityScore < 20) level = 'simple';
+    else if (complexityScore < 50) level = 'medium';
+    else level = 'complex';
+
+    return {
+      score: complexityScore,
+      level,
+      nodeCount,
+      edgeCount,
+      branchingNodes,
+      avgConnections
+    };
   };
-}
+
+  // Find similar patterns
+  const findSimilarPatterns = (
+    blockTypes: string[], 
+    connectionPatterns: Array<{ from: string; to: string }>,
+    patterns: WorkflowPattern[]
+  ) => {
+    return patterns
+      .map(pattern => {
+        // Block type similarity
+        const blockSimilarity = calculateBlockSimilarity(blockTypes, pattern.blocks);
+        
+        // Connection pattern similarity
+        const connectionSimilarity = calculateConnectionSimilarity(connectionPatterns, pattern.connections);
+        
+        // Overall similarity
+        const overallSimilarity = (blockSimilarity + connectionSimilarity) / 2;
+        
+        return {
+          ...pattern,
+          similarity: overallSimilarity
+        };
+      })
+      .filter(pattern => pattern.similarity > 0.3) // Only patterns with 30%+ similarity
+      .sort((a, b) => b.similarity - a.similarity)
+      .slice(0, 5); // Top 5 only
+  };
+
+  // Calculate block type similarity
+  const calculateBlockSimilarity = (currentBlocks: string[], patternBlocks: string[]) => {
+    const currentSet = new Set(currentBlocks);
+    const patternSet = new Set(patternBlocks);
+    
+    const intersection = new Set([...currentSet].filter(x => patternSet.has(x)));
+    const union = new Set([...currentSet, ...patternSet]);
+    
+    return union.size > 0 ? intersection.size / union.size : 0;
+  };
+
+  // 연결 패턴 유사도 계산
+  const calculateConnectionSimilarity = (
+    currentConnections: Array<{ from: string; to: string }>,
+    patternConnections: Array<{ from: string; to: string }>
+  ) => {
+    if (currentConnections.length === 0 && patternConnections.length === 0) return 1;
+    if (currentConnections.length === 0 || patternConnections.length === 0) return 0;
+
+    const currentPatterns = currentConnections.map(c => `${c.from}->${c.to}`);
+    const patternPatterns = patternConnections.map(c => `${c.from}->${c.to}`);
+    
+    const currentSet = new Set(currentPatterns);
+    const patternSet = new Set(patternPatterns);
+    
+    const intersection = new Set([...currentSet].filter(x => patternSet.has(x)));
+    const union = new Set([...currentSet, ...patternSet]);
+    
+    return union.size > 0 ? intersection.size / union.size : 0;
+  };
+
+  // 패턴 기반 추천 생성
+  const generatePatternRecommendations = (
+    blockTypes: string[],
+    connectionPatterns: Array<{ from: string; to: string }>,
+    similarPatterns: any[]
+  ) => {
+    const recommendations = [];
+
+    // 자주 사용되는 다음 블록 추천
+    if (similarPatterns.length > 0) {
+      const topPattern = similarPatterns[0];
+      const missingBlocks = topPattern.blocks.filter((block: string) => !blockTypes.includes(block));
+      
+      if (missingBlocks.length > 0) {
+        recommendations.push({
+          type: 'missing_blocks',
+          title: '패턴 완성을 위한 블록 추가',
+          blocks: missingBlocks.slice(0, 3),
+          confidence: topPattern.similarity
+        });
+      }
+    }
+
+    // 성능 최적화 추천
+    if (blockTypes.includes('llm') && !blockTypes.includes('cache')) {
+      recommendations.push({
+        type: 'performance',
+        title: 'LLM 응답 캐싱 추가',
+        blocks: ['cache'],
+        confidence: 0.8
+      });
+    }
+
+    return recommendations;
+  };
+
+  // 학습 데이터 수집
+  const recordUserAction = useCallback(async (action: {
+    type: 'block_added' | 'block_removed' | 'suggestion_accepted' | 'suggestion_rejected';
+    blockType?: string;
+    suggestionId?: string;
+    context: WorkflowContext;
+  }) => {
+    if (!learningMode) return;
+
+    try {
+      await fetch('/api/v1/ai-assistant/record-action', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(action)
+      });
+    } catch (error) {
+      console.error('Failed to record user action:', error);
+    }
+  }, [learningMode]);
+
+  // 초기화
+  useEffect(() => {
+    if (enabled) {
+      loadWorkflowPatterns();
+      loadUserPreferences();
+    }
+  }, [enabled, loadWorkflowPatterns, loadUserPreferences]);
+
+  return {
+    // 상태
+    isLoading,
+    suggestions,
+    optimizations,
+    workflowPatterns,
+    userPreferences,
+
+    // 메서드
+    suggestNextBlocks,
+    suggestOptimizations,
+    analyzeWorkflowPattern,
+    recordUserAction,
+    
+    // 유틸리티
+    calculateWorkflowComplexity,
+    findSimilarPatterns,
+
+    // 설정
+    setUserPreferences
+  };
+};

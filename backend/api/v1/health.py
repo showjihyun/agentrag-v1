@@ -99,12 +99,11 @@ async def check_redis_health() -> ComponentHealth:
             db=settings.REDIS_DB,
             password=settings.REDIS_PASSWORD
         )
-        redis = pool.get_connection()
-        redis.ping()
+        redis = pool.get_client()
+        await redis.ping()
         
         # Get Redis info
-        info = redis.info("memory")
-        pool.release(redis)
+        info = await redis.info("memory")
         
         latency = (datetime.now() - start).total_seconds() * 1000
         

@@ -2,10 +2,11 @@
 
 import React from 'react';
 import { MiniMap, useReactFlow } from 'reactflow';
-import { useTheme } from 'next-themes';
+import { useTheme } from '@/contexts/ThemeContext';
+import { useSafeTheme } from '../ThemeWrapper';
 
 export function WorkflowMinimap() {
-  const { theme } = useTheme();
+  const { theme } = useSafeTheme();
   const isDark = theme === 'dark';
 
   return (
@@ -34,3 +35,4 @@ export function WorkflowMinimap() {
     />
   );
 }
+

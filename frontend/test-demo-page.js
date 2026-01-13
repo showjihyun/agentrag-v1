@@ -95,16 +95,16 @@ async function testDemoPage() {
       await page.click('[aria-label="Change language"]');
       await page.waitForTimeout(500);
       
-      const languages = await page.locator('text=한국어').isVisible();
-      console.log(`   Korean language option visible: ${languages}`);
+      const languages = await page.locator('text=English').isVisible();
+      console.log(`   English language option visible: ${languages}`);
       
       if (languages) {
-        await page.click('text=한국어');
+        await page.click('text=English');
         await page.waitForTimeout(1000);
         
         // Take screenshot after language change
-        await page.screenshot({ path: 'demo-page-korean.png', fullPage: true });
-        console.log('   📸 Screenshot saved: demo-page-korean.png');
+        await page.screenshot({ path: 'demo-page-english.png', fullPage: true });
+        console.log('   📸 Screenshot saved: demo-page-english.png');
       }
     }
     console.log('✅ Test 8 passed\n');

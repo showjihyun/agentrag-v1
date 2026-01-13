@@ -1,0 +1,429 @@
+/**
+ * Accessibility Styles
+ * WCAG 2.1 AA 준수를 위한 접근성 스타일
+ */
+
+/* Screen Reader Only */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Font Size Scaling */
+:root {
+  --font-size-scale: 1;
+}
+
+* {
+  font-size: calc(1rem * var(--font-size-scale));
+}
+
+/* High Contrast Mode */
+.high-contrast {
+  --background: #000000;
+  --foreground: #ffffff;
+  --card: #1a1a1a;
+  --card-foreground: #ffffff;
+  --popover: #1a1a1a;
+  --popover-foreground: #ffffff;
+  --primary: #ffffff;
+  --primary-foreground: #000000;
+  --secondary: #333333;
+  --secondary-foreground: #ffffff;
+  --muted: #333333;
+  --muted-foreground: #cccccc;
+  --accent: #444444;
+  --accent-foreground: #ffffff;
+  --destructive: #ff6b6b;
+  --destructive-foreground: #ffffff;
+  --border: #444444;
+  --input: #333333;
+  --ring: #ffffff;
+}
+
+.high-contrast * {
+  border-color: var(--border) !important;
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+.high-contrast button {
+  border: 2px solid var(--border) !important;
+  background-color: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+}
+
+.high-contrast button:hover {
+  background-color: var(--secondary) !important;
+  color: var(--secondary-foreground) !important;
+}
+
+.high-contrast input,
+.high-contrast textarea,
+.high-contrast select {
+  border: 2px solid var(--border) !important;
+  background-color: var(--input) !important;
+  color: var(--foreground) !important;
+}
+
+/* Enhanced Focus Indicators */
+.enhanced-focus *:focus {
+  outline: 3px solid #0066cc !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 2px #ffffff, 0 0 0 5px #0066cc !important;
+}
+
+.enhanced-focus button:focus,
+.enhanced-focus a:focus,
+.enhanced-focus input:focus,
+.enhanced-focus textarea:focus,
+.enhanced-focus select:focus {
+  outline: 3px solid #0066cc !important;
+  outline-offset: 2px !important;
+}
+
+/* Reduced Motion */
+.reduced-motion *,
+.reduced-motion *::before,
+.reduced-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+.reduced-motion .animate-spin {
+  animation: none !important;
+}
+
+.reduced-motion .animate-bounce {
+  animation: none !important;
+}
+
+.reduced-motion .animate-pulse {
+  animation: none !important;
+}
+
+/* Large Click Targets */
+.large-targets button,
+.large-targets a,
+.large-targets input[type="checkbox"],
+.large-targets input[type="radio"],
+.large-targets select {
+  min-height: 44px !important;
+  min-width: 44px !important;
+  padding: 12px 16px !important;
+}
+
+.large-targets .btn-sm {
+  min-height: 40px !important;
+  padding: 10px 14px !important;
+}
+
+.large-targets .btn-lg {
+  min-height: 48px !important;
+  padding: 14px 20px !important;
+}
+
+/* Touch Optimized */
+.touch-optimized {
+  touch-action: manipulation;
+}
+
+.touch-optimized button,
+.touch-optimized a,
+.touch-optimized input,
+.touch-optimized textarea,
+.touch-optimized select {
+  min-height: 48px;
+  min-width: 48px;
+  padding: 12px 16px;
+}
+
+.touch-optimized .touch-target {
+  min-height: 48px;
+  min-width: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Keyboard Navigation */
+.keyboard-nav {
+  /* Skip to main content link */
+}
+
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 6px;
+  background: #000;
+  color: #fff;
+  padding: 8px;
+  text-decoration: none;
+  z-index: 1000;
+  border-radius: 4px;
+}
+
+.skip-link:focus {
+  top: 6px;
+}
+
+/* Focus Management */
+.focus-trap {
+  /* Ensure focus stays within modal/dialog */
+}
+
+.focus-trap *:focus {
+  outline: 2px solid #0066cc;
+  outline-offset: 2px;
+}
+
+/* Color Contrast Helpers */
+.contrast-aa {
+  /* Ensure 4.5:1 contrast ratio for normal text */
+  color: #212529;
+  background-color: #ffffff;
+}
+
+.contrast-aaa {
+  /* Ensure 7:1 contrast ratio for enhanced contrast */
+  color: #000000;
+  background-color: #ffffff;
+}
+
+/* Error States */
+.error-state {
+  border: 2px solid #dc3545 !important;
+  background-color: #f8d7da !important;
+  color: #721c24 !important;
+}
+
+.error-message {
+  color: #721c24;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.error-message::before {
+  content: "⚠ ";
+  font-weight: bold;
+}
+
+/* Success States */
+.success-state {
+  border: 2px solid #28a745 !important;
+  background-color: #d4edda !important;
+  color: #155724 !important;
+}
+
+.success-message {
+  color: #155724;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.success-message::before {
+  content: "✓ ";
+  font-weight: bold;
+}
+
+/* Loading States */
+.loading-state {
+  position: relative;
+}
+
+.loading-state::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 20px;
+  height: 20px;
+  margin: -10px 0 0 -10px;
+  border: 2px solid #f3f3f3;
+  border-top: 2px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.reduced-motion .loading-state::after {
+  animation: none;
+  border: 2px solid #3498db;
+}
+
+/* Responsive Text */
+@media (max-width: 768px) {
+  .responsive-text {
+    font-size: calc(1rem * var(--font-size-scale) * 0.9);
+  }
+}
+
+@media (max-width: 480px) {
+  .responsive-text {
+    font-size: calc(1rem * var(--font-size-scale) * 0.8);
+  }
+}
+
+/* Print Styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  * {
+    background: transparent !important;
+    color: black !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+  
+  a,
+  a:visited {
+    text-decoration: underline;
+  }
+  
+  a[href]:after {
+    content: " (" attr(href) ")";
+  }
+  
+  abbr[title]:after {
+    content: " (" attr(title) ")";
+  }
+  
+  .ir a:after,
+  a[href^="javascript:"]:after,
+  a[href^="#"]:after {
+    content: "";
+  }
+  
+  pre,
+  blockquote {
+    border: 1px solid #999;
+    page-break-inside: avoid;
+  }
+  
+  thead {
+    display: table-header-group;
+  }
+  
+  tr,
+  img {
+    page-break-inside: avoid;
+  }
+  
+  img {
+    max-width: 100% !important;
+  }
+  
+  p,
+  h2,
+  h3 {
+    orphans: 3;
+    widows: 3;
+  }
+  
+  h2,
+  h3 {
+    page-break-after: avoid;
+  }
+}
+
+/* Dark Mode Accessibility */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #fafafa;
+    --card: #0a0a0a;
+    --card-foreground: #fafafa;
+    --popover: #0a0a0a;
+    --popover-foreground: #fafafa;
+    --primary: #fafafa;
+    --primary-foreground: #0a0a0a;
+    --secondary: #1a1a1a;
+    --secondary-foreground: #fafafa;
+    --muted: #1a1a1a;
+    --muted-foreground: #a1a1aa;
+    --accent: #1a1a1a;
+    --accent-foreground: #fafafa;
+    --destructive: #7f1d1d;
+    --destructive-foreground: #fafafa;
+    --border: #1a1a1a;
+    --input: #1a1a1a;
+    --ring: #a1a1aa;
+  }
+}
+
+/* Motion Preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Contrast Preferences */
+@media (prefers-contrast: high) {
+  :root {
+    --border: #000000;
+    --ring: #000000;
+  }
+  
+  * {
+    border-color: var(--border) !important;
+  }
+  
+  button,
+  input,
+  textarea,
+  select {
+    border: 2px solid var(--border) !important;
+  }
+}
+
+/* Language-specific styles */
+:lang(ko) {
+  font-family: "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  word-break: keep-all;
+  line-height: 1.6;
+}
+
+:lang(en) {
+  font-family: "Inter", "Segoe UI", "Roboto", sans-serif;
+  line-height: 1.5;
+}
+
+/* RTL Support (for future expansion) */
+[dir="rtl"] {
+  text-align: right;
+}
+
+[dir="rtl"] .flex {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .ml-2 {
+  margin-left: 0;
+  margin-right: 0.5rem;
+}
+
+[dir="rtl"] .mr-2 {
+  margin-right: 0;
+  margin-left: 0.5rem;
+}

@@ -13,23 +13,23 @@ interface WorkflowGeneratorModalProps {
 
 const EXAMPLE_PROMPTS = [
   {
-    title: '고객 지원 자동화',
-    description: '고객이 이메일을 보내면 이슈를 분류하고 AI로 답변을 생성해서 회신',
+    title: 'Customer Support Automation',
+    description: 'When customers send emails, classify issues and generate AI responses for replies',
     category: 'customer-service',
   },
   {
-    title: 'Slack 알림',
-    description: 'Webhook이 트리거되면 #alerts 채널에 Slack 메시지 전송',
+    title: 'Slack Notifications',
+    description: 'When webhook is triggered, send Slack message to #alerts channel',
     category: 'notifications',
   },
   {
-    title: '문서 분석',
-    description: 'PDF를 업로드하면 텍스트를 추출하고 AI로 요약해서 팀에게 이메일 전송',
+    title: 'Document Analysis',
+    description: 'When PDF is uploaded, extract text and AI summarize, then email to team',
     category: 'document-processing',
   },
   {
-    title: '승인 워크플로우',
-    description: '구매 요청이 들어오면 금액이 $1000 이상이면 관리자 승인 필요, 그 후 결제 처리',
+    title: 'Approval Workflow',
+    description: 'When purchase request comes in, if amount is over $1000 require manager approval, then process payment',
     category: 'approval',
   },
 ];
@@ -50,8 +50,8 @@ export function WorkflowGeneratorModal({
   const handleGenerate = async () => {
     if (!description.trim()) {
       toast({
-        title: '❌ 설명 필요',
-        description: '워크플로우 설명을 입력해주세요',
+        title: '❌ Description Required',
+        description: 'Please enter a workflow description',
         duration: 2000,
       });
       return;
@@ -92,22 +92,22 @@ export function WorkflowGeneratorModal({
       setSuggestions(data.suggestions || []);
 
       toast({
-        title: '✨ 워크플로우 생성 완료',
-        description: `"${data.workflow.name}" 워크플로우가 생성되었습니다`,
+        title: '✨ Workflow Generated',
+        description: `"${data.workflow.name}" workflow has been created`,
         duration: 3000,
       });
     } catch (error: any) {
       console.error('Failed to generate workflow:', error);
       
-      let errorMessage = '워크플로우 생성 중 오류가 발생했습니다';
+      let errorMessage = 'An error occurred while generating workflow';
       if (error.name === 'AbortError') {
-        errorMessage = '생성 시간이 초과되었습니다. 더 간단한 설명을 시도해보세요';
+        errorMessage = 'Generation timed out. Please try a simpler description';
       } else if (error.message) {
         errorMessage = error.message;
       }
       
       toast({
-        title: '❌ 생성 실패',
+        title: '❌ Generation Failed',
         description: errorMessage,
         duration: 4000,
       });
@@ -121,8 +121,8 @@ export function WorkflowGeneratorModal({
       // Validate workflow before applying
       if (!generatedWorkflow.nodes || generatedWorkflow.nodes.length === 0) {
         toast({
-          title: '❌ 적용 실패',
-          description: '워크플로우에 노드가 없습니다',
+          title: '❌ Apply Failed',
+          description: 'Workflow has no nodes',
           duration: 2000,
         });
         return;
@@ -137,8 +137,8 @@ export function WorkflowGeneratorModal({
       setSuggestions([]);
       
       toast({
-        title: '✅ 워크플로우 적용됨',
-        description: '생성된 워크플로우가 캔버스에 적용되었습니다',
+        title: '✅ Workflow Applied',
+        description: 'Generated workflow has been applied to canvas',
         duration: 2000,
       });
     }
@@ -159,10 +159,10 @@ export function WorkflowGeneratorModal({
             </div>
             <div>
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                AI 워크플로우 생성기
+                AI Workflow Generator
               </h2>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                자연어로 설명하면 AI가 워크플로우를 자동으로 생성합니다
+                Describe in natural language and AI will automatically generate workflows
               </p>
             </div>
           </div>
@@ -181,12 +181,12 @@ export function WorkflowGeneratorModal({
             <>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  워크플로우 설명
+                  Workflow Description
                 </label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="예: 고객이 문의를 제출하면 감정을 분석하고, 긍정적이면 자동 답변, 부정적이면 담당자에게 알림"
+                  placeholder="Example: When customers submit inquiries, analyze sentiment, if positive send auto-reply, if negative notify staff"
                   className="w-full h-32 p-4 border border-gray-300 dark:border-gray-600 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white"
                   disabled={isGenerating}
                 />
@@ -197,7 +197,7 @@ export function WorkflowGeneratorModal({
                 <div className="flex items-center gap-2 mb-3">
                   <Lightbulb className="w-4 h-4 text-yellow-500" />
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    예시 프롬프트
+                    Example Prompts
                   </span>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -241,7 +241,7 @@ export function WorkflowGeneratorModal({
                     setSuggestions([]);
                   }}
                 >
-                  다시 생성
+                  Regenerate
                 </Button>
               </div>
 
@@ -251,26 +251,26 @@ export function WorkflowGeneratorModal({
                   <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
                     {generatedWorkflow.nodes?.length || 0}
                   </div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400">노드</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">Nodes</div>
                 </div>
                 <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
                   <div className="text-2xl font-bold text-green-600 dark:text-green-400">
                     {generatedWorkflow.edges?.length || 0}
                   </div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400">연결</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">Connections</div>
                 </div>
                 <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
                   <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
                     {new Set(generatedWorkflow.nodes?.map((n: any) => n.node_type || n.type) || []).size}
                   </div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400">노드 타입</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">Node Types</div>
                 </div>
               </div>
 
               {/* Node List */}
               <div>
                 <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  포함된 노드
+                  Included Nodes
                 </h4>
                 <div className="space-y-2 max-h-64 overflow-y-auto">
                   {generatedWorkflow.nodes?.map((node: any, index: number) => {
@@ -306,7 +306,7 @@ export function WorkflowGeneratorModal({
                   <div className="flex items-center gap-2 mb-2">
                     <Zap className="w-4 h-4 text-yellow-500" />
                     <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      개선 제안
+                      Improvement Suggestions
                     </h4>
                   </div>
                   <div className="space-y-2">
@@ -335,7 +335,7 @@ export function WorkflowGeneratorModal({
         {/* Footer */}
         <div className="flex items-center justify-between p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
           <Button variant="ghost" onClick={onClose} disabled={isGenerating}>
-            취소
+            Cancel
           </Button>
           <div className="flex gap-2">
             {!generatedWorkflow ? (
@@ -347,12 +347,12 @@ export function WorkflowGeneratorModal({
                 {isGenerating ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    생성 중...
+                    Generating...
                   </>
                 ) : (
                   <>
                     <Sparkles className="w-4 h-4 mr-2" />
-                    워크플로우 생성
+                    Generate Workflow
                   </>
                 )}
               </Button>
@@ -361,7 +361,7 @@ export function WorkflowGeneratorModal({
                 onClick={handleApply}
                 className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
               >
-                워크플로우 적용
+                Apply Workflow
               </Button>
             )}
           </div>

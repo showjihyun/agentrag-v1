@@ -82,14 +82,14 @@ export default function AgentflowDetailPage({ params }: { params: Promise<{ id: 
     try {
       await flowsAPI.deleteFlow(id);
       toast({
-        title: '삭제 완료',
-        description: 'Agentflow가 삭제되었습니다',
+        title: 'Deleted',
+        description: 'Agentflow has been deleted',
       });
       router.push('/agent-builder/agentflows');
     } catch (error: any) {
       toast({
-        title: '오류',
-        description: error.message || '삭제에 실패했습니다',
+        title: 'Error',
+        description: error.message || 'Deletion failed',
         variant: 'destructive',
       });
     }
@@ -99,19 +99,19 @@ export default function AgentflowDetailPage({ params }: { params: Promise<{ id: 
     try {
       const duplicated = {
         ...flow,
-        name: `${flow.name} (복사본)`,
+        name: `${flow.name} (Copy)`,
         id: undefined,
       };
       await flowsAPI.createAgentflow(duplicated);
       toast({
-        title: '복제 완료',
-        description: 'Agentflow가 복제되었습니다',
+        title: 'Duplicated',
+        description: 'Agentflow has been duplicated',
       });
       router.push('/agent-builder/agentflows');
     } catch (error: any) {
       toast({
-        title: '오류',
-        description: error.message || '복제에 실패했습니다',
+        title: 'Error',
+        description: error.message || 'Duplication failed',
         variant: 'destructive',
       });
     }
@@ -131,7 +131,7 @@ export default function AgentflowDetailPage({ params }: { params: Promise<{ id: 
       <div className="container mx-auto p-6 max-w-6xl">
         <Card className="border-red-500">
           <CardContent className="pt-6">
-            <p className="text-red-500">Agentflow를 불러오는데 실패했습니다</p>
+            <p className="text-red-500">Failed to load Agentflow</p>
           </CardContent>
         </Card>
       </div>
@@ -154,20 +154,20 @@ export default function AgentflowDetailPage({ params }: { params: Promise<{ id: 
             </div>
             {flow.name}
           </h1>
-          <p className="text-muted-foreground mt-1">{flow.description || '설명 없음'}</p>
+          <p className="text-muted-foreground mt-1">{flow.description || 'No description'}</p>
         </div>
         <Button
           size="lg"
           onClick={() => {
             toast({
-              title: '실행 준비 중',
-              description: 'Agentflow 실행 기능을 준비 중입니다',
+              title: 'Preparing Execution',
+              description: 'Agentflow execution feature is being prepared',
             });
           }}
           className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
         >
           <Play className="h-5 w-5 mr-2" />
-          실행
+          Run
         </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -176,20 +176,20 @@ export default function AgentflowDetailPage({ params }: { params: Promise<{ id: 
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuLabel>작업</DropdownMenuLabel>
+            <DropdownMenuLabel>Actions</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => router.push(`/agent-builder/agentflows/${id}/edit`)}>
               <Edit className="mr-2 h-4 w-4" />
-              편집
+              Edit
             </DropdownMenuItem>
             <DropdownMenuItem onClick={handleDuplicate}>
               <Copy className="mr-2 h-4 w-4" />
-              복제
+              Duplicate
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="text-destructive" onClick={() => setDeleteDialogOpen(true)}>
               <Trash className="mr-2 h-4 w-4" />
-              삭제
+              Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -199,7 +199,7 @@ export default function AgentflowDetailPage({ params }: { params: Promise<{ id: 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">에이전트 수</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Agent Count</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-purple-600">{flow.agents?.length || 0}</div>
@@ -207,7 +207,7 @@ export default function AgentflowDetailPage({ params }: { params: Promise<{ id: 
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">총 실행 횟수</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Executions</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-600">{flow.execution_count || 0}</div>
@@ -215,7 +215,7 @@ export default function AgentflowDetailPage({ params }: { params: Promise<{ id: 
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">성공률</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Success Rate</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
@@ -228,13 +228,13 @@ export default function AgentflowDetailPage({ params }: { params: Promise<{ id: 
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">상태</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Status</CardTitle>
           </CardHeader>
           <CardContent>
             {flow.is_active ? (
-              <Badge className="bg-green-500">활성</Badge>
+              <Badge className="bg-green-500">Active</Badge>
             ) : (
-              <Badge variant="secondary">비활성</Badge>
+              <Badge variant="secondary">Inactive</Badge>
             )}
           </CardContent>
         </Card>
@@ -243,9 +243,9 @@ export default function AgentflowDetailPage({ params }: { params: Promise<{ id: 
       {/* Tabs */}
       <Tabs defaultValue="overview" className="space-y-6">
         <TabsList className="grid w-full grid-cols-3 lg:w-[500px]">
-          <TabsTrigger value="overview">개요</TabsTrigger>
-          <TabsTrigger value="agents">에이전트</TabsTrigger>
-          <TabsTrigger value="history">실행 히스토리</TabsTrigger>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="agents">Agents</TabsTrigger>
+          <TabsTrigger value="history">Execution History</TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
@@ -256,31 +256,31 @@ export default function AgentflowDetailPage({ params }: { params: Promise<{ id: 
                 <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900">
                   <Settings className="h-5 w-5 text-purple-600 dark:text-purple-400" />
                 </div>
-                <CardTitle>설정 정보</CardTitle>
+                <CardTitle>Configuration Info</CardTitle>
               </div>
             </CardHeader>
             <CardContent className="pt-6">
               <div className="grid grid-cols-2 gap-6">
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">오케스트레이션 유형</p>
+                  <p className="text-sm text-muted-foreground mb-1">Orchestration Type</p>
                   <div className="flex items-center gap-2">
                     <OrchIcon className="h-5 w-5 text-purple-600" />
                     <p className="font-medium">{ORCHESTRATION_LABELS[flow.orchestration_type as keyof typeof ORCHESTRATION_LABELS]}</p>
                   </div>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">생성일</p>
+                  <p className="text-sm text-muted-foreground mb-1">Created</p>
                   <p className="font-medium">{new Date(flow.created_at).toLocaleString()}</p>
                 </div>
                 {flow.updated_at && (
                   <div>
-                    <p className="text-sm text-muted-foreground mb-1">수정일</p>
+                    <p className="text-sm text-muted-foreground mb-1">Modified</p>
                     <p className="font-medium">{new Date(flow.updated_at).toLocaleString()}</p>
                   </div>
                 )}
                 {flow.tags && flow.tags.length > 0 && (
                   <div className="col-span-2">
-                    <p className="text-sm text-muted-foreground mb-2">태그</p>
+                    <p className="text-sm text-muted-foreground mb-2">Tags</p>
                     <div className="flex gap-2 flex-wrap">
                       {flow.tags.map((tag: string) => (
                         <Badge key={tag} variant="secondary">
@@ -313,7 +313,7 @@ export default function AgentflowDetailPage({ params }: { params: Promise<{ id: 
                         )}
                       </div>
                     </div>
-                    <Badge variant="secondary">우선순위: {agent.priority || index + 1}</Badge>
+                    <Badge variant="secondary">Priority: {agent.priority || index + 1}</Badge>
                   </div>
                 </CardHeader>
                 {agent.description && (
@@ -327,7 +327,7 @@ export default function AgentflowDetailPage({ params }: { params: Promise<{ id: 
             <Card>
               <CardContent className="pt-6 text-center text-muted-foreground">
                 <Users className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>에이전트가 구성되지 않았습니다</p>
+                <p>No agents configured</p>
               </CardContent>
             </Card>
           )}
@@ -363,7 +363,7 @@ export default function AgentflowDetailPage({ params }: { params: Promise<{ id: 
                           {new Date(execution.started_at).toLocaleString()}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          {execution.duration ? `${execution.duration.toFixed(1)}초` : '진행 중'}
+                          {execution.duration ? `${execution.duration.toFixed(1)}s` : 'In Progress'}
                         </p>
                       </div>
                     </div>
@@ -386,7 +386,7 @@ export default function AgentflowDetailPage({ params }: { params: Promise<{ id: 
             <Card>
               <CardContent className="pt-6 text-center text-muted-foreground">
                 <Clock className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>실행 히스토리가 없습니다</p>
+                <p>No execution history</p>
               </CardContent>
             </Card>
           )}
@@ -397,15 +397,15 @@ export default function AgentflowDetailPage({ params }: { params: Promise<{ id: 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Agentflow 삭제</AlertDialogTitle>
+            <AlertDialogTitle>Delete Agentflow</AlertDialogTitle>
             <AlertDialogDescription>
-              정말로 이 Agentflow를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
+              Are you sure you want to delete this Agentflow? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>취소</AlertDialogCancel>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
-              삭제
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -23,6 +23,7 @@ import {
   Brain,
   Workflow,
   TrendingUp,
+  Puzzle,
 } from 'lucide-react';
 
 const quickActions = [
@@ -50,10 +51,10 @@ const quickActions = [
     color: 'from-orange-500 to-amber-500',
   },
   {
-    title: 'Browse Templates',
-    description: 'Start from marketplace',
-    icon: Store,
-    href: '/agent-builder/marketplace',
+    title: 'Manage Plugins',
+    description: 'Agent plugin system',
+    icon: Puzzle,
+    href: '/agent-builder/plugins',
     color: 'from-purple-500 to-pink-500',
     badge: 'New',
   },

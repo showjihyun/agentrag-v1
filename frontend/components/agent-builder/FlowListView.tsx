@@ -35,7 +35,6 @@ interface FlowListViewProps {
 export function FlowListView({ flows, type, onAction }: FlowListViewProps) {
   const isAgentflow = type === 'agentflow';
   const Icon = isAgentflow ? Users : MessageSquare;
-  const primaryColor = isAgentflow ? 'purple' : 'blue';
 
   return (
     <div className="space-y-3">
@@ -47,10 +46,18 @@ export function FlowListView({ flows, type, onAction }: FlowListViewProps) {
         >
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
-              {/* 왼쪽: 기본 정보 */}
+              {/* Left: Basic Info */}
               <div className="flex items-center gap-4 flex-1 min-w-0">
-                <div className={`p-2 rounded-lg bg-${primaryColor}-100 dark:bg-${primaryColor}-900 shrink-0`}>
-                  <Icon className={`h-5 w-5 text-${primaryColor}-600 dark:text-${primaryColor}-400`} />
+                <div className={`p-2 rounded-lg shrink-0 ${
+                  isAgentflow 
+                    ? 'bg-purple-100 dark:bg-purple-900' 
+                    : 'bg-blue-100 dark:bg-blue-900'
+                }`}>
+                  <Icon className={`h-5 w-5 ${
+                    isAgentflow 
+                      ? 'text-purple-600 dark:text-purple-400' 
+                      : 'text-blue-600 dark:text-blue-400'
+                  }`} />
                 </div>
                 
                 <div className="flex-1 min-w-0">
@@ -61,24 +68,26 @@ export function FlowListView({ flows, type, onAction }: FlowListViewProps) {
                     {flow.is_active && (
                       <Badge className="bg-green-500 text-xs shrink-0">
                         <CheckCircle2 className="h-3 w-3 mr-1" />
-                        활성
+                        Active
                       </Badge>
                     )}
                   </div>
                   <p className="text-sm text-muted-foreground line-clamp-1">
-                    {flow.description || '설명 없음'}
+                    {flow.description || 'No description'}
                   </p>
                 </div>
               </div>
 
-              {/* 중앙: 메트릭 */}
+              {/* Center: Metrics */}
               <div className="hidden md:flex items-center gap-6 mx-6">
                 <div className="text-center">
-                  <div className={`text-lg font-bold text-${primaryColor}-600`}>
+                  <div className={`text-lg font-bold ${
+                    isAgentflow ? 'text-purple-600' : 'text-blue-600'
+                  }`}>
                     {isAgentflow ? (flow.agents?.length || 0) : (flow.execution_count || 0)}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {isAgentflow ? '에이전트' : '대화'}
+                    {isAgentflow ? 'Agents' : 'Conversations'}
                   </div>
                 </div>
                 
@@ -88,7 +97,7 @@ export function FlowListView({ flows, type, onAction }: FlowListViewProps) {
                       ? `${Math.round(((flow.success_count || Math.floor(flow.execution_count * 0.85)) / flow.execution_count) * 100)}%`
                       : '—'}
                   </div>
-                  <div className="text-xs text-muted-foreground">성공률</div>
+                  <div className="text-xs text-muted-foreground">Success Rate</div>
                 </div>
                 
                 <div className="text-center">
@@ -99,23 +108,27 @@ export function FlowListView({ flows, type, onAction }: FlowListViewProps) {
                       : new Date(flow.created_at).toLocaleDateString()}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {flow.updated_at ? '수정일' : '생성일'}
+                    {flow.updated_at ? 'Updated' : 'Created'}
                   </div>
                 </div>
               </div>
 
-              {/* 오른쪽: 액션 */}
+              {/* Right: Actions */}
               <div className="flex items-center gap-2 shrink-0">
                 <Button 
                   size="sm" 
-                  className={`bg-${primaryColor}-600 hover:bg-${primaryColor}-700 opacity-0 group-hover:opacity-100 transition-opacity`}
+                  className={`opacity-0 group-hover:opacity-100 transition-opacity ${
+                    isAgentflow 
+                      ? 'bg-purple-600 hover:bg-purple-700' 
+                      : 'bg-blue-600 hover:bg-blue-700'
+                  }`}
                   onClick={(e) => {
                     e.stopPropagation();
                     onAction(isAgentflow ? 'execute' : 'chat', flow.id);
                   }}
                 >
                   <Play className="h-3 w-3 mr-1" />
-                  {isAgentflow ? '실행' : '채팅'}
+                  {isAgentflow ? 'Execute' : 'Chat'}
                 </Button>
 
                 <DropdownMenu>
@@ -128,15 +141,15 @@ export function FlowListView({ flows, type, onAction }: FlowListViewProps) {
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem onClick={() => onAction('view', flow.id)}>
                       <Eye className="mr-2 h-4 w-4" />
-                      보기
+                      View
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => onAction('edit', flow.id)}>
                       <Edit className="mr-2 h-4 w-4" />
-                      편집
+                      Edit
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => onAction('duplicate', flow.id, flow)}>
                       <Copy className="mr-2 h-4 w-4" />
-                      복제
+                      Duplicate
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem 
@@ -144,22 +157,24 @@ export function FlowListView({ flows, type, onAction }: FlowListViewProps) {
                       onClick={() => onAction('delete', flow.id)}
                     >
                       <Trash className="mr-2 h-4 w-4" />
-                      삭제
+                      Delete
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
             </div>
 
-            {/* 모바일용 메트릭 */}
+            {/* Mobile Metrics */}
             <div className="md:hidden mt-3 pt-3 border-t">
               <div className="grid grid-cols-3 gap-4 text-center">
                 <div>
-                  <div className={`text-lg font-bold text-${primaryColor}-600`}>
+                  <div className={`text-lg font-bold ${
+                    isAgentflow ? 'text-purple-600' : 'text-blue-600'
+                  }`}>
                     {isAgentflow ? (flow.agents?.length || 0) : (flow.execution_count || 0)}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {isAgentflow ? '에이전트' : '대화'}
+                    {isAgentflow ? 'Agents' : 'Conversations'}
                   </div>
                 </div>
                 <div>
@@ -168,7 +183,7 @@ export function FlowListView({ flows, type, onAction }: FlowListViewProps) {
                       ? `${Math.round(((flow.success_count || Math.floor(flow.execution_count * 0.85)) / flow.execution_count) * 100)}%`
                       : '—'}
                   </div>
-                  <div className="text-xs text-muted-foreground">성공률</div>
+                  <div className="text-xs text-muted-foreground">Success Rate</div>
                 </div>
                 <div>
                   <div className="text-sm text-muted-foreground">
@@ -177,7 +192,7 @@ export function FlowListView({ flows, type, onAction }: FlowListViewProps) {
                       : new Date(flow.created_at).toLocaleDateString()}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {flow.updated_at ? '수정일' : '생성일'}
+                    {flow.updated_at ? 'Updated' : 'Created'}
                   </div>
                 </div>
               </div>

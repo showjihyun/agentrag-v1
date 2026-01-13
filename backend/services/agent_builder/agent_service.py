@@ -87,7 +87,7 @@ class AgentService:
                 db=settings.REDIS_DB,
                 password=settings.REDIS_PASSWORD
             )
-            redis_client = redis_pool.get_connection()
+            redis_client = redis_pool.get_client()
             return EventBus(redis_client=redis_client)
         except Exception as e:
             logger.warning(f"EventBus init failed: {e}. Using in-memory fallback.")

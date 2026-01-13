@@ -21,6 +21,21 @@ from .auth import (
     TokenRefresh,
     UserUpdate,
 )
+from .plugin import (
+    PluginManifest,
+    PluginInfo,
+    PluginConfiguration,
+    PluginStatus,
+    PluginCategory,
+    AgentRole,
+    OrchestrationPattern,
+    ValidationResult,
+    SecurityValidationResult,
+    ExecutionResult,
+    ErrorResponse,
+    IPlugin,
+    IOrchestrationPlugin,
+)
 
 __all__ = [
     "Document",
@@ -45,4 +60,17 @@ __all__ = [
     "TokenResponse",
     "TokenRefresh",
     "UserUpdate",
+    # Plugin models
+    "PluginManifest",
+    "PluginInfo",
+    "PluginConfiguration",
+    "PluginStatus",
+    "PluginCategory",
+    "AgentRole",
+    "OrchestrationPattern",
+    "ValidationResult",
+    "SecurityValidationResult",
+    "ExecutionResult",
+    "IPlugin",
+    "IOrchestrationPlugin",
 ]

@@ -33,10 +33,6 @@ interface AppState {
   selectedMode: 'fast' | 'balanced' | 'deep' | 'auto' | 'web_search';
   setSelectedMode: (mode: 'fast' | 'balanced' | 'deep' | 'auto' | 'web_search') => void;
   
-  // Theme
-  theme: 'light' | 'dark' | 'system';
-  setTheme: (theme: 'light' | 'dark' | 'system') => void;
-  
   // Onboarding
   hasCompletedOnboarding: boolean;
   setHasCompletedOnboarding: (completed: boolean) => void;
@@ -86,10 +82,6 @@ export const useAppStore = create<AppState>()(
         selectedMode: 'auto',
         setSelectedMode: (mode) => set({ selectedMode: mode }),
         
-        // Theme
-        theme: 'system',
-        setTheme: (theme) => set({ theme: theme }),
-        
         // Onboarding
         hasCompletedOnboarding: false,
         setHasCompletedOnboarding: (completed) => set({ hasCompletedOnboarding: completed }),
@@ -103,7 +95,6 @@ export const useAppStore = create<AppState>()(
         // Only persist certain fields
         partialize: (state) => ({
           selectedMode: state.selectedMode,
-          theme: state.theme,
           hasCompletedOnboarding: state.hasCompletedOnboarding,
           locale: state.locale,
         }),
@@ -118,7 +109,6 @@ export const useActiveSessionId = () => useAppStore((state) => state.activeSessi
 export const useShowSidebar = () => useAppStore((state) => state.showSidebar);
 export const useIsLoading = () => useAppStore((state) => state.isLoading);
 export const useSelectedMode = () => useAppStore((state) => state.selectedMode);
-export const useTheme = () => useAppStore((state) => state.theme);
 export const useHasCompletedOnboarding = () => useAppStore((state) => state.hasCompletedOnboarding);
 export const useLocale = () => useAppStore((state) => state.locale);
 
@@ -128,7 +118,6 @@ export const useToggleSidebar = () => useAppStore((state) => state.toggleSidebar
 export const useSetSidebarOpen = () => useAppStore((state) => state.setSidebarOpen);
 export const useSetIsLoading = () => useAppStore((state) => state.setIsLoading);
 export const useSetSelectedMode = () => useAppStore((state) => state.setSelectedMode);
-export const useSetTheme = () => useAppStore((state) => state.setTheme);
 export const useSetHasCompletedOnboarding = () => useAppStore((state) => state.setHasCompletedOnboarding);
 export const useSetLocale = () => useAppStore((state) => state.setLocale);
 
@@ -143,7 +132,6 @@ const actionsSelector = (state: AppState) => ({
   clearMessages: state.clearMessages,
   setIsLoading: state.setIsLoading,
   setSelectedMode: state.setSelectedMode,
-  setTheme: state.setTheme,
   setHasCompletedOnboarding: state.setHasCompletedOnboarding,
   setLocale: state.setLocale,
 });

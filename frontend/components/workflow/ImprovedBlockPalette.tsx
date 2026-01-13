@@ -9,6 +9,7 @@
  * - Drag and drop support
  * - Empty state illustrations
  * - Accessibility improvements
+ * - Fixed scroll issues with proper height management
  */
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
@@ -84,6 +85,12 @@ const TOOLS: Tool[] = [
   { id: 'openai_chat', name: 'OpenAI Chat', description: 'GPT-4 and GPT-3.5 models', category: 'ai', icon: Sparkles, popular: true },
   { id: 'anthropic_claude', name: 'Claude', description: 'Anthropic Claude AI', category: 'ai', icon: Bot },
   { id: 'google_gemini', name: 'Gemini', description: 'Google Gemini AI', category: 'ai', icon: Sparkles },
+  
+  // Orchestration (NEW - Priority for Agent coordination)
+  { id: 'orchestration_agent', name: 'Orchestration Agent', description: 'Advanced agent with orchestration capabilities', category: 'orchestration', icon: Users, popular: true, new: true },
+  { id: 'supervisor_agent', name: 'Supervisor Agent', description: 'LLM-powered supervisor for multi-agent coordination', category: 'orchestration', icon: Bot, popular: true, new: true },
+  { id: 'voting', name: 'Voting Node', description: 'Democratic decision making through agent voting', category: 'orchestration', icon: Users, new: true },
+  { id: 'sync_point', name: 'Sync Point', description: 'Synchronization point for agent coordination', category: 'orchestration', icon: Clock, new: true },
   
   // 🌟 Gemini 3.0 MultiModal (NEW - Priority)
   { id: 'gemini_vision', name: 'Gemini Vision', description: 'Advanced image analysis with Gemini 3.0', category: 'multimodal', icon: Eye, popular: true, new: true },
@@ -246,7 +253,9 @@ export function ImprovedBlockPalette({ onAddNode, executionLogs = [] }: BlockPal
         e.preventDefault();
         if (highlightedIndex >= 0 && highlightedIndex < tools.length) {
           const tool = tools[highlightedIndex];
-          handleAddNode('tool', tool.id, tool.name);
+          if (tool) {
+            handleAddNode('tool', tool.id, tool.name);
+          }
         }
         break;
       case 'Escape':
@@ -312,13 +321,39 @@ export function ImprovedBlockPalette({ onAddNode, executionLogs = [] }: BlockPal
     }
   };
   
+  const getCategoryColor = (category: string) => {
+    switch (category) {
+      case 'orchestration': return 'bg-purple-100 dark:bg-purple-950 group-hover:bg-purple-200 dark:group-hover:bg-purple-900';
+      case 'ai': return 'bg-blue-100 dark:bg-blue-950 group-hover:bg-blue-200 dark:group-hover:bg-blue-900';
+      case 'multimodal': return 'bg-indigo-100 dark:bg-indigo-950 group-hover:bg-indigo-200 dark:group-hover:bg-indigo-900';
+      case 'communication': return 'bg-green-100 dark:bg-green-950 group-hover:bg-green-200 dark:group-hover:bg-green-900';
+      case 'data': return 'bg-yellow-100 dark:bg-yellow-950 group-hover:bg-yellow-200 dark:group-hover:bg-yellow-900';
+      case 'api': return 'bg-orange-100 dark:bg-orange-950 group-hover:bg-orange-200 dark:group-hover:bg-orange-900';
+      case 'code': return 'bg-red-100 dark:bg-red-950 group-hover:bg-red-200 dark:group-hover:bg-red-900';
+      default: return 'bg-gray-100 dark:bg-gray-950 group-hover:bg-gray-200 dark:group-hover:bg-gray-900';
+    }
+  };
+  
+  const getCategoryIconColor = (category: string) => {
+    switch (category) {
+      case 'orchestration': return 'text-purple-600 dark:text-purple-400';
+      case 'ai': return 'text-blue-600 dark:text-blue-400';
+      case 'multimodal': return 'text-indigo-600 dark:text-indigo-400';
+      case 'communication': return 'text-green-600 dark:text-green-400';
+      case 'data': return 'text-yellow-600 dark:text-yellow-400';
+      case 'api': return 'text-orange-600 dark:text-orange-400';
+      case 'code': return 'text-red-600 dark:text-red-400';
+      default: return 'text-gray-600 dark:text-gray-400';
+    }
+  };
+  
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full relative">
       {/* Main Content Area - 70% */}
-      <div className="flex-1 flex flex-col min-h-0">
-        <Card className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-h-0 max-h-[70%] relative z-10">
+        <Card className="flex-1 flex flex-col min-h-0 border-b-0">
           {/* Header */}
-          <div className="p-4 border-b">
+          <div className="p-4 border-b flex-shrink-0">
             <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
               <Wrench className="h-5 w-5" />
               Block Palette
@@ -359,41 +394,19 @@ export function ImprovedBlockPalette({ onAddNode, executionLogs = [] }: BlockPal
                           K
                         </kbd>
                       </TooltipTrigger>
-                      <TooltipContent>Press Ctrl+K to search</TooltipContent>
+                      <TooltipContent className="z-50">Press Ctrl+K to search</TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
                 )}
               </div>
             </div>
             
-            {/* Recently Used - Quick Access */}
-            {recentlyUsed.length > 0 && !searchQuery && (
-              <div className="mt-3">
-                <p className="text-xs text-muted-foreground mb-2">Recently Used</p>
-                <div className="flex flex-wrap gap-1">
-                  {recentlyUsed.map(toolId => {
-                    const tool = [...TOOLS, ...CONTROL_TOOLS, ...TRIGGERS, ...BLOCKS].find(t => t.id === toolId);
-                    if (!tool) return null;
-                    return (
-                      <Button
-                        key={toolId}
-                        variant="outline"
-                        size="sm"
-                        className="h-7 text-xs"
-                        onClick={() => handleAddNode('tool', tool.id, tool.name)}
-                      >
-                        {tool.name}
-                      </Button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+
           </div>
           
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
-            <div className="px-4 pt-2 border-b">
+            <div className="px-4 pt-2 border-b flex-shrink-0">
               <TabsList className="w-full grid grid-cols-4">
                 <TabsTrigger value="tools">
                   <Wrench className="h-4 w-4 mr-1" />
@@ -416,7 +429,7 @@ export function ImprovedBlockPalette({ onAddNode, executionLogs = [] }: BlockPal
             
             <TabsContent value="tools" className="flex-1 flex flex-col min-h-0 m-0">
               {/* Category Filter */}
-              <div className="px-4 py-2 border-b">
+              <div className="px-4 py-2 border-b flex-shrink-0">
                 <ScrollArea className="w-full">
                   <div className="flex gap-2">
                     <Button
@@ -440,264 +453,317 @@ export function ImprovedBlockPalette({ onAddNode, executionLogs = [] }: BlockPal
                 </ScrollArea>
               </div>
               
-              {/* Tools List */}
-              <ScrollArea className="flex-1">
-                <div 
-                  id="tool-results"
-                  className="p-4 space-y-2"
-                  role="listbox"
-                  aria-label="Available tools"
-                  onKeyDown={(e) => handleKeyDown(e, filteredTools)}
-                >
-                  {filteredTools.map((tool, index) => {
-                    const Icon = tool.icon;
-                    const isHighlighted = index === highlightedIndex;
-                    const isLoading = isAdding === tool.id;
-                    
-                    return (
-                      <div
-                        key={tool.id}
-                        role="option"
-                        aria-selected={isHighlighted}
-                        tabIndex={0}
-                        className={cn(
-                          "group relative p-3 border rounded-lg transition-all cursor-pointer",
-                          "bg-background hover:border-primary hover:shadow-md",
-                          "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
-                          isHighlighted && "border-primary bg-primary/5",
-                          isLoading && "opacity-70 pointer-events-none"
-                        )}
-                        onClick={() => handleAddNode('tool', tool.id, tool.name)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleAddNode('tool', tool.id, tool.name)}
-                        onMouseEnter={() => setHighlightedIndex(index)}
-                        aria-label={`Add ${tool.name} node`}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className={cn(
-                            "p-2 rounded-lg transition-colors",
-                            "bg-primary/10 group-hover:bg-primary/20",
-                            isHighlighted && "bg-primary/20"
-                          )}>
-                            {isLoading ? (
-                              <Loader2 className="h-5 w-5 text-primary animate-spin" />
-                            ) : (
-                              <Icon className="h-5 w-5 text-primary" />
-                            )}
-                          </div>
-                          
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <h4 className="font-medium text-sm">{tool.name}</h4>
-                              {tool.popular && (
-                                <Badge variant="secondary" className="text-xs gap-1">
-                                  <Star className="h-3 w-3 fill-current" />
-                                  Popular
-                                </Badge>
-                              )}
-                              {tool.new && (
-                                <Badge variant="default" className="text-xs gap-1">
-                                  <Sparkles className="h-3 w-3" />
-                                  New
-                                </Badge>
+              {/* Tools List - 스크롤 가능한 영역 */}
+              <div className="flex-1 min-h-0">
+                <ScrollArea className="h-full">
+                  <div 
+                    id="tool-results"
+                    className="p-4 space-y-2"
+                    role="listbox"
+                    aria-label="Available tools"
+                    onKeyDown={(e) => handleKeyDown(e, filteredTools)}
+                  >
+                    {filteredTools.map((tool, index) => {
+                      const Icon = tool.icon;
+                      const isHighlighted = index === highlightedIndex;
+                      const isLoading = isAdding === tool.id;
+                      
+                      return (
+                        <div
+                          key={tool.id}
+                          role="option"
+                          aria-selected={isHighlighted}
+                          tabIndex={0}
+                          className={cn(
+                            "group relative p-3 border rounded-lg transition-all cursor-pointer",
+                            "bg-background hover:border-primary hover:shadow-md",
+                            "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+                            isHighlighted && "border-primary bg-primary/5",
+                            isLoading && "opacity-70 pointer-events-none"
+                          )}
+                          onClick={() => handleAddNode('tool', tool.id, tool.name)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleAddNode('tool', tool.id, tool.name)}
+                          onMouseEnter={() => setHighlightedIndex(index)}
+                          aria-label={`Add ${tool.name} node`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className={cn(
+                              "p-2 rounded-lg transition-colors",
+                              getCategoryColor(tool.category),
+                              isHighlighted && "bg-primary/20"
+                            )}>
+                              {isLoading ? (
+                                <Loader2 className="h-5 w-5 text-primary animate-spin" />
+                              ) : (
+                                <Icon className={cn("h-5 w-5", getCategoryIconColor(tool.category))} />
                               )}
                             </div>
-                            <p className="text-xs text-muted-foreground line-clamp-2">
-                              {tool.description}
-                            </p>
-                            <Badge variant="outline" className="text-xs mt-2">
-                              {tool.category}
-                            </Badge>
-                          </div>
-                          
-                          <div className={cn(
-                            "flex items-center gap-1 transition-opacity",
-                            "opacity-0 group-hover:opacity-100",
-                            isHighlighted && "opacity-100"
-                          )}>
-                            <Plus className="h-4 w-4 text-primary" />
+                            
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h4 className="font-medium text-sm">{tool.name}</h4>
+                                {tool.popular && (
+                                  <Badge variant="secondary" className="text-xs gap-1">
+                                    <Star className="h-3 w-3 fill-current" />
+                                    Popular
+                                  </Badge>
+                                )}
+                                {tool.new && (
+                                  <Badge variant="default" className="text-xs gap-1">
+                                    <Sparkles className="h-3 w-3" />
+                                    New
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-xs text-muted-foreground line-clamp-2">
+                                {tool.description}
+                              </p>
+                              <Badge variant="outline" className="text-xs mt-2">
+                                {tool.category}
+                              </Badge>
+                            </div>
+                            
+                            <div className={cn(
+                              "flex items-center gap-1 transition-opacity",
+                              "opacity-0 group-hover:opacity-100",
+                              isHighlighted && "opacity-100"
+                            )}>
+                              <Plus className="h-4 w-4 text-primary" />
+                            </div>
                           </div>
                         </div>
+                      );
+                    })}
+                    
+                    {filteredTools.length === 0 && (
+                      <div 
+                        className="text-center py-12 text-muted-foreground" 
+                        role="status" 
+                        aria-live="polite"
+                      >
+                        {/* Empty state illustration */}
+                        <div className="relative mx-auto w-24 h-24 mb-4">
+                          <div className="absolute inset-0 bg-muted/50 rounded-full" />
+                          <Search className="absolute inset-0 m-auto h-10 w-10 opacity-30" aria-hidden="true" />
+                        </div>
+                        <p className="font-medium">No tools found</p>
+                        <p className="text-xs mt-2 max-w-[200px] mx-auto">
+                          Try a different search term or browse other categories
+                        </p>
+                        {searchQuery && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="mt-4 gap-2"
+                            onClick={() => setSearchQuery('')}
+                          >
+                            <X className="h-3 w-3" />
+                            Clear search
+                          </Button>
+                        )}
                       </div>
-                    );
-                  })}
-                  
-                  {filteredTools.length === 0 && (
-                    <div 
-                      className="text-center py-12 text-muted-foreground" 
-                      role="status" 
-                      aria-live="polite"
-                    >
-                      {/* Empty state illustration */}
-                      <div className="relative mx-auto w-24 h-24 mb-4">
-                        <div className="absolute inset-0 bg-muted/50 rounded-full" />
-                        <Search className="absolute inset-0 m-auto h-10 w-10 opacity-30" aria-hidden="true" />
-                      </div>
-                      <p className="font-medium">No tools found</p>
-                      <p className="text-xs mt-2 max-w-[200px] mx-auto">
-                        Try a different search term or browse other categories
-                      </p>
-                      {searchQuery && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="mt-4 gap-2"
-                          onClick={() => setSearchQuery('')}
-                        >
-                          <X className="h-3 w-3" />
-                          Clear search
-                        </Button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </ScrollArea>
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
             </TabsContent>
             
             <TabsContent value="control" className="flex-1 min-h-0 m-0">
-              <ScrollArea className="h-full">
-                <div className="p-4 space-y-2">
-                  {CONTROL_TOOLS.map((control) => {
-                    const Icon = control.icon;
-                    return (
-                      <div
-                        key={control.id}
-                        className="group relative p-3 border rounded-lg hover:border-primary hover:shadow-md transition-all cursor-pointer bg-white dark:bg-gray-950"
-                        onClick={() => onAddNode(control.id, undefined, control.name)}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-950 group-hover:bg-blue-200 dark:group-hover:bg-blue-900 transition-colors">
-                            <Icon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                          </div>
-                          
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <h4 className="font-medium text-sm">{control.name}</h4>
-                              {control.popular && (
-                                <Badge variant="secondary" className="text-xs gap-1">
-                                  <Star className="h-3 w-3 fill-current" />
-                                  Popular
-                                </Badge>
-                              )}
-                              {control.new && (
-                                <Badge variant="default" className="text-xs gap-1">
-                                  <Sparkles className="h-3 w-3" />
-                                  New
-                                </Badge>
+              <div className="flex-1 min-h-0">
+                <ScrollArea className="h-full">
+                  <div className="p-4 space-y-2">
+                    {CONTROL_TOOLS.map((control) => {
+                      const Icon = control.icon;
+                      const isLoading = isAdding === control.id;
+                      return (
+                        <div
+                          key={control.id}
+                          className={cn(
+                            "group relative p-3 border rounded-lg transition-all cursor-pointer",
+                            "bg-background hover:border-primary hover:shadow-md",
+                            "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+                            isLoading && "opacity-70 pointer-events-none"
+                          )}
+                          onClick={() => handleAddNode(control.id, undefined, control.name)}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-950 group-hover:bg-blue-200 dark:group-hover:bg-blue-900 transition-colors">
+                              {isLoading ? (
+                                <Loader2 className="h-5 w-5 text-primary animate-spin" />
+                              ) : (
+                                <Icon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                               )}
                             </div>
-                            <p className="text-xs text-muted-foreground line-clamp-2">
-                              {control.description}
-                            </p>
+                            
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h4 className="font-medium text-sm">{control.name}</h4>
+                                {control.popular && (
+                                  <Badge variant="secondary" className="text-xs gap-1">
+                                    <Star className="h-3 w-3 fill-current" />
+                                    Popular
+                                  </Badge>
+                                )}
+                                {control.new && (
+                                  <Badge variant="default" className="text-xs gap-1">
+                                    <Sparkles className="h-3 w-3" />
+                                    New
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-xs text-muted-foreground line-clamp-2">
+                                {control.description}
+                              </p>
+                            </div>
+                            
+                            <div className={cn(
+                              "flex items-center gap-1 transition-opacity",
+                              "opacity-0 group-hover:opacity-100"
+                            )}>
+                              <Plus className="h-4 w-4 text-primary" />
+                            </div>
                           </div>
-                          
-                          <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-primary transition-colors" />
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </ScrollArea>
+                      );
+                    })}
+                  </div>
+                </ScrollArea>
+              </div>
             </TabsContent>
             
             <TabsContent value="triggers" className="flex-1 min-h-0 m-0">
-              <ScrollArea className="h-full">
-                <div className="p-4 space-y-2">
-                  {TRIGGERS.map((trigger) => {
-                    const Icon = trigger.icon;
-                    return (
-                      <div
-                        key={trigger.id}
-                        className="group relative p-3 border rounded-lg hover:border-primary hover:shadow-md transition-all cursor-pointer bg-white dark:bg-gray-950"
-                        onClick={() => onAddNode(trigger.id, undefined, trigger.name)}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="p-2 rounded-lg bg-green-100 dark:bg-green-950 group-hover:bg-green-200 dark:group-hover:bg-green-900 transition-colors">
-                            <Icon className="h-5 w-5 text-green-600 dark:text-green-400" />
-                          </div>
-                          
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <h4 className="font-medium text-sm">{trigger.name}</h4>
-                              {trigger.popular && (
-                                <Badge variant="secondary" className="text-xs gap-1">
-                                  <Star className="h-3 w-3 fill-current" />
-                                  Popular
-                                </Badge>
-                              )}
-                              {trigger.new && (
-                                <Badge variant="default" className="text-xs gap-1">
-                                  <Sparkles className="h-3 w-3" />
-                                  New
-                                </Badge>
+              <div className="flex-1 min-h-0">
+                <ScrollArea className="h-full">
+                  <div className="p-4 space-y-2">
+                    {TRIGGERS.map((trigger) => {
+                      const Icon = trigger.icon;
+                      const isLoading = isAdding === trigger.id;
+                      return (
+                        <div
+                          key={trigger.id}
+                          className={cn(
+                            "group relative p-3 border rounded-lg transition-all cursor-pointer",
+                            "bg-background hover:border-primary hover:shadow-md",
+                            "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+                            isLoading && "opacity-70 pointer-events-none"
+                          )}
+                          onClick={() => handleAddNode(trigger.id, undefined, trigger.name)}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="p-2 rounded-lg bg-green-100 dark:bg-green-950 group-hover:bg-green-200 dark:group-hover:bg-green-900 transition-colors">
+                              {isLoading ? (
+                                <Loader2 className="h-5 w-5 text-primary animate-spin" />
+                              ) : (
+                                <Icon className="h-5 w-5 text-green-600 dark:text-green-400" />
                               )}
                             </div>
-                            <p className="text-xs text-muted-foreground line-clamp-2">
-                              {trigger.description}
-                            </p>
+                            
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h4 className="font-medium text-sm">{trigger.name}</h4>
+                                {trigger.popular && (
+                                  <Badge variant="secondary" className="text-xs gap-1">
+                                    <Star className="h-3 w-3 fill-current" />
+                                    Popular
+                                  </Badge>
+                                )}
+                                {trigger.new && (
+                                  <Badge variant="default" className="text-xs gap-1">
+                                    <Sparkles className="h-3 w-3" />
+                                    New
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-xs text-muted-foreground line-clamp-2">
+                                {trigger.description}
+                              </p>
+                            </div>
+                            
+                            <div className={cn(
+                              "flex items-center gap-1 transition-opacity",
+                              "opacity-0 group-hover:opacity-100"
+                            )}>
+                              <Plus className="h-4 w-4 text-primary" />
+                            </div>
                           </div>
-                          
-                          <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-primary transition-colors" />
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </ScrollArea>
+                      );
+                    })}
+                  </div>
+                </ScrollArea>
+              </div>
             </TabsContent>
             
             <TabsContent value="blocks" className="flex-1 min-h-0 m-0">
-              <ScrollArea className="h-full">
-                <div className="p-4 space-y-2">
-                  {BLOCKS.map((block) => {
-                    const Icon = block.icon;
-                    return (
-                      <div
-                        key={block.id}
-                        className="group relative p-3 border rounded-lg hover:border-primary hover:shadow-md transition-all cursor-pointer bg-white dark:bg-gray-950"
-                        onClick={() => onAddNode('block', block.id, block.name)}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-950 group-hover:bg-purple-200 dark:group-hover:bg-purple-900 transition-colors">
-                            <Icon className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                          </div>
-                          
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <h4 className="font-medium text-sm">{block.name}</h4>
-                              {block.popular && (
-                                <Badge variant="secondary" className="text-xs gap-1">
-                                  <Star className="h-3 w-3 fill-current" />
-                                  Popular
-                                </Badge>
-                              )}
-                              {block.new && (
-                                <Badge variant="default" className="text-xs gap-1">
-                                  <Sparkles className="h-3 w-3" />
-                                  New
-                                </Badge>
+              <div className="flex-1 min-h-0">
+                <ScrollArea className="h-full">
+                  <div className="p-4 space-y-2">
+                    {BLOCKS.map((block) => {
+                      const Icon = block.icon;
+                      const isLoading = isAdding === block.id;
+                      return (
+                        <div
+                          key={block.id}
+                          className={cn(
+                            "group relative p-3 border rounded-lg transition-all cursor-pointer",
+                            "bg-background hover:border-primary hover:shadow-md",
+                            "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+                            isLoading && "opacity-70 pointer-events-none"
+                          )}
+                          onClick={() => handleAddNode('block', block.id, block.name)}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-950 group-hover:bg-purple-200 dark:group-hover:bg-purple-900 transition-colors">
+                              {isLoading ? (
+                                <Loader2 className="h-5 w-5 text-primary animate-spin" />
+                              ) : (
+                                <Icon className="h-5 w-5 text-purple-600 dark:text-purple-400" />
                               )}
                             </div>
-                            <p className="text-xs text-muted-foreground line-clamp-2">
-                              {block.description}
-                            </p>
+                            
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h4 className="font-medium text-sm">{block.name}</h4>
+                                {block.popular && (
+                                  <Badge variant="secondary" className="text-xs gap-1">
+                                    <Star className="h-3 w-3 fill-current" />
+                                    Popular
+                                  </Badge>
+                                )}
+                                {block.new && (
+                                  <Badge variant="default" className="text-xs gap-1">
+                                    <Sparkles className="h-3 w-3" />
+                                    New
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-xs text-muted-foreground line-clamp-2">
+                                {block.description}
+                              </p>
+                            </div>
+                            
+                            <div className={cn(
+                              "flex items-center gap-1 transition-opacity",
+                              "opacity-0 group-hover:opacity-100"
+                            )}>
+                              <Plus className="h-4 w-4 text-primary" />
+                            </div>
                           </div>
-                          
-                          <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-primary transition-colors" />
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </ScrollArea>
+                      );
+                    })}
+                  </div>
+                </ScrollArea>
+              </div>
             </TabsContent>
           </Tabs>
         </Card>
       </div>
       
       {/* Execution Logs Panel - 30% */}
-      <div className="h-[30%] min-h-[200px] border-t">
-        <Card className="h-full flex flex-col">
-          <div className="p-3 border-b bg-gray-50 dark:bg-gray-900">
+      <div className="h-[30%] min-h-[200px] max-h-[30%] flex-shrink-0 relative z-0">
+        <Card className="h-full flex flex-col border-t-2 border-t-gray-200 dark:border-t-gray-700">
+          <div className="p-3 border-b bg-gray-50 dark:bg-gray-900 flex-shrink-0">
             <div className="flex items-center justify-between">
               <h4 className="text-sm font-semibold flex items-center gap-2">
                 <TrendingUp className="h-4 w-4" />
@@ -709,48 +775,50 @@ export function ImprovedBlockPalette({ onAddNode, executionLogs = [] }: BlockPal
             </div>
           </div>
           
-          <ScrollArea className="flex-1">
-            <div className="p-3 space-y-1">
-              {executionLogs.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">No execution logs yet</p>
-                  <p className="text-xs mt-1">Logs will appear here when you run workflows</p>
-                </div>
-              ) : (
-                executionLogs.map((log) => (
-                  <div
-                    key={log.id}
-                    className="p-2 rounded border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
-                  >
-                    <div className="flex items-start gap-2">
-                      <span className={`text-sm font-mono ${getLogColor(log.type)}`}>
-                        {getLogIcon(log.type)}
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-xs font-medium truncate">
-                            {log.nodeName}
-                          </span>
-                          {log.duration && (
-                            <Badge variant="outline" className="text-xs">
-                              {log.duration}ms
-                            </Badge>
-                          )}
+          <div className="flex-1 min-h-0">
+            <ScrollArea className="h-full">
+              <div className="p-3 space-y-1">
+                {executionLogs.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No execution logs yet</p>
+                    <p className="text-xs mt-1">Logs will appear here when you run workflows</p>
+                  </div>
+                ) : (
+                  executionLogs.map((log) => (
+                    <div
+                      key={log.id}
+                      className="p-2 rounded border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
+                    >
+                      <div className="flex items-start gap-2">
+                        <span className={`text-sm font-mono ${getLogColor(log.type)}`}>
+                          {getLogIcon(log.type)}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs font-medium truncate">
+                              {log.nodeName}
+                            </span>
+                            {log.duration && (
+                              <Badge variant="outline" className="text-xs">
+                                {log.duration}ms
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground line-clamp-2">
+                            {log.message}
+                          </p>
+                          <p className="text-xs text-gray-400 mt-1">
+                            {log.timestamp.toLocaleTimeString()}
+                          </p>
                         </div>
-                        <p className="text-xs text-muted-foreground line-clamp-2">
-                          {log.message}
-                        </p>
-                        <p className="text-xs text-gray-400 mt-1">
-                          {log.timestamp.toLocaleTimeString()}
-                        </p>
                       </div>
                     </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </ScrollArea>
+                  ))
+                )}
+              </div>
+            </ScrollArea>
+          </div>
         </Card>
       </div>
     </div>

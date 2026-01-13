@@ -30,14 +30,22 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<UserResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
   const { toast } = useToast();
 
   const isAuthenticated = user !== null;
+
+  // Handle mounting to prevent hydration issues
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   /**
    * Load user from token on mount.
    */
   useEffect(() => {
+    if (!mounted) return;
+
     const loadUser = async () => {
       const token = getAccessToken();
       const isDevelopment = process.env.NODE_ENV === 'development';
@@ -47,8 +55,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         console.log('🔧 Development mode: Creating fake user and token using backend test account');
         
         // Create fake token (not a real JWT, just for development)
-        const fakeToken = 'dev-fake-token-' + Date.now();
-        const fakeRefreshToken = 'dev-fake-refresh-token-' + Date.now();
+        const fakeToken = 'dev-fake-token-12345';
+        const fakeRefreshToken = 'dev-fake-refresh-token-12345';
         
         // Store fake tokens
         setTokens(fakeToken, fakeRefreshToken);
@@ -61,18 +69,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
           full_name: 'Test User (Dev Mode)',
           role: 'admin',              // 백엔드 테스트 계정과 동일
           is_active: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
+          created_at: '2024-01-01T00:00:00Z',
+          updated_at: '2024-01-01T00:00:00Z',
+          query_count: 0,             // 추가된 필드
           storage_used_bytes: 0,
-          storage_limit_bytes: 1073741824, // 1GB
         };
         
         setUser(fakeUser);
         setIsLoading(false);
         
         toast({
-          title: '개발 모드 자동 로그인',
-          description: 'test@example.com 테스트 계정으로 자동 로그인되었습니다.',
+          title: 'Development Mode Auto Login',
+          description: 'Automatically logged in with test@example.com test account.',
         });
         
         return;
@@ -101,10 +109,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
             full_name: 'Test User (Dev Mode)',
             role: 'admin',              // 백엔드 테스트 계정과 동일
             is_active: true,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
+            created_at: '2024-01-01T00:00:00Z',
+            updated_at: '2024-01-01T00:00:00Z',
+            query_count: 0,             // 추가된 필드
             storage_used_bytes: 0,
-            storage_limit_bytes: 1073741824, // 1GB
           };
           setUser(fakeUser);
         } else {
@@ -121,7 +129,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
 
     loadUser();
-  }, []);
+  }, [mounted, toast]);
 
   /**
    * Login with email and password.
@@ -155,7 +163,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         email,
         username,
         password,
-        full_name: fullName,
+        full_name: fullName || '',
       });
       
       // Store tokens

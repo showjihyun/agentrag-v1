@@ -64,6 +64,14 @@ from backend.db.models.flows import (
     EmbedConfig,
     MarketplaceReview,
 )
+from backend.db.models.plugin import (
+    PluginRegistry,
+    PluginConfiguration,
+    PluginMetric,
+    PluginDependency,
+    PluginAuditLog,
+    PluginSecurityScan,
+)
 
 __all__ = [
     "User",
@@ -126,4 +134,11 @@ __all__ = [
     "ModelPricing",
     "EmbedConfig",
     "MarketplaceReview",
+    # Plugin models
+    "PluginRegistry",
+    "PluginConfiguration",
+    "PluginMetric",
+    "PluginDependency",
+    "PluginAuditLog",
+    "PluginSecurityScan",
 ]

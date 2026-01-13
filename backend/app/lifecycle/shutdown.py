@@ -29,6 +29,9 @@ async def shutdown_handler():
     
     # Cleanup service container
     await _cleanup_service_container()
+    
+    # Shutdown Agent Plugin System
+    await _shutdown_agent_plugins()
 
     logger.info("Shutdown complete")
 
@@ -99,3 +102,13 @@ async def _cleanup_service_container():
         logger.info("Service container cleaned up")
     except Exception as e:
         logger.warning(f"Failed to cleanup service container: {e}")
+
+
+async def _shutdown_agent_plugins():
+    """Shutdown Agent Plugin System."""
+    try:
+        from backend.app.lifecycle.agent_plugin_startup import shutdown_agent_plugins
+        await shutdown_agent_plugins()
+        logger.info("✅ Agent Plugin System shutdown completed")
+    except Exception as e:
+        logger.warning(f"Failed to shutdown Agent Plugin System: {e}")

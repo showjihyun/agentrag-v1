@@ -219,6 +219,44 @@ function GeminiWorkflowNode({
   const blockInfo = getBlockInfo(blockType);
   const Icon = blockInfo.icon;
 
+  // Define conditional classes based on block color
+  const getColorClasses = (color: string) => {
+    switch (color) {
+      case 'purple':
+        return {
+          bg: 'bg-purple-100 dark:bg-purple-900',
+          text: 'text-purple-600 dark:text-purple-400'
+        };
+      case 'blue':
+        return {
+          bg: 'bg-blue-100 dark:bg-blue-900',
+          text: 'text-blue-600 dark:text-blue-400'
+        };
+      case 'red':
+        return {
+          bg: 'bg-red-100 dark:bg-red-900',
+          text: 'text-red-600 dark:text-red-400'
+        };
+      case 'green':
+        return {
+          bg: 'bg-green-100 dark:bg-green-900',
+          text: 'text-green-600 dark:text-green-400'
+        };
+      case 'orange':
+        return {
+          bg: 'bg-orange-100 dark:bg-orange-900',
+          text: 'text-orange-600 dark:text-orange-400'
+        };
+      default:
+        return {
+          bg: 'bg-gray-100 dark:bg-gray-900',
+          text: 'text-gray-600 dark:text-gray-400'
+        };
+    }
+  };
+
+  const colorClasses = getColorClasses(blockInfo.color);
+
   return (
     <div className={`
       relative p-3 rounded-lg border-2 min-w-[180px] transition-all
@@ -227,8 +265,8 @@ function GeminiWorkflowNode({
     `}>
       {/* Header */}
       <div className="flex items-center gap-2 mb-2">
-        <div className={`p-1.5 rounded-md bg-${blockInfo.color}-100 dark:bg-${blockInfo.color}-900`}>
-          <Icon className={`h-4 w-4 text-${blockInfo.color}-600 dark:text-${blockInfo.color}-400`} />
+        <div className={`p-1.5 rounded-md ${colorClasses.bg}`}>
+          <Icon className={`h-4 w-4 ${colorClasses.text}`} />
         </div>
         <div className="flex-1 min-w-0">
           <h4 className="font-medium text-sm truncate">{blockInfo.name}</h4>

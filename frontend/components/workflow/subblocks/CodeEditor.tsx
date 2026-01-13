@@ -3,7 +3,8 @@
 import React from 'react';
 import { Label } from '@/components/ui/label';
 import Editor from '@monaco-editor/react';
-import { useTheme } from 'next-themes';
+import { useTheme } from '@/contexts/ThemeContext';
+import { useSafeTheme } from '../ThemeWrapper';
 
 export interface CodeEditorProps {
   id: string;
@@ -32,7 +33,7 @@ export function CodeEditor({
   onChange,
   error,
 }: CodeEditorProps) {
-  const { theme } = useTheme();
+  const { theme } = useSafeTheme();
 
   return (
     <div className="space-y-2">
@@ -66,3 +67,4 @@ export function CodeEditor({
     </div>
   );
 }
+

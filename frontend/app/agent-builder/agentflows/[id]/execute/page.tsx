@@ -84,8 +84,8 @@ export default function AgentflowExecutePage({ params }: { params: Promise<{ id:
   const handleExecute = async () => {
     if (!input.trim()) {
       toast({
-        title: '입력 필요',
-        description: '실행할 입력을 제공해주세요',
+        title: 'Input Required',
+        description: 'Please provide input to execute',
         variant: 'destructive',
       });
       return;
@@ -98,18 +98,18 @@ export default function AgentflowExecutePage({ params }: { params: Promise<{ id:
         steps: [],
       });
 
-      // 시뮬레이션된 실행 과정
+      // Simulated execution process
       const agents = flow?.agents || [
-        { name: '데이터 수집 에이전트', role: 'collector' },
-        { name: '분석 에이전트', role: 'analyzer' },
-        { name: '결과 생성 에이전트', role: 'generator' },
+        { name: 'Data Collection Agent', role: 'collector' },
+        { name: 'Analysis Agent', role: 'analyzer' },
+        { name: 'Result Generation Agent', role: 'generator' },
       ];
 
       for (let i = 0; i < agents.length; i++) {
         const agent = agents[i];
         const stepId = `step-${i + 1}`;
         
-        // 단계 시작
+        // Step start
         setExecution(prev => ({
           ...prev,
           steps: [
@@ -123,10 +123,10 @@ export default function AgentflowExecutePage({ params }: { params: Promise<{ id:
           ]
         }));
 
-        // 시뮬레이션 지연
+        // Simulation delay
         await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 3000));
 
-        // 단계 완료 (90% 성공률)
+        // Step completion (90% success rate)
         const success = Math.random() > 0.1;
         
         setExecution(prev => ({
@@ -139,8 +139,8 @@ export default function AgentflowExecutePage({ params }: { params: Promise<{ id:
                   completed_at: new Date().toISOString(),
                   duration_ms: 2000 + Math.random() * 3000,
                   ...(success 
-                    ? { output: `${agent.name} 처리 완료` }
-                    : { error: `${agent.name} 처리 중 오류 발생` }
+                    ? { output: `${agent.name} processing completed` }
+                    : { error: `Error occurred while processing ${agent.name}` }
                   ),
                 }
               : step
@@ -152,19 +152,19 @@ export default function AgentflowExecutePage({ params }: { params: Promise<{ id:
             ...prev,
             status: 'failed',
             completed_at: new Date().toISOString(),
-            error: `${agent.name}에서 실행이 실패했습니다`,
+            error: `Execution failed at ${agent.name}`,
           }));
           return;
         }
       }
 
-      // 전체 실행 완료
+      // Overall execution completion
       setExecution(prev => ({
         ...prev,
         status: 'completed',
         completed_at: new Date().toISOString(),
         result: {
-          message: 'Agentflow 실행이 성공적으로 완료되었습니다',
+          message: 'Agentflow execution completed successfully',
           processed_input: input,
           agents_executed: agents.length,
           total_duration: prev.steps.reduce((sum, step) => sum + (step.duration_ms || 0), 0),
@@ -172,8 +172,8 @@ export default function AgentflowExecutePage({ params }: { params: Promise<{ id:
       }));
 
       toast({
-        title: '실행 완료',
-        description: 'Agentflow가 성공적으로 실행되었습니다',
+        title: 'Execution Complete',
+        description: 'Agentflow executed successfully',
       });
 
     } catch (error: any) {
@@ -181,12 +181,12 @@ export default function AgentflowExecutePage({ params }: { params: Promise<{ id:
         ...prev,
         status: 'failed',
         completed_at: new Date().toISOString(),
-        error: error.message || '실행 중 오류가 발생했습니다',
+        error: error.message || 'An error occurred during execution',
       }));
 
       toast({
-        title: '실행 실패',
-        description: error.message || '실행 중 오류가 발생했습니다',
+        title: 'Execution Failed',
+        description: error.message || 'An error occurred during execution',
         variant: 'destructive',
       });
     }
@@ -197,7 +197,7 @@ export default function AgentflowExecutePage({ params }: { params: Promise<{ id:
       ...prev,
       status: 'failed',
       completed_at: new Date().toISOString(),
-      error: '사용자에 의해 중단되었습니다',
+      error: 'Cancelled by user',
     }));
   };
 
@@ -251,7 +251,7 @@ export default function AgentflowExecutePage({ params }: { params: Promise<{ id:
       <div className="container mx-auto p-6 max-w-6xl">
         <Card className="border-red-500">
           <CardContent className="pt-6">
-            <p className="text-red-500">Agentflow를 불러오는데 실패했습니다</p>
+            <p className="text-red-500">Failed to load Agentflow</p>
           </CardContent>
         </Card>
       </div>
@@ -270,22 +270,22 @@ export default function AgentflowExecutePage({ params }: { params: Promise<{ id:
             <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900">
               <Activity className="h-7 w-7 text-purple-600 dark:text-purple-400" />
             </div>
-            {flow.name} 실행
+            {flow.name} Execution
           </h1>
-          <p className="text-muted-foreground mt-1">{flow.description || '설명 없음'}</p>
+          <p className="text-muted-foreground mt-1">{flow.description || 'No description'}</p>
         </div>
         <div className="flex gap-2">
           {execution.status === 'running' ? (
             <Button variant="destructive" onClick={handleStop}>
               <Square className="h-4 w-4 mr-2" />
-              중단
+              Stop
             </Button>
           ) : (
             <>
               {execution.status !== 'idle' && (
                 <Button variant="outline" onClick={handleReset}>
                   <RefreshCw className="h-4 w-4 mr-2" />
-                  초기화
+                  Reset
                 </Button>
               )}
               <Button 
@@ -294,7 +294,7 @@ export default function AgentflowExecutePage({ params }: { params: Promise<{ id:
                 className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
               >
                 <Play className="h-4 w-4 mr-2" />
-                실행
+                Execute
               </Button>
             </>
           )}
@@ -306,15 +306,15 @@ export default function AgentflowExecutePage({ params }: { params: Promise<{ id:
         <div className="lg:col-span-1">
           <Card>
             <CardHeader>
-              <CardTitle>입력</CardTitle>
-              <CardDescription>Agentflow에 전달할 입력을 작성하세요</CardDescription>
+              <CardTitle>Input</CardTitle>
+              <CardDescription>Write the input to pass to the Agentflow</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="input">실행 입력</Label>
+                <Label htmlFor="input">Execution Input</Label>
                 <Textarea
                   id="input"
-                  placeholder="예: 최신 AI 트렌드에 대한 보고서를 작성해주세요"
+                  placeholder="e.g., Please write a report on the latest AI trends"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   rows={6}
@@ -325,11 +325,11 @@ export default function AgentflowExecutePage({ params }: { params: Promise<{ id:
               {/* Flow Info */}
               <Separator />
               <div className="space-y-2">
-                <h4 className="font-medium">Flow 정보</h4>
+                <h4 className="font-medium">Flow Information</h4>
                 <div className="text-sm text-muted-foreground space-y-1">
-                  <p>오케스트레이션: {flow.orchestration_type}</p>
-                  <p>에이전트 수: {flow.agents?.length || 0}개</p>
-                  <p>상태: {flow.is_active ? '활성' : '비활성'}</p>
+                  <p>Orchestration: {flow.orchestration_type}</p>
+                  <p>Agent Count: {flow.agents?.length || 0}</p>
+                  <p>Status: {flow.is_active ? 'Active' : 'Inactive'}</p>
                 </div>
               </div>
             </CardContent>
@@ -343,39 +343,39 @@ export default function AgentflowExecutePage({ params }: { params: Promise<{ id:
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="flex items-center gap-2">
-                    실행 상태
+                    Execution Status
                     {execution.status === 'running' && (
                       <Badge variant="secondary" className="animate-pulse">
                         <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                        실행 중
+                        Running
                       </Badge>
                     )}
                     {execution.status === 'completed' && (
                       <Badge className="bg-green-500">
                         <CheckCircle className="h-3 w-3 mr-1" />
-                        완료
+                        Completed
                       </Badge>
                     )}
                     {execution.status === 'failed' && (
                       <Badge variant="destructive">
                         <XCircle className="h-3 w-3 mr-1" />
-                        실패
+                        Failed
                       </Badge>
                     )}
                   </CardTitle>
                   <CardDescription>
                     {execution.started_at && (
-                      <>시작: {new Date(execution.started_at).toLocaleString()}</>
+                      <>Started: {new Date(execution.started_at).toLocaleString()}</>
                     )}
                     {execution.completed_at && (
-                      <> | 완료: {new Date(execution.completed_at).toLocaleString()}</>
+                      <> | Completed: {new Date(execution.completed_at).toLocaleString()}</>
                     )}
                   </CardDescription>
                 </div>
                 {execution.status === 'completed' && (
                   <Button variant="outline" size="sm">
                     <Download className="h-4 w-4 mr-2" />
-                    결과 다운로드
+                    Download Results
                   </Button>
                 )}
               </div>
@@ -384,7 +384,7 @@ export default function AgentflowExecutePage({ params }: { params: Promise<{ id:
               {execution.status === 'idle' ? (
                 <div className="text-center py-12 text-muted-foreground">
                   <Activity className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>실행 버튼을 클릭하여 Agentflow를 시작하세요</p>
+                  <p>Click the execute button to start the Agentflow</p>
                 </div>
               ) : (
                 <ScrollArea className="h-[400px]">
@@ -406,9 +406,9 @@ export default function AgentflowExecutePage({ params }: { params: Promise<{ id:
                               </div>
                               {step.started_at && (
                                 <p className="text-xs text-muted-foreground mt-1">
-                                  시작: {new Date(step.started_at).toLocaleTimeString()}
+                                  Started: {new Date(step.started_at).toLocaleTimeString()}
                                   {step.duration_ms && (
-                                    <> | 소요시간: {(step.duration_ms / 1000).toFixed(1)}초</>
+                                    <> | Duration: {(step.duration_ms / 1000).toFixed(1)}s</>
                                   )}
                                 </p>
                               )}
@@ -434,16 +434,16 @@ export default function AgentflowExecutePage({ params }: { params: Promise<{ id:
                         <CardHeader>
                           <CardTitle className="text-green-700 dark:text-green-300 flex items-center gap-2">
                             <CheckCircle className="h-5 w-5" />
-                            실행 결과
+                            Execution Results
                           </CardTitle>
                         </CardHeader>
                         <CardContent>
                           <div className="space-y-2">
                             <p className="font-medium">{execution.result.message}</p>
                             <div className="text-sm text-muted-foreground">
-                              <p>처리된 입력: {execution.result.processed_input}</p>
-                              <p>실행된 에이전트: {execution.result.agents_executed}개</p>
-                              <p>총 소요시간: {(execution.result.total_duration / 1000).toFixed(1)}초</p>
+                              <p>Processed Input: {execution.result.processed_input}</p>
+                              <p>Executed Agents: {execution.result.agents_executed}</p>
+                              <p>Total Duration: {(execution.result.total_duration / 1000).toFixed(1)}s</p>
                             </div>
                           </div>
                         </CardContent>
@@ -457,7 +457,7 @@ export default function AgentflowExecutePage({ params }: { params: Promise<{ id:
                           <div className="flex items-start gap-3">
                             <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
                             <div>
-                              <h4 className="font-medium text-red-700 dark:text-red-300">실행 오류</h4>
+                              <h4 className="font-medium text-red-700 dark:text-red-300">Execution Error</h4>
                               <p className="text-sm text-red-600 dark:text-red-400 mt-1">
                                 {execution.error}
                               </p>

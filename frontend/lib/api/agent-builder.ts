@@ -1332,15 +1332,15 @@ class AgentBuilderAPI {
   // Trending and recommendation methods
   async getTrendingAgents(timeRange: string = '7d', limit: number = 5): Promise<Agent[]> {
     const params = new URLSearchParams({ time_range: timeRange, limit: limit.toString() });
-    const response = await this.request<{ agents: Agent[] }>(`/api/agent-builder/agents/trending?${params}`);
-    return response.agents || [];
+    const response = await this.request<{ trending_agents: Agent[] }>(`/api/agent-builder/agents/trending?${params}`);
+    return response.trending_agents || [];
   }
 
   async getPersonalizedRecommendations(userId?: string, limit: number = 5): Promise<Agent[]> {
     const params = new URLSearchParams({ limit: limit.toString() });
     if (userId) params.append('user_id', userId);
-    const response = await this.request<{ agents: Agent[] }>(`/api/agent-builder/agents/recommendations?${params}`);
-    return response.agents || [];
+    const response = await this.request<{ recommendations: Agent[] }>(`/api/agent-builder/agents/personalized-recommendations?${params}`);
+    return response.recommendations || [];
   }
 
   async validateAgentflowIntegrity(agentflowId: string): Promise<any> {

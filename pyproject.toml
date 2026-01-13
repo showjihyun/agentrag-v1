@@ -10,7 +10,6 @@ exclude = '''
   | \.venv
   | venv
   | __pycache__
-  | \.pytest_cache
   | \.mypy_cache
   | build
   | dist
@@ -27,32 +26,7 @@ use_parentheses = true
 ensure_newline_before_comments = true
 skip_glob = ["*/venv/*", "*/__pycache__/*"]
 
-[tool.pytest.ini_options]
-testpaths = ["backend/tests"]
-python_files = ["test_*.py"]
-python_classes = ["Test*"]
-python_functions = ["test_*"]
-addopts = "-v --tb=short"
 
-[tool.coverage.run]
-source = ["backend"]
-omit = [
-    "*/venv/*",
-    "*/tests/*",
-    "*/__pycache__/*"
-]
-
-[tool.coverage.report]
-exclude_lines = [
-    "pragma: no cover",
-    "def __repr__",
-    "raise AssertionError",
-    "raise NotImplementedError",
-    "if __name__ == .__main__.:",
-    "if TYPE_CHECKING:",
-    "class .*\\bProtocol\\):",
-    "@(abc\\.)?abstractmethod"
-]
 
 [tool.mypy]
 python_version = "3.10"

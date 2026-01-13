@@ -16,6 +16,19 @@ import {
   BarChart3,
   CheckCircle2,
   TrendingUp,
+  ArrowRight,
+  Zap,
+  GitBranch,
+  MessageSquare,
+  Route,
+  Hexagon,
+  Bell,
+  RefreshCw,
+  Atom,
+  Leaf,
+  Network,
+  Heart,
+  Crystal,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -54,6 +67,29 @@ import { SupervisorDashboard } from '@/components/agent-builder/SupervisorDashbo
 import { SupervisorConfigWizard } from '@/components/agent-builder/SupervisorConfigWizard';
 import { SupervisorAIAssistant } from '@/components/agent-builder/SupervisorAIAssistant';
 import { AgentflowIntegrationPanel } from '@/components/agent-builder/AgentflowIntegrationPanel';
+
+// Icon mapping for orchestration types
+const getIconComponent = (iconName: string) => {
+  const iconMap: Record<string, any> = {
+    ArrowRight,
+    Zap,
+    Users,
+    GitBranch,
+    MessageSquare,
+    Route,
+    Hexagon,
+    Bell,
+    RefreshCw,
+    Brain,
+    Atom,
+    Leaf,
+    TrendingUp,
+    Network,
+    Heart,
+    Crystal,
+  };
+  return iconMap[iconName] || ArrowRight; // fallback to ArrowRight
+};
 
 // Orchestration types are now imported from constants
 
@@ -104,11 +140,11 @@ export default function EditAgentflowPage({ params }: { params: Promise<{ id: st
   const [agents, setAgents] = useState<AgentConfig[]>([]);
   const [newTag, setNewTag] = useState('');
 
-  // 오케스트레이션 유형에 따른 추천 역할
+  // Recommended roles based on orchestration type
   const getRecommendedRoles = (orchestrationType: OrchestrationTypeValue): string[] => {
     const roleMap: Record<OrchestrationTypeValue, string[]> = {
-      sequential: ['데이터 수집가', '분석가', '보고서 작성자'],
-      parallel: ['검색 전문가', '번역가', '요약 전문가'],
+      sequential: ['Data Collector', 'Analyst', 'Report Writer'],
+      parallel: ['Search Expert', 'Translator', 'Summary Expert'],
       hierarchical: ['매니저', '연구원', '검토자', '실행자'],
       adaptive: ['상황 분석가', '전략 수립자', '실행자'],
       consensus_building: ['전문가 A', '전문가 B', '중재자'],
@@ -440,8 +476,8 @@ export default function EditAgentflowPage({ params }: { params: Promise<{ id: st
                 <Badge variant="outline" className="text-xs">안정적</Badge>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                {CORE_ORCHESTRATION_TYPES.map((type) => {
-                  const Icon = type.icon;
+                {Object.values(CORE_ORCHESTRATION_TYPES).map((type) => {
+                  const Icon = getIconComponent(type.icon);
                   const isSelected = formData.orchestration_type === type.id;
                   return (
                     <Card
@@ -491,8 +527,8 @@ export default function EditAgentflowPage({ params }: { params: Promise<{ id: st
                 <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700">고급</Badge>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                {TRENDS_2025_ORCHESTRATION_TYPES.map((type) => {
-                  const Icon = type.icon;
+                {Object.values(TRENDS_2025_ORCHESTRATION_TYPES).map((type) => {
+                  const Icon = getIconComponent(type.icon);
                   const isSelected = formData.orchestration_type === type.id;
                   return (
                     <Card
@@ -547,8 +583,8 @@ export default function EditAgentflowPage({ params }: { params: Promise<{ id: st
                 <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700">실험적</Badge>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                {TRENDS_2026_ORCHESTRATION_TYPES.map((type) => {
-                  const Icon = type.icon;
+                {Object.values(TRENDS_2026_ORCHESTRATION_TYPES).map((type) => {
+                  const Icon = getIconComponent(type.icon);
                   const isSelected = formData.orchestration_type === type.id;
                   return (
                     <Card
@@ -600,12 +636,16 @@ export default function EditAgentflowPage({ params }: { params: Promise<{ id: st
               <div className="mt-4 p-4 rounded-lg bg-muted">
                 <div className="flex items-center gap-2 mb-2">
                   {React.createElement(ORCHESTRATION_TYPES[formData.orchestration_type].icon, {
-                    className: `h-4 w-4 text-${CATEGORY_COLORS[ORCHESTRATION_TYPES[formData.orchestration_type].category]}-500`
+                    className: `h-4 w-4 ${
+                      ORCHESTRATION_TYPES[formData.orchestration_type].category === 'core' ? 'text-blue-500' :
+                      ORCHESTRATION_TYPES[formData.orchestration_type].category === '2025_trends' ? 'text-purple-500' :
+                      'text-emerald-500'
+                    }`
                   })}
-                  <span className="font-medium">{ORCHESTRATION_TYPES[formData.orchestration_type].name} 선택됨</span>
+                  <span className="font-medium">{ORCHESTRATION_TYPES[formData.orchestration_type].name} Selected</span>
                   <Badge variant="outline" className="text-xs">
-                    {ORCHESTRATION_TYPES[formData.orchestration_type].category === 'core' ? '핵심' : 
-                     ORCHESTRATION_TYPES[formData.orchestration_type].category === '2025_trends' ? '2025 트렌드' : '2026 차세대'}
+                    {ORCHESTRATION_TYPES[formData.orchestration_type].category === 'core' ? 'Core' : 
+                     ORCHESTRATION_TYPES[formData.orchestration_type].category === '2025_trends' ? '2025 Trends' : '2026 Next-Gen'}
                   </Badge>
                 </div>
                 <p className="text-sm text-muted-foreground">

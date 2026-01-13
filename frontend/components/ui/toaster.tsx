@@ -1,10 +1,10 @@
 'use client';
 
 import { Toaster as Sonner } from 'sonner';
-import { useTheme } from 'next-themes';
+import { useSafeTheme } from './ThemeWrapper';
 
 export function Toaster() {
-  const { theme } = useTheme();
+  const { theme } = useSafeTheme();
 
   return (
     <Sonner

@@ -5,21 +5,40 @@
  * Button to toggle between light, dark, and system themes
  */
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import dynamic from 'next/dynamic';
 import { useTheme } from '@/contexts/ThemeContext';
 
 function ThemeToggleInner() {
-  const { theme, effectiveTheme, toggleTheme } = useTheme();
+  const { theme, setTheme, resolvedTheme, mounted } = useTheme();
+
+  // Don't render until mounted to prevent hydration mismatch
+  if (!mounted) {
+    return (
+      <div className="p-2 w-9 h-9" aria-hidden="true">
+        {/* Placeholder to prevent layout shift */}
+      </div>
+    );
+  }
+
+  const toggleTheme = () => {
+    if (theme === 'light') {
+      setTheme('dark');
+    } else if (theme === 'dark') {
+      setTheme('system');
+    } else {
+      setTheme('light');
+    }
+  };
 
   return (
     <button
       onClick={toggleTheme}
       className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
       aria-label={`Current theme: ${theme}. Click to toggle theme`}
-      title={`Theme: ${theme} (${effectiveTheme})`}
+      title={`Theme: ${theme} (${resolvedTheme})`}
     >
-      {effectiveTheme === 'dark' ? (
+      {resolvedTheme === 'dark' ? (
         // Moon icon for dark mode
         <svg
           className="w-5 h-5 text-gray-700 dark:text-gray-300"

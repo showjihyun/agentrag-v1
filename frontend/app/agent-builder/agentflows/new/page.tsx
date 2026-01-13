@@ -9,6 +9,21 @@ import {
   Users,
   Settings,
   Sparkles,
+  ArrowRight,
+  Zap,
+  GitBranch,
+  MessageSquare,
+  Route,
+  Hexagon,
+  Bell,
+  RefreshCw,
+  Brain,
+  Atom,
+  Leaf,
+  TrendingUp,
+  Network,
+  Heart,
+  Crystal,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,13 +52,36 @@ import {
   type OrchestrationTypeValue 
 } from '@/lib/constants/orchestration';
 
+// Icon mapping for orchestration types
+const getIconComponent = (iconName: string) => {
+  const iconMap: Record<string, any> = {
+    ArrowRight,
+    Zap,
+    Users,
+    GitBranch,
+    MessageSquare,
+    Route,
+    Hexagon,
+    Bell,
+    RefreshCw,
+    Brain,
+    Atom,
+    Leaf,
+    TrendingUp,
+    Network,
+    Heart,
+    Crystal,
+  };
+  return iconMap[iconName] || ArrowRight; // fallback to ArrowRight
+};
+
 // Orchestration types are now imported from constants
 
 const TEMPLATES = [
   {
     id: 'multi-agent-research',
-    name: '리서치 에이전트 팀',
-    description: '여러 에이전트가 협력하여 정보를 수집하고 분석합니다',
+    name: 'Research Agent Team',
+    description: 'Multiple agents collaborate to collect and analyze information',
     orchestration: 'hierarchical',
     agents: 4,
     icon: '🔬',
@@ -51,8 +89,8 @@ const TEMPLATES = [
   },
   {
     id: 'customer-support-team',
-    name: '고객 지원 팀',
-    description: '분류, 응답, 에스컬레이션을 담당하는 에이전트 팀',
+    name: 'Customer Support Team',
+    description: 'Agent team responsible for classification, response, and escalation',
     orchestration: 'adaptive',
     agents: 3,
     icon: '🎧',
@@ -60,8 +98,8 @@ const TEMPLATES = [
   },
   {
     id: 'content-pipeline',
-    name: '콘텐츠 생성 파이프라인',
-    description: '기획, 작성, 검토, 발행을 순차적으로 처리',
+    name: 'Content Generation Pipeline',
+    description: 'Sequential processing of planning, writing, review, and publishing',
     orchestration: 'sequential',
     agents: 4,
     icon: '✍️',
@@ -69,8 +107,8 @@ const TEMPLATES = [
   },
   {
     id: 'data-analysis-team',
-    name: '데이터 분석 팀',
-    description: '여러 데이터 소스를 병렬로 분석하고 결과를 통합',
+    name: 'Data Analysis Team',
+    description: 'Analyze multiple data sources in parallel and integrate results',
     orchestration: 'parallel',
     agents: 5,
     icon: '📊',
@@ -125,8 +163,8 @@ export default function NewAgentflowPage() {
   const handleSave = async () => {
     if (!formData.name.trim()) {
       toast({
-        title: '오류',
-        description: 'Agentflow 이름을 입력해주세요',
+        title: 'Error',
+        description: 'Please enter an Agentflow name',
         variant: 'destructive',
       });
       return;
@@ -137,15 +175,15 @@ export default function NewAgentflowPage() {
       const agentflow = await flowsAPI.createAgentflow(formData);
       
       toast({
-        title: '생성 완료',
-        description: `"${formData.name}" Agentflow가 생성되었습니다`,
+        title: 'Created',
+        description: `"${formData.name}" Agentflow has been created`,
       });
       
       router.push(`/agent-builder/agentflows/${agentflow.id}`);
     } catch (error: any) {
       toast({
-        title: '오류',
-        description: error.message || 'Agentflow 생성에 실패했습니다',
+        title: 'Error',
+        description: error.message || 'Failed to create Agentflow',
         variant: 'destructive',
       });
     } finally {
@@ -165,6 +203,7 @@ export default function NewAgentflowPage() {
   };
 
   const selectedOrchestration = ORCHESTRATION_TYPES[formData.orchestration_type];
+  const SelectedIcon = selectedOrchestration ? getIconComponent(selectedOrchestration.icon) : null;
 
   return (
     <div className="container mx-auto p-6 max-w-4xl">
@@ -172,53 +211,53 @@ export default function NewAgentflowPage() {
       <div className="flex items-center gap-4 mb-6">
         <Button variant="ghost" onClick={() => router.back()}>
           <ArrowLeft className="h-4 w-4 mr-2" />
-          뒤로
+          Back
         </Button>
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-3">
             <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900">
               <Users className="h-6 w-6 text-purple-600 dark:text-purple-400" />
             </div>
-            새 Agentflow 만들기
+            Create New Agentflow
           </h1>
           <p className="text-muted-foreground mt-1">
-            멀티 에이전트 시스템을 구축하여 복잡한 작업을 자동화하세요
+            Build multi-agent systems to automate complex tasks
           </p>
         </div>
       </div>
 
       <Tabs defaultValue="basic" className="space-y-6">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="basic">기본 정보</TabsTrigger>
-          <TabsTrigger value="orchestration">오케스트레이션</TabsTrigger>
-          <TabsTrigger value="templates">템플릿</TabsTrigger>
+          <TabsTrigger value="basic">Basic Info</TabsTrigger>
+          <TabsTrigger value="orchestration">Orchestration</TabsTrigger>
+          <TabsTrigger value="templates">Templates</TabsTrigger>
         </TabsList>
 
         {/* Basic Information */}
         <TabsContent value="basic" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>기본 정보</CardTitle>
+              <CardTitle>Basic Information</CardTitle>
               <CardDescription>
-                Agentflow의 이름과 설명을 입력하세요
+                Enter the name and description of your Agentflow
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name">이름 *</Label>
+                <Label htmlFor="name">Name *</Label>
                 <Input
                   id="name"
-                  placeholder="예: 고객 지원 자동화 시스템"
+                  placeholder="e.g., Customer Support Automation System"
                   value={formData.name}
                   onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                 />
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="description">설명</Label>
+                <Label htmlFor="description">Description</Label>
                 <Textarea
                   id="description"
-                  placeholder="이 Agentflow가 수행할 작업을 설명해주세요..."
+                  placeholder="Describe what this Agentflow will do..."
                   value={formData.description}
                   onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                   rows={3}
@@ -226,7 +265,7 @@ export default function NewAgentflowPage() {
               </div>
 
               <div className="space-y-2">
-                <Label>태그</Label>
+                <Label>Tags</Label>
                 <div className="flex flex-wrap gap-2">
                   {formData.tags.map((tag, index) => (
                     <Badge key={index} variant="secondary">
@@ -235,7 +274,7 @@ export default function NewAgentflowPage() {
                   ))}
                   {formData.tags.length === 0 && (
                     <p className="text-sm text-muted-foreground">
-                      템플릿을 선택하거나 오케스트레이션 유형을 설정하면 자동으로 태그가 추가됩니다
+                      Tags will be automatically added when you select a template or set orchestration type
                     </p>
                   )}
                 </div>
@@ -248,9 +287,9 @@ export default function NewAgentflowPage() {
         <TabsContent value="orchestration" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>오케스트레이션 설정</CardTitle>
+              <CardTitle>Orchestration Settings</CardTitle>
               <CardDescription>
-                에이전트들이 어떻게 협력할지 결정하세요
+                Decide how agents will collaborate
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-8">
@@ -258,12 +297,12 @@ export default function NewAgentflowPage() {
               <div>
                 <div className="flex items-center gap-2 mb-4">
                   <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                  <h3 className="text-lg font-semibold">핵심 패턴</h3>
-                  <Badge variant="outline" className="text-xs">안정적</Badge>
+                  <h3 className="text-lg font-semibold">Core Patterns</h3>
+                  <Badge variant="outline" className="text-xs">Stable</Badge>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {CORE_ORCHESTRATION_TYPES.map((type) => {
-                    const Icon = type.icon;
+                  {Object.values(CORE_ORCHESTRATION_TYPES).map((type) => {
+                    const Icon = getIconComponent(type.icon);
                     const isSelected = formData.orchestration_type === type.id;
                     
                     return (
@@ -291,7 +330,7 @@ export default function NewAgentflowPage() {
                               </CardDescription>
                             </div>
                             {isSelected && (
-                              <Badge className="bg-primary">선택됨</Badge>
+                              <Badge className="bg-primary">Selected</Badge>
                             )}
                           </div>
                         </CardHeader>
@@ -305,12 +344,12 @@ export default function NewAgentflowPage() {
               <div>
                 <div className="flex items-center gap-2 mb-4">
                   <div className="w-3 h-3 rounded-full bg-purple-500"></div>
-                  <h3 className="text-lg font-semibold">2025 트렌드 패턴</h3>
-                  <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700">고급</Badge>
+                  <h3 className="text-lg font-semibold">2025 Trend Patterns</h3>
+                  <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700">Advanced</Badge>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {TRENDS_2025_ORCHESTRATION_TYPES.map((type) => {
-                    const Icon = type.icon;
+                  {Object.values(TRENDS_2025_ORCHESTRATION_TYPES).map((type) => {
+                    const Icon = getIconComponent(type.icon);
                     const isSelected = formData.orchestration_type === type.id;
                     
                     return (
@@ -346,7 +385,7 @@ export default function NewAgentflowPage() {
                               </div>
                             </div>
                             {isSelected && (
-                              <Badge className="bg-primary">선택됨</Badge>
+                              <Badge className="bg-primary">Selected</Badge>
                             )}
                           </div>
                         </CardHeader>
@@ -360,12 +399,12 @@ export default function NewAgentflowPage() {
               <div>
                 <div className="flex items-center gap-2 mb-4">
                   <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
-                  <h3 className="text-lg font-semibold">2026 차세대 패턴</h3>
-                  <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700">실험적</Badge>
+                  <h3 className="text-lg font-semibold">2026 Next-Gen Patterns</h3>
+                  <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700">Experimental</Badge>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {TRENDS_2026_ORCHESTRATION_TYPES.map((type) => {
-                    const Icon = type.icon;
+                  {Object.values(TRENDS_2026_ORCHESTRATION_TYPES).map((type) => {
+                    const Icon = getIconComponent(type.icon);
                     const isSelected = formData.orchestration_type === type.id;
                     
                     return (
@@ -401,7 +440,7 @@ export default function NewAgentflowPage() {
                               </div>
                             </div>
                             {isSelected && (
-                              <Badge className="bg-primary">선택됨</Badge>
+                              <Badge className="bg-primary">Selected</Badge>
                             )}
                           </div>
                         </CardHeader>
@@ -411,14 +450,18 @@ export default function NewAgentflowPage() {
                 </div>
               </div>
 
-              {selectedOrchestration && (
+              {selectedOrchestration && SelectedIcon && (
                 <div className="mt-6 p-4 rounded-lg bg-muted">
                   <div className="flex items-center gap-2 mb-2">
-                    <selectedOrchestration.icon className={`h-4 w-4 text-${CATEGORY_COLORS[selectedOrchestration.category]}-500`} />
-                    <span className="font-medium">{selectedOrchestration.name} 선택됨</span>
+                    <SelectedIcon className={`h-4 w-4 ${
+                      selectedOrchestration.category === 'core' ? 'text-blue-500' :
+                      selectedOrchestration.category === '2025_trends' ? 'text-purple-500' :
+                      'text-emerald-500'
+                    }`} />
+                    <span className="font-medium">{selectedOrchestration.name} Selected</span>
                     <Badge variant="outline" className="text-xs">
-                      {selectedOrchestration.category === 'core' ? '핵심' : 
-                       selectedOrchestration.category === '2025_trends' ? '2025 트렌드' : '2026 차세대'}
+                      {selectedOrchestration.category === 'core' ? 'Core' : 
+                       selectedOrchestration.category === '2025_trends' ? '2025 Trends' : '2026 Next-Gen'}
                     </Badge>
                   </div>
                   <p className="text-sm text-muted-foreground mb-3">
@@ -427,7 +470,7 @@ export default function NewAgentflowPage() {
                   
                   {selectedOrchestration.useCases && (
                     <div className="mb-3">
-                      <p className="text-sm font-medium mb-1">주요 사용 사례:</p>
+                      <p className="text-sm font-medium mb-1">Key Use Cases:</p>
                       <div className="flex flex-wrap gap-1">
                         {selectedOrchestration.useCases.map((useCase, index) => (
                           <Badge key={index} variant="secondary" className="text-xs">
@@ -440,7 +483,7 @@ export default function NewAgentflowPage() {
                   
                   {selectedOrchestration.benefits && (
                     <div className="mb-3">
-                      <p className="text-sm font-medium mb-1">주요 장점:</p>
+                      <p className="text-sm font-medium mb-1">Key Benefits:</p>
                       <div className="flex flex-wrap gap-1">
                         {selectedOrchestration.benefits.map((benefit, index) => (
                           <Badge key={index} variant="outline" className="text-xs">
@@ -453,7 +496,7 @@ export default function NewAgentflowPage() {
                   
                   {selectedOrchestration.requirements && (
                     <div>
-                      <p className="text-sm font-medium mb-1">요구사항:</p>
+                      <p className="text-sm font-medium mb-1">Requirements:</p>
                       <div className="flex flex-wrap gap-1">
                         {selectedOrchestration.requirements.map((req, index) => (
                           <Badge key={index} variant="destructive" className="text-xs">
@@ -473,16 +516,16 @@ export default function NewAgentflowPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Settings className="h-5 w-5" />
-                슈퍼바이저 설정
+                Supervisor Settings
               </CardTitle>
               <CardDescription>
-                에이전트들을 관리할 슈퍼바이저 AI를 설정하세요
+                Configure the supervisor AI to manage agents
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>LLM 제공자</Label>
+                  <Label>LLM Provider</Label>
                   <Select
                     value={formData.supervisor_config.llm_provider}
                     onValueChange={(value) => setFormData(prev => ({
@@ -497,7 +540,7 @@ export default function NewAgentflowPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="ollama">Ollama (로컬)</SelectItem>
+                      <SelectItem value="ollama">Ollama (Local)</SelectItem>
                       <SelectItem value="openai">OpenAI</SelectItem>
                       <SelectItem value="anthropic">Anthropic</SelectItem>
                     </SelectContent>
@@ -505,7 +548,7 @@ export default function NewAgentflowPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>모델</Label>
+                  <Label>Model</Label>
                   <Input
                     value={formData.supervisor_config.llm_model}
                     onChange={(e) => setFormData(prev => ({
@@ -521,7 +564,7 @@ export default function NewAgentflowPage() {
               </div>
 
               <div className="space-y-2">
-                <Label>최대 반복 횟수</Label>
+                <Label>Max Iterations</Label>
                 <Input
                   type="number"
                   min="1"
@@ -546,10 +589,10 @@ export default function NewAgentflowPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Sparkles className="h-5 w-5 text-purple-500" />
-                템플릿 선택
+                Select Template
               </CardTitle>
               <CardDescription>
-                미리 구성된 템플릿으로 빠르게 시작하세요
+                Get started quickly with pre-configured templates
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -571,7 +614,7 @@ export default function NewAgentflowPage() {
                         <div className="flex items-start justify-between">
                           <div className="text-3xl mb-2">{template.icon}</div>
                           <Badge variant="outline">
-                            {template.agents} 에이전트
+                            {template.agents} Agents
                           </Badge>
                         </div>
                         <CardTitle className="text-base">{template.name}</CardTitle>
@@ -600,23 +643,23 @@ export default function NewAgentflowPage() {
       {/* Actions */}
       <div className="flex items-center justify-between pt-6 border-t">
         <Button variant="outline" onClick={() => router.back()}>
-          취소
+          Cancel
         </Button>
         <div className="flex gap-3">
           <Button variant="outline" disabled={saving}>
             <Play className="h-4 w-4 mr-2" />
-            미리보기
+            Preview
           </Button>
           <Button onClick={handleSave} disabled={saving || !formData.name.trim()}>
             {saving ? (
               <>
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                생성 중...
+                Creating...
               </>
             ) : (
               <>
                 <Save className="h-4 w-4 mr-2" />
-                생성하기
+                Create
               </>
             )}
           </Button>

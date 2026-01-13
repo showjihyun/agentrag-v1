@@ -1,6 +1,7 @@
 """Agent Builder API routers."""
 
-from backend.api.agent_builder import (
+# Import individual modules directly to avoid circular imports
+from . import (
     agents,
     blocks,
     workflows,
@@ -10,11 +11,12 @@ from backend.api.agent_builder import (
     permissions,
     custom_tools,
     dashboard,
+    ai_agent_chat,
 )
 
 __all__ = [
     "agents",
-    "blocks",
+    "blocks", 
     "workflows",
     "knowledgebases",
     "variables",
@@ -22,4 +24,5 @@ __all__ = [
     "permissions",
     "custom_tools",
     "dashboard",
+    "ai_agent_chat",
 ]
