@@ -1,7 +1,7 @@
 /**
  * Real-time Collaboration Hook
  * 
- * 실시간 협업 기능을 위한 React Hook
+ * React Hook for real-time collaboration functionality
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -72,7 +72,7 @@ export const useCollaboration = (options: UseCollaborationOptions) => {
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const changeQueueRef = useRef<CollaborationChange[]>([]);
 
-  // 사용자 색상 생성
+  // Generate user color
   const generateUserColor = useCallback((userId: string): string => {
     const colors = [
       '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', 
@@ -85,7 +85,7 @@ export const useCollaboration = (options: UseCollaborationOptions) => {
     return colors[Math.abs(hash) % colors.length];
   }, []);
 
-  // WebSocket 연결
+  // WebSocket connection
   const connect = useCallback(() => {
     if (!options.enabled || !user) return;
 
@@ -97,7 +97,7 @@ export const useCollaboration = (options: UseCollaborationOptions) => {
       wsRef.current.onopen = () => {
         console.log('Collaboration WebSocket connected');
         
-        // 사용자 정보 전송
+        // Send user info
         const joinMessage = {
           type: 'user_join',
           user: {
@@ -116,7 +116,7 @@ export const useCollaboration = (options: UseCollaborationOptions) => {
           isConnected: true
         }));
 
-        // 하트비트 시작
+        // Start heartbeat
         startHeartbeat();
       };
 
@@ -138,7 +138,7 @@ export const useCollaboration = (options: UseCollaborationOptions) => {
         
         stopHeartbeat();
         
-        // 자동 재연결
+        // Auto reconnect
         if (options.enabled) {
           reconnectTimeoutRef.current = setTimeout(() => {
             connect();
@@ -155,7 +155,7 @@ export const useCollaboration = (options: UseCollaborationOptions) => {
     }
   }, [options.enabled, options.workflowId, user, generateUserColor]);
 
-  // 메시지 처리
+  // Message handler
   const handleMessage = useCallback((message: any) => {
     switch (message.type) {
       case 'user_joined':
@@ -250,13 +250,13 @@ export const useCollaboration = (options: UseCollaborationOptions) => {
     }
   }, [user?.id]);
 
-  // 하트비트
+  // Heartbeat
   const startHeartbeat = useCallback(() => {
     heartbeatRef.current = setInterval(() => {
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         wsRef.current.send(JSON.stringify({ type: 'heartbeat' }));
       }
-    }, 30000); // 30초마다
+    }, 30000); // Every 30 seconds
   }, []);
 
   const stopHeartbeat = useCallback(() => {
@@ -266,7 +266,7 @@ export const useCollaboration = (options: UseCollaborationOptions) => {
     }
   }, []);
 
-  // 커서 위치 업데이트
+  // Update cursor position
   const updateCursor = useCallback((position: { x: number; y: number; nodeId?: string }) => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
 
@@ -281,7 +281,7 @@ export const useCollaboration = (options: UseCollaborationOptions) => {
     wsRef.current.send(JSON.stringify(message));
   }, []);
 
-  // 노드 선택 브로드캐스트
+  // Broadcast node selection
   const broadcastSelection = useCallback((nodeId: string, selectionType: 'select' | 'edit' | 'drag') => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
 
@@ -295,7 +295,7 @@ export const useCollaboration = (options: UseCollaborationOptions) => {
     wsRef.current.send(JSON.stringify(message));
   }, []);
 
-  // 변경사항 브로드캐스트
+  // Broadcast changes
   const broadcastChange = useCallback((change: Omit<CollaborationChange, 'id' | 'userId' | 'timestamp' | 'applied'>) => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
 
@@ -313,7 +313,7 @@ export const useCollaboration = (options: UseCollaborationOptions) => {
 
     wsRef.current.send(JSON.stringify(message));
 
-    // 로컬 변경사항 큐에 추가
+    // Add to local change queue
     const localChange: CollaborationChange = {
       ...change,
       id: changeId,
@@ -325,7 +325,7 @@ export const useCollaboration = (options: UseCollaborationOptions) => {
     changeQueueRef.current.push(localChange);
   }, [user?.id]);
 
-  // 변경사항 적용
+  // Apply changes
   const applyChange = useCallback((changeId: string) => {
     setCollaborativeState(prev => ({
       ...prev,
@@ -335,7 +335,7 @@ export const useCollaboration = (options: UseCollaborationOptions) => {
     }));
   }, []);
 
-  // 변경사항 거부
+  // Reject changes
   const rejectChange = useCallback((changeId: string) => {
     setCollaborativeState(prev => ({
       ...prev,
@@ -343,7 +343,7 @@ export const useCollaboration = (options: UseCollaborationOptions) => {
     }));
   }, []);
 
-  // 연결 해제
+  // Disconnect
   const disconnect = useCallback(() => {
     if (wsRef.current) {
       wsRef.current.close();
@@ -366,7 +366,7 @@ export const useCollaboration = (options: UseCollaborationOptions) => {
     }));
   }, [stopHeartbeat]);
 
-  // 효과
+  // Effects
   useEffect(() => {
     if (options.enabled) {
       connect();
@@ -377,7 +377,7 @@ export const useCollaboration = (options: UseCollaborationOptions) => {
     };
   }, [options.enabled, connect, disconnect]);
 
-  // 컴포넌트 언마운트 시 정리
+  // Cleanup on component unmount
   useEffect(() => {
     return () => {
       disconnect();

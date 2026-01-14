@@ -94,90 +94,90 @@ export default function GeminiFusionBlock({
 }: GeminiFusionBlockProps) {
   const { toast } = useToast();
   
-  // 입력 상태
+  // Input state
   const [textInputs, setTextInputs] = useState<TextInput[]>([]);
   const [imageInputs, setImageInputs] = useState<ImageInput[]>([]);
   const [audioInputs, setAudioInputs] = useState<AudioInput[]>([]);
   
-  // 설정 상태
+  // Settings state
   const [fusionPrompt, setFusionPrompt] = useState(config.fusion_prompt || '');
   const [fusionStrategy, setFusionStrategy] = useState(config.fusion_strategy || 'unified');
   const [model, setModel] = useState(config.model || 'gemini-1.5-pro');
   const [temperature, setTemperature] = useState(config.temperature || 0.7);
   const [maxTokens, setMaxTokens] = useState(config.max_tokens || 4096);
   
-  // UI 상태
+  // UI state
   const [result, setResult] = useState<FusionResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [activeTab, setActiveTab] = useState('inputs');
 
-  // 융합 전략 정보
+  // Fusion strategy info
   const fusionStrategies = [
     {
       value: 'unified',
-      name: '통합 처리',
-      description: '모든 모달리티를 한번에 처리 (가장 정확)',
+      name: 'Unified Processing',
+      description: 'Process all modalities at once (Most accurate)',
       icon: Sparkles,
       color: 'text-purple-600',
-      estimatedTime: '5-10초'
+      estimatedTime: '5-10s'
     },
     {
       value: 'parallel',
-      name: '병렬 처리',
-      description: '각 모달리티를 병렬 처리 후 융합 (가장 빠름)',
+      name: 'Parallel Processing',
+      description: 'Process each modality in parallel then fuse (Fastest)',
       icon: Zap,
       color: 'text-blue-600',
-      estimatedTime: '2-5초'
+      estimatedTime: '2-5s'
     },
     {
       value: 'sequential',
-      name: '순차 처리',
-      description: '순차적으로 처리하며 컨텍스트 누적 (가장 상세)',
+      name: 'Sequential Processing',
+      description: 'Process sequentially with cumulative context (Most detailed)',
       icon: GitBranch,
       color: 'text-green-600',
-      estimatedTime: '8-15초'
+      estimatedTime: '8-15s'
     },
     {
       value: 'hierarchical',
-      name: '계층적 처리',
-      description: '계층적 융합으로 체계적 분석 (가장 체계적)',
+      name: 'Hierarchical Processing',
+      description: 'Systematic analysis through hierarchical fusion (Most systematic)',
       icon: Layers,
       color: 'text-orange-600',
-      estimatedTime: '6-12초'
+      estimatedTime: '6-12s'
     }
   ];
 
-  // 프롬프트 템플릿
+  // Prompt templates
   const promptTemplates = [
     {
-      name: '종합 분석',
-      prompt: '제공된 모든 정보를 종합하여 핵심 인사이트와 결론을 도출해주세요.',
+      name: 'Comprehensive Analysis',
+      prompt: 'Synthesize all provided information to derive key insights and conclusions.',
       icon: '🔍'
     },
     {
-      name: '비교 분석',
-      prompt: '각 입력 간의 공통점과 차이점을 분석하고 상호 관계를 설명해주세요.',
+      name: 'Comparative Analysis',
+      prompt: 'Analyze commonalities and differences between inputs and explain their relationships.',
       icon: '⚖️'
     },
     {
-      name: '요약 정리',
-      prompt: '모든 정보를 요약하고 주요 포인트를 정리해주세요.',
+      name: 'Summary',
+      prompt: 'Summarize all information and organize the key points.',
       icon: '📋'
     },
     {
-      name: '문제 해결',
-      prompt: '제시된 정보를 바탕으로 문제점을 파악하고 해결책을 제안해주세요.',
+      name: 'Problem Solving',
+      prompt: 'Identify problems based on the provided information and suggest solutions.',
       icon: '💡'
     },
     {
-      name: '트렌드 분석',
-      prompt: '데이터에서 패턴과 트렌드를 찾아 미래 전망을 제시해주세요.',
+      name: 'Trend Analysis',
+      prompt: 'Find patterns and trends in the data and present future outlook.',
       icon: '📈'
     }
   ];
 
-  // 텍스트 입력 추가
+  // Add text input
   const addTextInput = useCallback(() => {
     const newInput: TextInput = {
       id: `text_${Date.now()}`,
@@ -187,27 +187,27 @@ export default function GeminiFusionBlock({
     setTextInputs(prev => [...prev, newInput]);
   }, []);
 
-  // 텍스트 입력 제거
+  // Remove text input
   const removeTextInput = useCallback((id: string) => {
     setTextInputs(prev => prev.filter(input => input.id !== id));
   }, []);
 
-  // 텍스트 내용 업데이트
+  // Update text content
   const updateTextInput = useCallback((id: string, content: string) => {
     setTextInputs(prev => prev.map(input => 
       input.id === id ? { ...input, content } : input
     ));
   }, []);
 
-  // 이미지 파일 추가
+  // Add image file
   const handleImageUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
     
     files.forEach(file => {
       if (!file.type.startsWith('image/')) {
         toast({
-          title: '잘못된 파일 형식',
-          description: '이미지 파일만 업로드할 수 있습니다.',
+          title: 'Invalid File Format',
+          description: 'Only image files can be uploaded.',
           variant: 'destructive'
         });
         return;
@@ -215,8 +215,8 @@ export default function GeminiFusionBlock({
 
       if (file.size > 10 * 1024 * 1024) {
         toast({
-          title: '파일 크기 초과',
-          description: '이미지 파일은 10MB 이하여야 합니다.',
+          title: 'File Size Exceeded',
+          description: 'Image files must be 10MB or less.',
           variant: 'destructive'
         });
         return;
@@ -239,24 +239,24 @@ export default function GeminiFusionBlock({
       reader.readAsDataURL(file);
     });
 
-    // 입력 초기화
+    // Reset input
     event.target.value = '';
   }, [toast]);
 
-  // 이미지 입력 제거
+  // Remove image input
   const removeImageInput = useCallback((id: string) => {
     setImageInputs(prev => prev.filter(input => input.id !== id));
   }, []);
 
-  // 음성 파일 추가
+  // Add audio file
   const handleAudioUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
     
     files.forEach(file => {
       if (!file.type.startsWith('audio/')) {
         toast({
-          title: '잘못된 파일 형식',
-          description: '음성 파일만 업로드할 수 있습니다.',
+          title: 'Invalid File Format',
+          description: 'Only audio files can be uploaded.',
           variant: 'destructive'
         });
         return;
@@ -264,8 +264,8 @@ export default function GeminiFusionBlock({
 
       if (file.size > 25 * 1024 * 1024) {
         toast({
-          title: '파일 크기 초과',
-          description: '음성 파일은 25MB 이하여야 합니다.',
+          title: 'File Size Exceeded',
+          description: 'Audio files must be 25MB or less.',
           variant: 'destructive'
         });
         return;
@@ -283,23 +283,23 @@ export default function GeminiFusionBlock({
       setAudioInputs(prev => [...prev, newInput]);
     });
 
-    // 입력 초기화
+    // Reset input
     event.target.value = '';
   }, [toast]);
 
-  // 음성 입력 제거
+  // Remove audio input
   const removeAudioInput = useCallback((id: string) => {
     setAudioInputs(prev => prev.filter(input => input.id !== id));
   }, []);
 
-  // 융합 분석 실행
+  // Execute fusion analysis
   const handleFusionAnalysis = useCallback(async () => {
-    // 입력 검증
+    // Input validation
     const totalInputs = textInputs.length + imageInputs.length + audioInputs.length;
     if (totalInputs < 2) {
       toast({
-        title: '입력 부족',
-        description: '최소 2개 이상의 입력이 필요합니다.',
+        title: 'Insufficient Inputs',
+        description: 'At least 2 inputs are required.',
         variant: 'destructive'
       });
       return;
@@ -308,8 +308,8 @@ export default function GeminiFusionBlock({
     const modalityCount = [textInputs, imageInputs, audioInputs].filter(arr => arr.length > 0).length;
     if (modalityCount < 2) {
       toast({
-        title: '모달리티 부족',
-        description: '최소 2개 이상의 다른 종류 입력이 필요합니다.',
+        title: 'Insufficient Modalities',
+        description: 'At least 2 different types of inputs are required.',
         variant: 'destructive'
       });
       return;
@@ -317,8 +317,8 @@ export default function GeminiFusionBlock({
 
     if (!fusionPrompt.trim()) {
       toast({
-        title: '프롬프트 필요',
-        description: '융합 분석 프롬프트를 입력해주세요.',
+        title: 'Prompt Required',
+        description: 'Please enter a fusion analysis prompt.',
         variant: 'destructive'
       });
       return;
@@ -328,25 +328,25 @@ export default function GeminiFusionBlock({
     setResult(null);
 
     try {
-      // FormData 생성
+      // Create FormData
       const formData = new FormData();
       formData.append('fusion_prompt', fusionPrompt);
       formData.append('fusion_strategy', fusionStrategy);
       formData.append('model', model);
       formData.append('temperature', temperature.toString());
 
-      // 텍스트 입력 추가
+      // Add text inputs
       if (textInputs.length > 0) {
         const combinedText = textInputs.map(input => input.content).join('\n\n');
         formData.append('text_content', combinedText);
       }
 
-      // 이미지 파일 추가
+      // Add image files
       imageInputs.forEach(input => {
         formData.append('image_files', input.file);
       });
 
-      // 음성 파일 추가
+      // Add audio files
       audioInputs.forEach(input => {
         formData.append('audio_files', input.file);
       });
@@ -363,17 +363,17 @@ export default function GeminiFusionBlock({
         onExecute?.(analysisResult);
         
         toast({
-          title: '융합 분석 완료',
-          description: `${analysisResult.processing_time_seconds?.toFixed(2)}초 만에 분석이 완료되었습니다.`
+          title: 'Fusion Analysis Complete',
+          description: `Analysis completed in ${analysisResult.processing_time_seconds?.toFixed(2)} seconds.`
         });
       } else {
-        throw new Error(analysisResult.error || '융합 분석에 실패했습니다.');
+        throw new Error(analysisResult.error || 'Fusion analysis failed.');
       }
     } catch (error) {
       console.error('Fusion analysis failed:', error);
       const errorResult = {
         success: false,
-        error: error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.',
+        error: error instanceof Error ? error.message : 'An unknown error occurred.',
         fusion_strategy: fusionStrategy,
         input_modalities: {
           text: textInputs.length,
@@ -386,7 +386,7 @@ export default function GeminiFusionBlock({
       setResult(errorResult);
       
       toast({
-        title: '융합 분석 실패',
+        title: 'Fusion Analysis Failed',
         description: errorResult.error,
         variant: 'destructive'
       });
@@ -395,7 +395,7 @@ export default function GeminiFusionBlock({
     }
   }, [textInputs, imageInputs, audioInputs, fusionPrompt, fusionStrategy, model, temperature, onExecute, toast]);
 
-  // 설정 변경 핸들러
+  // Config change handler
   const handleConfigChange = useCallback((newConfig: any) => {
     onConfigChange?.({
       ...config,
@@ -403,7 +403,7 @@ export default function GeminiFusionBlock({
     });
   }, [config, onConfigChange]);
 
-  // 프롬프트 템플릿 적용
+  // Apply prompt template
   const applyTemplate = useCallback((template: typeof promptTemplates[0]) => {
     setFusionPrompt(template.prompt);
     handleConfigChange({ fusion_prompt: template.prompt });
@@ -428,7 +428,7 @@ export default function GeminiFusionBlock({
               </Badge>
             </CardTitle>
             <CardDescription>
-              여러 종류의 미디어를 동시에 분석하여 통합적인 인사이트를 생성합니다
+              Analyze multiple types of media simultaneously to generate integrated insights
             </CardDescription>
           </div>
         </div>
@@ -437,22 +437,22 @@ export default function GeminiFusionBlock({
       <CardContent className="space-y-6">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="inputs">입력 데이터</TabsTrigger>
-            <TabsTrigger value="settings">융합 설정</TabsTrigger>
-            <TabsTrigger value="results">분석 결과</TabsTrigger>
+            <TabsTrigger value="inputs">Input Data</TabsTrigger>
+            <TabsTrigger value="settings">Fusion Settings</TabsTrigger>
+            <TabsTrigger value="results">Analysis Results</TabsTrigger>
           </TabsList>
 
           <TabsContent value="inputs" className="space-y-6">
-            {/* 텍스트 입력 섹션 */}
+            {/* Text Input Section */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold flex items-center gap-2">
                   <FileText className="h-5 w-5" />
-                  텍스트 입력
+                  Text Input
                 </h3>
                 <Button onClick={addTextInput} variant="outline" size="sm">
                   <Plus className="h-4 w-4 mr-2" />
-                  텍스트 추가
+                  Add Text
                 </Button>
               </div>
               
@@ -461,7 +461,7 @@ export default function GeminiFusionBlock({
                   <Textarea
                     value={input.content}
                     onChange={(e) => updateTextInput(input.id, e.target.value)}
-                    placeholder={`텍스트 입력 ${index + 1}`}
+                    placeholder={`Text input ${index + 1}`}
                     className="flex-1"
                   />
                   <Button
@@ -478,24 +478,24 @@ export default function GeminiFusionBlock({
                 <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center">
                   <FileText className="h-8 w-8 mx-auto mb-2 text-gray-400" />
                   <p className="text-sm text-gray-600 dark:text-gray-400">
-                    텍스트 입력을 추가하세요
+                    Add text input
                   </p>
                 </div>
               )}
             </div>
 
-            {/* 이미지 입력 섹션 */}
+            {/* Image Input Section */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold flex items-center gap-2">
                   <Eye className="h-5 w-5" />
-                  이미지 입력
+                  Image Input
                 </h3>
                 <label htmlFor={`image-upload-${blockId}`} className="cursor-pointer">
                   <Button variant="outline" size="sm" asChild>
                     <span>
                       <Upload className="h-4 w-4 mr-2" />
-                      이미지 추가
+                      Add Image
                     </span>
                   </Button>
                 </label>
@@ -537,24 +537,24 @@ export default function GeminiFusionBlock({
                 <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center">
                   <Eye className="h-8 w-8 mx-auto mb-2 text-gray-400" />
                   <p className="text-sm text-gray-600 dark:text-gray-400">
-                    이미지 파일을 업로드하세요
+                    Upload image files
                   </p>
                 </div>
               )}
             </div>
 
-            {/* 음성 입력 섹션 */}
+            {/* Audio Input Section */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold flex items-center gap-2">
                   <Mic className="h-5 w-5" />
-                  음성 입력
+                  Audio Input
                 </h3>
                 <label htmlFor={`audio-upload-${blockId}`} className="cursor-pointer">
                   <Button variant="outline" size="sm" asChild>
                     <span>
                       <Upload className="h-4 w-4 mr-2" />
-                      음성 추가
+                      Add Audio
                     </span>
                   </Button>
                 </label>
@@ -593,7 +593,7 @@ export default function GeminiFusionBlock({
                 <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center">
                   <Mic className="h-8 w-8 mx-auto mb-2 text-gray-400" />
                   <p className="text-sm text-gray-600 dark:text-gray-400">
-                    음성 파일을 업로드하세요
+                    Upload audio files
                   </p>
                 </div>
               )}
@@ -601,9 +601,9 @@ export default function GeminiFusionBlock({
           </TabsContent>
 
           <TabsContent value="settings" className="space-y-6">
-            {/* 융합 전략 선택 */}
+            {/* Fusion Strategy Selection */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold">융합 전략</h3>
+              <h3 className="text-lg font-semibold">Fusion Strategy</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {fusionStrategies.map((strategy) => {
                   const Icon = strategy.icon;
@@ -639,9 +639,9 @@ export default function GeminiFusionBlock({
               </div>
             </div>
 
-            {/* 프롬프트 템플릿 */}
+            {/* Prompt Templates */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold">융합 프롬프트</h3>
+              <h3 className="text-lg font-semibold">Fusion Prompt</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
                 {promptTemplates.map((template, index) => (
                   <Button
@@ -663,28 +663,28 @@ export default function GeminiFusionBlock({
                   setFusionPrompt(e.target.value);
                   handleConfigChange({ fusion_prompt: e.target.value });
                 }}
-                placeholder="모든 입력을 어떻게 융합 분석할지 설명해주세요..."
+                placeholder="Describe how to analyze and fuse all inputs..."
                 className="min-h-[100px]"
               />
             </div>
 
-            {/* 고급 설정 */}
+            {/* Advanced Settings */}
             <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced}>
               <CollapsibleTrigger asChild>
                 <Button variant="ghost" size="sm" className="w-full justify-between">
                   <span className="flex items-center gap-2">
                     <Settings className="h-4 w-4" />
-                    고급 설정
+                    Advanced Settings
                   </span>
                   <span className="text-xs text-gray-500">
-                    {showAdvanced ? '숨기기' : '보기'}
+                    {showAdvanced ? 'Hide' : 'Show'}
                   </span>
                 </Button>
               </CollapsibleTrigger>
               <CollapsibleContent className="space-y-4 pt-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">모델</label>
+                    <label className="text-sm font-medium">Model</label>
                     <Select value={model} onValueChange={(value) => {
                       setModel(value);
                       handleConfigChange({ model: value });
@@ -693,14 +693,14 @@ export default function GeminiFusionBlock({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro (고품질)</SelectItem>
-                        <SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash (빠름)</SelectItem>
+                        <SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro (High Quality)</SelectItem>
+                        <SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash (Fast)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">창의성 ({temperature})</label>
+                    <label className="text-sm font-medium">Creativity ({temperature})</label>
                     <Input
                       type="range"
                       min="0"
@@ -716,7 +716,7 @@ export default function GeminiFusionBlock({
                   </div>
                   
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">최대 토큰</label>
+                    <label className="text-sm font-medium">Max Tokens</label>
                     <Input
                       type="number"
                       min="512"
@@ -744,11 +744,11 @@ export default function GeminiFusionBlock({
                     <AlertCircle className="h-5 w-5 text-red-500" />
                   )}
                   <h3 className="font-semibold">
-                    {result.success ? '융합 분석 결과' : '분석 실패'}
+                    {result.success ? 'Fusion Analysis Results' : 'Analysis Failed'}
                   </h3>
                   {result.processing_time_seconds && (
                     <Badge variant="outline">
-                      {result.processing_time_seconds.toFixed(2)}초
+                      {result.processing_time_seconds.toFixed(2)}s
                     </Badge>
                   )}
                 </div>
@@ -758,22 +758,22 @@ export default function GeminiFusionBlock({
                     <div className="grid grid-cols-3 gap-4 text-sm">
                       <div className="text-center p-3 border rounded">
                         <div className="font-semibold">{result.input_modalities.text || 0}</div>
-                        <div className="text-gray-500">텍스트</div>
+                        <div className="text-gray-500">Text</div>
                       </div>
                       <div className="text-center p-3 border rounded">
                         <div className="font-semibold">{result.input_modalities.image || 0}</div>
-                        <div className="text-gray-500">이미지</div>
+                        <div className="text-gray-500">Image</div>
                       </div>
                       <div className="text-center p-3 border rounded">
                         <div className="font-semibold">{result.input_modalities.audio || 0}</div>
-                        <div className="text-gray-500">음성</div>
+                        <div className="text-gray-500">Audio</div>
                       </div>
                     </div>
 
                     <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded border">
                       <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
                         <StrategyIcon className="h-4 w-4" />
-                        융합 결과 ({result.fusion_strategy})
+                        Fusion Result ({result.fusion_strategy})
                       </h4>
                       <div className="text-sm whitespace-pre-wrap">
                         {JSON.stringify(result.fusion_result, null, 2)}
@@ -789,13 +789,13 @@ export default function GeminiFusionBlock({
             ) : (
               <div className="text-center py-12">
                 <BarChart3 className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                <p className="text-gray-500">융합 분석을 실행하면 결과가 여기에 표시됩니다</p>
+                <p className="text-gray-500">Results will be displayed here after running fusion analysis</p>
               </div>
             )}
           </TabsContent>
         </Tabs>
 
-        {/* 실행 버튼 */}
+        {/* Execute Button */}
         <Button
           onClick={handleFusionAnalysis}
           disabled={isAnalyzing || isExecuting}
@@ -805,29 +805,29 @@ export default function GeminiFusionBlock({
           {(isAnalyzing || isExecuting) ? (
             <>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              융합 분석 중...
+              Analyzing...
             </>
           ) : (
             <>
               <Sparkles className="h-4 w-4 mr-2" />
-              멀티모달 융합 분석 시작
+              Start Multimodal Fusion Analysis
             </>
           )}
         </Button>
 
-        {/* 입력 요약 */}
+        {/* Input Summary */}
         <div className="flex items-center justify-center gap-6 text-sm text-gray-500">
           <div className="flex items-center gap-1">
             <FileText className="h-4 w-4" />
-            <span>{textInputs.length} 텍스트</span>
+            <span>{textInputs.length} Text</span>
           </div>
           <div className="flex items-center gap-1">
             <Eye className="h-4 w-4" />
-            <span>{imageInputs.length} 이미지</span>
+            <span>{imageInputs.length} Image</span>
           </div>
           <div className="flex items-center gap-1">
             <Mic className="h-4 w-4" />
-            <span>{audioInputs.length} 음성</span>
+            <span>{audioInputs.length} Audio</span>
           </div>
           {selectedStrategy && (
             <div className="flex items-center gap-1">

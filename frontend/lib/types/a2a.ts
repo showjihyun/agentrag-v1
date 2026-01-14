@@ -1,7 +1,7 @@
 /**
  * A2A Protocol Types
  * 
- * Google A2A 프로토콜 관련 TypeScript 타입 정의
+ * TypeScript type definitions for Google A2A protocol
  */
 
 // Enums

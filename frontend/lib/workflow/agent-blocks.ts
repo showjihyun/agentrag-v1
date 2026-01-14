@@ -1,7 +1,7 @@
 /**
  * Agent Block Definitions for Workflow Platform
  * 
- * Agent Plugin 시스템을 워크플로우 블록으로 통합
+ * Integrates Agent Plugin system into workflow blocks
  */
 
 import { BlockDefinition, BlockCategory } from '@/lib/types/workflow';
@@ -612,7 +612,7 @@ export const agentBlocks: BlockDefinition[] = [
 export const agentBlockCategory: BlockCategory = {
   id: 'ai_agents',
   name: 'AI Agents',
-  description: 'AI Agent 실행 및 오케스트레이션 블록',
+  description: 'AI Agent execution and orchestration blocks',
   icon: Bot,
   color: '#3B82F6',
   blocks: agentBlocks

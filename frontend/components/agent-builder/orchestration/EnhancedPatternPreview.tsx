@@ -1,6 +1,6 @@
 /**
  * Enhanced Pattern Preview
- * 향상된 패턴 미리보기 컴포넌트
+ * Enhanced pattern preview component
  */
 
 import React, { useState, useEffect } from 'react';
@@ -89,42 +89,42 @@ export function EnhancedPatternPreview({
   
   const pattern = ORCHESTRATION_TYPES[config.orchestrationType];
   
-  // 설정 분석
+  // Configuration analysis
   const configAnalysis = analyzeConfiguration(config);
   
-  // 시뮬레이션 실행
+  // Run simulation
   const runSimulation = async () => {
     setSimulationRunning(true);
-    // 시뮬레이션 로직 (실제로는 API 호출)
+    // Simulation logic (actual API call in production)
     await new Promise(resolve => setTimeout(resolve, 2000));
     setSimulationRunning(false);
   };
 
   return (
     <div className={cn("space-y-6", className)}>
-      {/* 헤더 */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-xl font-semibold">{config.name}</h3>
-          <p className="text-sm text-gray-600">{pattern.name} 패턴</p>
+          <p className="text-sm text-gray-600">{pattern.name} Pattern</p>
         </div>
         <div className="flex gap-2">
           {onEditConfig && (
             <Button variant="outline" onClick={onEditConfig}>
               <Settings className="w-4 h-4 mr-2" />
-              설정 수정
+              Edit Settings
             </Button>
           )}
           {onExecuteTest && (
             <Button onClick={onExecuteTest}>
               <Play className="w-4 h-4 mr-2" />
-              테스트 실행
+              Run Test
             </Button>
           )}
         </div>
       </div>
 
-      {/* 설정 분석 요약 */}
+      {/* Configuration Analysis Summary */}
       <Card className={cn(
         "border-l-4",
         configAnalysis.overallScore >= 80 && "border-l-green-500 bg-green-50",
@@ -141,19 +141,19 @@ export function EnhancedPatternPreview({
               ) : (
                 <AlertTriangle className="w-5 h-5 text-red-600" />
               )}
-              <span className="font-medium">설정 분석 결과</span>
+              <span className="font-medium">Configuration Analysis Result</span>
             </div>
             <Badge variant={
               configAnalysis.overallScore >= 80 ? "default" :
               configAnalysis.overallScore >= 60 ? "secondary" : "destructive"
             }>
-              {configAnalysis.overallScore}점
+              {configAnalysis.overallScore} points
             </Badge>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
             <div>
-              <div className="font-medium text-gray-700 mb-1">강점</div>
+              <div className="font-medium text-gray-700 mb-1">Strengths</div>
               <ul className="space-y-1">
                 {configAnalysis.strengths.map((strength, index) => (
                   <li key={index} className="flex items-center gap-1 text-green-700">
@@ -165,7 +165,7 @@ export function EnhancedPatternPreview({
             </div>
             
             <div>
-              <div className="font-medium text-gray-700 mb-1">개선점</div>
+              <div className="font-medium text-gray-700 mb-1">Improvements</div>
               <ul className="space-y-1">
                 {configAnalysis.improvements.map((improvement, index) => (
                   <li key={index} className="flex items-center gap-1 text-yellow-700">
@@ -177,18 +177,18 @@ export function EnhancedPatternPreview({
             </div>
             
             <div>
-              <div className="font-medium text-gray-700 mb-1">예상 성능</div>
+              <div className="font-medium text-gray-700 mb-1">Expected Performance</div>
               <div className="space-y-2">
                 <div className="flex justify-between">
-                  <span>응답 시간</span>
+                  <span>Response Time</span>
                   <span className="font-medium">{configAnalysis.estimatedResponseTime}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>성공률</span>
+                  <span>Success Rate</span>
                   <span className="font-medium">{configAnalysis.estimatedSuccessRate}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>비용 효율성</span>
+                  <span>Cost Efficiency</span>
                   <span className="font-medium">{configAnalysis.costEfficiency}</span>
                 </div>
               </div>
@@ -197,32 +197,32 @@ export function EnhancedPatternPreview({
         </CardContent>
       </Card>
 
-      {/* 상세 탭 */}
+      {/* Detail Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="overview">개요</TabsTrigger>
-          <TabsTrigger value="agents">Agent 구성</TabsTrigger>
-          <TabsTrigger value="flow">실행 흐름</TabsTrigger>
-          <TabsTrigger value="metrics">성능 지표</TabsTrigger>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="agents">Agent Configuration</TabsTrigger>
+          <TabsTrigger value="flow">Execution Flow</TabsTrigger>
+          <TabsTrigger value="metrics">Performance Metrics</TabsTrigger>
         </TabsList>
 
-        {/* 개요 탭 */}
+        {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
                   <Info className="w-4 h-4" />
-                  기본 정보
+                  Basic Information
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div>
-                  <div className="text-sm font-medium text-gray-700">설명</div>
-                  <p className="text-sm text-gray-600">{config.description || '설명이 없습니다.'}</p>
+                  <div className="text-sm font-medium text-gray-700">Description</div>
+                  <p className="text-sm text-gray-600">{config.description || 'No description available.'}</p>
                 </div>
                 <div>
-                  <div className="text-sm font-medium text-gray-700 mb-1">태그</div>
+                  <div className="text-sm font-medium text-gray-700 mb-1">Tags</div>
                   <div className="flex flex-wrap gap-1">
                     {config.tags.map((tag, index) => (
                       <Badge key={index} variant="outline" className="text-xs">
@@ -232,7 +232,7 @@ export function EnhancedPatternPreview({
                   </div>
                 </div>
                 <div>
-                  <div className="text-sm font-medium text-gray-700">패턴 특성</div>
+                  <div className="text-sm font-medium text-gray-700">Pattern Characteristics</div>
                   <div className="flex items-center gap-2 mt-1">
                     <Badge variant="outline" className="text-xs">
                       <Clock className="w-3 h-3 mr-1" />
@@ -251,15 +251,15 @@ export function EnhancedPatternPreview({
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
                   <Shield className="w-4 h-4" />
-                  Supervisor 설정
+                  Supervisor Settings
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 {config.supervisorConfig.enabled ? (
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-gray-600">상태</span>
-                      <Badge className="bg-green-100 text-green-700">활성화</Badge>
+                      <span className="text-gray-600">Status</span>
+                      <Badge className="bg-green-100 text-green-700">Enabled</Badge>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">LLM</span>
@@ -268,17 +268,17 @@ export function EnhancedPatternPreview({
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">전략</span>
+                      <span className="text-gray-600">Strategy</span>
                       <span className="font-medium">{config.supervisorConfig.decision_strategy}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">최대 반복</span>
-                      <span className="font-medium">{config.supervisorConfig.max_iterations}회</span>
+                      <span className="text-gray-600">Max Iterations</span>
+                      <span className="font-medium">{config.supervisorConfig.max_iterations}</span>
                     </div>
                   </div>
                 ) : (
                   <div className="text-sm text-gray-500 text-center py-4">
-                    Supervisor가 비활성화되어 있습니다
+                    Supervisor is disabled
                   </div>
                 )}
               </CardContent>
@@ -286,7 +286,7 @@ export function EnhancedPatternPreview({
           </div>
         </TabsContent>
 
-        {/* Agent 구성 탭 */}
+        {/* Agent Configuration Tab */}
         <TabsContent value="agents" className="space-y-4">
           <div className="grid grid-cols-1 gap-4">
             {config.agentRoles.map((agent, index) => (
@@ -303,24 +303,24 @@ export function EnhancedPatternPreview({
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline">우선순위 {agent.priority}</Badge>
+                      <Badge variant="outline">Priority {agent.priority}</Badge>
                       <Badge variant="secondary">{AGENT_ROLES[agent.role].category}</Badge>
                     </div>
                   </div>
                   
                   <div className="grid grid-cols-3 gap-4 text-sm">
                     <div>
-                      <div className="text-gray-600">최대 재시도</div>
-                      <div className="font-medium">{agent.maxRetries}회</div>
+                      <div className="text-gray-600">Max Retries</div>
+                      <div className="font-medium">{agent.maxRetries}</div>
                     </div>
                     <div>
-                      <div className="text-gray-600">타임아웃</div>
-                      <div className="font-medium">{agent.timeoutSeconds}초</div>
+                      <div className="text-gray-600">Timeout</div>
+                      <div className="font-medium">{agent.timeoutSeconds} seconds</div>
                     </div>
                     <div>
-                      <div className="text-gray-600">의존성</div>
+                      <div className="text-gray-600">Dependencies</div>
                       <div className="font-medium">
-                        {agent.dependencies.length > 0 ? `${agent.dependencies.length}개` : '없음'}
+                        {agent.dependencies.length > 0 ? `${agent.dependencies.length}` : 'None'}
                       </div>
                     </div>
                   </div>
@@ -334,7 +334,7 @@ export function EnhancedPatternPreview({
           </div>
         </TabsContent>
 
-        {/* 실행 흐름 탭 */}
+        {/* Execution Flow Tab */}
         <TabsContent value="flow" className="space-y-4">
           {showExecutionFlow && (
             <ExecutionFlowVisualization 
@@ -345,7 +345,7 @@ export function EnhancedPatternPreview({
           )}
         </TabsContent>
 
-        {/* 성능 지표 탭 */}
+        {/* Performance Metrics Tab */}
         <TabsContent value="metrics" className="space-y-4">
           {showPerformanceMetrics && (
             <PerformanceMetricsView config={config} />
@@ -356,65 +356,65 @@ export function EnhancedPatternPreview({
   );
 }
 
-// 설정 분석 함수
+// Configuration analysis function
 function analyzeConfiguration(config: OrchestrationConfig) {
   const strengths: string[] = [];
   const improvements: string[] = [];
   let score = 0;
 
-  // Agent 구성 분석
+  // Agent configuration analysis
   if (config.agentRoles.length >= 2) {
-    strengths.push('적절한 Agent 수');
+    strengths.push('Adequate number of agents');
     score += 20;
   } else {
-    improvements.push('Agent 수 부족');
+    improvements.push('Insufficient number of agents');
   }
 
-  // Supervisor 분석
+  // Supervisor analysis
   if (config.supervisorConfig.enabled) {
-    strengths.push('Supervisor 활성화');
+    strengths.push('Supervisor enabled');
     score += 15;
   }
 
-  // 통신 규칙 분석
+  // Communication rules analysis
   if (config.communicationRules.allowDirectCommunication) {
-    strengths.push('효율적인 통신 설정');
+    strengths.push('Efficient communication setup');
     score += 10;
   }
 
-  // 성능 임계값 분석
+  // Performance threshold analysis
   if (config.performanceThresholds.minSuccessRate >= 0.8) {
-    strengths.push('높은 성공률 목표');
+    strengths.push('High success rate target');
     score += 15;
   }
 
   if (config.performanceThresholds.maxExecutionTime <= 300000) {
-    strengths.push('적절한 실행 시간 제한');
+    strengths.push('Appropriate execution time limit');
     score += 10;
   }
 
-  // 태그 및 문서화
+  // Tags and documentation
   if (config.tags.length > 0) {
-    strengths.push('적절한 태그 설정');
+    strengths.push('Proper tag configuration');
     score += 5;
   }
 
   if (config.description && config.description.length > 10) {
-    strengths.push('상세한 설명');
+    strengths.push('Detailed description');
     score += 5;
   }
 
-  // 개선점 추가
+  // Add improvements
   if (score < 60) {
-    improvements.push('전반적인 설정 개선 필요');
+    improvements.push('Overall configuration improvement needed');
   }
 
   if (!config.supervisorConfig.enabled && config.agentRoles.length > 3) {
-    improvements.push('다수 Agent 관리를 위한 Supervisor 고려');
+    improvements.push('Consider Supervisor for managing multiple agents');
   }
 
   return {
-    overallScore: Math.min(score + 20, 100), // 기본 점수 20점 추가
+    overallScore: Math.min(score + 20, 100), // Add 20 base points
     strengths,
     improvements,
     estimatedResponseTime: calculateEstimatedResponseTime(config),
@@ -424,27 +424,27 @@ function analyzeConfiguration(config: OrchestrationConfig) {
 }
 
 function calculateEstimatedResponseTime(config: OrchestrationConfig): string {
-  const baseTime = 2000; // 2초 기본
-  const agentFactor = config.agentRoles.length * 500; // Agent당 0.5초 추가
-  const supervisorFactor = config.supervisorConfig.enabled ? 1000 : 0; // Supervisor 1초 추가
+  const baseTime = 2000; // 2 seconds base
+  const agentFactor = config.agentRoles.length * 500; // 0.5 seconds per agent
+  const supervisorFactor = config.supervisorConfig.enabled ? 1000 : 0; // 1 second for supervisor
   
   const totalMs = baseTime + agentFactor + supervisorFactor;
-  return `${(totalMs / 1000).toFixed(1)}초`;
+  return `${(totalMs / 1000).toFixed(1)} seconds`;
 }
 
 function calculateCostEfficiency(config: OrchestrationConfig): string {
-  let efficiency = '보통';
+  let efficiency = 'Medium';
   
   if (config.performanceThresholds.maxTokenUsage < 5000) {
-    efficiency = '높음';
+    efficiency = 'High';
   } else if (config.performanceThresholds.maxTokenUsage > 15000) {
-    efficiency = '낮음';
+    efficiency = 'Low';
   }
   
   return efficiency;
 }
 
-// 실행 흐름 시각화 컴포넌트
+// Execution flow visualization component
 function ExecutionFlowVisualization({ 
   config, 
   isSimulating, 
@@ -460,7 +460,7 @@ function ExecutionFlowVisualization({
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
             <Network className="w-5 h-5" />
-            실행 흐름 시뮬레이션
+            Execution Flow Simulation
           </CardTitle>
           <Button 
             onClick={onRunSimulation} 
@@ -470,12 +470,12 @@ function ExecutionFlowVisualization({
             {isSimulating ? (
               <>
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                시뮬레이션 중...
+                Simulating...
               </>
             ) : (
               <>
                 <Play className="w-4 h-4 mr-2" />
-                시뮬레이션 실행
+                Run Simulation
               </>
             )}
           </Button>
@@ -497,7 +497,7 @@ function ExecutionFlowVisualization({
                   <div className="font-medium">{agent.name}</div>
                   <div className="text-sm text-gray-600">{AGENT_ROLES[agent.role].name}</div>
                 </div>
-                <Badge variant="outline">우선순위 {agent.priority}</Badge>
+                <Badge variant="outline">Priority {agent.priority}</Badge>
               </div>
             ))}
         </div>
@@ -506,7 +506,7 @@ function ExecutionFlowVisualization({
   );
 }
 
-// 성능 지표 뷰 컴포넌트
+// Performance metrics view component
 function PerformanceMetricsView({ config }: { config: OrchestrationConfig }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -514,20 +514,20 @@ function PerformanceMetricsView({ config }: { config: OrchestrationConfig }) {
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <BarChart3 className="w-4 h-4" />
-            성능 임계값
+            Performance Thresholds
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-600">최대 실행 시간</span>
-            <span className="font-medium">{Math.round(config.performanceThresholds.maxExecutionTime / 1000)}초</span>
+            <span className="text-sm text-gray-600">Max Execution Time</span>
+            <span className="font-medium">{Math.round(config.performanceThresholds.maxExecutionTime / 1000)} seconds</span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-600">최소 성공률</span>
+            <span className="text-sm text-gray-600">Min Success Rate</span>
             <span className="font-medium">{Math.round(config.performanceThresholds.minSuccessRate * 100)}%</span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-600">최대 토큰 사용량</span>
+            <span className="text-sm text-gray-600">Max Token Usage</span>
             <span className="font-medium">{config.performanceThresholds.maxTokenUsage.toLocaleString()}</span>
           </div>
         </CardContent>
@@ -537,20 +537,20 @@ function PerformanceMetricsView({ config }: { config: OrchestrationConfig }) {
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <TrendingUp className="w-4 h-4" />
-            예상 지표
+            Expected Metrics
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-600">예상 응답 시간</span>
+            <span className="text-sm text-gray-600">Expected Response Time</span>
             <span className="font-medium">{calculateEstimatedResponseTime(config)}</span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-600">예상 비용 효율성</span>
+            <span className="text-sm text-gray-600">Expected Cost Efficiency</span>
             <span className="font-medium">{calculateCostEfficiency(config)}</span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-600">복잡도</span>
+            <span className="text-sm text-gray-600">Complexity</span>
             <Badge variant="outline">
               {ORCHESTRATION_TYPES[config.orchestrationType].complexity}
             </Badge>

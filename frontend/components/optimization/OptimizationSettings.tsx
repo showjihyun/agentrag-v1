@@ -1,7 +1,7 @@
 /**
  * Optimization Settings Component
  * 
- * 최적화 설정을 관리하는 컴포넌트
+ * Component for managing optimization settings
  */
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
@@ -29,7 +29,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface OptimizationSettings {
-  // 자동 튜닝 설정
+  // Auto tuning settings
   autoTuning: {
     enabled: boolean;
     strategy: 'conservative' | 'balanced' | 'aggressive' | 'cost_focused';
@@ -39,7 +39,7 @@ interface OptimizationSettings {
     maxRiskTolerance: number;
   };
   
-  // 성능 임계값
+  // Performance thresholds
   performanceThresholds: {
     maxExecutionTime: number;
     minSuccessRate: number;
@@ -47,7 +47,7 @@ interface OptimizationSettings {
     maxMemoryUsage: number;
   };
   
-  // ML 최적화 설정
+  // ML optimization settings
   mlOptimization: {
     enabled: boolean;
     learningRate: number;
@@ -60,7 +60,7 @@ interface OptimizationSettings {
     };
   };
   
-  // 비용 최적화 설정
+  // Cost optimization settings
   costOptimization: {
     enabled: boolean;
     strategy: 'aggressive' | 'balanced' | 'conservative';
@@ -69,7 +69,7 @@ interface OptimizationSettings {
     autoImplementLowRisk: boolean;
   };
   
-  // 알림 설정
+  // Notification settings
   notifications: {
     emailEnabled: boolean;
     slackEnabled: boolean;
@@ -142,7 +142,7 @@ export const OptimizationSettings: React.FC<Props> = ({
   const [hasChanges, setHasChanges] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
-  // 설정 변경 감지
+  // Detect settings changes
   useEffect(() => {
     const hasChanged = JSON.stringify(settings) !== JSON.stringify({
       ...defaultSettings,
@@ -151,7 +151,7 @@ export const OptimizationSettings: React.FC<Props> = ({
     setHasChanges(hasChanged);
   }, [settings, initialSettings]);
 
-  // 설정 업데이트 헬퍼
+  // Settings update helper
   const updateSettings = (path: string, value: any) => {
     setSettings(prev => {
       const keys = path.split('.');
@@ -168,34 +168,34 @@ export const OptimizationSettings: React.FC<Props> = ({
     });
   };
 
-  // 설정 검증
+  // Validate settings
   const validateSettings = (): string[] => {
     const errors: string[] = [];
     
-    // 성능 임계값 검증
+    // Performance threshold validation
     if (settings.performanceThresholds.maxExecutionTime <= 0) {
-      errors.push('최대 실행 시간은 0보다 커야 합니다.');
+      errors.push('Maximum execution time must be greater than 0.');
     }
     
     if (settings.performanceThresholds.minSuccessRate < 0 || settings.performanceThresholds.minSuccessRate > 1) {
-      errors.push('최소 성공률은 0과 1 사이여야 합니다.');
+      errors.push('Minimum success rate must be between 0 and 1.');
     }
     
-    // ML 최적화 설정 검증
+    // ML optimization settings validation
     const prioritySum = Object.values(settings.mlOptimization.objectivePriority).reduce((sum, val) => sum + val, 0);
     if (Math.abs(prioritySum - 100) > 0.1) {
-      errors.push('목표 우선순위의 합은 100%여야 합니다.');
+      errors.push('The sum of objective priorities must equal 100%.');
     }
     
-    // 비용 설정 검증
+    // Cost settings validation
     if (settings.costOptimization.maxMonthlyCost <= 0) {
-      errors.push('최대 월간 비용은 0보다 커야 합니다.');
+      errors.push('Maximum monthly cost must be greater than 0.');
     }
     
     return errors;
   };
 
-  // 설정 저장
+  // Save settings
   const handleSave = async () => {
     const errors = validateSettings();
     setValidationErrors(errors);
@@ -215,7 +215,7 @@ export const OptimizationSettings: React.FC<Props> = ({
     }
   };
 
-  // 설정 초기화
+  // Reset settings
   const handleReset = () => {
     setSettings({ ...defaultSettings, ...initialSettings });
     setValidationErrors([]);
@@ -224,11 +224,11 @@ export const OptimizationSettings: React.FC<Props> = ({
 
   return (
     <div className={`space-y-6 ${className}`}>
-      {/* 헤더 */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Settings className="w-6 h-6 text-gray-700" />
-          <h2 className="text-xl font-semibold text-gray-900">최적화 설정</h2>
+          <h2 className="text-xl font-semibold text-gray-900">Optimization Settings</h2>
         </div>
         
         <div className="flex items-center gap-2">
@@ -238,7 +238,7 @@ export const OptimizationSettings: React.FC<Props> = ({
             disabled={!hasChanges}
           >
             <RotateCcw className="w-4 h-4 mr-2" />
-            초기화
+            Reset
           </Button>
           
           <Button
@@ -246,7 +246,7 @@ export const OptimizationSettings: React.FC<Props> = ({
             disabled={!hasChanges || isSaving}
           >
             <Save className="w-4 h-4 mr-2" />
-            {isSaving ? '저장 중...' : '저장'}
+            {isSaving ? 'Saving...' : 'Save'}
           </Button>
         </div>
       </div>
@@ -265,30 +265,30 @@ export const OptimizationSettings: React.FC<Props> = ({
         </Alert>
       )}
 
-      {/* 설정 탭 */}
+      {/* Settings Tabs */}
       <Tabs defaultValue="auto-tuning" className="space-y-6">
         <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="auto-tuning">자동 튜닝</TabsTrigger>
-          <TabsTrigger value="thresholds">성능 임계값</TabsTrigger>
-          <TabsTrigger value="ml-optimization">ML 최적화</TabsTrigger>
-          <TabsTrigger value="cost-optimization">비용 최적화</TabsTrigger>
-          <TabsTrigger value="notifications">알림</TabsTrigger>
+          <TabsTrigger value="auto-tuning">Auto Tuning</TabsTrigger>
+          <TabsTrigger value="thresholds">Performance Thresholds</TabsTrigger>
+          <TabsTrigger value="ml-optimization">ML Optimization</TabsTrigger>
+          <TabsTrigger value="cost-optimization">Cost Optimization</TabsTrigger>
+          <TabsTrigger value="notifications">Notifications</TabsTrigger>
         </TabsList>
 
-        {/* 자동 튜닝 설정 */}
+        {/* Auto Tuning Settings */}
         <TabsContent value="auto-tuning" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Zap className="w-5 h-5" />
-                자동 성능 튜닝
+                Auto Performance Tuning
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <Label className="text-base font-medium">자동 튜닝 활성화</Label>
-                  <p className="text-sm text-gray-600">워크플로우 성능을 자동으로 모니터링하고 최적화합니다.</p>
+                  <Label className="text-base font-medium">Enable Auto Tuning</Label>
+                  <p className="text-sm text-gray-600">Automatically monitor and optimize workflow performance.</p>
                 </div>
                 <Switch
                   checked={settings.autoTuning.enabled}
@@ -304,7 +304,7 @@ export const OptimizationSettings: React.FC<Props> = ({
                 >
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label>튜닝 전략</Label>
+                      <Label>Tuning Strategy</Label>
                       <Select
                         value={settings.autoTuning.strategy}
                         onValueChange={(value) => updateSettings('autoTuning.strategy', value)}
@@ -313,16 +313,16 @@ export const OptimizationSettings: React.FC<Props> = ({
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="conservative">보수적 (안정성 우선)</SelectItem>
-                          <SelectItem value="balanced">균형 (성능과 안정성)</SelectItem>
-                          <SelectItem value="aggressive">적극적 (성능 우선)</SelectItem>
-                          <SelectItem value="cost_focused">비용 중심</SelectItem>
+                          <SelectItem value="conservative">Conservative (Stability First)</SelectItem>
+                          <SelectItem value="balanced">Balanced (Performance & Stability)</SelectItem>
+                          <SelectItem value="aggressive">Aggressive (Performance First)</SelectItem>
+                          <SelectItem value="cost_focused">Cost Focused</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
 
                     <div>
-                      <Label>튜닝 주기 (시간)</Label>
+                      <Label>Tuning Interval (hours)</Label>
                       <Input
                         type="number"
                         value={settings.autoTuning.intervalHours}
@@ -334,7 +334,7 @@ export const OptimizationSettings: React.FC<Props> = ({
                   </div>
 
                   <div>
-                    <Label>최소 개선 임계값: {settings.autoTuning.minImprovementThreshold}%</Label>
+                    <Label>Minimum Improvement Threshold: {settings.autoTuning.minImprovementThreshold}%</Label>
                     <Slider
                       value={[settings.autoTuning.minImprovementThreshold]}
                       onValueChange={([value]) => updateSettings('autoTuning.minImprovementThreshold', value)}
@@ -344,12 +344,12 @@ export const OptimizationSettings: React.FC<Props> = ({
                       className="mt-2"
                     />
                     <p className="text-xs text-gray-600 mt-1">
-                      이 값보다 낮은 개선은 적용하지 않습니다.
+                      Improvements below this value will not be applied.
                     </p>
                   </div>
 
                   <div>
-                    <Label>최대 위험 허용도: {(settings.autoTuning.maxRiskTolerance * 100).toFixed(0)}%</Label>
+                    <Label>Maximum Risk Tolerance: {(settings.autoTuning.maxRiskTolerance * 100).toFixed(0)}%</Label>
                     <Slider
                       value={[settings.autoTuning.maxRiskTolerance * 100]}
                       onValueChange={([value]) => updateSettings('autoTuning.maxRiskTolerance', value / 100)}
@@ -362,8 +362,8 @@ export const OptimizationSettings: React.FC<Props> = ({
 
                   <div className="flex items-center justify-between">
                     <div>
-                      <Label className="text-base font-medium">자동 적용</Label>
-                      <p className="text-sm text-gray-600">위험도가 낮은 최적화를 자동으로 적용합니다.</p>
+                      <Label className="text-base font-medium">Auto Apply</Label>
+                      <p className="text-sm text-gray-600">Automatically apply low-risk optimizations.</p>
                     </div>
                     <Switch
                       checked={settings.autoTuning.autoApply}
@@ -376,19 +376,19 @@ export const OptimizationSettings: React.FC<Props> = ({
           </Card>
         </TabsContent>
 
-        {/* 성능 임계값 설정 */}
+        {/* Performance Thresholds Settings */}
         <TabsContent value="thresholds" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Target className="w-5 h-5" />
-                성능 임계값
+                Performance Thresholds
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label>최대 실행 시간 (초)</Label>
+                  <Label>Maximum Execution Time (seconds)</Label>
                   <Input
                     type="number"
                     value={settings.performanceThresholds.maxExecutionTime}
@@ -399,7 +399,7 @@ export const OptimizationSettings: React.FC<Props> = ({
                 </div>
 
                 <div>
-                  <Label>최소 성공률</Label>
+                  <Label>Minimum Success Rate</Label>
                   <Input
                     type="number"
                     value={settings.performanceThresholds.minSuccessRate}
@@ -411,7 +411,7 @@ export const OptimizationSettings: React.FC<Props> = ({
                 </div>
 
                 <div>
-                  <Label>최대 실행당 비용 ($)</Label>
+                  <Label>Maximum Cost Per Execution ($)</Label>
                   <Input
                     type="number"
                     value={settings.performanceThresholds.maxCostPerExecution}
@@ -422,7 +422,7 @@ export const OptimizationSettings: React.FC<Props> = ({
                 </div>
 
                 <div>
-                  <Label>최대 메모리 사용량 (MB)</Label>
+                  <Label>Maximum Memory Usage (MB)</Label>
                   <Input
                     type="number"
                     value={settings.performanceThresholds.maxMemoryUsage}
@@ -435,20 +435,20 @@ export const OptimizationSettings: React.FC<Props> = ({
           </Card>
         </TabsContent>
 
-        {/* ML 최적화 설정 */}
+        {/* ML Optimization Settings */}
         <TabsContent value="ml-optimization" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Zap className="w-5 h-5" />
-                ML 기반 최적화
+                ML-Based Optimization
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <Label className="text-base font-medium">ML 최적화 활성화</Label>
-                  <p className="text-sm text-gray-600">머신러닝을 사용하여 성능을 예측하고 최적화합니다.</p>
+                  <Label className="text-base font-medium">Enable ML Optimization</Label>
+                  <p className="text-sm text-gray-600">Use machine learning to predict and optimize performance.</p>
                 </div>
                 <Switch
                   checked={settings.mlOptimization.enabled}
@@ -464,7 +464,7 @@ export const OptimizationSettings: React.FC<Props> = ({
                 >
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label>학습률</Label>
+                      <Label>Learning Rate</Label>
                       <Input
                         type="number"
                         value={settings.mlOptimization.learningRate}
@@ -476,7 +476,7 @@ export const OptimizationSettings: React.FC<Props> = ({
                     </div>
 
                     <div>
-                      <Label>최소 데이터 포인트</Label>
+                      <Label>Minimum Data Points</Label>
                       <Input
                         type="number"
                         value={settings.mlOptimization.minDataPoints}
@@ -488,7 +488,7 @@ export const OptimizationSettings: React.FC<Props> = ({
                   </div>
 
                   <div>
-                    <Label>신뢰도 임계값: {(settings.mlOptimization.confidenceThreshold * 100).toFixed(0)}%</Label>
+                    <Label>Confidence Threshold: {(settings.mlOptimization.confidenceThreshold * 100).toFixed(0)}%</Label>
                     <Slider
                       value={[settings.mlOptimization.confidenceThreshold * 100]}
                       onValueChange={([value]) => updateSettings('mlOptimization.confidenceThreshold', value / 100)}
@@ -500,10 +500,10 @@ export const OptimizationSettings: React.FC<Props> = ({
                   </div>
 
                   <div>
-                    <Label className="text-base font-medium mb-3 block">목표 우선순위</Label>
+                    <Label className="text-base font-medium mb-3 block">Objective Priority</Label>
                     <div className="space-y-3">
                       <div>
-                        <Label>성능: {settings.mlOptimization.objectivePriority.performance}%</Label>
+                        <Label>Performance: {settings.mlOptimization.objectivePriority.performance}%</Label>
                         <Slider
                           value={[settings.mlOptimization.objectivePriority.performance]}
                           onValueChange={([value]) => {
@@ -524,7 +524,7 @@ export const OptimizationSettings: React.FC<Props> = ({
                       </div>
                       
                       <div>
-                        <Label>비용: {settings.mlOptimization.objectivePriority.cost}%</Label>
+                        <Label>Cost: {settings.mlOptimization.objectivePriority.cost}%</Label>
                         <Slider
                           value={[settings.mlOptimization.objectivePriority.cost]}
                           onValueChange={([value]) => {
@@ -543,9 +543,9 @@ export const OptimizationSettings: React.FC<Props> = ({
                       </div>
                       
                       <div>
-                        <Label>안정성: {settings.mlOptimization.objectivePriority.reliability}%</Label>
+                        <Label>Reliability: {settings.mlOptimization.objectivePriority.reliability}%</Label>
                         <div className="text-sm text-gray-600">
-                          (자동 계산됨: {100 - settings.mlOptimization.objectivePriority.performance - settings.mlOptimization.objectivePriority.cost}%)
+                          (Auto-calculated: {100 - settings.mlOptimization.objectivePriority.performance - settings.mlOptimization.objectivePriority.cost}%)
                         </div>
                       </div>
                     </div>

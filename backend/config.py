@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     - Milvus: Vector database configuration
     - PostgreSQL: Relational database configuration
     - Redis: Cache and session storage
-    - Embedding: Text embedding model settings
+    - Embedding: Text embedding model settings                                  
     - RAG: Retrieval-augmented generation features
     - Performance: Timeouts, pool sizes, etc.
     """

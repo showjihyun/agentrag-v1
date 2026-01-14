@@ -114,14 +114,14 @@ export function ExecutionMonitor({
       const mockExecution: ExecutionData = {
         id: executionId,
         flowId: flowId || 'flow-1',
-        flowName: '고객 지원 자동화',
+        flowName: 'Customer Support Automation',
         flowType: 'agentflow',
         status: 'running',
         startTime: new Date(Date.now() - 30000),
         steps: [
           {
             id: 'step-1',
-            name: '입력 분석 에이전트',
+            name: 'Input Analysis Agent',
             type: 'agent',
             status: 'completed',
             startTime: new Date(Date.now() - 30000),
@@ -136,7 +136,7 @@ export function ExecutionMonitor({
           },
           {
             id: 'step-2',
-            name: '의도 분류',
+            name: 'Intent Classification',
             type: 'llm',
             status: 'completed',
             startTime: new Date(Date.now() - 25000),
@@ -151,7 +151,7 @@ export function ExecutionMonitor({
           },
           {
             id: 'step-3',
-            name: '지식베이스 검색',
+            name: 'Knowledge Base Search',
             type: 'tool',
             status: 'running',
             startTime: new Date(Date.now() - 20000),
@@ -162,13 +162,13 @@ export function ExecutionMonitor({
           },
           {
             id: 'step-4',
-            name: '응답 생성 에이전트',
+            name: 'Response Generation Agent',
             type: 'agent',
             status: 'pending',
           },
           {
             id: 'step-5',
-            name: '품질 검증',
+            name: 'Quality Verification',
             type: 'condition',
             status: 'pending',
           },
@@ -186,22 +186,22 @@ export function ExecutionMonitor({
           {
             timestamp: new Date(Date.now() - 30000),
             level: 'info',
-            message: '실행 시작됨',
+            message: 'Execution started',
           },
           {
             timestamp: new Date(Date.now() - 25000),
             level: 'info',
-            message: '입력 분석 완료: 고객 문의 유형 - 기술 지원',
+            message: 'Input analysis completed: Customer inquiry type - Technical support',
           },
           {
             timestamp: new Date(Date.now() - 20000),
             level: 'info',
-            message: '의도 분류 완료: 카테고리 - 계정 문제',
+            message: 'Intent classification completed: Category - Account issue',
           },
           {
             timestamp: new Date(Date.now() - 15000),
             level: 'info',
-            message: '지식베이스 검색 중...',
+            message: 'Searching knowledge base...',
           },
         ],
       };
@@ -209,8 +209,8 @@ export function ExecutionMonitor({
       setExecution(mockExecution);
     } catch (error: any) {
       toast({
-        title: '오류',
-        description: '실행 정보를 불러오는데 실패했습니다',
+        title: 'Error',
+        description: 'Failed to load execution information',
         variant: 'destructive',
       });
     } finally {
@@ -330,7 +330,7 @@ export function ExecutionMonitor({
           <div className="text-center">
             <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <p className="text-muted-foreground">
-              {loading ? '실행 정보를 불러오는 중...' : '실행 정보가 없습니다'}
+              {loading ? 'Loading execution info...' : 'No execution info available'}
             </p>
           </div>
         </CardContent>
@@ -356,7 +356,7 @@ export function ExecutionMonitor({
                 {execution.flowName}
               </CardTitle>
               <CardDescription>
-                실행 ID: {execution.id} • 시작: {execution.startTime.toLocaleTimeString()}
+                Execution ID: {execution.id} • Started: {execution.startTime.toLocaleTimeString()}
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
@@ -372,12 +372,12 @@ export function ExecutionMonitor({
                 {isLive ? (
                   <>
                     <Pause className="h-4 w-4 mr-1" />
-                    일시정지
+                    Pause
                   </>
                 ) : (
                   <>
                     <Play className="h-4 w-4 mr-1" />
-                    실시간
+                    Live
                   </>
                 )}
               </Button>
@@ -389,8 +389,8 @@ export function ExecutionMonitor({
             {/* Progress */}
             <div>
               <div className="flex justify-between text-sm mb-2">
-                <span>진행률</span>
-                <span>{execution.metrics.completedSteps}/{execution.metrics.totalSteps} 단계</span>
+                <span>Progress</span>
+                <span>{execution.metrics.completedSteps}/{execution.metrics.totalSteps} steps</span>
               </div>
               <Progress value={progress} className="h-2" />
             </div>
@@ -401,25 +401,25 @@ export function ExecutionMonitor({
                 <div className="text-2xl font-bold text-blue-600">
                   {formatDuration(execution.duration || (Date.now() - execution.startTime.getTime()))}
                 </div>
-                <div className="text-xs text-muted-foreground">실행 시간</div>
+                <div className="text-xs text-muted-foreground">Execution Time</div>
               </div>
               <div className="text-center p-3 rounded-lg bg-muted">
                 <div className="text-2xl font-bold text-green-600">
                   {execution.metrics.totalTokens.toLocaleString()}
                 </div>
-                <div className="text-xs text-muted-foreground">토큰 사용</div>
+                <div className="text-xs text-muted-foreground">Tokens Used</div>
               </div>
               <div className="text-center p-3 rounded-lg bg-muted">
                 <div className="text-2xl font-bold text-purple-600">
                   {formatCost(execution.metrics.totalCost)}
                 </div>
-                <div className="text-xs text-muted-foreground">예상 비용</div>
+                <div className="text-xs text-muted-foreground">Estimated Cost</div>
               </div>
               <div className="text-center p-3 rounded-lg bg-muted">
                 <div className="text-2xl font-bold text-orange-600">
                   {formatDuration(execution.metrics.averageStepDuration)}
                 </div>
-                <div className="text-xs text-muted-foreground">평균 단계 시간</div>
+                <div className="text-xs text-muted-foreground">Avg Step Time</div>
               </div>
             </div>
           </div>
@@ -429,17 +429,17 @@ export function ExecutionMonitor({
       {/* Detailed View */}
       <Tabs defaultValue="steps" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="steps">실행 단계</TabsTrigger>
-          <TabsTrigger value="logs">로그</TabsTrigger>
-          <TabsTrigger value="metrics">메트릭</TabsTrigger>
+          <TabsTrigger value="steps">Execution Steps</TabsTrigger>
+          <TabsTrigger value="logs">Logs</TabsTrigger>
+          <TabsTrigger value="metrics">Metrics</TabsTrigger>
         </TabsList>
 
         <TabsContent value="steps">
           <Card>
             <CardHeader>
-              <CardTitle>실행 단계</CardTitle>
+              <CardTitle>Execution Steps</CardTitle>
               <CardDescription>
-                각 단계의 상세 실행 정보를 확인하세요
+                View detailed execution information for each step
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -481,25 +481,25 @@ export function ExecutionMonitor({
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-3 text-sm">
                         {step.metadata.tokens_used && (
                           <div>
-                            <span className="text-muted-foreground">토큰:</span>
+                            <span className="text-muted-foreground">Tokens:</span>
                             <span className="ml-1 font-medium">{step.metadata.tokens_used}</span>
                           </div>
                         )}
                         {step.metadata.cost_usd && (
                           <div>
-                            <span className="text-muted-foreground">비용:</span>
+                            <span className="text-muted-foreground">Cost:</span>
                             <span className="ml-1 font-medium">{formatCost(step.metadata.cost_usd)}</span>
                           </div>
                         )}
                         {step.metadata.model && (
                           <div>
-                            <span className="text-muted-foreground">모델:</span>
+                            <span className="text-muted-foreground">Model:</span>
                             <span className="ml-1 font-medium">{step.metadata.model}</span>
                           </div>
                         )}
                         {step.metadata.provider && (
                           <div>
-                            <span className="text-muted-foreground">제공자:</span>
+                            <span className="text-muted-foreground">Provider:</span>
                             <span className="ml-1 font-medium">{step.metadata.provider}</span>
                           </div>
                         )}
@@ -510,7 +510,7 @@ export function ExecutionMonitor({
                       <div className="mt-3 p-3 rounded bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800">
                         <div className="flex items-center gap-2 text-red-700 dark:text-red-400">
                           <XCircle className="h-4 w-4" />
-                          <span className="font-medium">오류</span>
+                          <span className="font-medium">Error</span>
                         </div>
                         <p className="text-sm text-red-600 dark:text-red-300 mt-1">{step.error}</p>
                       </div>
@@ -525,9 +525,9 @@ export function ExecutionMonitor({
         <TabsContent value="logs">
           <Card>
             <CardHeader>
-              <CardTitle>실행 로그</CardTitle>
+              <CardTitle>Execution Logs</CardTitle>
               <CardDescription>
-                실시간 실행 로그를 확인하세요
+                View real-time execution logs
               </CardDescription>
             </CardHeader>
             <CardContent>

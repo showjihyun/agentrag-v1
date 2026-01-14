@@ -241,13 +241,17 @@ export default function AgentBuilderPage() {
                   Start with our guided tutorial or explore pre-built templates in the marketplace.
                 </p>
                 <div className="flex gap-3">
-                  <Button className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Create Workflow
-                  </Button>
-                  <Button variant="outline">
-                    View Tutorial
-                  </Button>
+                  <Link href="/agent-builder/workflows/new">
+                    <Button className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600">
+                      <Plus className="mr-2 h-4 w-4" />
+                      Create Workflow
+                    </Button>
+                  </Link>
+                  <Link href="/agent-builder/wizard">
+                    <Button variant="outline">
+                      View Tutorial
+                    </Button>
+                  </Link>
                 </div>
               </div>
             </div>

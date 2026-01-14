@@ -31,7 +31,7 @@ export function ChatflowSSEInterface({
   chatflowId,
   sessionId,
   className,
-  placeholder = "메시지를 입력하세요...",
+  placeholder = "Type your message...",
   showToolCalls = true,
   showThinking = true,
 }: ChatflowSSEInterfaceProps) {
@@ -124,7 +124,7 @@ export function ChatflowSSEInterface({
                   </Badge>
                   {tool.result && (
                     <span className="text-muted-foreground ml-1">
-                      ✓ 완료
+                      ✓ Done
                     </span>
                   )}
                 </div>
@@ -177,7 +177,7 @@ export function ChatflowSSEInterface({
                     {tool.name}
                   </Badge>
                   {tool.result ? (
-                    <span className="text-green-600">✓ 완료</span>
+                    <span className="text-green-600">✓ Done</span>
                   ) : (
                     <Loader2 className="h-3 w-3 animate-spin" />
                   )}
@@ -213,17 +213,17 @@ export function ChatflowSSEInterface({
               {state.isConnecting ? (
                 <>
                   <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                  연결 중
+                  Connecting
                 </>
               ) : isReady ? (
                 <>
                   <Zap className="h-3 w-3 mr-1" />
-                  SSE 연결됨
+                  SSE Connected
                 </>
               ) : state.error ? (
-                "연결 오류"
+                "Connection Error"
               ) : (
-                "연결 안됨"
+                "Not Connected"
               )}
             </Badge>
             
@@ -265,7 +265,7 @@ export function ChatflowSSEInterface({
               <div className="flex items-center justify-center h-full text-muted-foreground">
                 <div className="text-center">
                   <div className="text-lg mb-2">💬</div>
-                  <div>대화를 시작해보세요</div>
+                  <div>Start a conversation</div>
                 </div>
               </div>
             ) : (
@@ -314,9 +314,9 @@ export function ChatflowSSEInterface({
         
         <div className="text-xs text-muted-foreground mt-2">
           {state.isProcessing ? (
-            "AI가 응답을 생성하고 있습니다..."
+            "AI is generating a response..."
           ) : (
-            "Enter로 전송, Shift+Enter로 줄바꿈"
+            "Press Enter to send, Shift+Enter for new line"
           )}
         </div>
       </CardContent>

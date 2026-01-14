@@ -1,7 +1,7 @@
 /**
  * Multimodal Search Component
  * 
- * 텍스트, 이미지, 오디오 쿼리를 지원하는 멀티모달 검색 UI
+ * Multimodal search UI supporting text, image, and audio queries
  */
 
 import React, { useState, useRef } from 'react';
@@ -58,18 +58,18 @@ export function MultimodalSearch() {
     try {
       const formData = new FormData();
       
-      // 쿼리 추가
+      // Add query
       if (queryText) formData.append('query', queryText);
       if (queryImage) formData.append('query_image', queryImage);
       if (queryAudio) formData.append('query_audio', queryAudio);
       
-      // 검색 옵션
+      // Search options
       formData.append('search_images', searchImages.toString());
       formData.append('search_text', searchText.toString());
       formData.append('search_audio', searchAudio.toString());
       formData.append('top_k', '10');
       
-      // 필터 추가
+      // Add filters
       if (filters.dateRange) {
         formData.append('date_range_start', filters.dateRange.start);
         formData.append('date_range_end', filters.dateRange.end);
@@ -114,23 +114,23 @@ export function MultimodalSearch() {
   return (
     <div className="multimodal-search">
       <div className="search-container">
-        <h2>멀티모달 검색</h2>
+        <h2>Multimodal Search</h2>
         
-        {/* 텍스트 쿼리 */}
+        {/* Text query */}
         <div className="query-section">
-          <label>텍스트 쿼리</label>
+          <label>Text Query</label>
           <input
             type="text"
             value={queryText}
             onChange={(e) => setQueryText(e.target.value)}
-            placeholder="검색어를 입력하세요..."
+            placeholder="Enter search term..."
             className="text-input"
           />
         </div>
 
-        {/* 이미지 쿼리 */}
+        {/* Image query */}
         <div className="query-section">
-          <label>이미지 쿼리 (선택)</label>
+          <label>Image Query (Optional)</label>
           <input
             ref={imageInputRef}
             type="file"
@@ -146,9 +146,9 @@ export function MultimodalSearch() {
           )}
         </div>
 
-        {/* 오디오 쿼리 */}
+        {/* Audio query */}
         <div className="query-section">
-          <label>오디오 쿼리 (선택)</label>
+          <label>Audio Query (Optional)</label>
           <input
             ref={audioInputRef}
             type="file"
@@ -164,9 +164,9 @@ export function MultimodalSearch() {
           )}
         </div>
 
-        {/* 검색 옵션 */}
+        {/* Search options */}
         <div className="search-options">
-          <label>검색 대상</label>
+          <label>Search Target</label>
           <div className="checkbox-group">
             <label>
               <input
@@ -174,7 +174,7 @@ export function MultimodalSearch() {
                 checked={searchText}
                 onChange={(e) => setSearchText(e.target.checked)}
               />
-              텍스트
+              Text
             </label>
             <label>
               <input
@@ -182,7 +182,7 @@ export function MultimodalSearch() {
                 checked={searchImages}
                 onChange={(e) => setSearchImages(e.target.checked)}
               />
-              이미지
+              Images
             </label>
             <label>
               <input
@@ -190,18 +190,18 @@ export function MultimodalSearch() {
                 checked={searchAudio}
                 onChange={(e) => setSearchAudio(e.target.checked)}
               />
-              오디오
+              Audio
             </label>
           </div>
         </div>
 
-        {/* 필터 */}
+        {/* Filters */}
         <div className="filters-section">
           <details>
-            <summary>고급 필터</summary>
+            <summary>Advanced Filters</summary>
             
             <div className="filter-group">
-              <label>날짜 범위</label>
+              <label>Date Range</label>
               <div className="date-range">
                 <input
                   type="date"
@@ -224,46 +224,46 @@ export function MultimodalSearch() {
             </div>
 
             <div className="filter-group">
-              <label>화자/작성자</label>
+              <label>Speaker/Author</label>
               <input
                 type="text"
                 value={filters.speaker || ''}
                 onChange={(e) => setFilters({ ...filters, speaker: e.target.value })}
-                placeholder="화자 이름"
+                placeholder="Speaker name"
               />
             </div>
 
             <div className="filter-group">
-              <label>언어</label>
+              <label>Language</label>
               <select
                 value={filters.language || ''}
                 onChange={(e) => setFilters({ ...filters, language: e.target.value })}
               >
-                <option value="">전체</option>
-                <option value="ko">한국어</option>
+                <option value="">All</option>
+                <option value="ko">Korean</option>
                 <option value="en">English</option>
-                <option value="ja">日本語</option>
-                <option value="zh">中文</option>
+                <option value="ja">Japanese</option>
+                <option value="zh">Chinese</option>
               </select>
             </div>
           </details>
         </div>
 
-        {/* 검색 버튼 */}
+        {/* Search button */}
         <div className="button-group">
           <button
             onClick={handleSearch}
             disabled={loading || (!queryText && !queryImage && !queryAudio)}
             className="search-button"
           >
-            {loading ? '검색 중...' : '🔍 검색'}
+            {loading ? 'Searching...' : '🔍 Search'}
           </button>
           <button onClick={clearQuery} className="clear-button">
-            지우기
+            Clear
           </button>
         </div>
 
-        {/* 에러 메시지 */}
+        {/* Error message */}
         {error && (
           <div className="error-message">
             ⚠️ {error}
@@ -271,13 +271,13 @@ export function MultimodalSearch() {
         )}
       </div>
 
-      {/* 검색 결과 */}
+      {/* Search results */}
       <div className="results-container">
-        <h3>검색 결과 ({results.length})</h3>
+        <h3>Search Results ({results.length})</h3>
         
         {results.length === 0 && !loading && (
           <div className="no-results">
-            검색 결과가 없습니다.
+            No results found.
           </div>
         )}
 

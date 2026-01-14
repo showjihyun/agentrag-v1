@@ -49,177 +49,177 @@ interface AgentTemplate {
 }
 
 const AGENT_TEMPLATES: AgentTemplate[] = [
-  // Sequential 최적화 템플릿
+  // Sequential optimized templates
   {
     id: 'data-analyst',
-    name: '데이터 분석가',
-    description: '데이터를 수집하고 분석하여 인사이트를 제공하는 전문 에이전트',
+    name: 'Data Analyst',
+    description: 'Specialized agent that collects and analyzes data to provide insights',
     category: 'analysis',
     orchestrationType: ['sequential', 'pipeline'],
     icon: BarChart3,
-    capabilities: ['데이터 분석', '통계 처리', '시각화', '보고서 생성'],
+    capabilities: ['Data Analysis', 'Statistical Processing', 'Visualization', 'Report Generation'],
     tools: ['python_code', 'data_visualization', 'statistical_analysis'],
     configuration: {
       llm_provider: 'openai',
       llm_model: 'gpt-4',
-      system_prompt: '당신은 데이터 분석 전문가입니다. 주어진 데이터를 체계적으로 분석하고 명확한 인사이트를 제공하세요.',
+      system_prompt: 'You are a data analysis expert. Systematically analyze given data and provide clear insights.',
       temperature: 0.3
     },
-    useCase: '순차적 데이터 처리 파이프라인에서 분석 단계를 담당',
+    useCase: 'Handles analysis stage in sequential data processing pipelines',
     complexity: 'intermediate'
   },
   {
     id: 'content-writer',
-    name: '콘텐츠 작성자',
-    description: '다양한 형태의 콘텐츠를 생성하고 편집하는 창작 에이전트',
+    name: 'Content Writer',
+    description: 'Creative agent that generates and edits various forms of content',
     category: 'content',
     orchestrationType: ['sequential', 'pipeline'],
     icon: FileText,
-    capabilities: ['글쓰기', '편집', '번역', 'SEO 최적화'],
+    capabilities: ['Writing', 'Editing', 'Translation', 'SEO Optimization'],
     tools: ['text_generation', 'grammar_check', 'seo_optimizer'],
     configuration: {
       llm_provider: 'openai',
       llm_model: 'gpt-4',
-      system_prompt: '당신은 전문 콘텐츠 작성자입니다. 매력적이고 정확한 콘텐츠를 작성하세요.',
+      system_prompt: 'You are a professional content writer. Create engaging and accurate content.',
       temperature: 0.7
     },
-    useCase: '콘텐츠 제작 워크플로우에서 작성 및 편집 담당',
+    useCase: 'Handles writing and editing in content production workflows',
     complexity: 'beginner'
   },
 
-  // Parallel 최적화 템플릿
+  // Parallel optimized templates
   {
     id: 'search-specialist',
-    name: '검색 전문가',
-    description: '다양한 소스에서 정보를 동시에 검색하고 수집하는 에이전트',
+    name: 'Search Specialist',
+    description: 'Agent that simultaneously searches and collects information from various sources',
     category: 'search',
     orchestrationType: ['parallel', 'swarm'],
     icon: Search,
-    capabilities: ['웹 검색', '문서 검색', '데이터베이스 쿼리', '정보 필터링'],
+    capabilities: ['Web Search', 'Document Search', 'Database Query', 'Information Filtering'],
     tools: ['web_search', 'vector_search', 'database_query'],
     configuration: {
       llm_provider: 'openai',
       llm_model: 'gpt-3.5-turbo',
-      system_prompt: '당신은 정보 검색 전문가입니다. 효율적으로 관련 정보를 찾아 정리하세요.',
+      system_prompt: 'You are an information search expert. Efficiently find and organize relevant information.',
       temperature: 0.2
     },
-    useCase: '병렬 검색 작업에서 특정 도메인 담당',
+    useCase: 'Handles specific domain in parallel search tasks',
     complexity: 'intermediate'
   },
   {
     id: 'translator',
-    name: '번역 전문가',
-    description: '다국어 번역과 현지화를 담당하는 언어 전문 에이전트',
+    name: 'Translation Expert',
+    description: 'Language specialist agent handling multilingual translation and localization',
     category: 'language',
     orchestrationType: ['parallel', 'map_reduce'],
     icon: Globe,
-    capabilities: ['다국어 번역', '현지화', '문화적 적응', '언어 검증'],
+    capabilities: ['Multilingual Translation', 'Localization', 'Cultural Adaptation', 'Language Verification'],
     tools: ['translation_api', 'language_detection', 'cultural_adapter'],
     configuration: {
       llm_provider: 'openai',
       llm_model: 'gpt-4',
-      system_prompt: '당신은 전문 번역가입니다. 정확하고 자연스러운 번역을 제공하세요.',
+      system_prompt: 'You are a professional translator. Provide accurate and natural translations.',
       temperature: 0.4
     },
-    useCase: '다국어 콘텐츠 병렬 처리',
+    useCase: 'Parallel processing of multilingual content',
     complexity: 'intermediate'
   },
 
-  // Hierarchical 최적화 템플릿
+  // Hierarchical optimized templates
   {
     id: 'project-manager',
-    name: '프로젝트 매니저',
-    description: '팀을 조율하고 작업을 관리하는 리더십 에이전트',
+    name: 'Project Manager',
+    description: 'Leadership agent that coordinates teams and manages tasks',
     category: 'management',
     orchestrationType: ['hierarchical', 'adaptive'],
     icon: Users,
-    capabilities: ['팀 관리', '작업 분배', '진행 모니터링', '의사결정'],
+    capabilities: ['Team Management', 'Task Distribution', 'Progress Monitoring', 'Decision Making'],
     tools: ['task_scheduler', 'progress_tracker', 'decision_maker'],
     configuration: {
       llm_provider: 'openai',
       llm_model: 'gpt-4',
-      system_prompt: '당신은 프로젝트 매니저입니다. 팀을 효율적으로 조율하고 목표 달성을 이끄세요.',
+      system_prompt: 'You are a project manager. Efficiently coordinate the team and lead goal achievement.',
       temperature: 0.5
     },
-    useCase: '계층적 구조에서 상위 관리자 역할',
+    useCase: 'Upper manager role in hierarchical structures',
     complexity: 'advanced'
   },
   {
     id: 'specialist-researcher',
-    name: '전문 연구원',
-    description: '특정 분야의 깊이 있는 연구를 수행하는 전문가 에이전트',
+    name: 'Specialist Researcher',
+    description: 'Expert agent conducting in-depth research in specific fields',
     category: 'research',
     orchestrationType: ['hierarchical', 'consensus'],
     icon: Brain,
-    capabilities: ['전문 연구', '문헌 조사', '가설 검증', '보고서 작성'],
+    capabilities: ['Specialized Research', 'Literature Review', 'Hypothesis Verification', 'Report Writing'],
     tools: ['academic_search', 'citation_manager', 'research_analyzer'],
     configuration: {
       llm_provider: 'openai',
       llm_model: 'gpt-4',
-      system_prompt: '당신은 전문 연구원입니다. 체계적이고 깊이 있는 연구를 수행하세요.',
+      system_prompt: 'You are a specialist researcher. Conduct systematic and in-depth research.',
       temperature: 0.3
     },
-    useCase: '계층적 연구 팀에서 전문 분야 담당',
+    useCase: 'Handles specialized field in hierarchical research teams',
     complexity: 'advanced'
   },
 
-  // Consensus & Debate 최적화 템플릿
+  // Consensus & Debate optimized templates
   {
     id: 'expert-advisor',
-    name: '전문가 자문위원',
-    description: '특정 관점에서 전문적 의견을 제시하는 자문 에이전트',
+    name: 'Expert Advisor',
+    description: 'Advisory agent providing expert opinions from specific perspectives',
     category: 'advisory',
     orchestrationType: ['consensus', 'debate'],
     icon: Shield,
-    capabilities: ['전문 자문', '의견 제시', '근거 분석', '리스크 평가'],
+    capabilities: ['Expert Consultation', 'Opinion Presentation', 'Evidence Analysis', 'Risk Assessment'],
     tools: ['expert_knowledge', 'risk_analyzer', 'evidence_evaluator'],
     configuration: {
       llm_provider: 'openai',
       llm_model: 'gpt-4',
-      system_prompt: '당신은 해당 분야의 전문가입니다. 근거 있는 의견과 조언을 제공하세요.',
+      system_prompt: 'You are an expert in this field. Provide evidence-based opinions and advice.',
       temperature: 0.4
     },
-    useCase: '합의 도출이나 토론에서 전문가 의견 제공',
+    useCase: 'Provides expert opinions in consensus building or debates',
     complexity: 'advanced'
   },
 
-  // Multi-modal & Advanced 템플릿
+  // Multi-modal & Advanced templates
   {
     id: 'multimodal-analyst',
-    name: '멀티모달 분석가',
-    description: '텍스트, 이미지, 음성 등 다양한 형태의 데이터를 분석하는 에이전트',
+    name: 'Multimodal Analyst',
+    description: 'Agent analyzing various forms of data including text, images, and audio',
     category: 'multimodal',
     orchestrationType: ['multi_modal', 'neural_swarm'],
     icon: Sparkles,
-    capabilities: ['이미지 분석', '텍스트 분석', '음성 처리', '통합 분석'],
+    capabilities: ['Image Analysis', 'Text Analysis', 'Audio Processing', 'Integrated Analysis'],
     tools: ['image_analyzer', 'text_processor', 'audio_processor', 'multimodal_fusion'],
     configuration: {
       llm_provider: 'openai',
       llm_model: 'gpt-4-vision',
-      system_prompt: '당신은 멀티모달 분석 전문가입니다. 다양한 형태의 데이터를 종합적으로 분석하세요.',
+      system_prompt: 'You are a multimodal analysis expert. Comprehensively analyze various forms of data.',
       temperature: 0.3
     },
-    useCase: '다양한 데이터 형태를 동시에 처리하는 고급 분석',
+    useCase: 'Advanced analysis processing multiple data types simultaneously',
     complexity: 'advanced'
   },
 
-  // Adaptive & Self-healing 템플릿
+  // Adaptive & Self-healing templates
   {
     id: 'adaptive-optimizer',
-    name: '적응형 최적화기',
-    description: '상황에 따라 전략을 조정하고 최적화하는 지능형 에이전트',
+    name: 'Adaptive Optimizer',
+    description: 'Intelligent agent that adjusts and optimizes strategies based on situations',
     category: 'optimization',
     orchestrationType: ['adaptive', 'self_healing'],
     icon: Zap,
-    capabilities: ['상황 분석', '전략 수정', '성능 최적화', '자동 복구'],
+    capabilities: ['Situation Analysis', 'Strategy Modification', 'Performance Optimization', 'Auto Recovery'],
     tools: ['performance_monitor', 'strategy_optimizer', 'auto_healer'],
     configuration: {
       llm_provider: 'openai',
       llm_model: 'gpt-4',
-      system_prompt: '당신은 적응형 최적화 전문가입니다. 상황을 분석하고 최적의 전략을 제시하세요.',
+      system_prompt: 'You are an adaptive optimization expert. Analyze situations and present optimal strategies.',
       temperature: 0.6
     },
-    useCase: '동적 환경에서 자동 적응 및 최적화',
+    useCase: 'Auto adaptation and optimization in dynamic environments',
     complexity: 'advanced'
   }
 ];
@@ -238,7 +238,7 @@ export function AgentTemplateSelector({
   const [open, setOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('all');
 
-  // 오케스트레이션 유형에 맞는 템플릿 필터링
+  // Filter templates based on orchestration type
   const filteredTemplates = React.useMemo(() => {
     let templates = AGENT_TEMPLATES;
     
@@ -254,7 +254,7 @@ export function AgentTemplateSelector({
       );
     }
     
-    // 오케스트레이션 유형에 맞는 템플릿을 상단에 정렬
+    // Sort templates matching orchestration type to top
     if (orchestrationType) {
       templates.sort((a, b) => {
         const aMatch = a.orchestrationType.includes(orchestrationType);
@@ -268,18 +268,18 @@ export function AgentTemplateSelector({
     return templates;
   }, [orchestrationType, selectedCategory]);
 
-  // 카테고리 목록
+  // Category list
   const categories = [
-    { id: 'all', name: '전체', icon: Workflow },
-    { id: 'analysis', name: '분석', icon: BarChart3 },
-    { id: 'content', name: '콘텐츠', icon: FileText },
-    { id: 'search', name: '검색', icon: Search },
-    { id: 'language', name: '언어', icon: Globe },
-    { id: 'management', name: '관리', icon: Users },
-    { id: 'research', name: '연구', icon: Brain },
-    { id: 'advisory', name: '자문', icon: Shield },
-    { id: 'multimodal', name: '멀티모달', icon: Sparkles },
-    { id: 'optimization', name: '최적화', icon: Zap }
+    { id: 'all', name: 'All', icon: Workflow },
+    { id: 'analysis', name: 'Analysis', icon: BarChart3 },
+    { id: 'content', name: 'Content', icon: FileText },
+    { id: 'search', name: 'Search', icon: Search },
+    { id: 'language', name: 'Language', icon: Globe },
+    { id: 'management', name: 'Management', icon: Users },
+    { id: 'research', name: 'Research', icon: Brain },
+    { id: 'advisory', name: 'Advisory', icon: Shield },
+    { id: 'multimodal', name: 'Multimodal', icon: Sparkles },
+    { id: 'optimization', name: 'Optimization', icon: Zap }
   ];
 
   const handleSelectTemplate = (template: AgentTemplate) => {
@@ -302,7 +302,7 @@ export function AgentTemplateSelector({
         {trigger || (
           <Button variant="outline">
             <Bot className="h-4 w-4 mr-2" />
-            템플릿에서 생성
+            Create from Template
           </Button>
         )}
       </DialogTrigger>
@@ -310,17 +310,17 @@ export function AgentTemplateSelector({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Bot className="h-5 w-5" />
-            Agent 템플릿 선택
+            Select Agent Template
             {orchestrationType && (
               <Badge variant="outline" className="ml-2">
-                {orchestrationType} 최적화
+                {orchestrationType} optimized
               </Badge>
             )}
           </DialogTitle>
           <DialogDescription>
             {orchestrationType 
-              ? `${orchestrationType} 오케스트레이션에 최적화된 Agent 템플릿을 선택하세요`
-              : '사전 구성된 Agent 템플릿을 선택하여 빠르게 시작하세요'
+              ? `Select an Agent template optimized for ${orchestrationType} orchestration`
+              : 'Select a pre-configured Agent template to get started quickly'
             }
           </DialogDescription>
         </DialogHeader>
@@ -347,9 +347,9 @@ export function AgentTemplateSelector({
               {filteredTemplates.length === 0 ? (
                 <div className="text-center py-12">
                   <Bot className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-medium mb-2">템플릿이 없습니다</h3>
+                  <h3 className="text-lg font-medium mb-2">No templates found</h3>
                   <p className="text-muted-foreground">
-                    선택한 조건에 맞는 템플릿이 없습니다. 다른 카테고리를 선택해보세요.
+                    No templates match the selected criteria. Try selecting a different category.
                   </p>
                 </div>
               ) : (
@@ -387,7 +387,7 @@ export function AgentTemplateSelector({
                                   </Badge>
                                   {isRecommended && (
                                     <Badge className="bg-blue-500 hover:bg-blue-600 text-white">
-                                      ⭐ 추천
+                                      ⭐ Recommended
                                     </Badge>
                                   )}
                                 </div>
@@ -402,7 +402,7 @@ export function AgentTemplateSelector({
                           
                           <div>
                             <p className="text-xs font-medium text-muted-foreground mb-2">
-                              적합한 오케스트레이션:
+                              Suitable orchestration:
                             </p>
                             <div className="flex flex-wrap gap-1">
                               {template.orchestrationType.map((type) => (
@@ -423,7 +423,7 @@ export function AgentTemplateSelector({
 
                           <div>
                             <p className="text-xs font-medium text-muted-foreground mb-2">
-                              주요 기능:
+                              Key features:
                             </p>
                             <div className="flex flex-wrap gap-1">
                               {template.capabilities.slice(0, 3).map((capability) => (
@@ -433,7 +433,7 @@ export function AgentTemplateSelector({
                               ))}
                               {template.capabilities.length > 3 && (
                                 <Badge variant="outline" className="text-xs">
-                                  +{template.capabilities.length - 3}개 더
+                                  +{template.capabilities.length - 3} more
                                 </Badge>
                               )}
                             </div>
@@ -441,7 +441,7 @@ export function AgentTemplateSelector({
 
                           <div className="pt-2 border-t">
                             <p className="text-xs text-muted-foreground">
-                              <strong>사용 사례:</strong> {template.useCase}
+                              <strong>Use case:</strong> {template.useCase}
                             </p>
                           </div>
                         </CardContent>

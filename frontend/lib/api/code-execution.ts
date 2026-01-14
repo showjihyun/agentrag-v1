@@ -1,6 +1,6 @@
 /**
  * Code Execution API Client
- * Enhanced Code Block 기능을 위한 API 클라이언트
+ * API client for Enhanced Code Block functionality
  */
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -50,7 +50,7 @@ export interface CodeTemplatesResponse {
 // ============== API Functions ==============
 
 /**
- * 코드 테스트 실행
+ * Execute code test
  */
 export async function testCode(request: CodeTestRequest): Promise<CodeTestResponse> {
   const token = localStorage.getItem('token');
@@ -73,7 +73,7 @@ export async function testCode(request: CodeTestRequest): Promise<CodeTestRespon
 }
 
 /**
- * AI 코드 생성
+ * AI code generation
  */
 export async function generateCode(request: CodeGenerateRequest): Promise<CodeGenerateResponse> {
   const token = localStorage.getItem('token');
@@ -96,7 +96,7 @@ export async function generateCode(request: CodeGenerateRequest): Promise<CodeGe
 }
 
 /**
- * 코드 템플릿 목록 조회
+ * Get code templates list
  */
 export async function getCodeTemplates(language: string = 'python'): Promise<CodeTemplatesResponse> {
   const token = localStorage.getItem('token');
@@ -120,7 +120,7 @@ export async function getCodeTemplates(language: string = 'python'): Promise<Cod
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 /**
- * 코드 테스트 실행 mutation hook
+ * Code test execution mutation hook
  */
 export function useTestCode() {
   return useMutation({
@@ -129,7 +129,7 @@ export function useTestCode() {
 }
 
 /**
- * AI 코드 생성 mutation hook
+ * AI code generation mutation hook
  */
 export function useGenerateCode() {
   return useMutation({
@@ -138,7 +138,7 @@ export function useGenerateCode() {
 }
 
 /**
- * 코드 템플릿 조회 hook
+ * Code templates query hook
  */
 export function useCodeTemplates(language: string = 'python') {
   return useQuery({

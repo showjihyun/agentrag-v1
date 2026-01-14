@@ -6,7 +6,7 @@
  * Provides fallback values when used outside ThemeProvider
  */
 
-import { useTheme as useNextTheme } from 'next-themes';
+import { useTheme as useNextTheme, ThemeProvider } from 'next-themes';
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 
 interface ThemeContextType {
@@ -18,30 +18,28 @@ interface ThemeContextType {
   mounted: boolean;
 }
 
-const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
+const defaultThemeContext: ThemeContextType = {
+  theme: 'light',
+  setTheme: () => {},
+  resolvedTheme: 'light',
+  themes: ['light', 'dark', 'system'],
+  systemTheme: 'light',
+  mounted: false,
+};
+
+const ThemeContext = createContext<ThemeContextType>(defaultThemeContext);
 
 interface ThemeProviderWrapperProps {
   children: ReactNode;
 }
 
-export function ThemeProviderWrapper({ children }: ThemeProviderWrapperProps) {
+/**
+ * Inner component that safely uses next-themes hook
+ * This is rendered inside ThemeProvider so useNextTheme is safe
+ */
+function ThemeProviderInner({ children }: { children: ReactNode }) {
   const [mounted, setMounted] = useState(false);
-  
-  // Use a try-catch to handle cases where useTheme is called outside ThemeProvider
-  let themeData;
-  try {
-    themeData = useNextTheme();
-  } catch (error) {
-    // Fallback if useTheme is called outside ThemeProvider
-    console.warn('useTheme called outside ThemeProvider, using fallback values');
-    themeData = {
-      theme: 'light',
-      setTheme: () => {},
-      resolvedTheme: 'light',
-      themes: ['light', 'dark', 'system'],
-      systemTheme: 'light',
-    };
-  }
+  const themeData = useNextTheme();
 
   useEffect(() => {
     setMounted(true);
@@ -59,6 +57,26 @@ export function ThemeProviderWrapper({ children }: ThemeProviderWrapperProps) {
     <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
+  );
+}
+
+/**
+ * Combined ThemeProvider that includes both next-themes and our custom context
+ * This ensures useNextTheme is always called within ThemeProvider
+ */
+export function ThemeProviderWrapper({ children }: ThemeProviderWrapperProps) {
+  return (
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="system"
+      enableSystem
+      disableTransitionOnChange
+      storageKey="agenticrag-theme"
+    >
+      <ThemeProviderInner>
+        {children}
+      </ThemeProviderInner>
+    </ThemeProvider>
   );
 }
 

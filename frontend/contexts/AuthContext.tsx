@@ -64,14 +64,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // Create fake user matching backend test account
         const fakeUser: UserResponse = {
           id: 'dev-user-id',
-          email: 'test@example.com',  // 백엔드 테스트 계정과 동일
-          username: 'testuser',       // 백엔드 테스트 계정과 동일
+          email: 'test@example.com',  // Same as backend test account
+          username: 'testuser',       // Same as backend test account
           full_name: 'Test User (Dev Mode)',
-          role: 'admin',              // 백엔드 테스트 계정과 동일
+          role: 'admin',              // Same as backend test account
           is_active: true,
           created_at: '2024-01-01T00:00:00Z',
           updated_at: '2024-01-01T00:00:00Z',
-          query_count: 0,             // 추가된 필드
+          query_count: 0,             // Added field
           storage_used_bytes: 0,
         };
         
@@ -104,14 +104,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
           console.log('🔧 Development mode: Using fake user matching backend test account');
           const fakeUser: UserResponse = {
             id: 'dev-user-id',
-            email: 'test@example.com',  // 백엔드 테스트 계정과 동일
-            username: 'testuser',       // 백엔드 테스트 계정과 동일
+            email: 'test@example.com',  // Same as backend test account
+            username: 'testuser',       // Same as backend test account
             full_name: 'Test User (Dev Mode)',
-            role: 'admin',              // 백엔드 테스트 계정과 동일
+            role: 'admin',              // Same as backend test account
             is_active: true,
             created_at: '2024-01-01T00:00:00Z',
             updated_at: '2024-01-01T00:00:00Z',
-            query_count: 0,             // 추가된 필드
+            query_count: 0,             // Added field
             storage_used_bytes: 0,
           };
           setUser(fakeUser);

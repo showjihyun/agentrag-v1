@@ -55,13 +55,13 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <div className="flex flex-col items-center justify-center p-8 text-center">
           <AlertTriangle className="h-12 w-12 text-destructive mb-4" />
-          <h2 className="text-lg font-semibold mb-2">문제가 발생했습니다</h2>
+          <h2 className="text-lg font-semibold mb-2">Something went wrong</h2>
           <p className="text-muted-foreground mb-4 max-w-md">
-            {this.state.error?.message || '예기치 않은 오류가 발생했습니다.'}
+            {this.state.error?.message || 'An unexpected error occurred.'}
           </p>
           <Button onClick={this.reset} variant="outline">
             <RefreshCw className="h-4 w-4 mr-2" />
-            다시 시도
+            Try Again
           </Button>
         </div>
       );

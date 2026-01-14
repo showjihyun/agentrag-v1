@@ -1,6 +1,6 @@
 /**
  * Plugin Error Handling
- * 플러그인 관련 에러 처리 및 사용자 친화적 메시지 변환
+ * Plugin-related error handling and user-friendly message conversion
  */
 
 export interface UserFriendlyError {
@@ -16,151 +16,151 @@ export interface UserFriendlyError {
 
 export class PluginErrorHandler {
   /**
-   * 기술적 에러를 사용자 친화적 메시지로 변환
+   * Convert technical errors to user-friendly messages
    */
   static toUserFriendlyError(error: any): UserFriendlyError {
     const errorMessage = error?.message || error?.toString() || 'Unknown error';
     const errorCode = error?.code || error?.status;
 
-    // 네트워크 에러
+    // Network error
     if (errorMessage.includes('fetch') || errorMessage.includes('network')) {
       return {
-        title: '연결 오류',
-        message: '서버에 연결할 수 없습니다.',
-        suggestion: '인터넷 연결을 확인하고 다시 시도해주세요.',
+        title: 'Connection Error',
+        message: 'Unable to connect to the server.',
+        suggestion: 'Please check your internet connection and try again.',
         action: {
-          label: '다시 시도',
+          label: 'Retry',
           onClick: () => window.location.reload()
         },
         severity: 'error'
       };
     }
 
-    // 인증 에러
+    // Authentication error
     if (errorCode === 401 || errorMessage.includes('unauthorized')) {
       return {
-        title: '인증 필요',
-        message: '로그인이 필요합니다.',
-        suggestion: '다시 로그인해주세요.',
+        title: 'Authentication Required',
+        message: 'Login is required.',
+        suggestion: 'Please log in again.',
         action: {
-          label: '로그인',
+          label: 'Login',
           onClick: () => window.location.href = '/login'
         },
         severity: 'warning'
       };
     }
 
-    // 권한 에러
+    // Permission error
     if (errorCode === 403 || errorMessage.includes('forbidden')) {
       return {
-        title: '권한 부족',
-        message: '이 작업을 수행할 권한이 없습니다.',
-        suggestion: '관리자에게 문의하여 권한을 요청해주세요.',
+        title: 'Insufficient Permissions',
+        message: 'You do not have permission to perform this action.',
+        suggestion: 'Please contact an administrator to request permissions.',
         severity: 'warning'
       };
     }
 
-    // 플러그인 설치 에러
+    // Plugin installation error
     if (errorMessage.includes('installation') || errorMessage.includes('install')) {
       return {
-        title: '설치 실패',
-        message: '플러그인 설치 중 오류가 발생했습니다.',
-        suggestion: '플러그인 소스를 확인하고 다시 시도해주세요.',
+        title: 'Installation Failed',
+        message: 'An error occurred during plugin installation.',
+        suggestion: 'Please verify the plugin source and try again.',
         action: {
-          label: '다시 설치',
-          onClick: () => {} // 호출하는 곳에서 구현
+          label: 'Reinstall',
+          onClick: () => {} // Implemented by caller
         },
         severity: 'error'
       };
     }
 
-    // 플러그인 설정 에러
+    // Plugin configuration error
     if (errorMessage.includes('configuration') || errorMessage.includes('config')) {
       return {
-        title: '설정 오류',
-        message: '플러그인 설정에 문제가 있습니다.',
-        suggestion: '설정 값을 확인하고 올바른 형식으로 입력해주세요.',
+        title: 'Configuration Error',
+        message: 'There is a problem with the plugin configuration.',
+        suggestion: 'Please check the configuration values and enter them in the correct format.',
         severity: 'warning'
       };
     }
 
-    // 플러그인 실행 에러
+    // Plugin execution error
     if (errorMessage.includes('execution') || errorMessage.includes('runtime')) {
       return {
-        title: '실행 오류',
-        message: '플러그인 실행 중 오류가 발생했습니다.',
-        suggestion: '플러그인 로그를 확인하고 설정을 점검해주세요.',
+        title: 'Execution Error',
+        message: 'An error occurred during plugin execution.',
+        suggestion: 'Please check the plugin logs and review the configuration.',
         action: {
-          label: '로그 보기',
-          onClick: () => {} // 호출하는 곳에서 구현
+          label: 'View Logs',
+          onClick: () => {} // Implemented by caller
         },
         severity: 'error'
       };
     }
 
-    // 의존성 에러
+    // Dependency error
     if (errorMessage.includes('dependency') || errorMessage.includes('dependencies')) {
       return {
-        title: '의존성 오류',
-        message: '필요한 의존성이 설치되지 않았습니다.',
-        suggestion: '의존성을 설치하거나 플러그인을 다시 설치해주세요.',
+        title: 'Dependency Error',
+        message: 'Required dependencies are not installed.',
+        suggestion: 'Please install the dependencies or reinstall the plugin.',
         action: {
-          label: '의존성 설치',
-          onClick: () => {} // 호출하는 곳에서 구현
+          label: 'Install Dependencies',
+          onClick: () => {} // Implemented by caller
         },
         severity: 'warning'
       };
     }
 
-    // 검증 에러
+    // Validation error
     if (errorMessage.includes('validation') || errorMessage.includes('invalid')) {
       return {
-        title: '입력 오류',
-        message: '입력한 정보가 올바르지 않습니다.',
-        suggestion: '입력 형식을 확인하고 다시 입력해주세요.',
+        title: 'Input Error',
+        message: 'The entered information is not valid.',
+        suggestion: 'Please check the input format and try again.',
         severity: 'warning'
       };
     }
 
-    // 타임아웃 에러
-    if (errorMessage.includes('timeout') || errorMessage.includes('시간 초과')) {
+    // Timeout error
+    if (errorMessage.includes('timeout')) {
       return {
-        title: '시간 초과',
-        message: '작업이 시간 초과되었습니다.',
-        suggestion: '잠시 후 다시 시도하거나 타임아웃 설정을 늘려보세요.',
+        title: 'Timeout',
+        message: 'The operation has timed out.',
+        suggestion: 'Please try again later or increase the timeout setting.',
         action: {
-          label: '다시 시도',
-          onClick: () => {} // 호출하는 곳에서 구현
+          label: 'Retry',
+          onClick: () => {} // Implemented by caller
         },
         severity: 'warning'
       };
     }
 
-    // 서버 에러
+    // Server error
     if (errorCode >= 500) {
       return {
-        title: '서버 오류',
-        message: '서버에서 오류가 발생했습니다.',
-        suggestion: '잠시 후 다시 시도해주세요. 문제가 지속되면 관리자에게 문의하세요.',
+        title: 'Server Error',
+        message: 'An error occurred on the server.',
+        suggestion: 'Please try again later. If the problem persists, contact an administrator.',
         action: {
-          label: '다시 시도',
+          label: 'Retry',
           onClick: () => window.location.reload()
         },
         severity: 'error'
       };
     }
 
-    // 기본 에러
+    // Default error
     return {
-      title: '오류 발생',
+      title: 'Error Occurred',
       message: errorMessage,
-      suggestion: '문제가 지속되면 관리자에게 문의해주세요.',
+      suggestion: 'If the problem persists, please contact an administrator.',
       severity: 'error'
     };
   }
 
   /**
-   * 플러그인별 특화 에러 메시지
+   * Plugin-specific error messages
    */
   static getPluginSpecificError(pluginType: string, error: any): UserFriendlyError {
     const baseError = this.toUserFriendlyError(error);
@@ -170,9 +170,9 @@ export class PluginErrorHandler {
         if (error.message?.includes('collection')) {
           return {
             ...baseError,
-            title: '벡터 검색 오류',
-            message: 'Milvus 컬렉션에 접근할 수 없습니다.',
-            suggestion: '컬렉션 이름을 확인하고 Milvus 서버 상태를 점검해주세요.'
+            title: 'Vector Search Error',
+            message: 'Unable to access Milvus collection.',
+            suggestion: 'Please verify the collection name and check the Milvus server status.'
           };
         }
         break;
@@ -181,9 +181,9 @@ export class PluginErrorHandler {
         if (error.message?.includes('rate limit')) {
           return {
             ...baseError,
-            title: '검색 제한',
-            message: '검색 요청 한도를 초과했습니다.',
-            suggestion: '잠시 후 다시 시도하거나 검색 빈도를 줄여주세요.'
+            title: 'Search Limit',
+            message: 'Search request limit exceeded.',
+            suggestion: 'Please try again later or reduce search frequency.'
           };
         }
         break;
@@ -192,9 +192,9 @@ export class PluginErrorHandler {
         if (error.message?.includes('path') || error.message?.includes('file')) {
           return {
             ...baseError,
-            title: '파일 접근 오류',
-            message: '지정된 파일이나 경로에 접근할 수 없습니다.',
-            suggestion: '파일 경로와 권한을 확인해주세요.'
+            title: 'File Access Error',
+            message: 'Unable to access the specified file or path.',
+            suggestion: 'Please verify the file path and permissions.'
           };
         }
         break;
@@ -204,7 +204,7 @@ export class PluginErrorHandler {
   }
 
   /**
-   * 에러 심각도에 따른 색상 반환
+   * Return color based on error severity
    */
   static getSeverityColor(severity: UserFriendlyError['severity']): string {
     switch (severity) {
@@ -222,7 +222,7 @@ export class PluginErrorHandler {
   }
 
   /**
-   * 에러 심각도에 따른 아이콘 반환
+   * Return icon based on error severity
    */
   static getSeverityIcon(severity: UserFriendlyError['severity']): string {
     switch (severity) {
@@ -241,14 +241,14 @@ export class PluginErrorHandler {
 }
 
 /**
- * 에러 토스트 표시 헬퍼
+ * Error toast display helper
  */
 export const showPluginError = (error: any, pluginType?: string) => {
   const userError = pluginType 
     ? PluginErrorHandler.getPluginSpecificError(pluginType, error)
     : PluginErrorHandler.toUserFriendlyError(error);
 
-  // toast 라이브러리 사용 (sonner)
+  // Using toast library (sonner)
   const { toast } = require('sonner');
   
   if (userError.severity === 'critical' || userError.severity === 'error') {
@@ -279,7 +279,7 @@ export const showPluginError = (error: any, pluginType?: string) => {
 };
 
 /**
- * 에러 복구 제안 생성
+ * Generate error recovery suggestions
  */
 export const generateRecoverySuggestions = (error: any, context: {
   pluginId?: string;
@@ -289,44 +289,44 @@ export const generateRecoverySuggestions = (error: any, context: {
   const suggestions: string[] = [];
   const errorMessage = error?.message || '';
 
-  // 일반적인 복구 제안
-  suggestions.push('페이지를 새로고침해보세요');
-  suggestions.push('잠시 후 다시 시도해보세요');
+  // General recovery suggestions
+  suggestions.push('Try refreshing the page');
+  suggestions.push('Try again later');
 
-  // 컨텍스트별 제안
+  // Context-specific suggestions
   if (context.operation === 'install') {
-    suggestions.push('플러그인 소스 URL을 확인해보세요');
-    suggestions.push('네트워크 연결 상태를 점검해보세요');
-    suggestions.push('다른 플러그인 소스를 시도해보세요');
+    suggestions.push('Verify the plugin source URL');
+    suggestions.push('Check your network connection');
+    suggestions.push('Try a different plugin source');
   }
 
   if (context.operation === 'config') {
-    suggestions.push('설정 값의 형식을 확인해보세요');
-    suggestions.push('필수 필드가 모두 입력되었는지 확인해보세요');
-    suggestions.push('이전 설정으로 복원해보세요');
+    suggestions.push('Check the format of configuration values');
+    suggestions.push('Verify all required fields are filled');
+    suggestions.push('Try restoring to previous settings');
   }
 
   if (context.operation === 'execute') {
-    suggestions.push('플러그인 설정을 점검해보세요');
-    suggestions.push('플러그인 로그를 확인해보세요');
-    suggestions.push('플러그인을 재시작해보세요');
+    suggestions.push('Review the plugin configuration');
+    suggestions.push('Check the plugin logs');
+    suggestions.push('Try restarting the plugin');
   }
 
-  // 플러그인 타입별 제안
+  // Plugin type-specific suggestions
   if (context.pluginType === 'vector_search') {
-    suggestions.push('Milvus 서버 연결 상태를 확인해보세요');
-    suggestions.push('컬렉션 이름이 올바른지 확인해보세요');
+    suggestions.push('Check the Milvus server connection');
+    suggestions.push('Verify the collection name is correct');
   }
 
   if (context.pluginType === 'web_search') {
-    suggestions.push('인터넷 연결 상태를 확인해보세요');
-    suggestions.push('검색 엔진 설정을 점검해보세요');
+    suggestions.push('Check your internet connection');
+    suggestions.push('Review the search engine settings');
   }
 
   if (context.pluginType === 'local_data') {
-    suggestions.push('파일 경로가 존재하는지 확인해보세요');
-    suggestions.push('파일 접근 권한을 확인해보세요');
+    suggestions.push('Verify the file path exists');
+    suggestions.push('Check file access permissions');
   }
 
-  return suggestions.slice(0, 5); // 최대 5개 제안
+  return suggestions.slice(0, 5); // Maximum 5 suggestions
 };

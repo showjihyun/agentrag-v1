@@ -66,20 +66,20 @@ interface ExecutionResult {
 }
 
 const AGENT_ROLES = [
-  { value: 'researcher', label: '리서처', icon: '🔍' },
-  { value: 'writer', label: '작가', icon: '✍️' },
-  { value: 'editor', label: '편집자', icon: '📝' },
-  { value: 'analyst', label: '분석가', icon: '📊' },
-  { value: 'coder', label: '개발자', icon: '💻' },
-  { value: 'reviewer', label: '리뷰어', icon: '👀' },
-  { value: 'manager', label: '매니저', icon: '👔' },
-  { value: 'custom', label: '커스텀', icon: '⚙️' },
+  { value: 'researcher', label: 'Researcher', icon: '🔍' },
+  { value: 'writer', label: 'Writer', icon: '✍️' },
+  { value: 'editor', label: 'Editor', icon: '📝' },
+  { value: 'analyst', label: 'Analyst', icon: '📊' },
+  { value: 'coder', label: 'Developer', icon: '💻' },
+  { value: 'reviewer', label: 'Reviewer', icon: '👀' },
+  { value: 'manager', label: 'Manager', icon: '👔' },
+  { value: 'custom', label: 'Custom', icon: '⚙️' },
 ];
 
 const EXECUTION_MODES = [
-  { value: 'sequential', label: '순차 실행', description: '태스크를 순서대로 실행' },
-  { value: 'parallel', label: '병렬 실행', description: '독립적인 태스크를 동시에 실행' },
-  { value: 'hierarchical', label: '계층적 실행', description: '매니저 에이전트가 조율' },
+  { value: 'sequential', label: 'Sequential', description: 'Execute tasks in order' },
+  { value: 'parallel', label: 'Parallel', description: 'Execute independent tasks simultaneously' },
+  { value: 'hierarchical', label: 'Hierarchical', description: 'Manager agent coordinates' },
 ];
 
 const LLM_MODELS = [

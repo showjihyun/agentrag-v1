@@ -60,7 +60,7 @@ interface SupervisorConfig {
   max_iterations: number;
   decision_strategy: 'llm_based' | 'consensus' | 'weighted_voting' | 'expert_system';
   
-  // 고급 설정
+  // Advanced settings
   auto_agent_selection: boolean;
   performance_based_routing: boolean;
   dynamic_role_assignment: boolean;
@@ -68,7 +68,7 @@ interface SupervisorConfig {
   optimization_strategy: 'performance' | 'cost' | 'speed' | 'quality';
   adaptation_threshold: number;
   
-  // 모니터링 설정
+  // Monitoring settings
   monitoring_enabled: boolean;
   alert_thresholds: {
     success_rate: number;
@@ -76,7 +76,7 @@ interface SupervisorConfig {
     error_rate: number;
   };
   
-  // 협업 설정
+  // Collaboration settings
   team_learning_enabled: boolean;
   knowledge_sharing: boolean;
   template_integration: boolean;
@@ -91,53 +91,53 @@ interface SupervisorConfigWizardProps {
 }
 
 const WIZARD_STEPS = [
-  { id: 'objective', title: '목표 설정', description: '슈퍼바이저의 주요 목표를 설정하세요' },
-  { id: 'strategy', title: '전략 선택', description: '의사결정 전략과 최적화 방향을 선택하세요' },
-  { id: 'monitoring', title: '모니터링 설정', description: '성능 모니터링과 알림을 구성하세요' },
-  { id: 'collaboration', title: '협업 기능', description: '팀 학습과 지식 공유를 설정하세요' },
-  { id: 'review', title: '설정 검토', description: '최종 설정을 확인하고 적용하세요' },
+  { id: 'objective', title: 'Set Objective', description: 'Set the main objective for the supervisor' },
+  { id: 'strategy', title: 'Select Strategy', description: 'Choose decision strategy and optimization direction' },
+  { id: 'monitoring', title: 'Monitoring Setup', description: 'Configure performance monitoring and alerts' },
+  { id: 'collaboration', title: 'Collaboration Features', description: 'Set up team learning and knowledge sharing' },
+  { id: 'review', title: 'Review Settings', description: 'Review and apply final settings' },
 ];
 
 const DECISION_STRATEGIES = [
   {
     id: 'llm_based',
-    name: 'LLM 기반 의사결정',
-    description: 'AI가 상황을 분석하여 최적의 결정을 내립니다',
+    name: 'LLM-based Decision',
+    description: 'AI analyzes the situation and makes optimal decisions',
     icon: Brain,
-    complexity: '중간',
+    complexity: 'Medium',
     recommended: true,
   },
   {
     id: 'consensus',
-    name: '합의 기반',
-    description: '모든 에이전트의 의견을 종합하여 결정합니다',
+    name: 'Consensus-based',
+    description: 'Aggregates opinions from all agents to make decisions',
     icon: Users,
-    complexity: '높음',
+    complexity: 'High',
     recommended: false,
   },
   {
     id: 'weighted_voting',
-    name: '가중 투표',
-    description: '에이전트별 가중치를 적용한 투표로 결정합니다',
+    name: 'Weighted Voting',
+    description: 'Makes decisions through voting with agent-specific weights',
     icon: BarChart3,
-    complexity: '중간',
+    complexity: 'Medium',
     recommended: false,
   },
   {
     id: 'expert_system',
-    name: '전문가 시스템',
-    description: '사전 정의된 규칙에 따라 결정합니다',
+    name: 'Expert System',
+    description: 'Makes decisions based on predefined rules',
     icon: Shield,
-    complexity: '낮음',
+    complexity: 'Low',
     recommended: false,
   },
 ];
 
 const OPTIMIZATION_STRATEGIES = [
-  { id: 'performance', name: '성능 최적화', description: '처리 속도와 정확도를 최우선으로', icon: Zap },
-  { id: 'cost', name: '비용 최적화', description: '리소스 사용량과 비용을 최소화', icon: TrendingUp },
-  { id: 'speed', name: '속도 최적화', description: '응답 시간을 최소화', icon: Clock },
-  { id: 'quality', name: '품질 최적화', description: '결과의 품질과 신뢰성을 최우선으로', icon: Target },
+  { id: 'performance', name: 'Performance Optimization', description: 'Prioritize processing speed and accuracy', icon: Zap },
+  { id: 'cost', name: 'Cost Optimization', description: 'Minimize resource usage and costs', icon: TrendingUp },
+  { id: 'speed', name: 'Speed Optimization', description: 'Minimize response time', icon: Clock },
+  { id: 'quality', name: 'Quality Optimization', description: 'Prioritize result quality and reliability', icon: Target },
 ];
 
 export function SupervisorConfigWizard({
@@ -174,7 +174,7 @@ export function SupervisorConfigWizard({
     ...currentConfig,
   });
 
-  // AI 추천 설정 조회
+  // AI recommendation settings query
   const { data: recommendations } = useQuery({
     queryKey: ['supervisor-recommendations', agentflowId, orchestrationType],
     queryFn: () => agentBuilderAPI.getSupervisorRecommendations(agentflowId, orchestrationType),
@@ -196,8 +196,8 @@ export function SupervisorConfigWizard({
   const handleApplyRecommendation = (recommendedConfig: Partial<SupervisorConfig>) => {
     setConfig({ ...config, ...recommendedConfig });
     toast({
-      title: 'AI 추천 적용',
-      description: '추천 설정이 적용되었습니다',
+      title: 'AI Recommendation Applied',
+      description: 'Recommended settings have been applied',
     });
   };
 
@@ -205,8 +205,8 @@ export function SupervisorConfigWizard({
     onConfigChange(config);
     setOpen(false);
     toast({
-      title: '슈퍼바이저 설정 완료',
-      description: '고급 슈퍼바이저 설정이 적용되었습니다',
+      title: 'Supervisor Configuration Complete',
+      description: 'Advanced supervisor settings have been applied',
     });
   };
 
@@ -217,32 +217,32 @@ export function SupervisorConfigWizard({
           <div className="space-y-6">
             <div className="text-center">
               <Target className="h-12 w-12 text-purple-600 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">슈퍼바이저의 주요 목표를 설정하세요</h3>
+              <h3 className="text-lg font-semibold mb-2">Set the main objective for the supervisor</h3>
               <p className="text-muted-foreground">
-                {orchestrationType} 오케스트레이션에 최적화된 설정을 추천해드립니다
+                We recommend optimized settings for {orchestrationType} orchestration
               </p>
             </div>
 
-            {/* AI 추천 카드 */}
+            {/* AI Recommendation Card */}
             {recommendations?.recommended_config && (
               <Card className="border-purple-200 bg-purple-50 dark:bg-purple-950/20">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-purple-700 dark:text-purple-300">
                     <Sparkles className="h-5 w-5" />
-                    AI 추천 설정
+                    AI Recommended Settings
                   </CardTitle>
                   <CardDescription>
-                    현재 오케스트레이션 유형에 최적화된 설정입니다
+                    Settings optimized for the current orchestration type
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
-                      <span className="font-medium">의사결정 전략:</span>
+                      <span className="font-medium">Decision Strategy:</span>
                       <span className="ml-2">{recommendations.recommended_config.decision_strategy}</span>
                     </div>
                     <div>
-                      <span className="font-medium">최적화 전략:</span>
+                      <span className="font-medium">Optimization Strategy:</span>
                       <span className="ml-2">{recommendations.recommended_config.optimization_strategy}</span>
                     </div>
                   </div>
@@ -252,7 +252,7 @@ export function SupervisorConfigWizard({
                     className="w-full gap-2"
                   >
                     <Wand2 className="h-4 w-4" />
-                    추천 설정 적용
+                    Apply Recommended Settings
                   </Button>
                 </CardContent>
               </Card>
@@ -260,7 +260,7 @@ export function SupervisorConfigWizard({
 
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>최적화 전략</Label>
+                <Label>Optimization Strategy</Label>
                 <div className="grid grid-cols-2 gap-3">
                   {OPTIMIZATION_STRATEGIES.map((strategy) => {
                     const Icon = strategy.icon;
@@ -287,7 +287,7 @@ export function SupervisorConfigWizard({
               </div>
 
               <div className="space-y-2">
-                <Label>적응 임계값</Label>
+                <Label>Adaptation Threshold</Label>
                 <div className="space-y-2">
                   <Input
                     type="range"
@@ -298,9 +298,9 @@ export function SupervisorConfigWizard({
                     onChange={(e) => setConfig({ ...config, adaptation_threshold: parseFloat(e.target.value) })}
                   />
                   <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>민감함 (0.1)</span>
-                    <span>현재: {config.adaptation_threshold}</span>
-                    <span>안정적 (1.0)</span>
+                    <span>Sensitive (0.1)</span>
+                    <span>Current: {config.adaptation_threshold}</span>
+                    <span>Stable (1.0)</span>
                   </div>
                 </div>
               </div>
@@ -313,9 +313,9 @@ export function SupervisorConfigWizard({
           <div className="space-y-6">
             <div className="text-center">
               <Brain className="h-12 w-12 text-purple-600 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">의사결정 전략을 선택하세요</h3>
+              <h3 className="text-lg font-semibold mb-2">Select a decision strategy</h3>
               <p className="text-muted-foreground">
-                에이전트들 간의 협력과 의사결정 방식을 설정합니다
+                Configure how agents collaborate and make decisions
               </p>
             </div>
 
@@ -340,7 +340,7 @@ export function SupervisorConfigWizard({
                               <span className="font-medium">{strategy.name}</span>
                               {strategy.recommended && (
                                 <Badge variant="outline" className="text-xs bg-green-50 text-green-700">
-                                  추천
+                                  Recommended
                                 </Badge>
                               )}
                             </div>
@@ -362,8 +362,8 @@ export function SupervisorConfigWizard({
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label>자동 에이전트 선택</Label>
-                    <p className="text-sm text-muted-foreground">작업에 최적화된 에이전트를 자동으로 선택</p>
+                    <Label>Auto Agent Selection</Label>
+                    <p className="text-sm text-muted-foreground">Automatically select optimal agents for tasks</p>
                   </div>
                   <Switch
                     checked={config.auto_agent_selection}
@@ -373,8 +373,8 @@ export function SupervisorConfigWizard({
 
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label>성능 기반 라우팅</Label>
-                    <p className="text-sm text-muted-foreground">실시간 성능을 기반으로 작업 분배</p>
+                    <Label>Performance-based Routing</Label>
+                    <p className="text-sm text-muted-foreground">Distribute tasks based on real-time performance</p>
                   </div>
                   <Switch
                     checked={config.performance_based_routing}
@@ -384,8 +384,8 @@ export function SupervisorConfigWizard({
 
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label>동적 역할 재할당</Label>
-                    <p className="text-sm text-muted-foreground">상황에 따라 에이전트 역할을 실시간 조정</p>
+                    <Label>Dynamic Role Reassignment</Label>
+                    <p className="text-sm text-muted-foreground">Adjust agent roles in real-time based on situation</p>
                   </div>
                   <Switch
                     checked={config.dynamic_role_assignment}
@@ -395,8 +395,8 @@ export function SupervisorConfigWizard({
 
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label>학습 기능</Label>
-                    <p className="text-sm text-muted-foreground">성능 데이터를 학습하여 지속적으로 개선</p>
+                    <Label>Learning Feature</Label>
+                    <p className="text-sm text-muted-foreground">Continuously improve by learning from performance data</p>
                   </div>
                   <Switch
                     checked={config.learning_enabled}
@@ -413,17 +413,17 @@ export function SupervisorConfigWizard({
           <div className="space-y-6">
             <div className="text-center">
               <BarChart3 className="h-12 w-12 text-purple-600 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">모니터링과 알림을 설정하세요</h3>
+              <h3 className="text-lg font-semibold mb-2">Configure monitoring and alerts</h3>
               <p className="text-muted-foreground">
-                실시간 성능 추적과 문제 상황 알림을 구성합니다
+                Set up real-time performance tracking and issue alerts
               </p>
             </div>
 
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <Label>실시간 모니터링</Label>
-                  <p className="text-sm text-muted-foreground">에이전트 성능과 시스템 상태를 실시간으로 추적</p>
+                  <Label>Real-time Monitoring</Label>
+                  <p className="text-sm text-muted-foreground">Track agent performance and system status in real-time</p>
                 </div>
                 <Switch
                   checked={config.monitoring_enabled}
@@ -434,14 +434,14 @@ export function SupervisorConfigWizard({
               {config.monitoring_enabled && (
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-base">알림 임계값 설정</CardTitle>
+                    <CardTitle className="text-base">Alert Threshold Settings</CardTitle>
                     <CardDescription>
-                      다음 조건에 도달하면 알림을 받습니다
+                      You will receive alerts when these conditions are met
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="space-y-2">
-                      <Label>최소 성공률 (%)</Label>
+                      <Label>Minimum Success Rate (%)</Label>
                       <Input
                         type="number"
                         min="0"
@@ -458,7 +458,7 @@ export function SupervisorConfigWizard({
                     </div>
 
                     <div className="space-y-2">
-                      <Label>최대 응답시간 (초)</Label>
+                      <Label>Maximum Response Time (seconds)</Label>
                       <Input
                         type="number"
                         min="1"
@@ -475,7 +475,7 @@ export function SupervisorConfigWizard({
                     </div>
 
                     <div className="space-y-2">
-                      <Label>최대 오류율 (%)</Label>
+                      <Label>Maximum Error Rate (%)</Label>
                       <Input
                         type="number"
                         min="0"
@@ -502,17 +502,17 @@ export function SupervisorConfigWizard({
           <div className="space-y-6">
             <div className="text-center">
               <Users className="h-12 w-12 text-purple-600 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">협업 기능을 설정하세요</h3>
+              <h3 className="text-lg font-semibold mb-2">Configure collaboration features</h3>
               <p className="text-muted-foreground">
-                팀 학습과 지식 공유로 전체 시스템의 성능을 향상시킵니다
+                Improve overall system performance through team learning and knowledge sharing
               </p>
             </div>
 
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <Label>팀 학습 활성화</Label>
-                  <p className="text-sm text-muted-foreground">다른 팀의 성공 패턴을 학습하여 성능 개선</p>
+                  <Label>Enable Team Learning</Label>
+                  <p className="text-sm text-muted-foreground">Improve performance by learning success patterns from other teams</p>
                 </div>
                 <Switch
                   checked={config.team_learning_enabled}
@@ -522,8 +522,8 @@ export function SupervisorConfigWizard({
 
               <div className="flex items-center justify-between">
                 <div>
-                  <Label>지식 공유</Label>
-                  <p className="text-sm text-muted-foreground">성능 인사이트와 최적화 전략을 팀 간 공유</p>
+                  <Label>Knowledge Sharing</Label>
+                  <p className="text-sm text-muted-foreground">Share performance insights and optimization strategies between teams</p>
                 </div>
                 <Switch
                   checked={config.knowledge_sharing}
@@ -533,8 +533,8 @@ export function SupervisorConfigWizard({
 
               <div className="flex items-center justify-between">
                 <div>
-                  <Label>템플릿 통합</Label>
-                  <p className="text-sm text-muted-foreground">검증된 팀 템플릿을 기반으로 자동 최적화</p>
+                  <Label>Template Integration</Label>
+                  <p className="text-sm text-muted-foreground">Auto-optimize based on verified team templates</p>
                 </div>
                 <Switch
                   checked={config.template_integration}
@@ -549,11 +549,11 @@ export function SupervisorConfigWizard({
                       <Lightbulb className="h-5 w-5 text-blue-600 mt-0.5" />
                       <div>
                         <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-1">
-                          협업 기능 활성화됨
+                          Collaboration Features Enabled
                         </h4>
                         <p className="text-sm text-blue-700 dark:text-blue-300">
-                          이 설정으로 다른 팀과 성능 데이터를 공유하고 집단 지능을 활용할 수 있습니다.
-                          개인정보는 보호되며, 성능 패턴만 익명으로 공유됩니다.
+                          With these settings, you can share performance data with other teams and leverage collective intelligence.
+                          Personal information is protected, and only performance patterns are shared anonymously.
                         </p>
                       </div>
                     </div>
@@ -569,38 +569,38 @@ export function SupervisorConfigWizard({
           <div className="space-y-6">
             <div className="text-center">
               <CheckCircle2 className="h-12 w-12 text-green-600 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">설정 검토</h3>
+              <h3 className="text-lg font-semibold mb-2">Review Settings</h3>
               <p className="text-muted-foreground">
-                최종 설정을 확인하고 슈퍼바이저를 활성화하세요
+                Review final settings and activate the supervisor
               </p>
             </div>
 
             <div className="space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">기본 설정</CardTitle>
+                  <CardTitle className="text-base">Basic Settings</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span>LLM 제공자:</span>
+                    <span>LLM Provider:</span>
                     <span className="font-medium">{config.llm_provider}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>모델:</span>
+                    <span>Model:</span>
                     <span className="font-medium">{config.llm_model}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>최대 반복:</span>
+                    <span>Max Iterations:</span>
                     <span className="font-medium">{config.max_iterations}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>의사결정 전략:</span>
+                    <span>Decision Strategy:</span>
                     <span className="font-medium">
                       {DECISION_STRATEGIES.find(s => s.id === config.decision_strategy)?.name}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span>최적화 전략:</span>
+                    <span>Optimization Strategy:</span>
                     <span className="font-medium">
                       {OPTIMIZATION_STRATEGIES.find(s => s.id === config.optimization_strategy)?.name}
                     </span>
@@ -610,31 +610,31 @@ export function SupervisorConfigWizard({
 
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">고급 기능</CardTitle>
+                  <CardTitle className="text-base">Advanced Features</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span>자동 에이전트 선택:</span>
+                    <span>Auto Agent Selection:</span>
                     <Badge variant={config.auto_agent_selection ? 'default' : 'secondary'}>
-                      {config.auto_agent_selection ? '활성화' : '비활성화'}
+                      {config.auto_agent_selection ? 'Enabled' : 'Disabled'}
                     </Badge>
                   </div>
                   <div className="flex justify-between">
-                    <span>성능 기반 라우팅:</span>
+                    <span>Performance-based Routing:</span>
                     <Badge variant={config.performance_based_routing ? 'default' : 'secondary'}>
-                      {config.performance_based_routing ? '활성화' : '비활성화'}
+                      {config.performance_based_routing ? 'Enabled' : 'Disabled'}
                     </Badge>
                   </div>
                   <div className="flex justify-between">
-                    <span>학습 기능:</span>
+                    <span>Learning Feature:</span>
                     <Badge variant={config.learning_enabled ? 'default' : 'secondary'}>
-                      {config.learning_enabled ? '활성화' : '비활성화'}
+                      {config.learning_enabled ? 'Enabled' : 'Disabled'}
                     </Badge>
                   </div>
                   <div className="flex justify-between">
-                    <span>실시간 모니터링:</span>
+                    <span>Real-time Monitoring:</span>
                     <Badge variant={config.monitoring_enabled ? 'default' : 'secondary'}>
-                      {config.monitoring_enabled ? '활성화' : '비활성화'}
+                      {config.monitoring_enabled ? 'Enabled' : 'Disabled'}
                     </Badge>
                   </div>
                 </CardContent>
@@ -643,19 +643,19 @@ export function SupervisorConfigWizard({
               {(config.team_learning_enabled || config.knowledge_sharing) && (
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-base">협업 기능</CardTitle>
+                    <CardTitle className="text-base">Collaboration Features</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2 text-sm">
                     <div className="flex justify-between">
-                      <span>팀 학습:</span>
+                      <span>Team Learning:</span>
                       <Badge variant={config.team_learning_enabled ? 'default' : 'secondary'}>
-                        {config.team_learning_enabled ? '활성화' : '비활성화'}
+                        {config.team_learning_enabled ? 'Enabled' : 'Disabled'}
                       </Badge>
                     </div>
                     <div className="flex justify-between">
-                      <span>지식 공유:</span>
+                      <span>Knowledge Sharing:</span>
                       <Badge variant={config.knowledge_sharing ? 'default' : 'secondary'}>
-                        {config.knowledge_sharing ? '활성화' : '비활성화'}
+                        {config.knowledge_sharing ? 'Enabled' : 'Disabled'}
                       </Badge>
                     </div>
                   </CardContent>
@@ -676,7 +676,7 @@ export function SupervisorConfigWizard({
         {trigger || (
           <Button className="gap-2">
             <Settings className="h-4 w-4" />
-            고급 설정
+            Advanced Settings
           </Button>
         )}
       </DialogTrigger>
@@ -684,18 +684,18 @@ export function SupervisorConfigWizard({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Brain className="h-5 w-5" />
-            슈퍼바이저 설정 마법사
+            Supervisor Configuration Wizard
           </DialogTitle>
           <DialogDescription>
-            단계별 가이드를 통해 고급 슈퍼바이저를 구성하세요
+            Configure advanced supervisor through step-by-step guide
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* 진행 상황 */}
+          {/* Progress */}
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
-              <span>진행 상황</span>
+              <span>Progress</span>
               <span>{currentStep + 1} / {WIZARD_STEPS.length}</span>
             </div>
             <Progress value={(currentStep + 1) / WIZARD_STEPS.length * 100} />
@@ -711,7 +711,7 @@ export function SupervisorConfigWizard({
             </div>
           </div>
 
-          {/* 현재 단계 내용 */}
+          {/* Current Step Content */}
           <div className="min-h-[400px]">
             <div className="mb-4">
               <h3 className="text-lg font-semibold">{WIZARD_STEPS[currentStep].title}</h3>
@@ -720,7 +720,7 @@ export function SupervisorConfigWizard({
             {renderStepContent()}
           </div>
 
-          {/* 네비게이션 버튼 */}
+          {/* Navigation Buttons */}
           <div className="flex justify-between">
             <Button
               variant="outline"
@@ -729,17 +729,17 @@ export function SupervisorConfigWizard({
               className="gap-2"
             >
               <ArrowLeft className="h-4 w-4" />
-              이전
+              Previous
             </Button>
 
             {currentStep === WIZARD_STEPS.length - 1 ? (
               <Button onClick={handleFinish} className="gap-2">
                 <CheckCircle2 className="h-4 w-4" />
-                설정 완료
+                Complete Setup
               </Button>
             ) : (
               <Button onClick={handleNext} className="gap-2">
-                다음
+                Next
                 <ArrowRight className="h-4 w-4" />
               </Button>
             )}

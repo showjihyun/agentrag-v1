@@ -1,5 +1,5 @@
 /**
- * Agent Plugin 전용 Zustand 스토어
+ * Zustand Store for Agent Plugin
  */
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';

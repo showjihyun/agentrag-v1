@@ -1,15 +1,15 @@
 "use client";
 
 /**
- * Premium Tool Editor - 고급 Tool 편집 컴포넌트
+ * Premium Tool Editor - Advanced Tool editing component
  * 
  * Features:
- * - 드래그 앤 드롭 지원
- * - 실시간 미리보기
- * - 자동 저장
- * - 템플릿 갤러리
- * - 스마트 검증
- * - 반응형 레이아웃
+ * - Drag and drop support
+ * - Real-time preview
+ * - Auto save
+ * - Template gallery
+ * - Smart validation
+ * - Responsive layout
  */
 
 import React, { useState, useEffect, useCallback } from "react";

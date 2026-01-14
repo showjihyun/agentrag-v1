@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Tool Template Gallery - 템플릿 선택 컴포넌트
+ * Tool Template Gallery - Template selection component
  */
 
 import React from "react";

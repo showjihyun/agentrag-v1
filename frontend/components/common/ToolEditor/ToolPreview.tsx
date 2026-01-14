@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Tool Preview - 실시간 미리보기 컴포넌트
+ * Tool Preview - Real-time preview component
  */
 
 import React from "react";

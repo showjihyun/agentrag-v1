@@ -125,8 +125,8 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
     if (!authLoading && !isAuthenticated) {
       console.log('🔐 User not authenticated, redirecting to login');
       toast({
-        title: '로그인 필요',
-        description: '채팅을 사용하려면 로그인이 필요합니다.',
+        title: 'Login Required',
+        description: 'Please log in to use the chat.',
         variant: 'destructive',
       });
       router.push('/auth/login');
@@ -248,8 +248,8 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
     // Check authentication
     if (!isAuthenticated) {
       toast({
-        title: '인증 오류',
-        description: '로그인이 필요합니다. 페이지를 새로고침해주세요.',
+        title: 'Authentication Error',
+        description: 'Login is required. Please refresh the page.',
         variant: 'destructive',
       });
       router.push('/auth/login');
@@ -323,8 +323,8 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
           // Check if it's an authentication error
           if (error?.status === 401 || error?.message?.includes('Authentication')) {
             toast({
-              title: '인증 만료',
-              description: '로그인이 만료되었습니다. 다시 로그인해주세요.',
+              title: 'Session Expired',
+              description: 'Your session has expired. Please log in again.',
               variant: 'destructive',
             });
             router.push('/auth/login');
@@ -336,15 +336,15 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
             msg.id === assistantMessage.id 
               ? { 
                   ...msg, 
-                  content: '죄송합니다. 현재 AI 서비스에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.',
+                  content: 'Sorry, we cannot connect to the AI service at the moment. Please try again later.',
                   isStreaming: false 
                 }
               : msg
           ));
           
           toast({
-            title: '서비스 오류',
-            description: 'AI 서비스에 일시적인 문제가 발생했습니다. 잠시 후 다시 시도해주세요.',
+            title: 'Service Error',
+            description: 'A temporary issue occurred with the AI service. Please try again later.',
             variant: 'destructive',
           });
           
@@ -429,8 +429,8 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
           // Check if it's an authentication error
           if (error?.message?.includes('Authentication')) {
             toast({
-              title: '인증 오류',
-              description: '로그인이 필요합니다. 다시 로그인해주세요.',
+              title: 'Authentication Error',
+              description: 'Login is required. Please log in again.',
               variant: 'destructive',
             });
             router.push('/auth/login');
@@ -449,8 +449,8 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
       // Check if it's an authentication error
       if (error?.status === 401 || error?.message?.includes('Authentication')) {
         toast({
-          title: '인증 만료',
-          description: '로그인이 만료되었습니다. 다시 로그인해주세요.',
+          title: 'Session Expired',
+          description: 'Your session has expired. Please log in again.',
           variant: 'destructive',
         });
         router.push('/auth/login');
@@ -462,15 +462,15 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
         msg.id === assistantMessage.id 
           ? { 
               ...msg, 
-              content: '죄송합니다. 응답을 생성하는 중 오류가 발생했습니다. 다시 시도해주세요.',
+              content: 'Sorry, an error occurred while generating the response. Please try again.',
               isStreaming: false 
             }
           : msg
       ));
       
       toast({
-        title: '오류',
-        description: error.message || '메시지 전송에 실패했습니다',
+        title: 'Error',
+        description: error.message || 'Failed to send message',
         variant: 'destructive',
       });
       
@@ -492,7 +492,7 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
       
       if (flowData) {
         const flowConfig = flowData as any;
-        const welcomeMessage = flowConfig.chat_config?.welcome_message || '안녕하세요! 무엇을 도와드릴까요?';
+        const welcomeMessage = flowConfig.chat_config?.welcome_message || 'Hello! How can I help you?';
         setMessages([{
           id: 'welcome-new',
           role: 'assistant',
@@ -502,8 +502,8 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
       }
       
       toast({
-        title: '채팅 초기화',
-        description: '채팅 기록이 초기화되었습니다',
+        title: 'Chat Cleared',
+        description: 'Chat history has been cleared',
       });
     } catch (error: any) {
       console.error('Clear chat error:', error);
@@ -511,7 +511,7 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
       setMessages([]);
       if (flowData) {
         const flowConfig = flowData as any;
-        const welcomeMessage = flowConfig.chat_config?.welcome_message || '안녕하세요! 무엇을 도와드릴까요?';
+        const welcomeMessage = flowConfig.chat_config?.welcome_message || 'Hello! How can I help you?';
         setMessages([{
           id: 'welcome-new',
           role: 'assistant',
@@ -546,8 +546,8 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
     URL.revokeObjectURL(url);
 
     toast({
-      title: '내보내기 완료',
-      description: '채팅 기록이 다운로드되었습니다',
+      title: 'Export Complete',
+      description: 'Chat history has been downloaded',
     });
   };
 
@@ -565,7 +565,7 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
       <div className="container mx-auto p-6 max-w-4xl">
         <Card className="border-yellow-500">
           <CardContent className="pt-6">
-            <p className="text-yellow-600">로그인이 필요합니다. 잠시 후 로그인 페이지로 이동합니다...</p>
+            <p className="text-yellow-600">Login is required. Redirecting to login page...</p>
           </CardContent>
         </Card>
       </div>
@@ -586,7 +586,7 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
       <div className="container mx-auto p-6 max-w-4xl">
         <Card className="border-red-500">
           <CardContent className="pt-6">
-            <p className="text-red-500">Chatflow를 불러오는데 실패했습니다</p>
+            <p className="text-red-500">Failed to load Chatflow</p>
           </CardContent>
         </Card>
       </div>
@@ -607,7 +607,7 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
             </div>
             {(flowData as any).name}
           </h1>
-          <p className="text-muted-foreground mt-1">실시간 채팅</p>
+          <p className="text-muted-foreground mt-1">Real-time Chat</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="icon" onClick={handleClearChat}>
@@ -634,10 +634,10 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <Bot className="h-5 w-5" />
-              LLM 설정
+              LLM Settings
             </CardTitle>
             <CardDescription>
-              대화에 사용할 AI 모델을 선택하고 설정을 조정하세요
+              Select and configure the AI model for conversation
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -650,7 +650,7 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
             ) : llmConfiguration ? (
               <>
                 <div>
-                  <label className="text-sm font-medium mb-2 block">AI 제공업체</label>
+                  <label className="text-sm font-medium mb-2 block">AI Provider</label>
                   <select
                     value={llmProvider}
                     onChange={(e) => {
@@ -670,19 +670,19 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
                       .map(provider => (
                         <option key={provider.name} value={provider.name}>
                           {provider.display_name}
-                          {!provider.is_available && ' (사용 불가)'}
+                          {!provider.is_available && ' (Unavailable)'}
                         </option>
                       ))}
                   </select>
                   {llmConfiguration.providers.find(p => p.name === llmProvider)?.requires_api_key && (
                     <p className="text-xs text-muted-foreground mt-1">
-                      💡 이 제공업체는 API 키가 필요합니다. Settings에서 설정해주세요.
+                      💡 This provider requires an API key. Please configure it in Settings.
                     </p>
                   )}
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium mb-2 block">AI 모델</label>
+                  <label className="text-sm font-medium mb-2 block">AI Model</label>
                   <select
                     value={llmModel}
                     onChange={(e) => setLlmModel(e.target.value)}
@@ -704,15 +704,15 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
                     }`} />
                     <span className="text-xs text-muted-foreground">
                       {llmConfiguration.providers.find(p => p.name === llmProvider)?.is_available 
-                        ? '사용 가능' 
-                        : '사용 불가'}
+                        ? 'Available' 
+                        : 'Unavailable'}
                     </span>
                   </div>
                 </div>
 
                 <div>
                   <label className="text-sm font-medium mb-2 block">
-                    창의성 (Temperature): {llmConfig.temperature || 0.7}
+                    Creativity (Temperature): {llmConfig.temperature || 0.7}
                   </label>
                   <input
                     type="range"
@@ -727,15 +727,15 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
                     className="w-full"
                   />
                   <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                    <span>보수적 (0.0)</span>
-                    <span>균형 (1.0)</span>
-                    <span>창의적 (2.0)</span>
+                    <span>Conservative (0.0)</span>
+                    <span>Balanced (1.0)</span>
+                    <span>Creative (2.0)</span>
                   </div>
                 </div>
 
                 <div>
                   <label className="text-sm font-medium mb-2 block">
-                    최대 토큰 수: {llmConfig.max_tokens || 2000}
+                    Max Tokens: {llmConfig.max_tokens || 2000}
                   </label>
                   <input
                     type="range"
@@ -750,38 +750,38 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
                     className="w-full"
                   />
                   <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                    <span>짧음 (100)</span>
-                    <span>보통 (2000)</span>
-                    <span>길음 (4000)</span>
+                    <span>Short (100)</span>
+                    <span>Medium (2000)</span>
+                    <span>Long (4000)</span>
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium mb-2 block">시스템 프롬프트 (선택사항)</label>
+                  <label className="text-sm font-medium mb-2 block">System Prompt (Optional)</label>
                   <textarea
                     value={llmConfig.system_prompt || ''}
                     onChange={(e) => setLlmConfig({
                       ...llmConfig,
                       system_prompt: e.target.value
                     })}
-                    placeholder="AI의 역할이나 행동 방식을 지정하세요..."
+                    placeholder="Specify the AI's role or behavior..."
                     className="w-full p-2 border rounded-md bg-background min-h-[80px] resize-none"
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    시스템 프롬프트는 AI의 전반적인 행동을 정의합니다.
+                    The system prompt defines the AI's overall behavior.
                   </p>
                 </div>
 
                 <div className="bg-gradient-to-r from-green-50 to-blue-50 p-3 rounded text-sm text-muted-foreground">
                   <div className="flex items-center gap-2 mb-2">
                     <Bot className="h-4 w-4" />
-                    <span className="font-medium">현재 설정</span>
+                    <span className="font-medium">Current Settings</span>
                   </div>
                   <div className="space-y-1">
-                    <div>제공업체: <span className="font-mono">{llmProvider}</span></div>
-                    <div>모델: <span className="font-mono">{llmModel}</span></div>
-                    <div>창의성: <span className="font-mono">{llmConfig.temperature || 0.7}</span></div>
-                    <div>최대 토큰: <span className="font-mono">{llmConfig.max_tokens || 2000}</span></div>
+                    <div>Provider: <span className="font-mono">{llmProvider}</span></div>
+                    <div>Model: <span className="font-mono">{llmModel}</span></div>
+                    <div>Creativity: <span className="font-mono">{llmConfig.temperature || 0.7}</span></div>
+                    <div>Max Tokens: <span className="font-mono">{llmConfig.max_tokens || 2000}</span></div>
                   </div>
                 </div>
               </>
@@ -797,7 +797,7 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
                 size="sm"
                 onClick={() => setShowLLMSettings(false)}
               >
-                닫기
+                Close
               </Button>
               <Button
                 variant="outline"
@@ -812,13 +812,13 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
                       system_prompt: '',
                     });
                     toast({
-                      title: '설정 초기화',
-                      description: '기본 설정으로 초기화되었습니다',
+                      title: 'Settings Reset',
+                      description: 'Reset to default settings',
                     });
                   }
                 }}
               >
-                초기화
+                Reset
               </Button>
               <Button
                 size="sm"
@@ -838,20 +838,20 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
                     
                     if (response.success) {
                       toast({
-                        title: '설정 저장됨',
-                        description: `${llmProvider}/${llmModel} 설정이 저장되었습니다`,
+                        title: 'Settings Saved',
+                        description: `${llmProvider}/${llmModel} settings have been saved`,
                       });
                     } else {
                       toast({
-                        title: '설정 저장 실패',
+                        title: 'Save Failed',
                         description: response.message,
                         variant: 'destructive',
                       });
                     }
                   } catch (error: any) {
                     toast({
-                      title: '설정 저장 실패',
-                      description: error.message || '설정 저장 중 오류가 발생했습니다',
+                      title: 'Save Failed',
+                      description: error.message || 'An error occurred while saving settings',
                       variant: 'destructive',
                     });
                   }
@@ -859,7 +859,7 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
                   setShowLLMSettings(false);
                 }}
               >
-                저장 및 적용
+                Save & Apply
               </Button>
             </div>
           </CardContent>
@@ -872,31 +872,31 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <Settings className="h-5 w-5" />
-              메모리 설정
+              Memory Settings
             </CardTitle>
             <CardDescription>
-              대화 기억 방식을 설정하여 더 나은 대화 경험을 만들어보세요
+              Configure conversation memory for a better chat experience
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <label className="text-sm font-medium mb-2 block">메모리 전략</label>
+              <label className="text-sm font-medium mb-2 block">Memory Strategy</label>
               <select
                 value={memoryType}
                 onChange={(e) => setMemoryType(e.target.value)}
                 className="w-full p-2 border rounded-md bg-background"
               >
-                <option value="buffer">Buffer Memory - 최근 N개 메시지 유지</option>
-                <option value="summary">Summary Memory - 오래된 대화 요약</option>
-                <option value="vector">Vector Memory - 의미적 검색</option>
-                <option value="hybrid">Hybrid Memory - 복합 전략 (최고 성능)</option>
+                <option value="buffer">Buffer Memory - Keep last N messages</option>
+                <option value="summary">Summary Memory - Summarize old conversations</option>
+                <option value="vector">Vector Memory - Semantic search</option>
+                <option value="hybrid">Hybrid Memory - Combined strategy (Best performance)</option>
               </select>
             </div>
 
             {memoryType === 'buffer' && (
               <div>
                 <label className="text-sm font-medium mb-2 block">
-                  버퍼 크기: {memoryConfig.buffer_size}개 메시지
+                  Buffer Size: {memoryConfig.buffer_size} messages
                 </label>
                 <input
                   type="range"
@@ -916,7 +916,7 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
               <div className="space-y-3">
                 <div>
                   <label className="text-sm font-medium mb-2 block">
-                    요약 시작 메시지 수: {memoryConfig.summary_threshold}개
+                    Summary Start Threshold: {memoryConfig.summary_threshold} messages
                   </label>
                   <input
                     type="range"
@@ -932,7 +932,7 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
                 </div>
                 <div>
                   <label className="text-sm font-medium mb-2 block">
-                    요약 주기: {memoryConfig.summary_interval}개 메시지
+                    Summary Interval: {memoryConfig.summary_interval} messages
                   </label>
                   <input
                     type="range"
@@ -953,7 +953,7 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
               <div className="space-y-3">
                 <div>
                   <label className="text-sm font-medium mb-2 block">
-                    검색할 관련 메시지 수: {memoryConfig.vector_top_k || 5}개
+                    Related Messages to Search: {memoryConfig.vector_top_k || 5}
                   </label>
                   <input
                     type="range"
@@ -969,7 +969,7 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
                 </div>
                 <div>
                   <label className="text-sm font-medium mb-2 block">
-                    최근 메시지 버퍼: {memoryConfig.buffer_size || 5}개
+                    Recent Message Buffer: {memoryConfig.buffer_size || 5}
                   </label>
                   <input
                     type="range"
@@ -984,7 +984,7 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
                   />
                 </div>
                 <div className="text-sm text-muted-foreground bg-blue-50 p-2 rounded">
-                  💡 Vector Memory는 의미적으로 유사한 이전 대화를 찾아 컨텍스트로 제공합니다.
+                  💡 Vector Memory finds semantically similar previous conversations and provides them as context.
                 </div>
               </div>
             )}
@@ -992,11 +992,11 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
             {memoryType === 'hybrid' && (
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium mb-2 block">전략 가중치</label>
+                  <label className="text-sm font-medium mb-2 block">Strategy Weights</label>
                   <div className="space-y-3">
                     <div>
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm">Buffer (최근 메시지)</span>
+                        <span className="text-sm">Buffer (Recent messages)</span>
                         <span className="text-sm font-mono bg-gray-100 px-2 py-1 rounded">
                           {((memoryConfig.hybrid_weights?.buffer || 0.4) * 100).toFixed(0)}%
                         </span>
@@ -1022,7 +1022,7 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
                     
                     <div>
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm">Summary (요약)</span>
+                        <span className="text-sm">Summary</span>
                         <span className="text-sm font-mono bg-gray-100 px-2 py-1 rounded">
                           {((memoryConfig.hybrid_weights?.summary || 0.3) * 100).toFixed(0)}%
                         </span>
@@ -1048,7 +1048,7 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
                     
                     <div>
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm">Vector (의미적 검색)</span>
+                        <span className="text-sm">Vector (Semantic search)</span>
                         <span className="text-sm font-mono bg-gray-100 px-2 py-1 rounded">
                           {((memoryConfig.hybrid_weights?.vector || 0.3) * 100).toFixed(0)}%
                         </span>
@@ -1076,7 +1076,7 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
                 
                 <div>
                   <label className="text-sm font-medium mb-2 block">
-                    최대 컨텍스트 메시지: {memoryConfig.max_context_messages || 20}개
+                    Max Context Messages: {memoryConfig.max_context_messages || 20}
                   </label>
                   <input
                     type="range"
@@ -1092,11 +1092,11 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
                 </div>
                 
                 <div className="text-sm text-muted-foreground bg-gradient-to-r from-blue-50 to-purple-50 p-3 rounded">
-                  🚀 Hybrid Memory는 상황에 따라 최적의 메모리 전략을 자동으로 선택합니다.
+                  🚀 Hybrid Memory automatically selects the optimal memory strategy based on the situation.
                   <br />
-                  • 후속 질문: Buffer + Vector 우선
+                  • Follow-up questions: Buffer + Vector priority
                   <br />
-                  • 새로운 주제: Vector + Summary 우선
+                  • New topics: Vector + Summary priority
                 </div>
               </div>
             )}
@@ -1107,7 +1107,7 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
                 size="sm"
                 onClick={() => setShowMemorySettings(false)}
               >
-                닫기
+                Close
               </Button>
               <Button
                 size="sm"
@@ -1118,20 +1118,20 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
                       ...memoryConfig
                     });
                     toast({
-                      title: '설정 저장됨',
-                      description: '메모리 설정이 업데이트되었습니다',
+                      title: 'Settings Saved',
+                      description: 'Memory settings have been updated',
                     });
                     setShowMemorySettings(false);
                   } catch (error) {
                     toast({
-                      title: '설정 저장 실패',
-                      description: '메모리 설정 저장에 실패했습니다',
+                      title: 'Save Failed',
+                      description: 'Failed to save memory settings',
                       variant: 'destructive',
                     });
                   }
                 }}
               >
-                저장
+                Save
               </Button>
             </div>
           </CardContent>
@@ -1144,23 +1144,23 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
         <CardHeader className="border-b bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-lg">채팅</CardTitle>
+              <CardTitle className="text-lg">Chat</CardTitle>
               <CardDescription>
                 {(flowData as any).rag_config?.enabled && (
                   <Badge variant="secondary" className="mr-2">
-                    RAG 활성화
+                    RAG Enabled
                   </Badge>
                 )}
                 <Badge variant="outline" className="mr-2">
-                  메모리: {memoryType === 'buffer' ? '버퍼' : memoryType === 'summary' ? '요약' : memoryType}
+                  Memory: {memoryType === 'buffer' ? 'Buffer' : memoryType === 'summary' ? 'Summary' : memoryType}
                 </Badge>
                 <Badge variant="outline">
-                  세션: {sessionId.slice(-8)}
+                  Session: {sessionId.slice(-8)}
                 </Badge>
               </CardDescription>
             </div>
             <Badge variant="outline">
-              {messages.length - 1} 메시지
+              {messages.length - 1} messages
             </Badge>
           </div>
         </CardHeader>
@@ -1211,7 +1211,7 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
         {/* Suggested Questions */}
         {(flowData as any).chat_config?.suggested_questions && (flowData as any).chat_config.suggested_questions.length > 0 && messages.length <= 1 && (
           <div className="border-t p-4">
-            <p className="text-sm text-muted-foreground mb-2">추천 질문:</p>
+            <p className="text-sm text-muted-foreground mb-2">Suggested questions:</p>
             <div className="flex flex-wrap gap-2">
               {(flowData as any).chat_config.suggested_questions.map((question: string, index: number) => (
                 <Button
@@ -1234,7 +1234,7 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="메시지를 입력하세요..."
+              placeholder="Type your message..."
               onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
               disabled={isLoading}
               className="flex-1"

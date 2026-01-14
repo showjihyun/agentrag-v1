@@ -1,7 +1,7 @@
 /**
  * AI Assistant Hook
  * 
- * 지능형 블록 추천 및 워크플로우 최적화를 위한 AI 어시스턴트
+ * AI assistant for intelligent block recommendations and workflow optimization
  */
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Node, Edge } from 'reactflow';
@@ -280,7 +280,7 @@ export const useAIAssistant = (options: UseAIAssistantOptions = {}) => {
     return union.size > 0 ? intersection.size / union.size : 0;
   };
 
-  // 연결 패턴 유사도 계산
+  // Calculate connection pattern similarity
   const calculateConnectionSimilarity = (
     currentConnections: Array<{ from: string; to: string }>,
     patternConnections: Array<{ from: string; to: string }>
@@ -300,7 +300,7 @@ export const useAIAssistant = (options: UseAIAssistantOptions = {}) => {
     return union.size > 0 ? intersection.size / union.size : 0;
   };
 
-  // 패턴 기반 추천 생성
+  // Generate pattern-based recommendations
   const generatePatternRecommendations = (
     blockTypes: string[],
     connectionPatterns: Array<{ from: string; to: string }>,
@@ -308,7 +308,7 @@ export const useAIAssistant = (options: UseAIAssistantOptions = {}) => {
   ) => {
     const recommendations = [];
 
-    // 자주 사용되는 다음 블록 추천
+    // Recommend frequently used next blocks
     if (similarPatterns.length > 0) {
       const topPattern = similarPatterns[0];
       const missingBlocks = topPattern.blocks.filter((block: string) => !blockTypes.includes(block));
@@ -316,18 +316,18 @@ export const useAIAssistant = (options: UseAIAssistantOptions = {}) => {
       if (missingBlocks.length > 0) {
         recommendations.push({
           type: 'missing_blocks',
-          title: '패턴 완성을 위한 블록 추가',
+          title: 'Add blocks to complete pattern',
           blocks: missingBlocks.slice(0, 3),
           confidence: topPattern.similarity
         });
       }
     }
 
-    // 성능 최적화 추천
+    // Performance optimization recommendation
     if (blockTypes.includes('llm') && !blockTypes.includes('cache')) {
       recommendations.push({
         type: 'performance',
-        title: 'LLM 응답 캐싱 추가',
+        title: 'Add LLM response caching',
         blocks: ['cache'],
         confidence: 0.8
       });
@@ -336,7 +336,7 @@ export const useAIAssistant = (options: UseAIAssistantOptions = {}) => {
     return recommendations;
   };
 
-  // 학습 데이터 수집
+  // Collect learning data
   const recordUserAction = useCallback(async (action: {
     type: 'block_added' | 'block_removed' | 'suggestion_accepted' | 'suggestion_rejected';
     blockType?: string;
@@ -358,7 +358,7 @@ export const useAIAssistant = (options: UseAIAssistantOptions = {}) => {
     }
   }, [learningMode]);
 
-  // 초기화
+  // Initialization
   useEffect(() => {
     if (enabled) {
       loadWorkflowPatterns();
@@ -367,24 +367,24 @@ export const useAIAssistant = (options: UseAIAssistantOptions = {}) => {
   }, [enabled, loadWorkflowPatterns, loadUserPreferences]);
 
   return {
-    // 상태
+    // State
     isLoading,
     suggestions,
     optimizations,
     workflowPatterns,
     userPreferences,
 
-    // 메서드
+    // Methods
     suggestNextBlocks,
     suggestOptimizations,
     analyzeWorkflowPattern,
     recordUserAction,
     
-    // 유틸리티
+    // Utilities
     calculateWorkflowComplexity,
     findSimilarPatterns,
 
-    // 설정
+    // Settings
     setUserPreferences
   };
 };

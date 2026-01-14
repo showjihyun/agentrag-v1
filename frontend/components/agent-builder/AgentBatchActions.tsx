@@ -99,8 +99,8 @@ export function AgentBatchActions({
       setProcessingResults(results);
       
       toast({
-        title: '배치 복제 완료',
-        description: `${results.success.length}개 성공, ${results.failed.length}개 실패`,
+        title: 'Batch Duplication Complete',
+        description: `${results.success.length} succeeded, ${results.failed.length} failed`,
         ...(results.failed.length > 0 && { variant: 'destructive' as const }),
       });
 
@@ -108,8 +108,8 @@ export function AgentBatchActions({
       onSelectionChange([]);
     } catch (error) {
       toast({
-        title: '오류',
-        description: '배치 복제 중 오류가 발생했습니다',
+        title: 'Error',
+        description: 'An error occurred during batch duplication',
         variant: 'destructive',
       });
     } finally {
@@ -149,15 +149,15 @@ export function AgentBatchActions({
       URL.revokeObjectURL(url);
 
       toast({
-        title: '배치 내보내기 완료',
-        description: `${exportData.length}개 에이전트가 내보내졌습니다`,
+        title: 'Batch Export Complete',
+        description: `${exportData.length} agents exported`,
       });
 
       onSelectionChange([]);
     } catch (error) {
       toast({
-        title: '오류',
-        description: '배치 내보내기 중 오류가 발생했습니다',
+        title: 'Error',
+        description: 'An error occurred during batch export',
         variant: 'destructive',
       });
     } finally {
@@ -184,8 +184,8 @@ export function AgentBatchActions({
       setProcessingResults(results);
       
       toast({
-        title: '배치 삭제 완료',
-        description: `${results.success.length}개 삭제됨, ${results.failed.length}개 실패`,
+        title: 'Batch Delete Complete',
+        description: `${results.success.length} deleted, ${results.failed.length} failed`,
         ...(results.failed.length > 0 && { variant: 'destructive' as const }),
       });
 
@@ -194,8 +194,8 @@ export function AgentBatchActions({
       setShowDeleteDialog(false);
     } catch (error) {
       toast({
-        title: '오류',
-        description: '배치 삭제 중 오류가 발생했습니다',
+        title: 'Error',
+        description: 'An error occurred during batch deletion',
         variant: 'destructive',
       });
     } finally {

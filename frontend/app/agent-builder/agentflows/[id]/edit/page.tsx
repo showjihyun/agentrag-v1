@@ -145,23 +145,23 @@ export default function EditAgentflowPage({ params }: { params: Promise<{ id: st
     const roleMap: Record<OrchestrationTypeValue, string[]> = {
       sequential: ['Data Collector', 'Analyst', 'Report Writer'],
       parallel: ['Search Expert', 'Translator', 'Summary Expert'],
-      hierarchical: ['매니저', '연구원', '검토자', '실행자'],
-      adaptive: ['상황 분석가', '전략 수립자', '실행자'],
-      consensus_building: ['전문가 A', '전문가 B', '중재자'],
-      dynamic_routing: ['라우터', '처리기', '집계자'],
-      swarm_intelligence: ['탐색자', '수집가', '조율자'],
-      event_driven: ['이벤트 감지기', '처리기', '응답자'],
-      reflection: ['분석가', '검토자', '개선자'],
-      neuromorphic: ['뉴런 A', '뉴런 B', '시냅스'],
-      quantum_enhanced: ['양자 분석가', '중첩 처리기', '측정자'],
-      bio_inspired: ['센서', '프로세서', '액추에이터'],
-      self_evolving: ['학습자', '적응자', '진화자'],
-      federated: ['로컬 에이전트', '글로벌 조율자', '동기화자'],
-      emotional_ai: ['감정 분석가', '공감 에이전트', '반응 조절자'],
-      predictive: ['예측자', '검증자', '조정자'],
+      hierarchical: ['Manager', 'Researcher', 'Reviewer', 'Executor'],
+      adaptive: ['Situation Analyst', 'Strategy Planner', 'Executor'],
+      consensus_building: ['Expert A', 'Expert B', 'Mediator'],
+      dynamic_routing: ['Router', 'Processor', 'Aggregator'],
+      swarm_intelligence: ['Explorer', 'Collector', 'Coordinator'],
+      event_driven: ['Event Detector', 'Processor', 'Responder'],
+      reflection: ['Analyst', 'Reviewer', 'Improver'],
+      neuromorphic: ['Neuron A', 'Neuron B', 'Synapse'],
+      quantum_enhanced: ['Quantum Analyst', 'Superposition Processor', 'Measurer'],
+      bio_inspired: ['Sensor', 'Processor', 'Actuator'],
+      self_evolving: ['Learner', 'Adapter', 'Evolver'],
+      federated: ['Local Agent', 'Global Coordinator', 'Synchronizer'],
+      emotional_ai: ['Emotion Analyst', 'Empathy Agent', 'Response Regulator'],
+      predictive: ['Predictor', 'Validator', 'Adjuster'],
     };
     
-    return roleMap[orchestrationType] || ['범용 에이전트', '전문가', '조율자'];
+    return roleMap[orchestrationType] || ['General Agent', 'Expert', 'Coordinator'];
   };
 
   // Fetch existing flow data
@@ -282,8 +282,8 @@ export default function EditAgentflowPage({ params }: { params: Promise<{ id: st
   const handleSave = async () => {
     if (!formData.name) {
       toast({
-        title: '오류',
-        description: '이름을 입력해주세요',
+        title: 'Error',
+        description: 'Please enter a name',
         variant: 'destructive',
       });
       return;
@@ -319,15 +319,15 @@ export default function EditAgentflowPage({ params }: { params: Promise<{ id: st
       } as any);
 
       toast({
-        title: '저장 완료',
-        description: 'Agentflow가 업데이트되었습니다',
+        title: 'Saved',
+        description: 'Agentflow has been updated',
       });
 
       router.push(`/agent-builder/agentflows/${id}`);
     } catch (error: any) {
       toast({
-        title: '오류',
-        description: error.message || '저장에 실패했습니다',
+        title: 'Error',
+        description: error.message || 'Failed to save',
         variant: 'destructive',
       });
     } finally {
@@ -349,7 +349,7 @@ export default function EditAgentflowPage({ params }: { params: Promise<{ id: st
       <div className="container mx-auto p-6 max-w-4xl">
         <Card className="border-red-500">
           <CardContent className="pt-6">
-            <p className="text-red-500">Agentflow를 불러오는데 실패했습니다</p>
+            <p className="text-red-500">Failed to load Agentflow</p>
           </CardContent>
         </Card>
       </div>
@@ -369,12 +369,12 @@ export default function EditAgentflowPage({ params }: { params: Promise<{ id: st
               <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900">
                 <Users className="h-7 w-7 text-purple-600 dark:text-purple-400" />
               </div>
-              Agentflow 편집
+              Edit Agentflow
             </h1>
             <p className="text-muted-foreground mt-1 text-base">{flow.name}</p>
           </div>
           <Button variant="outline" onClick={() => router.back()} size="lg">
-            취소
+            Cancel
           </Button>
           <Button 
             onClick={handleSave} 
@@ -385,12 +385,12 @@ export default function EditAgentflowPage({ params }: { params: Promise<{ id: st
             {saving ? (
               <>
                 <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                저장 중...
+                Saving...
               </>
             ) : (
               <>
                 <Save className="h-5 w-5 mr-2" />
-                변경사항 저장
+                Save Changes
               </>
             )}
           </Button>
@@ -405,40 +405,40 @@ export default function EditAgentflowPage({ params }: { params: Promise<{ id: st
               <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900">
                 <Settings className="h-5 w-5 text-purple-600 dark:text-purple-400" />
               </div>
-              <CardTitle className="text-lg">기본 정보</CardTitle>
+              <CardTitle className="text-lg">Basic Information</CardTitle>
             </div>
           </CardHeader>
           <CardContent className="space-y-4 pt-6">
             <div className="space-y-2">
-              <Label htmlFor="name">이름 *</Label>
+              <Label htmlFor="name">Name *</Label>
               <Input
                 id="name"
-                placeholder="예: 고객 지원 에이전트 팀"
+                placeholder="e.g., Customer Support Agent Team"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="description">설명</Label>
+              <Label htmlFor="description">Description</Label>
               <Textarea
                 id="description"
-                placeholder="이 Agentflow가 수행하는 작업을 설명하세요"
+                placeholder="Describe what this Agentflow does"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 rows={3}
               />
             </div>
             <div className="space-y-2">
-              <Label>태그</Label>
+              <Label>Tags</Label>
               <div className="flex gap-2">
                 <Input
-                  placeholder="태그 추가"
+                  placeholder="Add tag"
                   value={newTag}
                   onChange={(e) => setNewTag(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleAddTag()}
                 />
                 <Button variant="outline" onClick={handleAddTag}>
-                  추가
+                  Add
                 </Button>
               </div>
               {formData.tags.length > 0 && (
@@ -462,8 +462,8 @@ export default function EditAgentflowPage({ params }: { params: Promise<{ id: st
                 <Settings className="h-5 w-5 text-purple-600 dark:text-purple-400" />
               </div>
               <div>
-                <CardTitle className="text-lg">오케스트레이션 유형</CardTitle>
-                <CardDescription>에이전트들이 어떻게 협력할지 선택하세요</CardDescription>
+                <CardTitle className="text-lg">Orchestration Type</CardTitle>
+                <CardDescription>Choose how agents will collaborate</CardDescription>
               </div>
             </div>
           </CardHeader>
@@ -472,8 +472,8 @@ export default function EditAgentflowPage({ params }: { params: Promise<{ id: st
             <div>
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                <h4 className="font-medium">핵심 패턴</h4>
-                <Badge variant="outline" className="text-xs">안정적</Badge>
+                <h4 className="font-medium">Core Patterns</h4>
+                <Badge variant="outline" className="text-xs">Stable</Badge>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 {Object.values(CORE_ORCHESTRATION_TYPES).map((type) => {
@@ -523,8 +523,8 @@ export default function EditAgentflowPage({ params }: { params: Promise<{ id: st
             <div>
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-3 h-3 rounded-full bg-purple-500"></div>
-                <h4 className="font-medium">2025 트렌드 패턴</h4>
-                <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700">고급</Badge>
+                <h4 className="font-medium">2025 Trend Patterns</h4>
+                <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700">Advanced</Badge>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 {Object.values(TRENDS_2025_ORCHESTRATION_TYPES).map((type) => {
@@ -579,8 +579,8 @@ export default function EditAgentflowPage({ params }: { params: Promise<{ id: st
             <div>
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
-                <h4 className="font-medium">2026 차세대 패턴</h4>
-                <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700">실험적</Badge>
+                <h4 className="font-medium">2026 Next-Gen Patterns</h4>
+                <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700">Experimental</Badge>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 {Object.values(TRENDS_2026_ORCHESTRATION_TYPES).map((type) => {
@@ -666,8 +666,8 @@ export default function EditAgentflowPage({ params }: { params: Promise<{ id: st
                     <Brain className="h-5 w-5 text-purple-600 dark:text-purple-400" />
                   </div>
                   <div>
-                    <CardTitle className="text-lg">지능형 슈퍼바이저</CardTitle>
-                    <CardDescription>AI 기반 에이전트 오케스트레이션 및 실시간 모니터링</CardDescription>
+                    <CardTitle className="text-lg">Intelligent Supervisor</CardTitle>
+                    <CardDescription>AI-based agent orchestration and real-time monitoring</CardDescription>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -694,7 +694,7 @@ export default function EditAgentflowPage({ params }: { params: Promise<{ id: st
                     trigger={
                       <Button variant="outline" className="gap-2">
                         <Sparkles className="h-4 w-4" />
-                        고급 설정
+                        Advanced Settings
                       </Button>
                     }
                   />
@@ -728,14 +728,14 @@ export default function EditAgentflowPage({ params }: { params: Promise<{ id: st
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label>모델</Label>
+                      <Label>Model</Label>
                       <Input
                         value={formData.supervisor_llm_model}
                         onChange={(e) => setFormData({ ...formData, supervisor_llm_model: e.target.value })}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>최대 반복 횟수</Label>
+                      <Label>Max Iterations</Label>
                       <Input
                         type="number"
                         min="1"
@@ -745,7 +745,7 @@ export default function EditAgentflowPage({ params }: { params: Promise<{ id: st
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>의사결정 전략</Label>
+                      <Label>Decision Strategy</Label>
                       <Select
                         value={formData.supervisor_decision_strategy}
                         onValueChange={(v) => setFormData({ ...formData, supervisor_decision_strategy: v as any })}
@@ -754,16 +754,16 @@ export default function EditAgentflowPage({ params }: { params: Promise<{ id: st
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="llm_based">LLM 기반 의사결정</SelectItem>
-                          <SelectItem value="consensus">합의 기반</SelectItem>
-                          <SelectItem value="weighted_voting">가중 투표</SelectItem>
-                          <SelectItem value="expert_system">전문가 시스템</SelectItem>
+                          <SelectItem value="llm_based">LLM-based Decision</SelectItem>
+                          <SelectItem value="consensus">Consensus-based</SelectItem>
+                          <SelectItem value="weighted_voting">Weighted Voting</SelectItem>
+                          <SelectItem value="expert_system">Expert System</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                   </div>
 
-                  {/* AI 어시스턴트 */}
+                  {/* AI Assistant */}
                   <div className="space-y-4">
                     <SupervisorAIAssistant
                       agentflowId={id}
@@ -780,11 +780,11 @@ export default function EditAgentflowPage({ params }: { params: Promise<{ id: st
                   </div>
                 </div>
 
-                {/* 실시간 대시보드 */}
+                {/* Real-time Dashboard */}
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
                     <BarChart3 className="h-5 w-5 text-purple-600" />
-                    <h4 className="font-semibold">실시간 모니터링</h4>
+                    <h4 className="font-semibold">Real-time Monitoring</h4>
                   </div>
                   <SupervisorDashboard
                     agentflowId={id}
@@ -793,16 +793,16 @@ export default function EditAgentflowPage({ params }: { params: Promise<{ id: st
                   />
                 </div>
 
-                {/* 기능 요약 */}
+                {/* Feature Summary */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <Card className="bg-green-50 dark:bg-green-950/20 border-green-200">
                     <CardContent className="pt-4">
                       <div className="flex items-center gap-2 mb-2">
                         <CheckCircle2 className="h-4 w-4 text-green-600" />
-                        <span className="font-medium text-green-800 dark:text-green-200">지능형 라우팅</span>
+                        <span className="font-medium text-green-800 dark:text-green-200">Intelligent Routing</span>
                       </div>
                       <p className="text-sm text-green-700 dark:text-green-300">
-                        AI가 실시간으로 최적의 에이전트를 선택하여 작업을 분배합니다
+                        AI selects optimal agents in real-time to distribute tasks
                       </p>
                     </CardContent>
                   </Card>
@@ -811,10 +811,10 @@ export default function EditAgentflowPage({ params }: { params: Promise<{ id: st
                     <CardContent className="pt-4">
                       <div className="flex items-center gap-2 mb-2">
                         <TrendingUp className="h-4 w-4 text-blue-600" />
-                        <span className="font-medium text-blue-800 dark:text-blue-200">성능 최적화</span>
+                        <span className="font-medium text-blue-800 dark:text-blue-200">Performance Optimization</span>
                       </div>
                       <p className="text-sm text-blue-700 dark:text-blue-300">
-                        실시간 성능 데이터를 분석하여 자동으로 시스템을 최적화합니다
+                        Automatically optimizes the system by analyzing real-time performance data
                       </p>
                     </CardContent>
                   </Card>
@@ -823,10 +823,10 @@ export default function EditAgentflowPage({ params }: { params: Promise<{ id: st
                     <CardContent className="pt-4">
                       <div className="flex items-center gap-2 mb-2">
                         <Brain className="h-4 w-4 text-purple-600" />
-                        <span className="font-medium text-purple-800 dark:text-purple-200">학습 기능</span>
+                        <span className="font-medium text-purple-800 dark:text-purple-200">Learning Capability</span>
                       </div>
                       <p className="text-sm text-purple-700 dark:text-purple-300">
-                        과거 실행 데이터를 학습하여 지속적으로 성능을 개선합니다
+                        Continuously improves performance by learning from past execution data
                       </p>
                     </CardContent>
                   </Card>
@@ -836,11 +836,11 @@ export default function EditAgentflowPage({ params }: { params: Promise<{ id: st
               <CardContent className="py-12">
                 <div className="text-center">
                   <Brain className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">슈퍼바이저 비활성화</h3>
+                  <h3 className="text-lg font-semibold mb-2">Supervisor Disabled</h3>
                   <p className="text-muted-foreground mb-4">
                     {formData.orchestration_type === 'hierarchical' 
-                      ? '계층적 오케스트레이션에서는 슈퍼바이저가 에이전트들을 효율적으로 관리합니다'
-                      : '적응형 오케스트레이션에서는 슈퍼바이저가 상황에 따라 전략을 조정합니다'
+                      ? 'In hierarchical orchestration, the supervisor efficiently manages agents'
+                      : 'In adaptive orchestration, the supervisor adjusts strategies based on the situation'
                     }
                   </p>
                   <Button 
@@ -848,7 +848,7 @@ export default function EditAgentflowPage({ params }: { params: Promise<{ id: st
                     className="gap-2"
                   >
                     <Settings className="h-4 w-4" />
-                    슈퍼바이저 활성화
+                    Enable Supervisor
                   </Button>
                 </div>
               </CardContent>
@@ -865,8 +865,8 @@ export default function EditAgentflowPage({ params }: { params: Promise<{ id: st
                   <Users className="h-5 w-5 text-purple-600 dark:text-purple-400" />
                 </div>
                 <div>
-                  <CardTitle className="text-lg">에이전트 구성</CardTitle>
-                  <CardDescription>팀에 포함될 에이전트들을 추가하세요</CardDescription>
+                  <CardTitle className="text-lg">Agent Configuration</CardTitle>
+                  <CardDescription>Add agents to be included in the team</CardDescription>
                 </div>
               </div>
               <div className="flex gap-2">
@@ -892,7 +892,7 @@ export default function EditAgentflowPage({ params }: { params: Promise<{ id: st
                   className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 shadow-md hover:shadow-lg transition-all"
                 >
                   <Plus className="h-5 w-5 mr-2" />
-                  직접 추가
+                  Add Manually
                 </Button>
               </div>
             </div>
@@ -907,19 +907,19 @@ export default function EditAgentflowPage({ params }: { params: Promise<{ id: st
                     <Users className="h-10 w-10 text-purple-500" />
                   </div>
                   <h3 className="text-2xl font-bold mb-3 bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-                    팀에 에이전트를 추가하세요
+                    Add agents to your team
                   </h3>
                   <p className="text-muted-foreground mb-2 text-lg">
-                    선택한 <span className="font-semibold text-purple-600">{ORCHESTRATION_TYPES[formData.orchestration_type]?.name}</span> 오케스트레이션에
+                    For the selected <span className="font-semibold text-purple-600">{ORCHESTRATION_TYPES[formData.orchestration_type]?.name}</span> orchestration
                   </p>
                   <p className="text-muted-foreground mb-8">
-                    적합한 에이전트들을 구성하여 강력한 AI 팀을 만들어보세요
+                    Configure suitable agents to build a powerful AI team
                   </p>
                   
-                  {/* 추천 에이전트 역할 */}
+                  {/* Recommended Agent Roles */}
                   <div className="mb-8 p-4 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-950/20 dark:to-blue-950/20 rounded-lg border border-purple-200 dark:border-purple-800">
                     <h4 className="font-semibold mb-3 text-purple-700 dark:text-purple-300">
-                      {ORCHESTRATION_TYPES[formData.orchestration_type]?.name}에 추천하는 에이전트 역할:
+                      Recommended agent roles for {ORCHESTRATION_TYPES[formData.orchestration_type]?.name}:
                     </h4>
                     <div className="flex flex-wrap gap-2 justify-center">
                       {getRecommendedRoles(formData.orchestration_type).map((role, index) => (
@@ -953,13 +953,13 @@ export default function EditAgentflowPage({ params }: { params: Promise<{ id: st
                       className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 shadow-md hover:shadow-lg transition-all"
                     >
                       <Plus className="h-5 w-5 mr-2" />
-                      직접 추가
+                      Add Manually
                     </Button>
                   </div>
 
-                  {/* 도움말 */}
+                  {/* Help */}
                   <div className="mt-8 text-sm text-muted-foreground">
-                    <p>💡 <strong>팁:</strong> Building Block에서 미리 생성한 에이전트를 선택하면 더 빠르게 구성할 수 있습니다</p>
+                    <p>💡 <strong>Tip:</strong> Selecting pre-created agents from Building Blocks allows faster configuration</p>
                   </div>
                 </div>
               </div>
@@ -970,7 +970,7 @@ export default function EditAgentflowPage({ params }: { params: Promise<{ id: st
                     <AccordionTrigger className="hover:no-underline">
                       <div className="flex items-center gap-3">
                         <Badge variant="outline">{index + 1}</Badge>
-                        <span>{agent.name || '새 에이전트'}</span>
+                        <span>{agent.name || 'New Agent'}</span>
                         {agent.role && <Badge variant="secondary">{agent.role}</Badge>}
                         {agent.agent_id && (
                           <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
@@ -984,13 +984,13 @@ export default function EditAgentflowPage({ params }: { params: Promise<{ id: st
                         {!agent.agent_id ? (
                           <>
                             <div className="space-y-2">
-                              <Label>기존 에이전트 선택</Label>
+                              <Label>Select Existing Agent</Label>
                               <Select
                                 value={agent.agent_id}
                                 onValueChange={(v) => handleAgentChange(agent.id, 'agent_id', v)}
                               >
                                 <SelectTrigger>
-                                  <SelectValue placeholder="에이전트 선택..." />
+                                  <SelectValue placeholder="Select agent..." />
                                 </SelectTrigger>
                                 <SelectContent>
                                   {availableAgents?.agents?.map((a: any) => (
@@ -1002,9 +1002,9 @@ export default function EditAgentflowPage({ params }: { params: Promise<{ id: st
                               </Select>
                             </div>
                             <div className="space-y-2">
-                              <Label>이름</Label>
+                              <Label>Name</Label>
                               <Input
-                                placeholder="에이전트 이름"
+                                placeholder="Agent name"
                                 value={agent.name}
                                 onChange={(e) => handleAgentChange(agent.id, 'name', e.target.value)}
                               />
@@ -1012,7 +1012,7 @@ export default function EditAgentflowPage({ params }: { params: Promise<{ id: st
                           </>
                         ) : (
                           <div className="col-span-2 space-y-2">
-                            <Label>선택된 에이전트</Label>
+                            <Label>Selected Agent</Label>
                             <div className="p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg">
                               <div className="flex items-center gap-2">
                                 <Badge className="bg-green-500 hover:bg-green-600">Building Block</Badge>
@@ -1030,7 +1030,7 @@ export default function EditAgentflowPage({ params }: { params: Promise<{ id: st
                                   ))}
                                   {agent.capabilities.length > 3 && (
                                     <Badge variant="outline" className="text-xs">
-                                      +{agent.capabilities.length - 3}개 더
+                                      +{agent.capabilities.length - 3} more
                                     </Badge>
                                   )}
                                 </div>
@@ -1042,15 +1042,15 @@ export default function EditAgentflowPage({ params }: { params: Promise<{ id: st
                       
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label>역할 *</Label>
+                          <Label>Role *</Label>
                           <Input
-                            placeholder="예: 데이터 분석가"
+                            placeholder="e.g., Data Analyst"
                             value={agent.role}
                             onChange={(e) => handleAgentChange(agent.id, 'role', e.target.value)}
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label>우선순위</Label>
+                          <Label>Priority</Label>
                           <Input
                             type="number"
                             min="1"
@@ -1061,9 +1061,9 @@ export default function EditAgentflowPage({ params }: { params: Promise<{ id: st
                       </div>
 
                       <div className="space-y-2">
-                        <Label>설명</Label>
+                        <Label>Description</Label>
                         <Textarea
-                          placeholder="이 에이전트의 역할과 책임을 설명하세요"
+                          placeholder="Describe the role and responsibilities of this agent"
                           value={agent.description}
                           onChange={(e) => handleAgentChange(agent.id, 'description', e.target.value)}
                           rows={2}
@@ -1072,7 +1072,7 @@ export default function EditAgentflowPage({ params }: { params: Promise<{ id: st
 
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label>최대 재시도 횟수</Label>
+                          <Label>Max Retries</Label>
                           <Input
                             type="number"
                             min="0"
@@ -1082,7 +1082,7 @@ export default function EditAgentflowPage({ params }: { params: Promise<{ id: st
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label>타임아웃 (초)</Label>
+                          <Label>Timeout (seconds)</Label>
                           <Input
                             type="number"
                             min="10"
@@ -1100,7 +1100,7 @@ export default function EditAgentflowPage({ params }: { params: Promise<{ id: st
                           onClick={() => handleRemoveAgent(agent.id)}
                         >
                           <Trash className="h-4 w-4 mr-2" />
-                          에이전트 제거
+                          Remove Agent
                         </Button>
                         
                         {!agent.agent_id && (

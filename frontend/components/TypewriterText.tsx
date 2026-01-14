@@ -10,10 +10,10 @@ interface TypewriterTextProps {
 }
 
 /**
- * AI 응답 타이핑 효과 컴포넌트
+ * AI Response Typewriter Effect Component
  * 
- * 텍스트를 한 글자씩 타이핑하는 효과를 제공하여
- * AI 대화의 몰입감을 높입니다.
+ * Provides a character-by-character typing effect
+ * to enhance immersion in AI conversations.
  */
 export const TypewriterText: React.FC<TypewriterTextProps> = ({
   text,
@@ -39,7 +39,7 @@ export const TypewriterText: React.FC<TypewriterTextProps> = ({
     }
   }, [currentIndex, text, speed, onComplete, isComplete]);
 
-  // 텍스트 변경 시 리셋
+  // Reset when text changes
   useEffect(() => {
     setDisplayText('');
     setCurrentIndex(0);

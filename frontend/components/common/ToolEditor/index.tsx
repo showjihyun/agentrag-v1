@@ -1,11 +1,11 @@
 /**
  * Premium Tool Editor - Common Control
  * 
- * 고급스럽고 재사용 가능한 Tool 편집 컴포넌트
- * - Drag & Drop 지원
- * - 실시간 미리보기
- * - 스마트 검증
- * - 타입별 최적화된 입력
+ * Premium and reusable Tool editing component
+ * - Drag & Drop support
+ * - Real-time preview
+ * - Smart validation
+ * - Type-optimized input
  */
 
 export { PremiumToolEditor } from './PremiumToolEditor';

@@ -1,13 +1,13 @@
 "use client";
 
 /**
- * Enhanced Parameter Input - n8n/crew.ai 스타일
+ * Enhanced Parameter Input - n8n/crew.ai style
  * 
  * Features:
- * - 모든 옵션을 Select Box로 제공
- * - 변수 참조 쉽게 입력
- * - 자동완성 지원
- * - 표현식 빌더
+ * - All options provided via Select Box
+ * - Easy variable reference input
+ * - Autocomplete support
+ * - Expression builder
  */
 
 import React, { useState, useEffect } from "react";

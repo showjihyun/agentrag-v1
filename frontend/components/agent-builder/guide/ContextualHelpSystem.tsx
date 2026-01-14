@@ -1,6 +1,6 @@
 /**
  * Contextual Help System
- * 상황별 맞춤 도움말 및 가이드 시스템
+ * Context-aware help and guide system
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -104,33 +104,33 @@ export const ContextualHelpSystem: React.FC<ContextualHelpSystemProps> = ({
   const helpArticles: HelpArticle[] = [
     {
       id: 'consensus-getting-started',
-      title: '합의 구축 패턴 시작하기',
+      title: 'Getting Started with Consensus Building Pattern',
       content: `
-# 합의 구축 패턴 시작하기
+# Getting Started with Consensus Building Pattern
 
-합의 구축 패턴은 여러 Agent가 협력하여 최적의 결정을 내리는 강력한 방법입니다.
+The consensus building pattern is a powerful method where multiple Agents collaborate to make optimal decisions.
 
-## 기본 설정
+## Basic Configuration
 
-1. **투표 메커니즘 선택**
-   - 단순 다수결: 빠른 결정이 필요한 경우
-   - 가중 투표: Agent별 전문성을 반영하고 싶은 경우
-   - 만장일치: 강한 합의가 필요한 중요한 결정
+1. **Select Voting Mechanism**
+   - Simple Majority: When quick decisions are needed
+   - Weighted Voting: When you want to reflect each Agent's expertise
+   - Unanimous: For important decisions requiring strong consensus
 
-2. **합의 임계값 설정**
-   - 일반적으로 60-80% 사이를 권장
-   - 너무 높으면 합의 도달이 어려움
-   - 너무 낮으면 약한 합의가 될 수 있음
+2. **Set Consensus Threshold**
+   - Generally recommended between 60-80%
+   - Too high makes reaching consensus difficult
+   - Too low may result in weak consensus
 
-3. **최대 라운드 수**
-   - 무한 루프 방지를 위해 반드시 설정
-   - 보통 3-7라운드가 적절
+3. **Maximum Rounds**
+   - Must be set to prevent infinite loops
+   - Usually 3-7 rounds is appropriate
 
-## 모범 사례
+## Best Practices
 
-- Agent 역할을 명확히 정의하세요
-- 토론 시간 제한을 설정하여 효율성을 높이세요
-- 중재자 Agent를 활용하여 교착 상태를 방지하세요
+- Clearly define Agent roles
+- Set discussion time limits to improve efficiency
+- Use a mediator Agent to prevent deadlocks
       `,
       category: 'getting-started',
       tags: ['consensus', 'voting', 'configuration'],
@@ -142,37 +142,37 @@ export const ContextualHelpSystem: React.FC<ContextualHelpSystemProps> = ({
     },
     {
       id: 'swarm-optimization',
-      title: '군집 지능 최적화 가이드',
+      title: 'Swarm Intelligence Optimization Guide',
       content: `
-# 군집 지능 최적화 가이드
+# Swarm Intelligence Optimization Guide
 
-군집 지능 패턴의 성능을 최대화하는 방법을 알아보세요.
+Learn how to maximize the performance of swarm intelligence patterns.
 
-## 핵심 매개변수
+## Key Parameters
 
-### 관성 가중치 (Inertia Weight)
-- 범위: 0.1 - 1.0
-- 높은 값: 탐색 중심 (exploration)
-- 낮은 값: 활용 중심 (exploitation)
+### Inertia Weight
+- Range: 0.1 - 1.0
+- High value: Exploration-focused
+- Low value: Exploitation-focused
 
-### 인지/사회 가중치
-- 인지 가중치: 개인 경험 반영도
-- 사회 가중치: 집단 지식 반영도
-- 균형이 중요 (보통 1.4 - 2.0)
+### Cognitive/Social Weights
+- Cognitive weight: Degree of personal experience reflection
+- Social weight: Degree of collective knowledge reflection
+- Balance is important (usually 1.4 - 2.0)
 
-## 성능 튜닝 팁
+## Performance Tuning Tips
 
-1. **초기 군집 크기**
-   - 문제 복잡도에 따라 조정
-   - 일반적으로 10-50개가 적절
+1. **Initial Swarm Size**
+   - Adjust according to problem complexity
+   - Generally 10-50 is appropriate
 
-2. **수렴 조건**
-   - 너무 엄격하면 조기 종료
-   - 너무 느슨하면 불필요한 계산
+2. **Convergence Conditions**
+   - Too strict causes early termination
+   - Too loose causes unnecessary computation
 
-3. **적응형 매개변수**
-   - 실행 중 동적 조정 고려
-   - 성능 모니터링 기반 자동 튜닝
+3. **Adaptive Parameters**
+   - Consider dynamic adjustment during execution
+   - Auto-tuning based on performance monitoring
       `,
       category: 'best-practices',
       tags: ['swarm', 'optimization', 'performance'],
@@ -184,39 +184,39 @@ export const ContextualHelpSystem: React.FC<ContextualHelpSystemProps> = ({
     },
     {
       id: 'troubleshooting-timeouts',
-      title: '타임아웃 문제 해결',
+      title: 'Troubleshooting Timeout Issues',
       content: `
-# 타임아웃 문제 해결
+# Troubleshooting Timeout Issues
 
-오케스트레이션 실행 중 타임아웃이 발생하는 경우의 해결 방법입니다.
+Solutions for timeout issues during orchestration execution.
 
-## 일반적인 원인
+## Common Causes
 
-1. **Agent 응답 지연**
-   - LLM 모델 응답 시간 확인
-   - 네트워크 연결 상태 점검
-   - 리소스 사용량 모니터링
+1. **Agent Response Delays**
+   - Check LLM model response time
+   - Verify network connection status
+   - Monitor resource usage
 
-2. **복잡한 작업**
-   - 작업을 더 작은 단위로 분할
-   - 병렬 처리 고려
-   - 캐싱 활용
+2. **Complex Tasks**
+   - Split tasks into smaller units
+   - Consider parallel processing
+   - Utilize caching
 
-## 해결 방법
+## Solutions
 
-### 타임아웃 설정 조정
+### Adjust Timeout Settings
 \`\`\`json
 {
-  "execution_timeout": 300000,  // 5분
-  "agent_timeout": 60000,       // 1분
+  "execution_timeout": 300000,  // 5 minutes
+  "agent_timeout": 60000,       // 1 minute
   "retry_attempts": 3
 }
 \`\`\`
 
-### 성능 최적화
-- 불필요한 Agent 제거
-- 캐시 전략 개선
-- 리소스 할당 최적화
+### Performance Optimization
+- Remove unnecessary Agents
+- Improve cache strategy
+- Optimize resource allocation
       `,
       category: 'troubleshooting',
       tags: ['timeout', 'performance', 'debugging'],
@@ -231,32 +231,32 @@ export const ContextualHelpSystem: React.FC<ContextualHelpSystemProps> = ({
   const faqs: FAQ[] = [
     {
       id: 'faq-1',
-      question: '어떤 오케스트레이션 패턴을 선택해야 하나요?',
-      answer: '작업의 특성에 따라 선택하세요. 순차적 처리가 필요하면 Sequential, 독립적인 작업들은 Parallel, 복잡한 의사결정은 Consensus Building을 권장합니다.',
+      question: 'Which orchestration pattern should I choose?',
+      answer: 'Choose based on the nature of your task. Use Sequential for sequential processing, Parallel for independent tasks, and Consensus Building for complex decision-making.',
       category: 'patterns',
       popularity: 95,
       tags: ['pattern-selection', 'getting-started']
     },
     {
       id: 'faq-2',
-      question: '합의 구축에서 합의가 이루어지지 않으면 어떻게 되나요?',
-      answer: '최대 라운드 수에 도달하면 가장 높은 점수를 받은 선택지가 자동으로 선택되거나, 중재자 Agent가 최종 결정을 내립니다.',
+      question: 'What happens if consensus is not reached in consensus building?',
+      answer: 'When the maximum number of rounds is reached, the option with the highest score is automatically selected, or the mediator Agent makes the final decision.',
       category: 'consensus',
       popularity: 87,
       tags: ['consensus', 'troubleshooting']
     },
     {
       id: 'faq-3',
-      question: '군집 지능 패턴이 수렴하지 않는 이유는 무엇인가요?',
-      answer: '수렴 임계값이 너무 엄격하거나, 매개변수 설정이 부적절할 수 있습니다. 관성 가중치와 학습률을 조정해보세요.',
+      question: 'Why is the swarm intelligence pattern not converging?',
+      answer: 'The convergence threshold may be too strict, or the parameter settings may be inappropriate. Try adjusting the inertia weight and learning rate.',
       category: 'swarm',
       popularity: 73,
       tags: ['swarm', 'convergence', 'parameters']
     },
     {
       id: 'faq-4',
-      question: 'Agent 수가 성능에 미치는 영향은?',
-      answer: 'Agent 수가 많을수록 다양한 관점을 얻을 수 있지만, 통신 오버헤드와 합의 시간이 증가합니다. 보통 3-10개가 적절합니다.',
+      question: 'How does the number of Agents affect performance?',
+      answer: 'More Agents provide diverse perspectives, but communication overhead and consensus time increase. Usually 3-10 is appropriate.',
       category: 'performance',
       popularity: 68,
       tags: ['agents', 'performance', 'scaling']
@@ -285,8 +285,8 @@ export const ContextualHelpSystem: React.FC<ContextualHelpSystemProps> = ({
       const patternInfo = ORCHESTRATION_TYPES[context.selectedPattern];
       suggestions.push({
         type: 'pattern-help',
-        title: `${patternInfo?.name} 패턴 가이드`,
-        description: `${patternInfo?.name} 패턴 사용법과 모범 사례를 확인하세요.`,
+        title: `${patternInfo?.name} Pattern Guide`,
+        description: `Check usage and best practices for the ${patternInfo?.name} pattern.`,
         action: () => setSearchQuery(context.selectedPattern)
       });
     }
@@ -294,8 +294,8 @@ export const ContextualHelpSystem: React.FC<ContextualHelpSystemProps> = ({
     if (context?.errorMessage) {
       suggestions.push({
         type: 'error-help',
-        title: '오류 해결 가이드',
-        description: '현재 발생한 오류를 해결하는 방법을 찾아보세요.',
+        title: 'Error Resolution Guide',
+        description: 'Find solutions for the current error.',
         action: () => setActiveTab('chat')
       });
     }
@@ -303,8 +303,8 @@ export const ContextualHelpSystem: React.FC<ContextualHelpSystemProps> = ({
     if (context?.currentPage === 'configuration') {
       suggestions.push({
         type: 'config-help',
-        title: '설정 도움말',
-        description: '올바른 설정 방법과 권장 값을 확인하세요.',
+        title: 'Configuration Help',
+        description: 'Check proper configuration methods and recommended values.',
         action: () => setSearchQuery('configuration')
       });
     }
@@ -323,60 +323,60 @@ export const ContextualHelpSystem: React.FC<ContextualHelpSystemProps> = ({
     
     // Context-aware responses
     if (userMessage.toLowerCase().includes('합의') || userMessage.toLowerCase().includes('consensus')) {
-      response = `합의 구축 패턴에 대해 질문해주셨네요! 
+      response = `You asked about the consensus building pattern!
 
-합의 구축 패턴은 여러 Agent가 토론을 통해 최적의 결정을 내리는 방식입니다. 주요 설정 사항은:
+The consensus building pattern is a method where multiple Agents make optimal decisions through discussion. Key configuration items are:
 
-1. **투표 메커니즘**: 단순 다수결, 가중 투표, 만장일치 중 선택
-2. **합의 임계값**: 보통 60-80% 권장
-3. **최대 라운드**: 3-7라운드가 적절
+1. **Voting Mechanism**: Choose from simple majority, weighted voting, or unanimous
+2. **Consensus Threshold**: Usually 60-80% recommended
+3. **Maximum Rounds**: 3-7 rounds is appropriate
 
-구체적으로 어떤 부분이 궁금하신가요?`;
+What specific aspect would you like to know more about?`;
     } else if (userMessage.toLowerCase().includes('군집') || userMessage.toLowerCase().includes('swarm')) {
-      response = `군집 지능 패턴에 대한 질문이시군요!
+      response = `You're asking about the swarm intelligence pattern!
 
-군집 지능은 자연계의 집단 행동을 모방한 최적화 방법입니다:
+Swarm intelligence is an optimization method that mimics collective behavior in nature:
 
-🐜 **개미 군집 최적화 (ACO)**: 페로몬 트레일을 이용한 경로 탐색
-🐦 **입자 군집 최적화 (PSO)**: 개체들의 협력적 탐색
+🐜 **Ant Colony Optimization (ACO)**: Path finding using pheromone trails
+🐦 **Particle Swarm Optimization (PSO)**: Cooperative search by individuals
 
-핵심 매개변수:
-- 관성 가중치: 0.7 (탐색/활용 균형)
-- 인지/사회 가중치: 1.4 (개인/집단 경험 반영)
+Key parameters:
+- Inertia weight: 0.7 (exploration/exploitation balance)
+- Cognitive/Social weight: 1.4 (personal/collective experience reflection)
 
-어떤 부분을 더 자세히 알고 싶으신가요?`;
+What would you like to know more about?`;
     } else if (userMessage.toLowerCase().includes('오류') || userMessage.toLowerCase().includes('error')) {
-      response = `오류 해결을 도와드리겠습니다! 
+      response = `I'll help you resolve the error!
 
-일반적인 오류 유형과 해결 방법:
+Common error types and solutions:
 
-🔴 **타임아웃 오류**
-- 실행 시간 제한 늘리기
-- Agent 수 줄이기
-- 작업 단위 축소
+🔴 **Timeout Errors**
+- Increase execution time limit
+- Reduce number of Agents
+- Reduce task size
 
-🟡 **설정 오류**
-- 필수 매개변수 확인
-- 값 범위 검증
-- 의존성 확인
+🟡 **Configuration Errors**
+- Check required parameters
+- Validate value ranges
+- Check dependencies
 
-🟢 **성능 문제**
-- 리소스 사용량 모니터링
-- 캐시 활용
-- 병렬 처리 최적화
+🟢 **Performance Issues**
+- Monitor resource usage
+- Utilize caching
+- Optimize parallel processing
 
-구체적인 오류 메시지를 알려주시면 더 정확한 해결책을 제공할 수 있습니다.`;
+Please provide the specific error message for a more accurate solution.`;
     } else {
-      response = `안녕하세요! 오케스트레이션 패턴에 대해 도움을 드리겠습니다.
+      response = `Hello! I'll help you with orchestration patterns.
 
-다음과 같은 주제로 질문해주세요:
-- 패턴 선택 가이드
-- 설정 방법
-- 성능 최적화
-- 오류 해결
-- 모범 사례
+Please ask about the following topics:
+- Pattern selection guide
+- Configuration methods
+- Performance optimization
+- Error resolution
+- Best practices
 
-구체적인 질문이 있으시면 언제든 말씀해주세요! 😊`;
+Feel free to ask any specific questions! 😊`;
     }
     
     setIsTyping(false);
@@ -437,7 +437,7 @@ export const ContextualHelpSystem: React.FC<ContextualHelpSystemProps> = ({
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <HelpCircle className="h-5 w-5 text-blue-600" />
-            <CardTitle className="text-lg">도움말</CardTitle>
+            <CardTitle className="text-lg">Help</CardTitle>
           </div>
           
           <div className="flex items-center space-x-1">
@@ -454,9 +454,9 @@ export const ContextualHelpSystem: React.FC<ContextualHelpSystemProps> = ({
       <CardContent className="p-0 h-[calc(100%-80px)]">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
           <TabsList className="grid w-full grid-cols-3 mx-4">
-            <TabsTrigger value="help">도움말</TabsTrigger>
+            <TabsTrigger value="help">Help</TabsTrigger>
             <TabsTrigger value="faq">FAQ</TabsTrigger>
-            <TabsTrigger value="chat">AI 채팅</TabsTrigger>
+            <TabsTrigger value="chat">AI Chat</TabsTrigger>
           </TabsList>
 
           <TabsContent value="help" className="h-[calc(100%-50px)] overflow-hidden">
@@ -464,7 +464,7 @@ export const ContextualHelpSystem: React.FC<ContextualHelpSystemProps> = ({
               {/* Contextual Suggestions */}
               {getContextualSuggestions().length > 0 && (
                 <div className="space-y-2">
-                  <h4 className="font-semibold text-sm text-blue-600">추천 도움말</h4>
+                  <h4 className="font-semibold text-sm text-blue-600">Recommended Help</h4>
                   {getContextualSuggestions().map((suggestion, index) => (
                     <Alert key={index} className="cursor-pointer hover:bg-blue-50" onClick={suggestion.action}>
                       <Lightbulb className="h-4 w-4" />
@@ -484,7 +484,7 @@ export const ContextualHelpSystem: React.FC<ContextualHelpSystemProps> = ({
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
-                  placeholder="도움말 검색..."
+                  placeholder="Search help..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10"
@@ -499,8 +499,8 @@ export const ContextualHelpSystem: React.FC<ContextualHelpSystemProps> = ({
                       <div className="flex items-start justify-between mb-2">
                         <h4 className="font-medium text-sm">{article.title}</h4>
                         <Badge variant="outline" className="text-xs">
-                          {article.difficulty === 'beginner' ? '초급' :
-                           article.difficulty === 'intermediate' ? '중급' : '고급'}
+                          {article.difficulty === 'beginner' ? 'Beginner' :
+                           article.difficulty === 'intermediate' ? 'Intermediate' : 'Advanced'}
                         </Badge>
                       </div>
                       
@@ -510,7 +510,7 @@ export const ContextualHelpSystem: React.FC<ContextualHelpSystemProps> = ({
                       
                       <div className="flex items-center justify-between text-xs text-gray-500">
                         <div className="flex items-center space-x-2">
-                          <span>{article.estimatedReadTime}분 읽기</span>
+                          <span>{article.estimatedReadTime} min read</span>
                           <span>•</span>
                           <div className="flex items-center space-x-1">
                             <ThumbsUp className="h-3 w-3" />
@@ -548,7 +548,7 @@ export const ContextualHelpSystem: React.FC<ContextualHelpSystemProps> = ({
                         <div className="flex items-center justify-between mt-3">
                           <div className="flex items-center space-x-2 text-xs text-gray-500">
                             <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                            <span>{faq.popularity}% 도움됨</span>
+                            <span>{faq.popularity}% helpful</span>
                           </div>
                           <div className="flex items-center space-x-1">
                             <Button variant="ghost" size="sm">
@@ -572,8 +572,8 @@ export const ContextualHelpSystem: React.FC<ContextualHelpSystemProps> = ({
               {chatMessages.length === 0 && (
                 <div className="text-center text-gray-500 mt-8">
                   <Bot className="h-12 w-12 mx-auto mb-2 text-blue-600" />
-                  <p className="text-sm">AI 어시스턴트에게 질문해보세요!</p>
-                  <p className="text-xs">오케스트레이션 패턴에 대해 도움을 드릴게요.</p>
+                  <p className="text-sm">Ask the AI assistant a question!</p>
+                  <p className="text-xs">I'll help you with orchestration patterns.</p>
                 </div>
               )}
               
@@ -617,7 +617,7 @@ export const ContextualHelpSystem: React.FC<ContextualHelpSystemProps> = ({
             <div className="p-4 border-t">
               <div className="flex space-x-2">
                 <Input
-                  placeholder="질문을 입력하세요..."
+                  placeholder="Enter your question..."
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
                   onKeyPress={handleKeyPress}

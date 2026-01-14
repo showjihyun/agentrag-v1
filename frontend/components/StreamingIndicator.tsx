@@ -8,18 +8,18 @@ interface StreamingIndicatorProps {
 }
 
 /**
- * 스트리밍 진행 상황 표시 컴포넌트
+ * Streaming Progress Indicator Component
  * 
- * AI 응답 생성 중 현재 단계를 시각적으로 표시하여
- * 사용자에게 진행 상황을 알립니다.
+ * Visually displays the current stage during AI response generation
+ * to inform users of the progress.
  */
 export const StreamingIndicator: React.FC<StreamingIndicatorProps> = ({
-  stage = 'AI가 응답을 생성하고 있습니다...',
+  stage = 'AI is generating a response...',
   className = ''
 }) => {
   return (
     <div className={`flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400 ${className}`}>
-      {/* 애니메이션 점들 */}
+      {/* Animated dots */}
       <div className="flex gap-1">
         <span 
           className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"
@@ -35,14 +35,14 @@ export const StreamingIndicator: React.FC<StreamingIndicatorProps> = ({
         />
       </div>
       
-      {/* 단계 텍스트 */}
+      {/* Stage text */}
       <span className="animate-pulse">{stage}</span>
     </div>
   );
 };
 
 /**
- * 상세 진행 상황 표시 컴포넌트 (진행률 포함)
+ * Detailed Progress Indicator Component (with progress percentage)
  */
 export const DetailedStreamingIndicator: React.FC<{
   stage: string;
@@ -73,17 +73,17 @@ export const DetailedStreamingIndicator: React.FC<{
 };
 
 /**
- * 단계별 스트리밍 표시 컴포넌트
+ * Stage-based Streaming Indicator Component
  */
 export const StageStreamingIndicator: React.FC<{
   currentStage: 'analyzing' | 'searching' | 'generating' | 'finalizing';
   className?: string;
 }> = ({ currentStage, className = '' }) => {
   const stages = [
-    { key: 'analyzing', label: '분석 중', icon: '🔍' },
-    { key: 'searching', label: '검색 중', icon: '📚' },
-    { key: 'generating', label: '생성 중', icon: '✨' },
-    { key: 'finalizing', label: '완료 중', icon: '✅' }
+    { key: 'analyzing', label: 'Analyzing', icon: '🔍' },
+    { key: 'searching', label: 'Searching', icon: '📚' },
+    { key: 'generating', label: 'Generating', icon: '✨' },
+    { key: 'finalizing', label: 'Finalizing', icon: '✅' }
   ];
 
   const currentIndex = stages.findIndex(s => s.key === currentStage);

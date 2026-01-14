@@ -538,58 +538,135 @@ async def initialize_health_checks(container) -> None:
     """
     checker = get_health_checker()
 
-    # Register all health checks
-    checker.register_check(
-        "database",
-        lambda: check_database_health(container.get_db_session),
-        critical=True,
-    )
-
-    checker.register_check(
-        "redis", lambda: check_redis_health(container.get_redis_client()), critical=True
-    )
-
-    checker.register_check(
-        "milvus",
-        lambda: check_milvus_health(container.get_milvus_manager()),
-        critical=True,
-    )
-
-    checker.register_check(
-        "llm", lambda: check_llm_health(container.get_llm_manager()), critical=True
-    )
-
-    checker.register_check(
-        "embedding",
-        lambda: check_embedding_health(container.get_embedding_service()),
-        critical=True,
-    )
-
-    checker.register_check(
-        "cache",
-        lambda: check_cache_health(container.get_cache_manager()),
-        critical=False,  # Non-critical, system can work without cache
-    )
-
+    # Register Redis health check
     try:
+        redis_client = container.get_redis_client()
         checker.register_check(
-            "storage",
-            lambda: check_storage_health(container.get_file_storage_service()),
+            "redis", lambda: check_redis_health(redis_client), critical=True
+        )
+    except (RuntimeError, AttributeError) as e:
+        logger.warning(f"Redis health check not registered: {e}")
+
+    # Register Milvus health check
+    try:
+        milvus_manager = container.get_milvus_manager()
+        checker.register_check(
+            "milvus",
+            lambda: check_milvus_health(milvus_manager),
             critical=True,
         )
-    except:
-        pass  # Storage service might not be available
+    except (RuntimeError, AttributeError) as e:
+        logger.warning(f"Milvus health check not registered: {e}")
 
+    # Register LLM health check
     try:
+        llm_manager = container.get_llm_manager()
         checker.register_check(
-            "background_tasks",
-            lambda: check_background_tasks_health(container.get_task_manager()),
-            critical=False,
+            "llm", lambda: check_llm_health(llm_manager), critical=True
         )
-    except:
-        pass  # Background tasks might not be available
+    except (RuntimeError, AttributeError) as e:
+        logger.warning(f"LLM health check not registered: {e}")
+
+    # Register Embedding health check
+    try:
+        embedding_service = container.get_embedding_service()
+        checker.register_check(
+            "embedding",
+            lambda: check_embedding_health(embedding_service),
+            critical=True,
+        )
+    except (RuntimeError, AttributeError) as e:
+        logger.warning(f"Embedding health check not registered: {e}")
+
+    # Register cache health check (using multi-level cache if available)
+    try:
+        cache = container.get_multi_level_cache()
+        if cache:
+            checker.register_check(
+                "cache",
+                lambda: check_multi_level_cache_health(cache),
+                critical=False,
+            )
+    except (RuntimeError, AttributeError) as e:
+        logger.warning(f"Cache health check not registered: {e}")
+
+    # Database health check - use SQLAlchemy session factory
+    try:
+        from backend.db.database import get_db
+        checker.register_check(
+            "database",
+            lambda: check_database_health_sync(get_db),
+            critical=True,
+        )
+    except Exception as e:
+        logger.warning(f"Database health check not registered: {e}")
 
     logger.info(f"Initialized {len(checker.checks)} health checks")
+
+
+async def check_multi_level_cache_health(cache) -> ComponentHealth:
+    """Check multi-level cache health."""
+    try:
+        start_time = time.time()
+        
+        # Test cache with a simple operation
+        test_key = "_health_check_test"
+        await cache.set(test_key, "test", ttl=10)
+        result = await cache.get(test_key)
+        await cache.delete(test_key)
+        
+        response_time = (time.time() - start_time) * 1000
+        
+        if result == "test":
+            return ComponentHealth(
+                name="cache",
+                status=HealthStatus.HEALTHY,
+                message="Multi-level cache operational",
+                details={"check_time_ms": round(response_time, 2)},
+            )
+        else:
+            return ComponentHealth(
+                name="cache",
+                status=HealthStatus.DEGRADED,
+                message="Cache returned unexpected result",
+            )
+    except Exception as e:
+        return ComponentHealth(
+            name="cache",
+            status=HealthStatus.DEGRADED,
+            message=f"Cache check failed: {str(e)}",
+        )
+
+
+async def check_database_health_sync(db_factory) -> ComponentHealth:
+    """Check database health using sync session factory."""
+    try:
+        from sqlalchemy import text
+        
+        start_time = time.time()
+        
+        # Get a database session
+        db = next(db_factory())
+        try:
+            result = db.execute(text("SELECT 1"))
+            result.scalar()
+            response_time = (time.time() - start_time) * 1000
+            
+            return ComponentHealth(
+                name="database",
+                status=HealthStatus.HEALTHY,
+                message="Database connection successful",
+                details={"type": "SQLite/PostgreSQL", "query_time_ms": round(response_time, 2)},
+            )
+        finally:
+            db.close()
+            
+    except Exception as e:
+        return ComponentHealth(
+            name="database",
+            status=HealthStatus.UNHEALTHY,
+            message=f"Database connection failed: {str(e)}",
+        )
 
 
 async def check_agent_builder_health(db_session_factory) -> ComponentHealth:

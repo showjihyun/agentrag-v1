@@ -1,6 +1,6 @@
 /**
  * Security API Client
- * API 키 관리를 위한 클라이언트
+ * Client for API key management
  */
 
 export interface CreateAPIKeyRequest {

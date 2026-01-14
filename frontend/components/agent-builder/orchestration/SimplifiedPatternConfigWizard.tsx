@@ -1,6 +1,6 @@
 /**
  * Simplified Pattern Config Wizard (4-Step)
- * 간소화된 패턴 설정 마법사 (4단계)
+ * Simplified pattern configuration wizard (4 steps)
  */
 
 'use client';
@@ -93,43 +93,43 @@ interface OrchestrationConfig {
   tags: string[];
 }
 
-// 간소화된 4단계 마법사
+// Simplified 4-step wizard
 const SIMPLIFIED_WIZARD_STEPS = [
   {
     id: 'basic',
-    title: '기본 설정',
-    description: '이름, 설명 및 기본 옵션 설정',
+    title: 'Basic Settings',
+    description: 'Set name, description, and basic options',
     icon: Info,
   },
   {
     id: 'agents',
-    title: 'Agent 구성',
-    description: 'AI Agent 역할 및 구성 설정',
+    title: 'Agent Configuration',
+    description: 'Set AI Agent roles and configuration',
     icon: Users,
   },
   {
     id: 'advanced',
-    title: '고급 설정',
-    description: 'Supervisor, 통신 규칙, 성능 설정',
+    title: 'Advanced Settings',
+    description: 'Supervisor, communication rules, performance settings',
     icon: Settings,
   },
   {
     id: 'review',
-    title: '검토 및 완료',
-    description: '설정 검토 및 최종 확인',
+    title: 'Review & Complete',
+    description: 'Review settings and final confirmation',
     icon: Eye,
   },
 ];
 
-// 패턴별 스마트 기본값
+// Smart defaults by pattern
 const SMART_DEFAULTS = {
   sequential: {
-    name: '순차 처리 워크플로우',
-    description: '작업을 순서대로 처리하는 워크플로우입니다.',
+    name: 'Sequential Processing Workflow',
+    description: 'A workflow that processes tasks in order.',
     agentRoles: [
-      { name: '데이터 수집가', role: 'worker', priority: 1 },
-      { name: '분석가', role: 'specialist', priority: 2 },
-      { name: '보고서 작성자', role: 'synthesizer', priority: 3 },
+      { name: 'Data Collector', role: 'worker', priority: 1 },
+      { name: 'Analyst', role: 'specialist', priority: 2 },
+      { name: 'Report Writer', role: 'synthesizer', priority: 3 },
     ],
     supervisorEnabled: false,
     communicationRules: {
@@ -139,20 +139,20 @@ const SMART_DEFAULTS = {
       maxNegotiationRounds: 1,
     },
     performanceThresholds: {
-      maxExecutionTime: 300000, // 5분
+      maxExecutionTime: 300000, // 5 minutes
       minSuccessRate: 0.9,
       maxTokenUsage: 5000,
     },
-    tags: ['순차처리', '워크플로우', '자동화'],
+    tags: ['sequential', 'workflow', 'automation'],
   },
   parallel: {
-    name: '병렬 처리 시스템',
-    description: '여러 작업을 동시에 처리하는 시스템입니다.',
+    name: 'Parallel Processing System',
+    description: 'A system that processes multiple tasks simultaneously.',
     agentRoles: [
-      { name: '검색 전문가', role: 'specialist', priority: 1 },
-      { name: '번역가', role: 'specialist', priority: 1 },
-      { name: '요약 전문가', role: 'specialist', priority: 1 },
-      { name: '결과 통합자', role: 'synthesizer', priority: 2 },
+      { name: 'Search Expert', role: 'specialist', priority: 1 },
+      { name: 'Translator', role: 'specialist', priority: 1 },
+      { name: 'Summary Expert', role: 'specialist', priority: 1 },
+      { name: 'Result Integrator', role: 'synthesizer', priority: 2 },
     ],
     supervisorEnabled: true,
     communicationRules: {
@@ -162,20 +162,20 @@ const SMART_DEFAULTS = {
       maxNegotiationRounds: 2,
     },
     performanceThresholds: {
-      maxExecutionTime: 180000, // 3분
+      maxExecutionTime: 180000, // 3 minutes
       minSuccessRate: 0.85,
       maxTokenUsage: 8000,
     },
-    tags: ['병렬처리', '동시실행', '효율성'],
+    tags: ['parallel', 'concurrent', 'efficiency'],
   },
   consensus_building: {
-    name: '합의 기반 의사결정',
-    description: '여러 전문가의 의견을 수렴하여 합의를 도출합니다.',
+    name: 'Consensus-Based Decision Making',
+    description: 'Gathers opinions from multiple experts to reach consensus.',
     agentRoles: [
-      { name: '전문가 A', role: 'specialist', priority: 1 },
-      { name: '전문가 B', role: 'specialist', priority: 1 },
-      { name: '전문가 C', role: 'specialist', priority: 1 },
-      { name: '중재자', role: 'coordinator', priority: 2 },
+      { name: 'Expert A', role: 'specialist', priority: 1 },
+      { name: 'Expert B', role: 'specialist', priority: 1 },
+      { name: 'Expert C', role: 'specialist', priority: 1 },
+      { name: 'Mediator', role: 'coordinator', priority: 2 },
     ],
     supervisorEnabled: true,
     communicationRules: {
@@ -185,20 +185,20 @@ const SMART_DEFAULTS = {
       maxNegotiationRounds: 5,
     },
     performanceThresholds: {
-      maxExecutionTime: 600000, // 10분
+      maxExecutionTime: 600000, // 10 minutes
       minSuccessRate: 0.8,
       maxTokenUsage: 15000,
     },
-    tags: ['합의', '의사결정', '전문가'],
+    tags: ['consensus', 'decision-making', 'expert'],
   },
   dynamic_routing: {
-    name: '동적 라우팅 시스템',
-    description: '성능에 따라 작업을 동적으로 라우팅합니다.',
+    name: 'Dynamic Routing System',
+    description: 'Dynamically routes tasks based on performance.',
     agentRoles: [
-      { name: '라우터', role: 'coordinator', priority: 1 },
-      { name: '처리기 A', role: 'worker', priority: 2 },
-      { name: '처리기 B', role: 'worker', priority: 2 },
-      { name: '집계자', role: 'synthesizer', priority: 3 },
+      { name: 'Router', role: 'coordinator', priority: 1 },
+      { name: 'Processor A', role: 'worker', priority: 2 },
+      { name: 'Processor B', role: 'worker', priority: 2 },
+      { name: 'Aggregator', role: 'synthesizer', priority: 3 },
     ],
     supervisorEnabled: true,
     communicationRules: {
@@ -208,13 +208,13 @@ const SMART_DEFAULTS = {
       maxNegotiationRounds: 2,
     },
     performanceThresholds: {
-      maxExecutionTime: 240000, // 4분
+      maxExecutionTime: 240000, // 4 minutes
       minSuccessRate: 0.9,
       maxTokenUsage: 7000,
     },
-    tags: ['동적라우팅', '성능최적화', '적응형'],
+    tags: ['dynamic-routing', 'performance-optimization', 'adaptive'],
   },
-  // 다른 패턴들의 기본값도 추가 가능
+  // Other pattern defaults can be added
 } as const;
 
 export const SimplifiedPatternConfigWizard: React.FC<SimplifiedPatternConfigWizardProps> = ({
@@ -256,7 +256,7 @@ export const SimplifiedPatternConfigWizard: React.FC<SimplifiedPatternConfigWiza
   const currentStepInfo = SIMPLIFIED_WIZARD_STEPS[currentStep];
   const progress = ((currentStep + 1) / SIMPLIFIED_WIZARD_STEPS.length) * 100;
 
-  // 실시간 검증
+  // Real-time validation
   const {
     validationResult,
     isValidating,
@@ -266,13 +266,13 @@ export const SimplifiedPatternConfigWizard: React.FC<SimplifiedPatternConfigWiza
     resetValidation
   } = useRealTimeValidation({
     debounceMs: 300,
-    enableAutoSave: false, // 마법사에서는 자동 저장 비활성화
+    enableAutoSave: false, // Disable auto-save in wizard
     onValidationChange: (result) => {
       console.log('Validation result:', result);
     }
   });
 
-  // 설정 변경 시 실시간 검증
+  // Real-time validation on config change
   useEffect(() => {
     if (open) {
       validate(orchestrationType, config);
@@ -281,7 +281,7 @@ export const SimplifiedPatternConfigWizard: React.FC<SimplifiedPatternConfigWiza
     }
   }, [config, orchestrationType, open, validate, resetValidation]);
 
-  // 스마트 기본값 적용
+  // Apply smart defaults
   const applySmartDefaults = () => {
     const smartDefaults = SMART_DEFAULTS[orchestrationType] || SMART_DEFAULTS.sequential;
     
@@ -327,14 +327,14 @@ export const SimplifiedPatternConfigWizard: React.FC<SimplifiedPatternConfigWiza
 
   const isStepValid = (stepIndex: number): boolean => {
     switch (stepIndex) {
-      case 0: // 기본 설정
+      case 0: // Basic Settings
         return config.name.trim() !== '';
-      case 1: // Agent 구성
+      case 1: // Agent Configuration
         return config.agentRoles.length > 0;
-      case 2: // 고급 설정
+      case 2: // Advanced Settings
         return !config.supervisorConfig.enabled || 
                (config.supervisorConfig.llm_provider !== '' && config.supervisorConfig.llm_model !== '');
-      case 3: // 검토
+      case 3: // Review
         return validationResult?.valid !== false;
       default:
         return true;
@@ -343,25 +343,25 @@ export const SimplifiedPatternConfigWizard: React.FC<SimplifiedPatternConfigWiza
 
   const renderStepContent = () => {
     switch (currentStep) {
-      case 0: // 기본 설정
+      case 0: // Basic Settings
         return (
           <div className="space-y-6">
-            {/* 스마트 기본값 적용 버튼 */}
+            {/* Smart defaults apply button */}
             <Card className="bg-blue-50 border-blue-200">
               <CardContent className="pt-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <Lightbulb className="h-5 w-5 text-blue-600" />
                     <div>
-                      <h4 className="font-medium text-blue-900">스마트 기본값 사용</h4>
+                      <h4 className="font-medium text-blue-900">Use Smart Defaults</h4>
                       <p className="text-sm text-blue-700">
-                        {pattern.name} 패턴에 최적화된 설정을 자동으로 적용합니다
+                        Automatically apply optimized settings for the {pattern.name} pattern
                       </p>
                     </div>
                   </div>
                   <Button variant="outline" onClick={applySmartDefaults} className="border-blue-300">
                     <Sparkles className="w-4 h-4 mr-2" />
-                    적용
+                    Apply
                   </Button>
                 </div>
               </CardContent>
@@ -369,30 +369,30 @@ export const SimplifiedPatternConfigWizard: React.FC<SimplifiedPatternConfigWiza
 
             <div className="grid grid-cols-1 gap-6">
               <div>
-                <Label htmlFor="name">오케스트레이션 이름 *</Label>
+                <Label htmlFor="name">Orchestration Name *</Label>
                 <Input
                   id="name"
                   value={config.name}
                   onChange={(e) => setConfig(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="예: 고객 문의 처리 시스템"
+                  placeholder="e.g., Customer Inquiry Processing System"
                   className="mt-1"
                 />
               </div>
               
               <div>
-                <Label htmlFor="description">설명</Label>
+                <Label htmlFor="description">Description</Label>
                 <Textarea
                   id="description"
                   value={config.description}
                   onChange={(e) => setConfig(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder="이 오케스트레이션의 목적과 기능을 설명해주세요"
+                  placeholder="Describe the purpose and functionality of this orchestration"
                   className="mt-1"
                   rows={3}
                 />
               </div>
               
               <div>
-                <Label>태그</Label>
+                <Label>Tags</Label>
                 <div className="mt-1 flex flex-wrap gap-2">
                   {config.tags.map((tag, index) => (
                     <Badge key={index} variant="secondary" className="cursor-pointer"
@@ -404,7 +404,7 @@ export const SimplifiedPatternConfigWizard: React.FC<SimplifiedPatternConfigWiza
                     </Badge>
                   ))}
                   <Input
-                    placeholder="태그 추가 (Enter로 추가)"
+                    placeholder="Add tag (Press Enter)"
                     className="w-32"
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && e.currentTarget.value.trim()) {
@@ -420,10 +420,10 @@ export const SimplifiedPatternConfigWizard: React.FC<SimplifiedPatternConfigWiza
               </div>
             </div>
 
-            {/* 패턴 정보 표시 */}
+            {/* Pattern info display */}
             <Card className="bg-gray-50">
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm">선택된 패턴: {pattern.name}</CardTitle>
+                <CardTitle className="text-sm">Selected Pattern: {pattern.name}</CardTitle>
               </CardHeader>
               <CardContent className="pt-0">
                 <p className="text-sm text-gray-600 mb-3">{pattern.description}</p>
@@ -442,14 +442,14 @@ export const SimplifiedPatternConfigWizard: React.FC<SimplifiedPatternConfigWiza
           </div>
         );
         
-      case 1: // Agent 구성
+      case 1: // Agent Configuration
         return (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-semibold">Agent 역할 구성</h3>
+                <h3 className="text-lg font-semibold">Agent Role Configuration</h3>
                 <p className="text-sm text-gray-600">
-                  {pattern.name} 패턴에 필요한 Agent들을 구성하세요
+                  Configure the agents needed for the {pattern.name} pattern
                 </p>
               </div>
             </div>
@@ -459,7 +459,7 @@ export const SimplifiedPatternConfigWizard: React.FC<SimplifiedPatternConfigWiza
                 <Card key={agent.id} className="p-4">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                      <Label>Agent 이름</Label>
+                      <Label>Agent Name</Label>
                       <Input
                         value={agent.name}
                         onChange={(e) => {
@@ -467,11 +467,11 @@ export const SimplifiedPatternConfigWizard: React.FC<SimplifiedPatternConfigWiza
                           newRoles[index].name = e.target.value;
                           setConfig(prev => ({ ...prev, agentRoles: newRoles }));
                         }}
-                        placeholder="Agent 이름"
+                        placeholder="Agent Name"
                       />
                     </div>
                     <div>
-                      <Label>역할</Label>
+                      <Label>Role</Label>
                       <Select
                         value={agent.role}
                         onValueChange={(value: AgentRole) => {
@@ -493,7 +493,7 @@ export const SimplifiedPatternConfigWizard: React.FC<SimplifiedPatternConfigWiza
                       </Select>
                     </div>
                     <div>
-                      <Label>우선순위</Label>
+                      <Label>Priority</Label>
                       <Select
                         value={agent.priority.toString()}
                         onValueChange={(value) => {
@@ -524,7 +524,7 @@ export const SimplifiedPatternConfigWizard: React.FC<SimplifiedPatternConfigWiza
                         setConfig(prev => ({ ...prev, agentRoles: newRoles }));
                       }}
                     >
-                      제거
+                      Remove
                     </Button>
                   </div>
                 </Card>
@@ -546,24 +546,24 @@ export const SimplifiedPatternConfigWizard: React.FC<SimplifiedPatternConfigWiza
                   setConfig(prev => ({ ...prev, agentRoles: [...prev.agentRoles, newAgent] }));
                 }}
               >
-                + Agent 추가
+                + Add Agent
               </Button>
             </div>
           </div>
         );
         
-      case 2: // 고급 설정 (통합)
+      case 2: // Advanced Settings (Combined)
         return (
           <div className="space-y-6">
-            {/* Supervisor 설정 */}
+            {/* Supervisor Settings */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Shield className="w-5 h-5" />
-                  Supervisor 설정
+                  Supervisor Settings
                 </CardTitle>
                 <CardDescription>
-                  LLM 기반 지능형 조정자를 설정합니다
+                  Configure the LLM-based intelligent coordinator
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -576,13 +576,13 @@ export const SimplifiedPatternConfigWizard: React.FC<SimplifiedPatternConfigWiza
                       supervisorConfig: { ...prev.supervisorConfig, enabled: checked }
                     }))}
                   />
-                  <Label htmlFor="enableSupervisor">Supervisor 활성화</Label>
+                  <Label htmlFor="enableSupervisor">Enable Supervisor</Label>
                 </div>
                 
                 {config.supervisorConfig.enabled && (
                   <div className="grid grid-cols-2 gap-4 pl-6 border-l-2 border-blue-200">
                     <div>
-                      <Label>LLM 제공자</Label>
+                      <Label>LLM Provider</Label>
                       <Select
                         value={config.supervisorConfig.llm_provider}
                         onValueChange={(value) => setConfig(prev => ({
@@ -594,14 +594,14 @@ export const SimplifiedPatternConfigWizard: React.FC<SimplifiedPatternConfigWiza
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="ollama">Ollama (로컬)</SelectItem>
+                          <SelectItem value="ollama">Ollama (Local)</SelectItem>
                           <SelectItem value="openai">OpenAI</SelectItem>
                           <SelectItem value="claude">Claude</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     <div>
-                      <Label>모델</Label>
+                      <Label>Model</Label>
                       <Select
                         value={config.supervisorConfig.llm_model}
                         onValueChange={(value) => setConfig(prev => ({
@@ -624,18 +624,18 @@ export const SimplifiedPatternConfigWizard: React.FC<SimplifiedPatternConfigWiza
               </CardContent>
             </Card>
 
-            {/* 통신 및 성능 설정 */}
+            {/* Communication and Performance Settings */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-base">
                     <Users className="w-4 h-4" />
-                    통신 규칙
+                    Communication Rules
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="directComm" className="text-sm">직접 통신</Label>
+                    <Label htmlFor="directComm" className="text-sm">Direct Communication</Label>
                     <Switch
                       id="directComm"
                       checked={config.communicationRules.allowDirectCommunication}
@@ -647,7 +647,7 @@ export const SimplifiedPatternConfigWizard: React.FC<SimplifiedPatternConfigWiza
                   </div>
                   
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="broadcast" className="text-sm">브로드캐스트</Label>
+                    <Label htmlFor="broadcast" className="text-sm">Broadcast</Label>
                     <Switch
                       id="broadcast"
                       checked={config.communicationRules.enableBroadcast}
@@ -659,7 +659,7 @@ export const SimplifiedPatternConfigWizard: React.FC<SimplifiedPatternConfigWiza
                   </div>
                   
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="consensus" className="text-sm">합의 필요</Label>
+                    <Label htmlFor="consensus" className="text-sm">Require Consensus</Label>
                     <Switch
                       id="consensus"
                       checked={config.communicationRules.requireConsensus}
@@ -676,12 +676,12 @@ export const SimplifiedPatternConfigWizard: React.FC<SimplifiedPatternConfigWiza
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-base">
                     <Zap className="w-4 h-4" />
-                    성능 설정
+                    Performance Settings
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div>
-                    <Label className="text-sm">최대 실행 시간</Label>
+                    <Label className="text-sm">Max Execution Time</Label>
                     <Select
                       value={config.performanceThresholds.maxExecutionTime.toString()}
                       onValueChange={(value) => setConfig(prev => ({
@@ -693,16 +693,16 @@ export const SimplifiedPatternConfigWizard: React.FC<SimplifiedPatternConfigWiza
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="180000">3분</SelectItem>
-                        <SelectItem value="300000">5분</SelectItem>
-                        <SelectItem value="600000">10분</SelectItem>
-                        <SelectItem value="1800000">30분</SelectItem>
+                        <SelectItem value="180000">3 minutes</SelectItem>
+                        <SelectItem value="300000">5 minutes</SelectItem>
+                        <SelectItem value="600000">10 minutes</SelectItem>
+                        <SelectItem value="1800000">30 minutes</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   
                   <div>
-                    <Label className="text-sm">최소 성공률</Label>
+                    <Label className="text-sm">Min Success Rate</Label>
                     <Select
                       value={config.performanceThresholds.minSuccessRate.toString()}
                       onValueChange={(value) => setConfig(prev => ({
@@ -727,17 +727,17 @@ export const SimplifiedPatternConfigWizard: React.FC<SimplifiedPatternConfigWiza
           </div>
         );
         
-      case 3: // 검토 및 완료
+      case 3: // Review & Complete
         return (
           <div className="space-y-6">
             <div>
-              <h3 className="text-lg font-semibold">설정 검토</h3>
+              <h3 className="text-lg font-semibold">Review Settings</h3>
               <p className="text-sm text-gray-600">
-                설정한 내용을 검토하고 완료하세요
+                Review your settings and complete
               </p>
             </div>
 
-            {/* 실시간 검증 결과 */}
+            {/* Real-time validation result */}
             <RealTimeValidationFeedback
               validationResult={validationResult}
               isValidating={isValidating}
@@ -749,34 +749,34 @@ export const SimplifiedPatternConfigWizard: React.FC<SimplifiedPatternConfigWiza
             <ScrollArea className="h-[300px] space-y-4">
               <div className="space-y-4">
                 <Card className="p-4">
-                  <h4 className="font-semibold mb-2">기본 정보</h4>
+                  <h4 className="font-semibold mb-2">Basic Information</h4>
                   <div className="space-y-1 text-sm">
-                    <div><strong>이름:</strong> {config.name}</div>
-                    <div><strong>패턴:</strong> {pattern.name}</div>
-                    <div><strong>설명:</strong> {config.description || '없음'}</div>
-                    <div><strong>태그:</strong> {config.tags.join(', ') || '없음'}</div>
+                    <div><strong>Name:</strong> {config.name}</div>
+                    <div><strong>Pattern:</strong> {pattern.name}</div>
+                    <div><strong>Description:</strong> {config.description || 'None'}</div>
+                    <div><strong>Tags:</strong> {config.tags.join(', ') || 'None'}</div>
                   </div>
                 </Card>
                 
                 <Card className="p-4">
-                  <h4 className="font-semibold mb-2">Agent 구성 ({config.agentRoles.length}개)</h4>
+                  <h4 className="font-semibold mb-2">Agent Configuration ({config.agentRoles.length})</h4>
                   <div className="space-y-2">
                     {config.agentRoles.map((agent, index) => (
                       <div key={index} className="text-sm flex items-center justify-between">
                         <span>{agent.name} ({AGENT_ROLES[agent.role].name})</span>
-                        <Badge variant="outline">우선순위 {agent.priority}</Badge>
+                        <Badge variant="outline">Priority {agent.priority}</Badge>
                       </div>
                     ))}
                   </div>
                 </Card>
                 
                 <Card className="p-4">
-                  <h4 className="font-semibold mb-2">고급 설정</h4>
+                  <h4 className="font-semibold mb-2">Advanced Settings</h4>
                   <div className="space-y-2 text-sm">
-                    <div><strong>Supervisor:</strong> {config.supervisorConfig.enabled ? '활성화' : '비활성화'}</div>
-                    <div><strong>직접 통신:</strong> {config.communicationRules.allowDirectCommunication ? '허용' : '비허용'}</div>
-                    <div><strong>최대 실행 시간:</strong> {Math.round(config.performanceThresholds.maxExecutionTime / 1000)}초</div>
-                    <div><strong>최소 성공률:</strong> {Math.round(config.performanceThresholds.minSuccessRate * 100)}%</div>
+                    <div><strong>Supervisor:</strong> {config.supervisorConfig.enabled ? 'Enabled' : 'Disabled'}</div>
+                    <div><strong>Direct Communication:</strong> {config.communicationRules.allowDirectCommunication ? 'Allowed' : 'Not Allowed'}</div>
+                    <div><strong>Max Execution Time:</strong> {Math.round(config.performanceThresholds.maxExecutionTime / 1000)} seconds</div>
+                    <div><strong>Min Success Rate:</strong> {Math.round(config.performanceThresholds.minSuccessRate * 100)}%</div>
                   </div>
                 </Card>
               </div>
@@ -797,18 +797,18 @@ export const SimplifiedPatternConfigWizard: React.FC<SimplifiedPatternConfigWiza
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Settings className="w-5 h-5" />
-            {pattern.name} 설정 마법사 (간소화)
+            {pattern.name} Configuration Wizard (Simplified)
           </DialogTitle>
           <DialogDescription>
-            4단계로 간소화된 설정 과정으로 빠르게 오케스트레이션을 구성합니다
+            Quickly configure orchestration with a simplified 4-step process
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex gap-6 h-[600px]">
-          {/* 단계 네비게이션 */}
+          {/* Step Navigation */}
           <div className="w-64 border-r pr-4">
             <div className="mb-4">
-              <div className="text-sm text-gray-600 mb-2">진행률</div>
+              <div className="text-sm text-gray-600 mb-2">Progress</div>
               <Progress value={progress} className="h-2" />
               <div className="text-xs text-gray-500 mt-1">{currentStep + 1} / {SIMPLIFIED_WIZARD_STEPS.length}</div>
             </div>
@@ -856,7 +856,7 @@ export const SimplifiedPatternConfigWizard: React.FC<SimplifiedPatternConfigWiza
             </div>
           </div>
 
-          {/* 단계 내용 */}
+          {/* Step Content */}
           <div className="flex-1 overflow-y-auto">
             <div className="mb-6">
               <h2 className="text-xl font-semibold">{currentStepInfo.title}</h2>
@@ -867,7 +867,7 @@ export const SimplifiedPatternConfigWizard: React.FC<SimplifiedPatternConfigWiza
           </div>
         </div>
 
-        {/* 하단 버튼 */}
+        {/* Bottom Buttons */}
         <div className="flex items-center justify-between pt-4 border-t">
           <Button
             variant="outline"
@@ -875,7 +875,7 @@ export const SimplifiedPatternConfigWizard: React.FC<SimplifiedPatternConfigWiza
             disabled={currentStep === 0}
           >
             <ChevronLeft className="w-4 h-4 mr-2" />
-            이전
+            Previous
           </Button>
           
           <div className="flex gap-2">
@@ -885,11 +885,11 @@ export const SimplifiedPatternConfigWizard: React.FC<SimplifiedPatternConfigWiza
                 disabled={!isStepValid(currentStep) || validationResult?.valid === false}
               >
                 <CheckCircle2 className="w-4 h-4 mr-2" />
-                완료
+                Complete
               </Button>
             ) : (
               <Button onClick={handleNext} disabled={!isStepValid(currentStep)}>
-                다음
+                Next
                 <ChevronRight className="w-4 h-4 ml-2" />
               </Button>
             )}

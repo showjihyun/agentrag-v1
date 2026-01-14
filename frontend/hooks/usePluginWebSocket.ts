@@ -1,6 +1,6 @@
 /**
- * Agent Plugin WebSocket 훅
- * 실시간 플러그인 상태 업데이트를 위한 WebSocket 연결 관리
+ * Agent Plugin WebSocket Hook
+ * WebSocket connection management for real-time plugin status updates
  */
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { usePluginStore } from '@/lib/stores/plugin-store';
@@ -35,7 +35,7 @@ export const usePluginWebSocket = ({
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [lastMessage, setLastMessage] = useState<WebSocketMessage | null>(null);
   
-  // Zustand 스토어 액션들
+  // Zustand store actions
   const {
     updatePluginStatus,
     setSystemHealth,
@@ -58,7 +58,7 @@ export const usePluginWebSocket = ({
         setConnectionError(null);
         reconnectAttemptsRef.current = 0;
         
-        // Ping 시작
+        // Start ping
         startPing();
       };
       
@@ -77,7 +77,7 @@ export const usePluginWebSocket = ({
         setIsConnected(false);
         stopPing();
         
-        // 자동 재연결
+        // Auto reconnect
         if (autoReconnect && reconnectAttemptsRef.current < maxReconnectAttempts) {
           scheduleReconnect();
         }
@@ -136,7 +136,7 @@ export const usePluginWebSocket = ({
           timestamp: new Date().toISOString()
         });
       }
-    }, 30000); // 30초마다 ping
+    }, 30000); // Ping every 30 seconds
   }, []);
 
   const stopPing = useCallback(() => {
@@ -157,9 +157,9 @@ export const usePluginWebSocket = ({
   const handleMessage = useCallback((message: WebSocketMessage) => {
     switch (message.type) {
       case 'initial_state':
-        // 초기 상태 처리
+        // Handle initial state
         if (message.data?.plugins) {
-          // 플러그인 목록 업데이트는 스토어에서 처리
+          // Plugin list update is handled in store
         }
         if (message.data?.system_health) {
           setSystemHealth(message.data.system_health);
@@ -167,24 +167,24 @@ export const usePluginWebSocket = ({
         break;
         
       case 'plugin_status_update':
-        // 플러그인 상태 업데이트
+        // Plugin status update
         if (message.data?.plugin_id && message.data?.status) {
           updatePluginStatus(message.data.plugin_id, message.data.status);
         }
         break;
         
       case 'plugin_execution_started':
-        // 플러그인 실행 시작
+        // Plugin execution started
         console.log('Plugin execution started:', message.data);
         break;
         
       case 'plugin_execution_progress':
-        // 플러그인 실행 진행
+        // Plugin execution progress
         console.log('Plugin execution progress:', message.data);
         break;
         
       case 'plugin_execution_completed':
-        // 플러그인 실행 완료
+        // Plugin execution completed
         if (message.data?.plugin_id) {
           addExecutionResult(message.data.plugin_id, {
             success: true,
@@ -196,7 +196,7 @@ export const usePluginWebSocket = ({
         break;
         
       case 'plugin_execution_failed':
-        // 플러그인 실행 실패
+        // Plugin execution failed
         if (message.data?.plugin_id) {
           addExecutionResult(message.data.plugin_id, {
             success: false,
@@ -208,21 +208,21 @@ export const usePluginWebSocket = ({
         break;
         
       case 'real_time_metrics':
-        // 실시간 메트릭 업데이트
+        // Real-time metrics update
         console.log('Real-time metrics:', message.data);
         break;
         
       case 'cache_stats':
-        // 캐시 통계 업데이트
+        // Cache stats update
         console.log('Cache stats:', message.data);
         break;
         
       case 'pong':
-        // Ping-Pong 응답
+        // Ping-Pong response
         break;
         
       case 'error':
-        // 에러 메시지
+        // Error message
         console.error('WebSocket error message:', message.message);
         setError(message.message || 'WebSocket error');
         break;
@@ -232,7 +232,7 @@ export const usePluginWebSocket = ({
     }
   }, [updatePluginStatus, setSystemHealth, addExecutionResult, setError]);
 
-  // 플러그인 구독
+  // Subscribe to plugin
   const subscribeToPlugin = useCallback((pluginId: string) => {
     sendMessage({
       type: 'subscribe_plugin',
@@ -240,7 +240,7 @@ export const usePluginWebSocket = ({
     });
   }, [sendMessage]);
 
-  // 플러그인 구독 해제
+  // Unsubscribe from plugin
   const unsubscribeFromPlugin = useCallback((pluginId: string) => {
     sendMessage({
       type: 'unsubscribe_plugin',
@@ -248,21 +248,21 @@ export const usePluginWebSocket = ({
     });
   }, [sendMessage]);
 
-  // 실시간 메트릭 요청
+  // Request real-time metrics
   const requestRealTimeMetrics = useCallback(() => {
     sendMessage({
       type: 'get_real_time_metrics'
     });
   }, [sendMessage]);
 
-  // 캐시 통계 요청
+  // Request cache stats
   const requestCacheStats = useCallback(() => {
     sendMessage({
       type: 'get_cache_stats'
     });
   }, [sendMessage]);
 
-  // 컴포넌트 마운트/언마운트 시 연결 관리
+  // Manage connection on component mount/unmount
   useEffect(() => {
     connect();
     
@@ -271,14 +271,14 @@ export const usePluginWebSocket = ({
     };
   }, [connect, disconnect]);
 
-  // 페이지 가시성 변경 시 연결 관리
+  // Manage connection on page visibility change
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        // 페이지가 숨겨졌을 때 ping 중지
+        // Stop ping when page is hidden
         stopPing();
       } else {
-        // 페이지가 다시 보일 때 연결 확인 및 ping 재시작
+        // Check connection and restart ping when page is visible again
         if (isConnected) {
           startPing();
         } else {

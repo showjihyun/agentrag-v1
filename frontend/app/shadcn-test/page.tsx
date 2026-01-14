@@ -23,17 +23,17 @@ export default function ShadcnTestPage() {
     <div className="min-h-screen bg-background">
       <div className="container mx-auto p-6 space-y-8">
         <div className="text-center space-y-2">
-          <h1 className="text-4xl font-bold tracking-tight">shadcn/ui 스타일 테스트</h1>
+          <h1 className="text-4xl font-bold tracking-tight">shadcn/ui Style Test</h1>
           <p className="text-muted-foreground text-lg">
-            모든 컴포넌트가 제대로 스타일링되어 있는지 확인합니다
+            Verify that all components are properly styled
           </p>
         </div>
 
         {/* Button Variants */}
         <Card>
           <CardHeader>
-            <CardTitle>Button 컴포넌트</CardTitle>
-            <CardDescription>다양한 버튼 스타일과 크기</CardDescription>
+            <CardTitle>Button Component</CardTitle>
+            <CardDescription>Various button styles and sizes</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-wrap gap-2">
@@ -115,8 +115,8 @@ export default function ShadcnTestPage() {
         {/* Form Elements */}
         <Card>
           <CardHeader>
-            <CardTitle>Form 컴포넌트</CardTitle>
-            <CardDescription>입력 필드와 폼 요소들</CardDescription>
+            <CardTitle>Form Component</CardTitle>
+            <CardDescription>Input fields and form elements</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -135,8 +135,8 @@ export default function ShadcnTestPage() {
         {/* Status Indicators */}
         <Card>
           <CardHeader>
-            <CardTitle>상태 표시</CardTitle>
-            <CardDescription>다양한 상태를 나타내는 아이콘과 색상</CardDescription>
+            <CardTitle>Status Indicators</CardTitle>
+            <CardDescription>Icons and colors representing various states</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -163,8 +163,8 @@ export default function ShadcnTestPage() {
         {/* Left Menu Simulation */}
         <Card>
           <CardHeader>
-            <CardTitle>Left Menu 시뮬레이션</CardTitle>
-            <CardDescription>Agent Builder의 사이드바 스타일 테스트</CardDescription>
+            <CardTitle>Left Menu Simulation</CardTitle>
+            <CardDescription>Agent Builder sidebar style test</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex h-80 border rounded-lg overflow-hidden">
@@ -210,22 +210,22 @@ export default function ShadcnTestPage() {
               
               {/* Main Content */}
               <div className="flex-1 bg-background p-6">
-                <h3 className="text-xl font-semibold mb-4">메인 콘텐츠 영역</h3>
+                <h3 className="text-xl font-semibold mb-4">Main Content Area</h3>
                 <p className="text-muted-foreground">
-                  사이드바가 제대로 스타일링되어 있다면 shadcn/ui가 정상적으로 작동하는 것입니다.
+                  If the sidebar is properly styled, shadcn/ui is working correctly.
                 </p>
                 <div className="mt-4 space-y-2">
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4 text-green-600" />
-                    <span className="text-sm">Button 호버 효과</span>
+                    <span className="text-sm">Button hover effect</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4 text-green-600" />
-                    <span className="text-sm">적절한 색상 변수</span>
+                    <span className="text-sm">Proper color variables</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4 text-green-600" />
-                    <span className="text-sm">반응형 레이아웃</span>
+                    <span className="text-sm">Responsive layout</span>
                   </div>
                 </div>
               </div>
@@ -240,10 +240,10 @@ export default function ShadcnTestPage() {
               <CheckCircle2 className="h-6 w-6 text-green-600" />
               <div>
                 <h3 className="font-semibold text-green-800 dark:text-green-400">
-                  shadcn/ui 스타일 복구 완료!
+                  shadcn/ui Style Restoration Complete!
                 </h3>
                 <p className="text-green-700 dark:text-green-300 text-sm">
-                  모든 컴포넌트가 제대로 스타일링되어 있습니다. Left Menu도 정상적으로 표시될 것입니다.
+                  All components are properly styled. The Left Menu will also display correctly.
                 </p>
               </div>
             </div>
