@@ -251,7 +251,7 @@ export const OptimizationSettings: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* 검증 오류 표시 */}
+      {/* Validation Errors Display */}
       {validationErrors.length > 0 && (
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
@@ -556,20 +556,20 @@ export const OptimizationSettings: React.FC<Props> = ({
           </Card>
         </TabsContent>
 
-        {/* 비용 최적화 설정 */}
+        {/* Cost Optimization Settings */}
         <TabsContent value="cost-optimization" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <DollarSign className="w-5 h-5" />
-                비용 최적화
+                Cost Optimization
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <Label className="text-base font-medium">비용 최적화 활성화</Label>
-                  <p className="text-sm text-gray-600">워크플로우 실행 비용을 자동으로 최적화합니다.</p>
+                  <Label className="text-base font-medium">Enable Cost Optimization</Label>
+                  <p className="text-sm text-gray-600">Automatically optimize workflow execution costs.</p>
                 </div>
                 <Switch
                   checked={settings.costOptimization.enabled}
@@ -585,7 +585,7 @@ export const OptimizationSettings: React.FC<Props> = ({
                 >
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label>최적화 전략</Label>
+                      <Label>Optimization Strategy</Label>
                       <Select
                         value={settings.costOptimization.strategy}
                         onValueChange={(value) => updateSettings('costOptimization.strategy', value)}
@@ -594,15 +594,15 @@ export const OptimizationSettings: React.FC<Props> = ({
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="conservative">보수적</SelectItem>
-                          <SelectItem value="balanced">균형</SelectItem>
-                          <SelectItem value="aggressive">적극적</SelectItem>
+                          <SelectItem value="conservative">Conservative</SelectItem>
+                          <SelectItem value="balanced">Balanced</SelectItem>
+                          <SelectItem value="aggressive">Aggressive</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
 
                     <div>
-                      <Label>최대 월간 비용 ($)</Label>
+                      <Label>Maximum Monthly Cost ($)</Label>
                       <Input
                         type="number"
                         value={settings.costOptimization.maxMonthlyCost}
@@ -613,7 +613,7 @@ export const OptimizationSettings: React.FC<Props> = ({
                   </div>
 
                   <div>
-                    <Label>비용 증가 알림 임계값: {(settings.costOptimization.costIncreaseAlertThreshold * 100).toFixed(0)}%</Label>
+                    <Label>Cost Increase Alert Threshold: {(settings.costOptimization.costIncreaseAlertThreshold * 100).toFixed(0)}%</Label>
                     <Slider
                       value={[settings.costOptimization.costIncreaseAlertThreshold * 100]}
                       onValueChange={([value]) => updateSettings('costOptimization.costIncreaseAlertThreshold', value / 100)}
@@ -626,8 +626,8 @@ export const OptimizationSettings: React.FC<Props> = ({
 
                   <div className="flex items-center justify-between">
                     <div>
-                      <Label className="text-base font-medium">저위험 최적화 자동 적용</Label>
-                      <p className="text-sm text-gray-600">위험도가 낮은 비용 최적화를 자동으로 적용합니다.</p>
+                      <Label className="text-base font-medium">Auto-Apply Low-Risk Optimizations</Label>
+                      <p className="text-sm text-gray-600">Automatically apply low-risk cost optimizations.</p>
                     </div>
                     <Switch
                       checked={settings.costOptimization.autoImplementLowRisk}
@@ -640,21 +640,21 @@ export const OptimizationSettings: React.FC<Props> = ({
           </Card>
         </TabsContent>
 
-        {/* 알림 설정 */}
+        {/* Notification Settings */}
         <TabsContent value="notifications" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Shield className="w-5 h-5" />
-                알림 설정
+                Notification Settings
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label className="text-base font-medium">이메일 알림</Label>
-                    <p className="text-sm text-gray-600">이메일로 최적화 알림을 받습니다.</p>
+                    <Label className="text-base font-medium">Email Notifications</Label>
+                    <p className="text-sm text-gray-600">Receive optimization notifications via email.</p>
                   </div>
                   <Switch
                     checked={settings.notifications.emailEnabled}
@@ -664,8 +664,8 @@ export const OptimizationSettings: React.FC<Props> = ({
 
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label className="text-base font-medium">Slack 알림</Label>
-                    <p className="text-sm text-gray-600">Slack으로 최적화 알림을 받습니다.</p>
+                    <Label className="text-base font-medium">Slack Notifications</Label>
+                    <p className="text-sm text-gray-600">Receive optimization notifications via Slack.</p>
                   </div>
                   <Switch
                     checked={settings.notifications.slackEnabled}
@@ -675,8 +675,8 @@ export const OptimizationSettings: React.FC<Props> = ({
 
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label className="text-base font-medium">임계값 위반 알림</Label>
-                    <p className="text-sm text-gray-600">성능 임계값 위반 시 알림을 받습니다.</p>
+                    <Label className="text-base font-medium">Threshold Violation Alerts</Label>
+                    <p className="text-sm text-gray-600">Receive alerts when performance thresholds are violated.</p>
                   </div>
                   <Switch
                     checked={settings.notifications.thresholdViolations}
@@ -686,8 +686,8 @@ export const OptimizationSettings: React.FC<Props> = ({
 
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label className="text-base font-medium">최적화 결과 알림</Label>
-                    <p className="text-sm text-gray-600">최적화 완료 시 결과를 알림으로 받습니다.</p>
+                    <Label className="text-base font-medium">Optimization Results</Label>
+                    <p className="text-sm text-gray-600">Receive notifications when optimization completes.</p>
                   </div>
                   <Switch
                     checked={settings.notifications.optimizationResults}
@@ -697,8 +697,8 @@ export const OptimizationSettings: React.FC<Props> = ({
 
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label className="text-base font-medium">주간 리포트</Label>
-                    <p className="text-sm text-gray-600">주간 최적화 성과 리포트를 받습니다.</p>
+                    <Label className="text-base font-medium">Weekly Reports</Label>
+                    <p className="text-sm text-gray-600">Receive weekly optimization performance reports.</p>
                   </div>
                   <Switch
                     checked={settings.notifications.weeklyReports}
@@ -711,12 +711,12 @@ export const OptimizationSettings: React.FC<Props> = ({
         </TabsContent>
       </Tabs>
 
-      {/* 변경사항 알림 */}
+      {/* Changes Alert */}
       {hasChanges && (
         <Alert>
           <Info className="h-4 w-4" />
           <AlertDescription>
-            설정이 변경되었습니다. 저장 버튼을 클릭하여 변경사항을 적용하세요.
+            Settings have been changed. Click the Save button to apply your changes.
           </AlertDescription>
         </Alert>
       )}

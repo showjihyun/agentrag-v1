@@ -179,22 +179,22 @@ export function AgentMetricsDashboard({
       {/* Controls */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <h3 className="text-lg font-semibold">성능 메트릭</h3>
+          <h3 className="text-lg font-semibold">Performance Metrics</h3>
           <Select value={selectedTimeRange} onValueChange={(value) => setSelectedTimeRange(value as typeof selectedTimeRange)}>
             <SelectTrigger className="w-32">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="24h">24시간</SelectItem>
-              <SelectItem value="7d">7일</SelectItem>
-              <SelectItem value="30d">30일</SelectItem>
-              <SelectItem value="90d">90일</SelectItem>
+              <SelectItem value="24h">24 Hours</SelectItem>
+              <SelectItem value="7d">7 Days</SelectItem>
+              <SelectItem value="30d">30 Days</SelectItem>
+              <SelectItem value="90d">90 Days</SelectItem>
             </SelectContent>
           </Select>
         </div>
         <Button variant="outline" size="sm" onClick={() => refetch()}>
           <RefreshCw className="h-4 w-4 mr-2" />
-          새로고침
+          Refresh
         </Button>
       </div>
 
@@ -202,7 +202,7 @@ export function AgentMetricsDashboard({
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">총 실행 횟수</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Executions</CardTitle>
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -211,14 +211,14 @@ export function AgentMetricsDashboard({
             </div>
             <div className="flex items-center text-xs text-muted-foreground">
               <TrendingUp className="h-3 w-3 mr-1 text-green-500" />
-              +12% 지난 주 대비
+              +12% vs last week
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">성공률</CardTitle>
+            <CardTitle className="text-sm font-medium">Success Rate</CardTitle>
             <CheckCircle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -228,14 +228,14 @@ export function AgentMetricsDashboard({
             <Progress value={metrics && 'success_rate' in metrics ? metrics.success_rate : (metrics && 'avg_success_rate' in metrics ? metrics.avg_success_rate : 0)} className="mt-2" />
             <div className="flex items-center text-xs text-muted-foreground mt-1">
               <TrendingUp className="h-3 w-3 mr-1 text-green-500" />
-              +2.1% 지난 주 대비
+              +2.1% vs last week
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">평균 실행 시간</CardTitle>
+            <CardTitle className="text-sm font-medium">Avg Execution Time</CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -246,14 +246,14 @@ export function AgentMetricsDashboard({
             </div>
             <div className="flex items-center text-xs text-muted-foreground">
               <TrendingDown className="h-3 w-3 mr-1 text-green-500" />
-              -5.2% 지난 주 대비
+              -5.2% vs last week
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">토큰 사용량</CardTitle>
+            <CardTitle className="text-sm font-medium">Token Usage</CardTitle>
             <Zap className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -264,7 +264,7 @@ export function AgentMetricsDashboard({
             </div>
             <div className="flex items-center text-xs text-muted-foreground">
               <TrendingUp className="h-3 w-3 mr-1 text-orange-500" />
-              +8.3% 지난 주 대비
+              +8.3% vs last week
             </div>
           </CardContent>
         </Card>
@@ -273,10 +273,10 @@ export function AgentMetricsDashboard({
       {/* Charts */}
       <Tabs defaultValue="performance" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="performance">성능 추이</TabsTrigger>
-          <TabsTrigger value="usage">사용량 분석</TabsTrigger>
-          <TabsTrigger value="errors">오류 분석</TabsTrigger>
-          <TabsTrigger value="comparison">비교 분석</TabsTrigger>
+          <TabsTrigger value="performance">Performance Trend</TabsTrigger>
+          <TabsTrigger value="usage">Usage Analysis</TabsTrigger>
+          <TabsTrigger value="errors">Error Analysis</TabsTrigger>
+          <TabsTrigger value="comparison">Comparison</TabsTrigger>
         </TabsList>
 
         <TabsContent value="performance" className="space-y-4">
@@ -284,18 +284,18 @@ export function AgentMetricsDashboard({
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle>성능 추이</CardTitle>
-                  <CardDescription>시간별 실행 성능 변화</CardDescription>
+                  <CardTitle>Performance Trend</CardTitle>
+                  <CardDescription>Execution performance changes over time</CardDescription>
                 </div>
                 <Select value={selectedMetric} onValueChange={(value: any) => setSelectedMetric(value)}>
                   <SelectTrigger className="w-40">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="executions">실행 횟수</SelectItem>
-                    <SelectItem value="success_rate">성공률</SelectItem>
-                    <SelectItem value="avg_time">평균 시간</SelectItem>
-                    <SelectItem value="tokens">토큰 사용량</SelectItem>
+                    <SelectItem value="executions">Executions</SelectItem>
+                    <SelectItem value="success_rate">Success Rate</SelectItem>
+                    <SelectItem value="avg_time">Avg Time</SelectItem>
+                    <SelectItem value="tokens">Token Usage</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -324,8 +324,8 @@ export function AgentMetricsDashboard({
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <Card>
               <CardHeader>
-                <CardTitle>시간대별 사용량</CardTitle>
-                <CardDescription>24시간 기준 사용 패턴</CardDescription>
+                <CardTitle>Usage by Time</CardTitle>
+                <CardDescription>Usage pattern over 24 hours</CardDescription>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={250}>
@@ -342,16 +342,16 @@ export function AgentMetricsDashboard({
 
             <Card>
               <CardHeader>
-                <CardTitle>실행 결과 분포</CardTitle>
-                <CardDescription>성공/실패 비율</CardDescription>
+                <CardTitle>Execution Results</CardTitle>
+                <CardDescription>Success/Failure ratio</CardDescription>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={250}>
                   <PieChart>
                     <Pie
                       data={[
-                        { name: '성공', value: (metrics && 'successful_runs' in metrics ? metrics.successful_runs : 0), fill: '#82ca9d' },
-                        { name: '실패', value: (metrics && 'failed_runs' in metrics ? metrics.failed_runs : 0), fill: '#ff7300' },
+                        { name: 'Success', value: (metrics && 'successful_runs' in metrics ? metrics.successful_runs : 0), fill: '#82ca9d' },
+                        { name: 'Failed', value: (metrics && 'failed_runs' in metrics ? metrics.failed_runs : 0), fill: '#ff7300' },
                       ]}
                       cx="50%"
                       cy="50%"
@@ -360,8 +360,8 @@ export function AgentMetricsDashboard({
                       label
                     >
                       {[
-                        { name: '성공', value: (metrics && 'successful_runs' in metrics ? metrics.successful_runs : 0) },
-                        { name: '실패', value: (metrics && 'failed_runs' in metrics ? metrics.failed_runs : 0) },
+                        { name: 'Success', value: (metrics && 'successful_runs' in metrics ? metrics.successful_runs : 0) },
+                        { name: 'Failed', value: (metrics && 'failed_runs' in metrics ? metrics.failed_runs : 0) },
                       ].map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
@@ -377,8 +377,8 @@ export function AgentMetricsDashboard({
         <TabsContent value="errors" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>오류 분석</CardTitle>
-              <CardDescription>오류 발생 패턴 및 유형</CardDescription>
+              <CardTitle>Error Analysis</CardTitle>
+              <CardDescription>Error patterns and types</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -386,22 +386,22 @@ export function AgentMetricsDashboard({
                   <div className="flex items-center gap-3 p-3 border rounded-lg">
                     <AlertTriangle className="h-8 w-8 text-red-500" />
                     <div>
-                      <p className="font-medium">타임아웃 오류</p>
-                      <p className="text-sm text-muted-foreground">3건</p>
+                      <p className="font-medium">Timeout Errors</p>
+                      <p className="text-sm text-muted-foreground">3 cases</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 p-3 border rounded-lg">
                     <XCircle className="h-8 w-8 text-orange-500" />
                     <div>
-                      <p className="font-medium">API 오류</p>
-                      <p className="text-sm text-muted-foreground">1건</p>
+                      <p className="font-medium">API Errors</p>
+                      <p className="text-sm text-muted-foreground">1 case</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 p-3 border rounded-lg">
                     <AlertTriangle className="h-8 w-8 text-yellow-500" />
                     <div>
-                      <p className="font-medium">검증 오류</p>
-                      <p className="text-sm text-muted-foreground">2건</p>
+                      <p className="font-medium">Validation Errors</p>
+                      <p className="text-sm text-muted-foreground">2 cases</p>
                     </div>
                   </div>
                 </div>
@@ -416,7 +416,7 @@ export function AgentMetricsDashboard({
                       type="monotone" 
                       dataKey="success_rate" 
                       stroke="#82ca9d" 
-                      name="성공률"
+                      name="Success Rate"
                     />
                   </LineChart>
                 </ResponsiveContainer>
@@ -428,35 +428,35 @@ export function AgentMetricsDashboard({
         <TabsContent value="comparison" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>에이전트 비교</CardTitle>
-              <CardDescription>다른 에이전트와의 성능 비교</CardDescription>
+              <CardTitle>Agent Comparison</CardTitle>
+              <CardDescription>Performance comparison with other agents</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 <p className="text-sm text-muted-foreground">
-                  현재 에이전트의 성능을 다른 에이전트들과 비교합니다.
+                  Compare the current agent&apos;s performance with other agents.
                 </p>
                 
                 <div className="space-y-3">
                   <div className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex items-center gap-3">
-                      <Badge variant="outline">현재</Badge>
-                      <span className="font-medium">{String(metrics && 'agent_name' in metrics ? metrics.agent_name : '현재 에이전트')}</span>
+                      <Badge variant="outline">Current</Badge>
+                      <span className="font-medium">{String(metrics && 'agent_name' in metrics ? metrics.agent_name : 'Current Agent')}</span>
                     </div>
                     <div className="flex items-center gap-4 text-sm">
-                      <span>성공률: {(metrics && 'success_rate' in metrics ? metrics.success_rate : (metrics && 'avg_success_rate' in metrics ? metrics.avg_success_rate : 0))}%</span>
-                      <span>평균 시간: {(metrics && 'avg_duration_ms' in metrics ? metrics.avg_duration_ms : (metrics && 'avg_execution_time' in metrics ? metrics.avg_execution_time : 0)) ? `${((metrics && 'avg_duration_ms' in metrics ? (metrics.avg_duration_ms || 0) : (metrics && 'avg_execution_time' in metrics ? (metrics.avg_execution_time || 0) : 0)) / 1000).toFixed(1)}s` : '0s'}</span>
+                      <span>Success Rate: {(metrics && 'success_rate' in metrics ? metrics.success_rate : (metrics && 'avg_success_rate' in metrics ? metrics.avg_success_rate : 0))}%</span>
+                      <span>Avg Time: {(metrics && 'avg_duration_ms' in metrics ? metrics.avg_duration_ms : (metrics && 'avg_execution_time' in metrics ? metrics.avg_execution_time : 0)) ? `${((metrics && 'avg_duration_ms' in metrics ? (metrics.avg_duration_ms || 0) : (metrics && 'avg_execution_time' in metrics ? (metrics.avg_execution_time || 0) : 0)) / 1000).toFixed(1)}s` : '0s'}</span>
                     </div>
                   </div>
                   
                   <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/50">
                     <div className="flex items-center gap-3">
-                      <Badge variant="secondary">평균</Badge>
-                      <span className="font-medium">전체 에이전트 평균</span>
+                      <Badge variant="secondary">Average</Badge>
+                      <span className="font-medium">All Agents Average</span>
                     </div>
                     <div className="flex items-center gap-4 text-sm">
-                      <span>성공률: 87.3%</span>
-                      <span>평균 시간: 2.1s</span>
+                      <span>Success Rate: 87.3%</span>
+                      <span>Avg Time: 2.1s</span>
                     </div>
                   </div>
                 </div>

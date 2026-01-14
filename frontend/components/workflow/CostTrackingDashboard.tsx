@@ -167,9 +167,9 @@ export const CostTrackingDashboard: React.FC<CostTrackingDashboardProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold">비용 & 토큰 추적</h2>
+          <h2 className="text-xl font-bold">Cost & Token Tracking</h2>
           <p className="text-sm text-muted-foreground">
-            마지막 업데이트: {lastUpdated.toLocaleTimeString()}
+            Last updated: {lastUpdated.toLocaleTimeString()}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -179,10 +179,10 @@ export const CostTrackingDashboard: React.FC<CostTrackingDashboardProps> = ({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="7">7일</SelectItem>
-              <SelectItem value="30">30일</SelectItem>
-              <SelectItem value="90">90일</SelectItem>
-              <SelectItem value="365">1년</SelectItem>
+              <SelectItem value="7">7 days</SelectItem>
+              <SelectItem value="30">30 days</SelectItem>
+              <SelectItem value="90">90 days</SelectItem>
+              <SelectItem value="365">1 year</SelectItem>
             </SelectContent>
           </Select>
           <Button size="sm" variant="outline" onClick={fetchData} disabled={loading}>
@@ -196,10 +196,10 @@ export const CostTrackingDashboard: React.FC<CostTrackingDashboardProps> = ({
         <div className="bg-white rounded-lg border p-4 hover:shadow-md transition-shadow">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-sm text-gray-500">총 비용</p>
+              <p className="text-sm text-gray-500">Total Cost</p>
               <p className="text-2xl font-bold mt-1">{formatCost(summary.total_cost_usd)}</p>
               <p className="text-xs text-muted-foreground mt-1">
-                {summary.request_count}회 요청
+                {summary.request_count} requests
               </p>
             </div>
             <div className="p-2 rounded-lg bg-green-100">
@@ -211,11 +211,11 @@ export const CostTrackingDashboard: React.FC<CostTrackingDashboardProps> = ({
         <div className="bg-white rounded-lg border p-4 hover:shadow-md transition-shadow">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-sm text-gray-500">총 토큰</p>
+              <p className="text-sm text-gray-500">Total Tokens</p>
               <p className="text-2xl font-bold mt-1">{formatNumber(summary.total_tokens)}</p>
               <div className="flex gap-2 mt-1">
-                <span className="text-xs text-blue-600">입력: {formatNumber(summary.total_input_tokens)}</span>
-                <span className="text-xs text-purple-600">출력: {formatNumber(summary.total_output_tokens)}</span>
+                <span className="text-xs text-blue-600">Input: {formatNumber(summary.total_input_tokens)}</span>
+                <span className="text-xs text-purple-600">Output: {formatNumber(summary.total_output_tokens)}</span>
               </div>
             </div>
             <div className="p-2 rounded-lg bg-blue-100">
@@ -227,7 +227,7 @@ export const CostTrackingDashboard: React.FC<CostTrackingDashboardProps> = ({
         <div className="bg-white rounded-lg border p-4 hover:shadow-md transition-shadow">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-sm text-gray-500">평균 토큰/요청</p>
+              <p className="text-sm text-gray-500">Avg Tokens/Request</p>
               <p className="text-2xl font-bold mt-1">{formatNumber(summary.avg_tokens_per_request)}</p>
             </div>
             <div className="p-2 rounded-lg bg-purple-100">
@@ -239,7 +239,7 @@ export const CostTrackingDashboard: React.FC<CostTrackingDashboardProps> = ({
         <div className="bg-white rounded-lg border p-4 hover:shadow-md transition-shadow">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-sm text-gray-500">평균 비용/요청</p>
+              <p className="text-sm text-gray-500">Avg Cost/Request</p>
               <p className="text-2xl font-bold mt-1">{formatCost(summary.avg_cost_per_request)}</p>
             </div>
             <div className="p-2 rounded-lg bg-orange-100">
@@ -256,7 +256,7 @@ export const CostTrackingDashboard: React.FC<CostTrackingDashboardProps> = ({
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Cpu className="h-5 w-5 text-blue-500" />
-              <h3 className="font-semibold">모델별 사용량</h3>
+              <h3 className="font-semibold">Usage by Model</h3>
             </div>
           </div>
           
@@ -284,15 +284,15 @@ export const CostTrackingDashboard: React.FC<CostTrackingDashboardProps> = ({
                     </span>
                   </div>
                   <div className="flex gap-4 text-xs text-muted-foreground">
-                    <span>{formatNumber(model.total_tokens)} 토큰</span>
-                    <span>{model.request_count}회</span>
+                    <span>{formatNumber(model.total_tokens)} tokens</span>
+                    <span>{model.request_count} requests</span>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
             <p className="text-center text-muted-foreground py-8">
-              사용 데이터가 없습니다
+              No usage data available
             </p>
           )}
         </div>
@@ -302,7 +302,7 @@ export const CostTrackingDashboard: React.FC<CostTrackingDashboardProps> = ({
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-green-500" />
-              <h3 className="font-semibold">일별 추이</h3>
+              <h3 className="font-semibold">Daily Trend</h3>
             </div>
           </div>
           
@@ -340,15 +340,15 @@ export const CostTrackingDashboard: React.FC<CostTrackingDashboardProps> = ({
               
               {/* Summary */}
               <div className="flex justify-between text-sm pt-2 border-t">
-                <span className="text-muted-foreground">최근 {data.daily_usage.length}일</span>
+                <span className="text-muted-foreground">Last {data.daily_usage.length} days</span>
                 <span className="font-medium">
-                  총 {formatCost(data.daily_usage.reduce((sum, d) => sum + d.cost_usd, 0))}
+                  Total {formatCost(data.daily_usage.reduce((sum, d) => sum + d.cost_usd, 0))}
                 </span>
               </div>
             </div>
           ) : (
             <p className="text-center text-muted-foreground py-8">
-              일별 데이터가 없습니다
+              No daily data available
             </p>
           )}
         </div>
@@ -359,7 +359,7 @@ export const CostTrackingDashboard: React.FC<CostTrackingDashboardProps> = ({
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Clock className="h-5 w-5 text-gray-500" />
-            <h3 className="font-semibold">최근 사용 기록</h3>
+            <h3 className="font-semibold">Recent Usage Records</h3>
           </div>
         </div>
         
@@ -368,11 +368,11 @@ export const CostTrackingDashboard: React.FC<CostTrackingDashboardProps> = ({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b">
-                  <th className="text-left py-2 font-medium">시간</th>
-                  <th className="text-left py-2 font-medium">모델</th>
-                  <th className="text-right py-2 font-medium">입력</th>
-                  <th className="text-right py-2 font-medium">출력</th>
-                  <th className="text-right py-2 font-medium">비용</th>
+                  <th className="text-left py-2 font-medium">Time</th>
+                  <th className="text-left py-2 font-medium">Model</th>
+                  <th className="text-right py-2 font-medium">Input</th>
+                  <th className="text-right py-2 font-medium">Output</th>
+                  <th className="text-right py-2 font-medium">Cost</th>
                 </tr>
               </thead>
               <tbody>
@@ -403,7 +403,7 @@ export const CostTrackingDashboard: React.FC<CostTrackingDashboardProps> = ({
           </div>
         ) : (
           <p className="text-center text-muted-foreground py-8">
-            사용 기록이 없습니다
+            No usage records available
           </p>
         )}
       </div>

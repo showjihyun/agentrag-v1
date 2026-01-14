@@ -84,22 +84,22 @@ interface AgentSharingDialogProps {
 const PERMISSION_LEVELS = [
   {
     value: 'read',
-    label: '보기',
-    description: '에이전트 보기 및 실행',
+    label: 'View',
+    description: 'View and execute agent',
     icon: Eye,
     color: 'text-blue-600',
   },
   {
     value: 'write',
-    label: '편집',
-    description: '에이전트 수정 및 실행',
+    label: 'Edit',
+    description: 'Modify and execute agent',
     icon: Edit,
     color: 'text-green-600',
   },
   {
     value: 'admin',
-    label: '관리자',
-    description: '모든 권한 (삭제, 공유 관리)',
+    label: 'Admin',
+    description: 'All permissions (delete, manage sharing)',
     icon: Crown,
     color: 'text-purple-600',
   },
@@ -141,8 +141,8 @@ export function AgentSharingDialog({
       agentBuilderAPI.shareAgent(agentId, data),
     onSuccess: () => {
       toast({
-        title: '공유 완료',
-        description: '에이전트가 성공적으로 공유되었습니다',
+        title: 'Sharing Complete',
+        description: 'Agent has been shared successfully',
       });
       queryClient.invalidateQueries({ queryKey: ['agent-sharing', agentId] });
       setShareEmail('');
@@ -150,8 +150,8 @@ export function AgentSharingDialog({
     },
     onError: (error: any) => {
       toast({
-        title: '공유 실패',
-        description: error.message || '에이전트 공유에 실패했습니다',
+        title: 'Sharing Failed',
+        description: error.message || 'Failed to share agent',
         variant: 'destructive',
       });
     },
@@ -163,8 +163,8 @@ export function AgentSharingDialog({
       agentBuilderAPI.updateAgentPermission(agentId, data.userId, data.permission),
     onSuccess: () => {
       toast({
-        title: '권한 업데이트',
-        description: '사용자 권한이 업데이트되었습니다',
+        title: 'Permission Updated',
+        description: 'User permission has been updated',
       });
       queryClient.invalidateQueries({ queryKey: ['agent-sharing', agentId] });
     },
@@ -176,8 +176,8 @@ export function AgentSharingDialog({
       agentBuilderAPI.removeAgentPermission(agentId, userId),
     onSuccess: () => {
       toast({
-        title: '권한 제거',
-        description: '사용자 권한이 제거되었습니다',
+        title: 'Permission Removed',
+        description: 'User permission has been removed',
       });
       queryClient.invalidateQueries({ queryKey: ['agent-sharing', agentId] });
     },
@@ -189,8 +189,8 @@ export function AgentSharingDialog({
       agentBuilderAPI.updateAgent(agentId, { is_public: isPublic }),
     onSuccess: (_, isPublic) => {
       toast({
-        title: isPublic ? '공개 설정' : '비공개 설정',
-        description: `에이전트가 ${isPublic ? '공개' : '비공개'}로 설정되었습니다`,
+        title: isPublic ? 'Set to Public' : 'Set to Private',
+        description: `Agent has been set to ${isPublic ? 'public' : 'private'}`,
       });
       onVisibilityChange?.(isPublic);
     },
@@ -199,8 +199,8 @@ export function AgentSharingDialog({
   const handleShare = () => {
     if (!shareEmail) {
       toast({
-        title: '오류',
-        description: '이메일을 입력해주세요',
+        title: 'Error',
+        description: 'Please enter an email address',
         variant: 'destructive',
       });
       return;
@@ -224,13 +224,13 @@ export function AgentSharingDialog({
     try {
       await navigator.clipboard.writeText(shareLink);
       toast({
-        title: '링크 복사됨',
-        description: '공유 링크가 클립보드에 복사되었습니다',
+        title: 'Link Copied',
+        description: 'Share link has been copied to clipboard',
       });
     } catch (error) {
       toast({
-        title: '복사 실패',
-        description: '링크 복사에 실패했습니다',
+        title: 'Copy Failed',
+        description: 'Failed to copy link',
         variant: 'destructive',
       });
     }
@@ -252,7 +252,7 @@ export function AgentSharingDialog({
         {trigger || (
           <Button variant="outline" className="gap-2">
             <Share className="h-4 w-4" />
-            공유
+            Share
           </Button>
         )}
       </DialogTrigger>
@@ -260,10 +260,10 @@ export function AgentSharingDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Share className="h-5 w-5" />
-            {agentName} 공유
+            Share {agentName}
           </DialogTitle>
           <DialogDescription>
-            에이전트를 다른 사용자와 공유하고 권한을 관리하세요
+            Share the agent with other users and manage permissions
           </DialogDescription>
         </DialogHeader>
 
@@ -272,9 +272,9 @@ export function AgentSharingDialog({
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="space-y-1">
-                <Label className="text-base font-medium">공개 설정</Label>
+                <Label className="text-base font-medium">Public Setting</Label>
                 <p className="text-sm text-muted-foreground">
-                  모든 사용자가 이 에이전트를 검색하고 사용할 수 있습니다
+                  All users can search and use this agent
                 </p>
               </div>
               <Switch
@@ -289,11 +289,11 @@ export function AgentSharingDialog({
                 <div className="flex items-center gap-2 mb-2">
                   <Globe className="h-4 w-4 text-blue-600" />
                   <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                    공개 에이전트
+                    Public Agent
                   </span>
                 </div>
                 <p className="text-sm text-blue-700 dark:text-blue-300">
-                  이 에이전트는 모든 사용자에게 공개되어 있습니다
+                  This agent is public to all users
                 </p>
                 <Button
                   variant="outline"
@@ -302,7 +302,7 @@ export function AgentSharingDialog({
                   className="mt-2 gap-2"
                 >
                   <Link className="h-3 w-3" />
-                  공유 링크 복사
+                  Copy Share Link
                 </Button>
               </div>
             )}
@@ -313,15 +313,15 @@ export function AgentSharingDialog({
           {/* Direct Sharing */}
           <div className="space-y-4">
             <div>
-              <Label className="text-base font-medium">사용자 초대</Label>
+              <Label className="text-base font-medium">Invite User</Label>
               <p className="text-sm text-muted-foreground">
-                특정 사용자에게 에이전트 접근 권한을 부여하세요
+                Grant agent access permissions to specific users
               </p>
             </div>
 
             <div className="space-y-3">
               <div className="space-y-2">
-                <Label>사용자 이메일</Label>
+                <Label>User Email</Label>
                 <div className="relative">
                   <Input
                     placeholder="user@example.com"
@@ -333,11 +333,11 @@ export function AgentSharingDialog({
                     <div className="absolute top-full left-0 right-0 z-10 mt-1">
                       <Command className="border rounded-md shadow-md bg-background">
                         <CommandInput
-                          placeholder="사용자 검색..."
+                          placeholder="Search users..."
                           value={searchQuery}
                           onValueChange={setSearchQuery}
                         />
-                        <CommandEmpty>사용자를 찾을 수 없습니다</CommandEmpty>
+                        <CommandEmpty>No users found</CommandEmpty>
                         <CommandGroup>
                           {usersData?.users?.map((user: User) => (
                             <CommandItem
@@ -365,7 +365,7 @@ export function AgentSharingDialog({
               </div>
 
               <div className="space-y-2">
-                <Label>권한 수준</Label>
+                <Label>Permission Level</Label>
                 <Select value={sharePermission} onValueChange={(value: any) => setSharePermission(value)}>
                   <SelectTrigger>
                     <SelectValue />
@@ -390,9 +390,9 @@ export function AgentSharingDialog({
               </div>
 
               <div className="space-y-2">
-                <Label>메시지 (선택사항)</Label>
+                <Label>Message (Optional)</Label>
                 <Textarea
-                  placeholder="공유와 함께 보낼 메시지를 입력하세요..."
+                  placeholder="Enter a message to send with the share..."
                   value={shareMessage}
                   onChange={(e) => setShareMessage(e.target.value)}
                   rows={3}
@@ -405,7 +405,7 @@ export function AgentSharingDialog({
                 className="w-full gap-2"
               >
                 <UserPlus className="h-4 w-4" />
-                {shareAgentMutation.isPending ? '공유 중...' : '사용자 초대'}
+                {shareAgentMutation.isPending ? 'Sharing...' : 'Invite User'}
               </Button>
             </div>
           </div>
@@ -415,9 +415,9 @@ export function AgentSharingDialog({
           {/* Current Permissions */}
           <div className="space-y-4">
             <div>
-              <Label className="text-base font-medium">현재 공유 상태</Label>
+              <Label className="text-base font-medium">Current Sharing Status</Label>
               <p className="text-sm text-muted-foreground">
-                이 에이전트에 접근 권한이 있는 사용자들
+                Users who have access to this agent
               </p>
             </div>
 
@@ -490,7 +490,7 @@ export function AgentSharingDialog({
             ) : (
               <div className="text-center py-6 text-muted-foreground">
                 <Lock className="h-8 w-8 mx-auto mb-2" />
-                <p>아직 공유된 사용자가 없습니다</p>
+                <p>No users have been shared yet</p>
               </div>
             )}
           </div>

@@ -453,7 +453,7 @@ export function ImprovedBlockPalette({ onAddNode, executionLogs = [] }: BlockPal
                 </ScrollArea>
               </div>
               
-              {/* Tools List - 스크롤 가능한 영역 */}
+              {/* Tools List - Scrollable area */}
               <div className="flex-1 min-h-0">
                 <ScrollArea className="h-full">
                   <div 

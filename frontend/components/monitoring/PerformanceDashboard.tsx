@@ -1,6 +1,6 @@
 /**
  * Performance Dashboard Component
- * 실시간 성능 모니터링 대시보드
+ * Real-time performance monitoring dashboard
  */
 
 'use client';
@@ -113,7 +113,7 @@ interface PerformanceDashboardProps {
 }
 
 export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
-  refreshInterval = 30000, // 30초
+  refreshInterval = 30000, // 30 seconds
   autoRefresh = true
 }) => {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
@@ -122,7 +122,7 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
   const [selectedDuration, setSelectedDuration] = useState('60'); // minutes
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-  // 대시보드 데이터 조회
+  // Fetch dashboard data
   const fetchDashboardData = async () => {
     try {
       setError(null);
@@ -148,7 +148,7 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
     }
   };
 
-  // 초기 로드 및 자동 새로고침
+  // Initial load and auto refresh
   useEffect(() => {
     fetchDashboardData();
     
@@ -158,13 +158,13 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
     }
   }, [selectedDuration, autoRefresh, refreshInterval]);
 
-  // 수동 새로고침
+  // Manual refresh
   const handleRefresh = () => {
     setLoading(true);
     fetchDashboardData();
   };
 
-  // 메트릭 데이터를 차트 형식으로 변환
+  // Convert metric data to chart format
   const formatChartData = (points: MetricPoint[]) => {
     return points.map(point => ({
       timestamp: new Date(point.timestamp * 1000).toLocaleTimeString(),
@@ -173,7 +173,7 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
     }));
   };
 
-  // 알림 레벨별 색상
+  // Alert level colors
   const getAlertColor = (level: string) => {
     switch (level) {
       case 'critical': return 'text-red-600 bg-red-50 border-red-200';
@@ -184,7 +184,7 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
     }
   };
 
-  // 알림 아이콘
+  // Alert icons
   const getAlertIcon = (level: string) => {
     switch (level) {
       case 'critical': return <XCircle className="w-4 h-4" />;
@@ -195,7 +195,7 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
     }
   };
 
-  // 성능 상태 색상
+  // Performance status colors
   const getPerformanceColor = (value: number, thresholds: { warning: number; critical: number }) => {
     if (value >= thresholds.critical) return 'text-red-600';
     if (value >= thresholds.warning) return 'text-yellow-600';
@@ -207,7 +207,7 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
       <div className="flex items-center justify-center h-64">
         <div className="flex items-center gap-2">
           <RefreshCw className="w-5 h-5 animate-spin" />
-          <span>대시보드 데이터를 로드하는 중...</span>
+          <span>Loading dashboard data...</span>
         </div>
       </div>
     );
@@ -219,10 +219,10 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
         <CardContent className="pt-6">
           <div className="flex items-center gap-2 text-red-600">
             <AlertCircle className="w-5 h-5" />
-            <span>오류: {error}</span>
+            <span>Error: {error}</span>
           </div>
           <Button onClick={handleRefresh} className="mt-4" variant="outline">
-            다시 시도
+            Retry
           </Button>
         </CardContent>
       </Card>
@@ -234,7 +234,7 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
       <Card>
         <CardContent className="pt-6">
           <div className="text-center text-gray-500">
-            대시보드 데이터가 없습니다.
+            No dashboard data available.
           </div>
         </CardContent>
       </Card>
@@ -243,7 +243,7 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
 
   const { system_metrics, orchestration_metrics, current_status, alerts } = dashboardData;
 
-  // 패턴 사용량 차트 데이터
+  // Pattern usage chart data
   const patternUsageData = Object.entries(current_status.orchestration.pattern_usage).map(([pattern, count]) => ({
     name: pattern,
     value: count
@@ -253,12 +253,12 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* 헤더 */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">성능 모니터링 대시보드</h1>
+          <h1 className="text-2xl font-bold">Performance Monitoring Dashboard</h1>
           <p className="text-gray-600">
-            실시간 시스템 및 오케스트레이션 성능 모니터링
+            Real-time system and orchestration performance monitoring
           </p>
         </div>
         
@@ -268,37 +268,37 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="15">15분</SelectItem>
-              <SelectItem value="30">30분</SelectItem>
-              <SelectItem value="60">1시간</SelectItem>
-              <SelectItem value="180">3시간</SelectItem>
-              <SelectItem value="360">6시간</SelectItem>
-              <SelectItem value="720">12시간</SelectItem>
-              <SelectItem value="1440">24시간</SelectItem>
+              <SelectItem value="15">15 min</SelectItem>
+              <SelectItem value="30">30 min</SelectItem>
+              <SelectItem value="60">1 hour</SelectItem>
+              <SelectItem value="180">3 hours</SelectItem>
+              <SelectItem value="360">6 hours</SelectItem>
+              <SelectItem value="720">12 hours</SelectItem>
+              <SelectItem value="1440">24 hours</SelectItem>
             </SelectContent>
           </Select>
           
           <Button onClick={handleRefresh} disabled={loading} variant="outline">
             <RefreshCw className={cn("w-4 h-4 mr-2", loading && "animate-spin")} />
-            새로고침
+            Refresh
           </Button>
         </div>
       </div>
 
-      {/* 마지막 업데이트 시간 */}
+      {/* Last updated time */}
       {lastUpdated && (
         <div className="text-sm text-gray-500">
-          마지막 업데이트: {lastUpdated.toLocaleString()}
+          Last updated: {lastUpdated.toLocaleString()}
         </div>
       )}
 
-      {/* 활성 알림 */}
+      {/* Active alerts */}
       {alerts.length > 0 && (
         <Card className="border-yellow-200 bg-yellow-50">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-yellow-800">
               <AlertTriangle className="w-5 h-5" />
-              활성 알림 ({alerts.length}개)
+              Active Alerts ({alerts.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -315,7 +315,7 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
               ))}
               {alerts.length > 3 && (
                 <div className="text-sm text-gray-600">
-                  그 외 {alerts.length - 3}개의 알림이 더 있습니다.
+                  {alerts.length - 3} more alerts available.
                 </div>
               )}
             </div>
@@ -323,13 +323,13 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
         </Card>
       )}
 
-      {/* 현재 상태 요약 */}
+      {/* Current status summary */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">CPU 사용률</p>
+                <p className="text-sm font-medium text-gray-600">CPU Usage</p>
                 <p className={cn("text-2xl font-bold", getPerformanceColor(current_status.system.cpu_percent, { warning: 70, critical: 85 }))}>
                   {current_status.system.cpu_percent.toFixed(1)}%
                 </p>
@@ -344,7 +344,7 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">메모리 사용률</p>
+                <p className="text-sm font-medium text-gray-600">Memory Usage</p>
                 <p className={cn("text-2xl font-bold", getPerformanceColor(current_status.system.memory_percent, { warning: 75, critical: 90 }))}>
                   {current_status.system.memory_percent.toFixed(1)}%
                 </p>
@@ -359,7 +359,7 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">활성 실행</p>
+                <p className="text-sm font-medium text-gray-600">Active Executions</p>
                 <p className="text-2xl font-bold text-purple-600">
                   {current_status.orchestration.current_active_executions}
                 </p>
@@ -367,7 +367,7 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
               <Activity className="w-8 h-8 text-purple-600" />
             </div>
             <p className="text-sm text-gray-500 mt-2">
-              총 {current_status.orchestration.total_executions}회 실행
+              Total {current_status.orchestration.total_executions} executions
             </p>
           </CardContent>
         </Card>
@@ -376,7 +376,7 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">캐시 히트율</p>
+                <p className="text-sm font-medium text-gray-600">Cache Hit Rate</p>
                 <p className="text-2xl font-bold text-orange-600">
                   {(current_status.orchestration.cache_hit_rate * 100).toFixed(1)}%
                 </p>
@@ -388,12 +388,12 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
         </Card>
       </div>
 
-      {/* 상세 메트릭 탭 */}
+      {/* Detailed metrics tabs */}
       <Tabs defaultValue="system" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="system">시스템 메트릭</TabsTrigger>
-          <TabsTrigger value="orchestration">오케스트레이션 메트릭</TabsTrigger>
-          <TabsTrigger value="patterns">패턴 사용량</TabsTrigger>
+          <TabsTrigger value="system">System Metrics</TabsTrigger>
+          <TabsTrigger value="orchestration">Orchestration Metrics</TabsTrigger>
+          <TabsTrigger value="patterns">Pattern Usage</TabsTrigger>
         </TabsList>
 
         <TabsContent value="system" className="space-y-4">
@@ -402,7 +402,7 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Cpu className="w-5 h-5" />
-                  CPU 사용률
+                  CPU Usage
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -411,7 +411,7 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="timestamp" />
                     <YAxis domain={[0, 100]} />
-                    <Tooltip formatter={(value) => [`${Number(value).toFixed(1)}%`, 'CPU 사용률']} />
+                    <Tooltip formatter={(value) => [`${Number(value).toFixed(1)}%`, 'CPU Usage']} />
                     <Line type="monotone" dataKey="value" stroke="#3B82F6" strokeWidth={2} />
                   </LineChart>
                 </ResponsiveContainer>
@@ -422,7 +422,7 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <MemoryStick className="w-5 h-5" />
-                  메모리 사용률
+                  Memory Usage
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -431,7 +431,7 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="timestamp" />
                     <YAxis domain={[0, 100]} />
-                    <Tooltip formatter={(value) => [`${Number(value).toFixed(1)}%`, '메모리 사용률']} />
+                    <Tooltip formatter={(value) => [`${Number(value).toFixed(1)}%`, 'Memory Usage']} />
                     <Area type="monotone" dataKey="value" stroke="#10B981" fill="#10B981" fillOpacity={0.3} />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -446,7 +446,7 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <TrendingUp className="w-5 h-5" />
-                  성공률
+                  Success Rate
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -455,7 +455,7 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="timestamp" />
                     <YAxis domain={[0, 1]} tickFormatter={(value) => `${(value * 100).toFixed(0)}%`} />
-                    <Tooltip formatter={(value) => [`${(Number(value) * 100).toFixed(1)}%`, '성공률']} />
+                    <Tooltip formatter={(value) => [`${(Number(value) * 100).toFixed(1)}%`, 'Success Rate']} />
                     <Line type="monotone" dataKey="value" stroke="#059669" strokeWidth={2} />
                   </LineChart>
                 </ResponsiveContainer>
@@ -466,7 +466,7 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Clock className="w-5 h-5" />
-                  평균 실행 시간
+                  Average Execution Time
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -475,7 +475,7 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="timestamp" />
                     <YAxis />
-                    <Tooltip formatter={(value) => [`${Number(value).toFixed(2)}초`, '평균 실행 시간']} />
+                    <Tooltip formatter={(value) => [`${Number(value).toFixed(2)}s`, 'Avg Execution Time']} />
                     <Area type="monotone" dataKey="value" stroke="#F59E0B" fill="#F59E0B" fillOpacity={0.3} />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -486,7 +486,7 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Database className="w-5 h-5" />
-                  캐시 히트율
+                  Cache Hit Rate
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -495,7 +495,7 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="timestamp" />
                     <YAxis domain={[0, 1]} tickFormatter={(value) => `${(value * 100).toFixed(0)}%`} />
-                    <Tooltip formatter={(value) => [`${(Number(value) * 100).toFixed(1)}%`, '캐시 히트율']} />
+                    <Tooltip formatter={(value) => [`${(Number(value) * 100).toFixed(1)}%`, 'Cache Hit Rate']} />
                     <Line type="monotone" dataKey="value" stroke="#8B5CF6" strokeWidth={2} />
                   </LineChart>
                 </ResponsiveContainer>
@@ -506,7 +506,7 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Zap className="w-5 h-5" />
-                  총 실행 수
+                  Total Executions
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -515,7 +515,7 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="timestamp" />
                     <YAxis />
-                    <Tooltip formatter={(value) => [`${Number(value)}회`, '총 실행 수']} />
+                    <Tooltip formatter={(value) => [`${Number(value)}`, 'Total Executions']} />
                     <Bar dataKey="value" fill="#EF4444" />
                   </BarChart>
                 </ResponsiveContainer>
@@ -530,10 +530,10 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Users className="w-5 h-5" />
-                  패턴별 사용량
+                  Usage by Pattern
                 </CardTitle>
                 <CardDescription>
-                  각 오케스트레이션 패턴의 사용 빈도
+                  Usage frequency of each orchestration pattern
                 </CardDescription>
               </CardHeader>
               <CardContent>

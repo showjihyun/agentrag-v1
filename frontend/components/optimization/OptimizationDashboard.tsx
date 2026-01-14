@@ -1,7 +1,7 @@
 /**
  * Optimization Dashboard Component
  * 
- * AI 기반 오케스트레이션 최적화 대시보드
+ * AI-based orchestration optimization dashboard
  */
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';

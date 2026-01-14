@@ -57,8 +57,8 @@ interface AgentAdvancedFiltersProps {
 }
 
 const AGENT_TYPES = [
-  { value: 'custom', label: '커스텀' },
-  { value: 'template_based', label: '템플릿 기반' },
+  { value: 'custom', label: 'Custom' },
+  { value: 'template_based', label: 'Template Based' },
 ];
 
 const LLM_PROVIDERS = [
@@ -69,15 +69,15 @@ const LLM_PROVIDERS = [
 ];
 
 const EXECUTION_STATUSES = [
-  { value: 'active', label: '활성', icon: CheckCircle, color: 'text-green-600' },
-  { value: 'inactive', label: '비활성', icon: AlertCircle, color: 'text-gray-600' },
-  { value: 'error', label: '오류', icon: AlertCircle, color: 'text-red-600' },
+  { value: 'active', label: 'Active', icon: CheckCircle, color: 'text-green-600' },
+  { value: 'inactive', label: 'Inactive', icon: AlertCircle, color: 'text-gray-600' },
+  { value: 'error', label: 'Error', icon: AlertCircle, color: 'text-red-600' },
 ];
 
 const COMPLEXITY_LEVELS = [
-  { value: 'beginner', label: '초급', color: 'bg-green-100 text-green-800' },
-  { value: 'intermediate', label: '중급', color: 'bg-yellow-100 text-yellow-800' },
-  { value: 'advanced', label: '고급', color: 'bg-red-100 text-red-800' },
+  { value: 'beginner', label: 'Beginner', color: 'bg-green-100 text-green-800' },
+  { value: 'intermediate', label: 'Intermediate', color: 'bg-yellow-100 text-yellow-800' },
+  { value: 'advanced', label: 'Advanced', color: 'bg-red-100 text-red-800' },
 ];
 
 export function AgentAdvancedFilters({
@@ -156,7 +156,7 @@ export function AgentAdvancedFilters({
       <div className="relative">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="에이전트 이름, 설명, 태그로 검색..."
+          placeholder="Search by agent name, description, tags..."
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
           className="pl-10 pr-12"
@@ -179,7 +179,7 @@ export function AgentAdvancedFilters({
           <PopoverTrigger asChild>
             <Button variant="outline" className="gap-2">
               <Filter className="h-4 w-4" />
-              고급 필터
+              Advanced Filters
               {activeFiltersCount > 0 && (
                 <Badge variant="secondary" className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-xs">
                   {activeFiltersCount}
@@ -190,9 +190,9 @@ export function AgentAdvancedFilters({
           <PopoverContent className="w-96 p-0" align="start">
             <div className="p-4 space-y-4 max-h-96 overflow-y-auto">
               <div className="flex items-center justify-between">
-                <h4 className="font-medium">고급 필터</h4>
+                <h4 className="font-medium">Advanced Filters</h4>
                 <Button variant="ghost" size="sm" onClick={clearAllFilters}>
-                  전체 초기화
+                  Reset All
                 </Button>
               </div>
 
@@ -200,7 +200,7 @@ export function AgentAdvancedFilters({
 
               {/* Agent Type */}
               <div className="space-y-2">
-                <Label className="text-sm font-medium">에이전트 유형</Label>
+                <Label className="text-sm font-medium">Agent Type</Label>
                 <div className="space-y-2">
                   {AGENT_TYPES.map((type) => (
                     <div key={type.value} className="flex items-center space-x-2">
@@ -221,7 +221,7 @@ export function AgentAdvancedFilters({
 
               {/* LLM Provider */}
               <div className="space-y-2">
-                <Label className="text-sm font-medium">LLM 제공자</Label>
+                <Label className="text-sm font-medium">LLM Provider</Label>
                 <div className="space-y-2">
                   {LLM_PROVIDERS.map((provider) => (
                     <div key={provider.value} className="flex items-center space-x-2">
@@ -242,7 +242,7 @@ export function AgentAdvancedFilters({
 
               {/* Complexity */}
               <div className="space-y-2">
-                <Label className="text-sm font-medium">복잡도</Label>
+                <Label className="text-sm font-medium">Complexity</Label>
                 <div className="space-y-2">
                   {COMPLEXITY_LEVELS.map((level) => (
                     <div key={level.value} className="flex items-center space-x-2">
@@ -263,7 +263,7 @@ export function AgentAdvancedFilters({
 
               {/* Execution Status */}
               <div className="space-y-2">
-                <Label className="text-sm font-medium">실행 상태</Label>
+                <Label className="text-sm font-medium">Execution Status</Label>
                 <div className="space-y-2">
                   {EXECUTION_STATUSES.map((status) => {
                     const Icon = status.icon;
@@ -290,7 +290,7 @@ export function AgentAdvancedFilters({
               {availableOrchestrationTypes.length > 0 && (
                 <>
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium">오케스트레이션 호환성</Label>
+                    <Label className="text-sm font-medium">Orchestration Compatibility</Label>
                     <div className="space-y-2 max-h-32 overflow-y-auto">
                       {availableOrchestrationTypes.map((type) => (
                         <div key={type} className="flex items-center space-x-2">
@@ -318,7 +318,7 @@ export function AgentAdvancedFilters({
                     checked={filters.is_public === true}
                     onCheckedChange={(checked) => updateFilter('is_public', checked ? true : null)}
                   />
-                  <Label htmlFor="is-public" className="text-sm">공개 에이전트만</Label>
+                  <Label htmlFor="is-public" className="text-sm">Public Agents Only</Label>
                 </div>
 
                 <div className="flex items-center space-x-2">
@@ -329,7 +329,7 @@ export function AgentAdvancedFilters({
                   />
                   <Label htmlFor="is-favorite" className="text-sm flex items-center gap-2">
                     <Star className="h-3 w-3" />
-                    즐겨찾기만
+                    Favorites Only
                   </Label>
                 </div>
 
@@ -341,7 +341,7 @@ export function AgentAdvancedFilters({
                   />
                   <Label htmlFor="has-tools" className="text-sm flex items-center gap-2">
                     <Zap className="h-3 w-3" />
-                    도구 보유
+                    Has Tools
                   </Label>
                 </div>
 
@@ -351,7 +351,7 @@ export function AgentAdvancedFilters({
                     checked={filters.has_knowledgebases === true}
                     onCheckedChange={(checked) => updateFilter('has_knowledgebases', checked ? true : null)}
                   />
-                  <Label htmlFor="has-knowledgebases" className="text-sm">지식베이스 보유</Label>
+                  <Label htmlFor="has-knowledgebases" className="text-sm">Has Knowledge Base</Label>
                 </div>
               </div>
 
@@ -359,10 +359,10 @@ export function AgentAdvancedFilters({
 
               {/* Date Filters */}
               <div className="space-y-3">
-                <Label className="text-sm font-medium">생성일</Label>
+                <Label className="text-sm font-medium">Created Date</Label>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">시작일</Label>
+                    <Label className="text-xs text-muted-foreground">Start Date</Label>
                     <Input
                       type="date"
                       value={filters.created_date_from ? filters.created_date_from.toISOString().split('T')[0] : ''}
@@ -373,7 +373,7 @@ export function AgentAdvancedFilters({
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">종료일</Label>
+                    <Label className="text-xs text-muted-foreground">End Date</Label>
                     <Input
                       type="date"
                       value={filters.created_date_to ? filters.created_date_to.toISOString().split('T')[0] : ''}
@@ -391,7 +391,7 @@ export function AgentAdvancedFilters({
                 <>
                   <Separator />
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium">태그</Label>
+                    <Label className="text-sm font-medium">Tags</Label>
                     <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
                       {availableTags.map((tag) => (
                         <Badge
@@ -417,7 +417,7 @@ export function AgentAdvancedFilters({
           <div className="flex items-center gap-2 flex-wrap">
             {filters.agent_type.map((type) => (
               <Badge key={`type-${type}`} variant="secondary" className="gap-1">
-                유형: {AGENT_TYPES.find(t => t.value === type)?.label}
+                Type: {AGENT_TYPES.find(t => t.value === type)?.label}
                 <X 
                   className="h-3 w-3 cursor-pointer" 
                   onClick={() => toggleArrayFilter('agent_type', type)}
@@ -445,7 +445,7 @@ export function AgentAdvancedFilters({
             ))}
             {filters.is_public && (
               <Badge variant="secondary" className="gap-1">
-                공개
+                Public
                 <X 
                   className="h-3 w-3 cursor-pointer" 
                   onClick={() => updateFilter('is_public', null)}
@@ -455,7 +455,7 @@ export function AgentAdvancedFilters({
             {filters.is_favorite && (
               <Badge variant="secondary" className="gap-1">
                 <Star className="h-3 w-3" />
-                즐겨찾기
+                Favorites
                 <X 
                   className="h-3 w-3 cursor-pointer" 
                   onClick={() => updateFilter('is_favorite', null)}

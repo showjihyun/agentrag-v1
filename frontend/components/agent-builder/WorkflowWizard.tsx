@@ -39,26 +39,26 @@ interface WizardStep {
 const steps: WizardStep[] = [
   {
     id: 1,
-    name: '유형 선택',
-    description: '만들고 싶은 워크플로우 유형을 선택하세요',
+    name: 'Select Type',
+    description: 'Choose the type of workflow you want to create',
     icon: <Sparkles className="h-5 w-5" />,
   },
   {
     id: 2,
-    name: '기본 정보',
-    description: '이름과 설명을 입력하세요',
+    name: 'Basic Info',
+    description: 'Enter name and description',
     icon: <Settings className="h-5 w-5" />,
   },
   {
     id: 3,
-    name: '구성',
-    description: '워크플로우를 구성하세요',
+    name: 'Configuration',
+    description: 'Configure your workflow',
     icon: <Users className="h-5 w-5" />,
   },
   {
     id: 4,
-    name: '완료',
-    description: '설정을 확인하고 생성하세요',
+    name: 'Complete',
+    description: 'Review settings and create',
     icon: <Rocket className="h-5 w-5" />,
   },
 ];
@@ -142,18 +142,18 @@ export function WorkflowWizard({ onComplete, onCancel }: WorkflowWizardProps) {
                     </div>
                     <div>
                       <CardTitle className="text-lg">Agentflow</CardTitle>
-                      <CardDescription>멀티 에이전트 시스템</CardDescription>
+                      <CardDescription>Multi-Agent System</CardDescription>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground">
-                    여러 AI 에이전트가 협력하여 복잡한 작업을 수행하는 워크플로우를 만듭니다.
+                    Create workflows where multiple AI agents collaborate to perform complex tasks.
                   </p>
                   <div className="flex gap-2 mt-4">
-                    <Badge variant="secondary">순차 실행</Badge>
-                    <Badge variant="secondary">병렬 실행</Badge>
-                    <Badge variant="secondary">계층적</Badge>
+                    <Badge variant="secondary">Sequential</Badge>
+                    <Badge variant="secondary">Parallel</Badge>
+                    <Badge variant="secondary">Hierarchical</Badge>
                   </div>
                 </CardContent>
               </Card>
@@ -174,18 +174,18 @@ export function WorkflowWizard({ onComplete, onCancel }: WorkflowWizardProps) {
                     </div>
                     <div>
                       <CardTitle className="text-lg">Chatflow</CardTitle>
-                      <CardDescription>대화형 AI 챗봇</CardDescription>
+                      <CardDescription>Conversational AI Chatbot</CardDescription>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground">
-                    RAG 기반 챗봇과 AI 어시스턴트를 만들어 사용자와 대화할 수 있습니다.
+                    Create RAG-based chatbots and AI assistants to interact with users.
                   </p>
                   <div className="flex gap-2 mt-4">
                     <Badge variant="secondary">RAG</Badge>
-                    <Badge variant="secondary">메모리</Badge>
-                    <Badge variant="secondary">도구 연동</Badge>
+                    <Badge variant="secondary">Memory</Badge>
+                    <Badge variant="secondary">Tool Integration</Badge>
                   </div>
                 </CardContent>
               </Card>
@@ -197,20 +197,20 @@ export function WorkflowWizard({ onComplete, onCancel }: WorkflowWizardProps) {
         return (
           <div className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="name">이름 *</Label>
+              <Label htmlFor="name">Name *</Label>
               <Input
                 id="name"
-                placeholder="예: 고객 지원 챗봇"
+                placeholder="e.g., Customer Support Chatbot"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 className="text-lg"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="description">설명</Label>
+              <Label htmlFor="description">Description</Label>
               <Textarea
                 id="description"
-                placeholder="이 워크플로우가 무엇을 하는지 설명하세요..."
+                placeholder="Describe what this workflow does..."
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 rows={4}
@@ -224,7 +224,7 @@ export function WorkflowWizard({ onComplete, onCancel }: WorkflowWizardProps) {
           <div className="space-y-6">
             {formData.type === 'agentflow' ? (
               <div className="space-y-2">
-                <Label htmlFor="orchestration">오케스트레이션 방식</Label>
+                <Label htmlFor="orchestration">Orchestration Method</Label>
                 <Select
                   value={formData.orchestration}
                   onValueChange={(value) => setFormData({ ...formData, orchestration: value })}
@@ -233,20 +233,20 @@ export function WorkflowWizard({ onComplete, onCancel }: WorkflowWizardProps) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="sequential">순차 실행 (Sequential)</SelectItem>
-                    <SelectItem value="parallel">병렬 실행 (Parallel)</SelectItem>
-                    <SelectItem value="hierarchical">계층적 실행 (Hierarchical)</SelectItem>
-                    <SelectItem value="adaptive">적응형 실행 (Adaptive)</SelectItem>
+                    <SelectItem value="sequential">Sequential Execution</SelectItem>
+                    <SelectItem value="parallel">Parallel Execution</SelectItem>
+                    <SelectItem value="hierarchical">Hierarchical Execution</SelectItem>
+                    <SelectItem value="adaptive">Adaptive Execution</SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="text-sm text-muted-foreground">
-                  에이전트들이 어떻게 협력할지 선택하세요
+                  Choose how agents will collaborate
                 </p>
               </div>
             ) : (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="llmProvider">LLM 제공자</Label>
+                  <Label htmlFor="llmProvider">LLM Provider</Label>
                   <Select
                     value={formData.llmProvider}
                     onValueChange={(value) => setFormData({ ...formData, llmProvider: value })}
@@ -257,14 +257,14 @@ export function WorkflowWizard({ onComplete, onCancel }: WorkflowWizardProps) {
                     <SelectContent>
                       {getAvailableProviders().map((provider) => (
                         <SelectItem key={provider.id} value={provider.id}>
-                          {provider.name} {provider.type === 'local' ? '(로컬)' : ''}
+                          {provider.name} {provider.type === 'local' ? '(Local)' : ''}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="llmModel">모델</Label>
+                  <Label htmlFor="llmModel">Model</Label>
                   <Select
                     value={formData.llmModel}
                     onValueChange={(value) => setFormData({ ...formData, llmModel: value })}
@@ -293,47 +293,47 @@ export function WorkflowWizard({ onComplete, onCancel }: WorkflowWizardProps) {
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 dark:bg-green-900 mb-4">
                 <CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400" />
               </div>
-              <h3 className="text-2xl font-bold mb-2">준비 완료!</h3>
+              <h3 className="text-2xl font-bold mb-2">Ready to Go!</h3>
               <p className="text-muted-foreground">
-                설정을 확인하고 워크플로우를 생성하세요
+                Review your settings and create the workflow
               </p>
             </div>
 
             <Card>
               <CardHeader>
-                <CardTitle>설정 요약</CardTitle>
+                <CardTitle>Settings Summary</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm text-muted-foreground">유형</p>
+                    <p className="text-sm text-muted-foreground">Type</p>
                     <p className="font-medium">
                       {formData.type === 'agentflow' ? 'Agentflow' : 'Chatflow'}
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">이름</p>
+                    <p className="text-sm text-muted-foreground">Name</p>
                     <p className="font-medium">{formData.name}</p>
                   </div>
                   {formData.description && (
                     <div className="col-span-2">
-                      <p className="text-sm text-muted-foreground">설명</p>
+                      <p className="text-sm text-muted-foreground">Description</p>
                       <p className="font-medium">{formData.description}</p>
                     </div>
                   )}
                   {formData.type === 'agentflow' ? (
                     <div>
-                      <p className="text-sm text-muted-foreground">오케스트레이션</p>
+                      <p className="text-sm text-muted-foreground">Orchestration</p>
                       <p className="font-medium capitalize">{formData.orchestration}</p>
                     </div>
                   ) : (
                     <>
                       <div>
-                        <p className="text-sm text-muted-foreground">LLM 제공자</p>
+                        <p className="text-sm text-muted-foreground">LLM Provider</p>
                         <p className="font-medium capitalize">{formData.llmProvider}</p>
                       </div>
                       <div>
-                        <p className="text-sm text-muted-foreground">모델</p>
+                        <p className="text-sm text-muted-foreground">Model</p>
                         <p className="font-medium">{formData.llmModel}</p>
                       </div>
                     </>
@@ -355,7 +355,7 @@ export function WorkflowWizard({ onComplete, onCancel }: WorkflowWizardProps) {
       <div className="mb-8">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-medium">
-            단계 {currentStep + 1} / {steps.length}
+            Step {currentStep + 1} / {steps.length}
           </span>
           <span className="text-sm text-muted-foreground">{Math.round(progress)}%</span>
         </div>
@@ -430,7 +430,7 @@ export function WorkflowWizard({ onComplete, onCancel }: WorkflowWizardProps) {
           size="lg"
         >
           <ChevronLeft className="mr-2 h-5 w-5" />
-          {currentStep === 0 ? '취소' : '이전'}
+          {currentStep === 0 ? 'Cancel' : 'Previous'}
         </Button>
         <Button
           onClick={handleNext}
@@ -441,11 +441,11 @@ export function WorkflowWizard({ onComplete, onCancel }: WorkflowWizardProps) {
           {currentStep === steps.length - 1 ? (
             <>
               <Rocket className="mr-2 h-5 w-5" />
-              생성하기
+              Create
             </>
           ) : (
             <>
-              다음
+              Next
               <ChevronRight className="ml-2 h-5 w-5" />
             </>
           )}

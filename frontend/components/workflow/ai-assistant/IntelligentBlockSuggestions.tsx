@@ -1,7 +1,7 @@
 /**
  * Intelligent Block Suggestions Component
  * 
- * AI 기반 지능형 블록 추천 컴포넌트
+ * AI-based intelligent block recommendation component
  */
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -53,27 +53,27 @@ export const IntelligentBlockSuggestions: React.FC<IntelligentBlockSuggestionsPr
   const [showDetails, setShowDetails] = useState(false);
   const [workflowAnalysis, setWorkflowAnalysis] = useState<any>(null);
 
-  // 워크플로우 컨텍스트 변경 시 자동 추천
+  // Auto-suggest when workflow context changes
   useEffect(() => {
     if (workflowContext.blocks.length > 0) {
       suggestNextBlocks(workflowContext);
       
-      // 워크플로우 패턴 분석
+      // Analyze workflow pattern
       const analysis = analyzeWorkflowPattern(workflowContext);
       setWorkflowAnalysis(analysis);
     }
   }, [workflowContext, suggestNextBlocks, analyzeWorkflowPattern]);
 
-  // 블록 추가 처리
+  // Handle block addition
   const handleAddBlock = useCallback(async (suggestion: BlockSuggestion) => {
-    // 블록 추가
+    // Add block
     onAddBlock(
       suggestion.block_type,
       suggestion.configuration_suggestion,
       suggestion.position_suggestion
     );
 
-    // 사용자 액션 기록
+    // Record user action
     await recordUserAction({
       type: 'suggestion_accepted',
       blockType: suggestion.block_type,
@@ -81,11 +81,11 @@ export const IntelligentBlockSuggestions: React.FC<IntelligentBlockSuggestionsPr
       context: workflowContext
     });
 
-    // 추천 목록에서 제거
+    // Remove from suggestion list
     setSelectedSuggestion(null);
   }, [onAddBlock, recordUserAction, workflowContext]);
 
-  // 추천 거부 처리
+  // Handle suggestion rejection
   const handleRejectSuggestion = useCallback(async (suggestion: BlockSuggestion) => {
     await recordUserAction({
       type: 'suggestion_rejected',
@@ -94,7 +94,7 @@ export const IntelligentBlockSuggestions: React.FC<IntelligentBlockSuggestionsPr
     });
   }, [recordUserAction, workflowContext]);
 
-  // 신뢰도에 따른 색상
+  // Color based on confidence
   const getConfidenceColor = (confidence: number) => {
     if (confidence >= 0.8) return 'text-green-600 bg-green-100';
     if (confidence >= 0.6) return 'text-blue-600 bg-blue-100';
@@ -102,12 +102,12 @@ export const IntelligentBlockSuggestions: React.FC<IntelligentBlockSuggestionsPr
     return 'text-gray-600 bg-gray-100';
   };
 
-  // 신뢰도 레벨
+  // Confidence level
   const getConfidenceLevel = (confidence: number) => {
-    if (confidence >= 0.8) return '높음';
-    if (confidence >= 0.6) return '보통';
-    if (confidence >= 0.4) return '낮음';
-    return '매우 낮음';
+    if (confidence >= 0.8) return 'High';
+    if (confidence >= 0.6) return 'Medium';
+    if (confidence >= 0.4) return 'Low';
+    return 'Very Low';
   };
 
   if (suggestions.length === 0 && !isLoading) {
@@ -129,7 +129,7 @@ export const IntelligentBlockSuggestions: React.FC<IntelligentBlockSuggestionsPr
                 <div className="p-1 bg-blue-100 rounded">
                   <Brain className="w-4 h-4 text-blue-600" />
                 </div>
-                <CardTitle className="text-sm">AI 추천</CardTitle>
+                <CardTitle className="text-sm">AI Suggestions</CardTitle>
                 <Sparkles className="w-3 h-3 text-yellow-500" />
               </div>
               
@@ -145,11 +145,11 @@ export const IntelligentBlockSuggestions: React.FC<IntelligentBlockSuggestionsPr
               )}
             </div>
             
-            {/* 워크플로우 분석 요약 */}
+            {/* Workflow analysis summary */}
             {workflowAnalysis && (
               <div className="mt-2 p-2 bg-gray-50 rounded text-xs">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-gray-600">복잡도</span>
+                  <span className="text-gray-600">Complexity</span>
                   <Badge variant="outline" className="text-xs">
                     {workflowAnalysis.complexity.level}
                   </Badge>
@@ -166,7 +166,7 @@ export const IntelligentBlockSuggestions: React.FC<IntelligentBlockSuggestionsPr
             {isLoading ? (
               <div className="flex items-center justify-center py-4">
                 <div className="animate-spin w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full" />
-                <span className="ml-2 text-sm text-gray-600">분석 중...</span>
+                <span className="ml-2 text-sm text-gray-600">Analyzing...</span>
               </div>
             ) : (
               <AnimatePresence>
@@ -219,7 +219,7 @@ export const IntelligentBlockSuggestions: React.FC<IntelligentBlockSuggestionsPr
                               <Lightbulb className="w-3 h-3" />
                             </Button>
                           </TooltipTrigger>
-                          <TooltipContent>추천 이유 보기</TooltipContent>
+                          <TooltipContent>View recommendation reason</TooltipContent>
                         </Tooltip>
                         
                         <Tooltip>
@@ -236,15 +236,15 @@ export const IntelligentBlockSuggestions: React.FC<IntelligentBlockSuggestionsPr
                               <Plus className="w-3 h-3" />
                             </Button>
                           </TooltipTrigger>
-                          <TooltipContent>블록 추가</TooltipContent>
+                          <TooltipContent>Add block</TooltipContent>
                         </Tooltip>
                       </div>
                     </div>
                     
-                    {/* 신뢰도 바 */}
+                    {/* Confidence bar */}
                     <div className="mt-2">
                       <div className="flex items-center justify-between text-xs mb-1">
-                        <span className="text-gray-500">신뢰도</span>
+                        <span className="text-gray-500">Confidence</span>
                         <span className="text-gray-700">
                           {Math.round(suggestion.confidence * 100)}%
                         </span>

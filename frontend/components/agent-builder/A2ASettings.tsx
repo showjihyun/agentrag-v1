@@ -3,7 +3,7 @@
 /**
  * A2A Protocol Settings Component
  * 
- * Google A2A 프로토콜을 통한 외부 에이전트 연동 설정 UI
+ * External agent integration settings UI via Google A2A protocol
  */
 
 import React, { useState, useEffect } from 'react';
@@ -213,9 +213,9 @@ async function deleteServerConfig(id: string): Promise<void> {
 // Status Badge Component
 function StatusBadge({ status }: { status: 'connected' | 'disconnected' | 'error' }) {
   const variants = {
-    connected: { color: 'bg-green-500', text: '연결됨' },
-    disconnected: { color: 'bg-gray-500', text: '연결 안됨' },
-    error: { color: 'bg-red-500', text: '오류' },
+    connected: { color: 'bg-green-500', text: 'Connected' },
+    disconnected: { color: 'bg-gray-500', text: 'Disconnected' },
+    error: { color: 'bg-red-500', text: 'Error' },
   };
   const { color, text } = variants[status];
   
@@ -277,7 +277,7 @@ function ExternalAgentCard({
               {agent.agentCard.capabilities?.streaming && (
                 <Badge variant="secondary">
                   <Zap className="w-3 h-3 mr-1" />
-                  스트리밍
+                  Streaming
                 </Badge>
               )}
               {agent.agentCard.skills?.map(skill => (
@@ -306,7 +306,7 @@ function ExternalAgentCard({
               ) : (
                 <RefreshCw className="w-4 h-4 mr-1" />
               )}
-              연결 테스트
+              Connection Test
             </Button>
             <Button 
               variant="outline" 
@@ -314,7 +314,7 @@ function ExternalAgentCard({
               onClick={() => setExpanded(!expanded)}
             >
               <Settings className="w-4 h-4 mr-1" />
-              상세 설정
+              Details
             </Button>
             <Button 
               variant="ghost" 
@@ -328,15 +328,15 @@ function ExternalAgentCard({
           
           {expanded && agent.agentCard && (
             <div className="mt-4 p-4 bg-muted rounded-lg">
-              <h4 className="font-medium mb-2">Agent Card 정보</h4>
+              <h4 className="font-medium mb-2">Agent Card Info</h4>
               <div className="text-sm space-y-1">
-                <p><strong>버전:</strong> {agent.agentCard.version}</p>
-                <p><strong>프로토콜:</strong> {agent.agentCard.protocolVersion}</p>
-                <p><strong>설명:</strong> {agent.agentCard.description}</p>
+                <p><strong>Version:</strong> {agent.agentCard.version}</p>
+                <p><strong>Protocol:</strong> {agent.agentCard.protocolVersion}</p>
+                <p><strong>Description:</strong> {agent.agentCard.description}</p>
               </div>
               {agent.agentCard.skills && agent.agentCard.skills.length > 0 && (
                 <div className="mt-3">
-                  <h5 className="font-medium mb-1">스킬</h5>
+                  <h5 className="font-medium mb-1">Skills</h5>
                   <ul className="text-sm space-y-1">
                     {agent.agentCard.skills.map(skill => (
                       <li key={skill.id} className="flex items-start gap-2">
@@ -387,7 +387,7 @@ function ServerConfigCard({
           </div>
           <div className="flex items-center gap-2">
             <Badge variant={server.config.enabled ? 'default' : 'secondary'}>
-              {server.config.enabled ? '활성' : '비활성'}
+              {server.config.enabled ? 'Active' : 'Inactive'}
             </Badge>
             <Switch 
               checked={server.config.enabled} 
@@ -410,7 +410,7 @@ function ServerConfigCard({
                   size="sm"
                   onClick={() => copyToClipboard(server.agentCardUrl, 'card')}
                 >
-                  {copied === 'card' ? <Check className="w-4 h-4" /> : '복사'}
+                  {copied === 'card' ? <Check className="w-4 h-4" /> : 'Copy'}
                 </Button>
               </div>
             </div>
@@ -425,7 +425,7 @@ function ServerConfigCard({
                   size="sm"
                   onClick={() => copyToClipboard(server.endpointUrl, 'endpoint')}
                 >
-                  {copied === 'endpoint' ? <Check className="w-4 h-4" /> : '복사'}
+                  {copied === 'endpoint' ? <Check className="w-4 h-4" /> : 'Copy'}
                 </Button>
               </div>
             </div>
@@ -435,13 +435,13 @@ function ServerConfigCard({
             {server.config.streamingEnabled && (
               <Badge variant="secondary">
                 <Zap className="w-3 h-3 mr-1" />
-                스트리밍
+                Streaming
               </Badge>
             )}
             {server.config.requireAuth && (
               <Badge variant="secondary">
                 <Shield className="w-3 h-3 mr-1" />
-                인증 필요
+                Auth Required
               </Badge>
             )}
             <Badge variant="outline">
@@ -467,7 +467,7 @@ function ServerConfigCard({
               className="text-red-500 hover:text-red-600"
             >
               <Trash2 className="w-4 h-4 mr-1" />
-              삭제
+              Delete
             </Button>
           </div>
         </div>
@@ -548,31 +548,31 @@ function AddExternalAgentDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>외부 A2A 에이전트 추가</DialogTitle>
+          <DialogTitle>Add External A2A Agent</DialogTitle>
           <DialogDescription>
-            Google A2A 프로토콜을 지원하는 외부 에이전트에 연결합니다.
+            Connect to an external agent that supports the Google A2A protocol.
           </DialogDescription>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="name">이름 *</Label>
+            <Label htmlFor="name">Name *</Label>
             <Input
               id="name"
               value={formData.name}
               onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
-              placeholder="에이전트 이름"
+              placeholder="Agent name"
               required
             />
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="description">설명</Label>
+            <Label htmlFor="description">Description</Label>
             <Textarea
               id="description"
               value={formData.description}
               onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))}
-              placeholder="에이전트 설명"
+              placeholder="Agent description"
               rows={2}
             />
           </div>
@@ -590,7 +590,7 @@ function AddExternalAgentDialog({
           
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>프로토콜</Label>
+              <Label>Protocol</Label>
               <Select 
                 value={formData.protocolBinding}
                 onValueChange={v => setFormData(prev => ({ 
@@ -610,7 +610,7 @@ function AddExternalAgentDialog({
             </div>
             
             <div className="space-y-2">
-              <Label>인증 방식</Label>
+              <Label>Auth Method</Label>
               <Select 
                 value={formData.authType}
                 onValueChange={v => setFormData(prev => ({ 
@@ -622,7 +622,7 @@ function AddExternalAgentDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">없음</SelectItem>
+                  <SelectItem value="none">None</SelectItem>
                   <SelectItem value="api_key">API Key</SelectItem>
                   <SelectItem value="bearer">Bearer Token</SelectItem>
                   <SelectItem value="oauth2">OAuth 2.0</SelectItem>
@@ -639,7 +639,7 @@ function AddExternalAgentDialog({
                 type="password"
                 value={formData.apiKey}
                 onChange={e => setFormData(prev => ({ ...prev, apiKey: e.target.value }))}
-                placeholder="API Key 입력"
+                placeholder="Enter API Key"
               />
             </div>
           )}
@@ -652,17 +652,17 @@ function AddExternalAgentDialog({
                 type="password"
                 value={formData.bearerToken}
                 onChange={e => setFormData(prev => ({ ...prev, bearerToken: e.target.value }))}
-                placeholder="Bearer Token 입력"
+                placeholder="Enter Bearer Token"
               />
             </div>
           )}
           
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              취소
+              Cancel
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? '추가 중...' : '추가'}
+              {loading ? 'Adding...' : 'Add'}
             </Button>
           </DialogFooter>
         </form>
@@ -740,16 +740,16 @@ function AddServerConfigDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>A2A 서버 설정 추가</DialogTitle>
+          <DialogTitle>Add A2A Server Configuration</DialogTitle>
           <DialogDescription>
-            로컬 에이전트 또는 워크플로우를 A2A 프로토콜로 외부에 노출합니다.
+            Expose local agents or workflows externally via A2A protocol.
           </DialogDescription>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>소스 타입</Label>
+              <Label>Source Type</Label>
               <Select 
                 value={formData.sourceType}
                 onValueChange={v => setFormData(prev => ({ 
@@ -762,20 +762,20 @@ function AddServerConfigDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="agent">에이전트</SelectItem>
-                  <SelectItem value="workflow">워크플로우</SelectItem>
+                  <SelectItem value="agent">Agent</SelectItem>
+                  <SelectItem value="workflow">Workflow</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             
             <div className="space-y-2">
-              <Label>소스 선택 *</Label>
+              <Label>Select Source *</Label>
               <Select 
                 value={formData.sourceId}
                 onValueChange={v => setFormData(prev => ({ ...prev, sourceId: v }))}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="선택..." />
+                  <SelectValue placeholder="Select..." />
                 </SelectTrigger>
                 <SelectContent>
                   {sources.map(s => (
@@ -787,12 +787,12 @@ function AddServerConfigDialog({
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="serverName">A2A 에이전트 이름 *</Label>
+            <Label htmlFor="serverName">A2A Agent Name *</Label>
             <Input
               id="serverName"
               value={formData.name}
               onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
-              placeholder="외부에 노출될 에이전트 이름"
+              placeholder="Agent name to expose externally"
               required
             />
           </div>

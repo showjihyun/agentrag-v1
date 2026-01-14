@@ -42,7 +42,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { ParameterInputProps } from "./types";
 
-// 공통 옵션 정의 (n8n/crew.ai 스타일)
+// Common options definition (n8n/crew.ai style)
 const COMMON_OPTIONS = {
   // AI Models
   ai_models: {
@@ -84,7 +84,7 @@ const COMMON_OPTIONS = {
   max_tokens: [100, 256, 512, 1000, 2000, 4000, 8000, 16000],
 };
 
-// 변수 참조 템플릿
+// Variable reference templates
 const VARIABLE_TEMPLATES = [
   { label: 'Workflow Input', value: '{{ workflow.input }}', category: 'workflow' },
   { label: 'Previous Block Output', value: '{{ previousBlock.output }}', category: 'workflow' },
@@ -105,11 +105,11 @@ export function EnhancedParameterInput({
   const [inputMode, setInputMode] = useState<'select' | 'expression' | 'manual'>('select');
   const [showVariables, setShowVariables] = useState(false);
 
-  // 파라미터 이름과 타입에 따라 적절한 옵션 결정
+  // Determine appropriate options based on parameter name and type
   const getOptionsForParameter = () => {
     const paramLower = name.toLowerCase();
     
-    // AI Model 관련
+    // AI Model related
     if (paramLower.includes('model')) {
       if (paramLower.includes('openai') || paramLower.includes('gpt')) {
         return COMMON_OPTIONS.ai_models.openai;
@@ -123,7 +123,7 @@ export function EnhancedParameterInput({
       if (paramLower.includes('ollama')) {
         return COMMON_OPTIONS.ai_models.ollama;
       }
-      // 모든 AI 모델 통합
+      // All AI models combined
       return [
         ...COMMON_OPTIONS.ai_models.openai,
         ...COMMON_OPTIONS.ai_models.anthropic,
@@ -172,7 +172,7 @@ export function EnhancedParameterInput({
       return COMMON_OPTIONS.common_numbers.map(String);
     }
     
-    // enum이 정의되어 있으면 사용
+    // Use enum if defined
     if (config.enum && config.enum.length > 0) {
       return config.enum;
     }
@@ -183,7 +183,7 @@ export function EnhancedParameterInput({
   const options = getOptionsForParameter();
   const hasOptions = options && options.length > 0;
 
-  // 변수 참조인지 확인
+  // Check if it's a variable reference
   const isExpression = typeof value === 'string' && (
     value.includes('{{') || 
     value.includes('${') ||

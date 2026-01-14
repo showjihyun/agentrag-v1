@@ -220,8 +220,8 @@ export function AgentBatchActions({
       }
 
       toast({
-        title: '배치 공개 설정 완료',
-        description: `${results.success.length}개 공개됨, ${results.failed.length}개 실패`,
+        title: 'Batch Public Setting Complete',
+        description: `${results.success.length} made public, ${results.failed.length} failed`,
         ...(results.failed.length > 0 && { variant: 'destructive' as const }),
       });
 
@@ -229,8 +229,8 @@ export function AgentBatchActions({
       onSelectionChange([]);
     } catch (error) {
       toast({
-        title: '오류',
-        description: '배치 공개 설정 중 오류가 발생했습니다',
+        title: 'Error',
+        description: 'An error occurred during batch public setting',
         variant: 'destructive',
       });
     } finally {
@@ -255,14 +255,14 @@ export function AgentBatchActions({
               onCheckedChange={handleSelectAll}
             />
             <span className="text-sm font-medium">
-              {selectedCount > 0 ? `${selectedCount}개 선택됨` : '전체 선택'}
+              {selectedCount > 0 ? `${selectedCount} selected` : 'Select All'}
             </span>
           </div>
 
           {selectedCount > 0 && (
             <div className="flex items-center gap-2">
               <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">
-                {selectedCount}개 에이전트
+                {selectedCount} agents
               </Badge>
             </div>
           )}
@@ -282,7 +282,7 @@ export function AgentBatchActions({
               ) : (
                 <Copy className="h-4 w-4" />
               )}
-              복제
+              Clone
             </Button>
 
             <Button
@@ -297,13 +297,13 @@ export function AgentBatchActions({
               ) : (
                 <Download className="h-4 w-4" />
               )}
-              내보내기
+              Export
             </Button>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-2">
-                  더보기
+                  More
                   <ChevronDown className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -313,14 +313,14 @@ export function AgentBatchActions({
                   className={isProcessing ? 'opacity-50 cursor-not-allowed' : ''}
                 >
                   <Share className="mr-2 h-4 w-4" />
-                  공개로 설정
+                  Set to Public
                 </DropdownMenuItem>
                 <DropdownMenuItem 
                   onClick={isProcessing ? undefined : () => setShowArchiveDialog(true)}
                   className={isProcessing ? 'opacity-50 cursor-not-allowed' : ''}
                 >
                   <Archive className="mr-2 h-4 w-4" />
-                  아카이브
+                  Archive
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem 
@@ -328,7 +328,7 @@ export function AgentBatchActions({
                   className={`text-destructive ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   <Trash className="mr-2 h-4 w-4" />
-                  삭제
+                  Delete
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -339,17 +339,17 @@ export function AgentBatchActions({
       {/* Processing Results */}
       {processingResults.success.length > 0 || processingResults.failed.length > 0 ? (
         <div className="p-4 bg-muted/30 rounded-lg border space-y-2">
-          <h4 className="font-medium text-sm">처리 결과</h4>
+          <h4 className="font-medium text-sm">Processing Results</h4>
           {processingResults.success.length > 0 && (
             <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-300">
               <CheckCircle className="h-4 w-4" />
-              <span>{processingResults.success.length}개 성공</span>
+              <span>{processingResults.success.length} succeeded</span>
             </div>
           )}
           {processingResults.failed.length > 0 && (
             <div className="flex items-center gap-2 text-sm text-red-700 dark:text-red-300">
               <XCircle className="h-4 w-4" />
-              <span>{processingResults.failed.length}개 실패</span>
+              <span>{processingResults.failed.length} failed</span>
             </div>
           )}
         </div>
@@ -359,14 +359,14 @@ export function AgentBatchActions({
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>에이전트 삭제 확인</AlertDialogTitle>
+            <AlertDialogTitle>Confirm Agent Deletion</AlertDialogTitle>
             <AlertDialogDescription>
-              선택한 {selectedCount}개의 에이전트를 삭제하시겠습니까? 
-              이 작업은 되돌릴 수 없습니다.
+              Are you sure you want to delete {selectedCount} selected agents? 
+              This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>취소</AlertDialogCancel>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleBatchDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -375,10 +375,10 @@ export function AgentBatchActions({
               {isProcessing ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  삭제 중...
+                  Deleting...
                 </>
               ) : (
-                '삭제'
+                'Delete'
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -389,16 +389,16 @@ export function AgentBatchActions({
       <AlertDialog open={showArchiveDialog} onOpenChange={setShowArchiveDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>에이전트 아카이브</AlertDialogTitle>
+            <AlertDialogTitle>Archive Agents</AlertDialogTitle>
             <AlertDialogDescription>
-              선택한 {selectedCount}개의 에이전트를 아카이브하시겠습니까? 
-              아카이브된 에이전트는 목록에서 숨겨지지만 나중에 복원할 수 있습니다.
+              Are you sure you want to archive {selectedCount} selected agents? 
+              Archived agents will be hidden from the list but can be restored later.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>취소</AlertDialogCancel>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={() => setShowArchiveDialog(false)}>
-              아카이브
+              Archive
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -92,7 +92,7 @@ export function AgentSelector({
         {trigger || (
           <Button variant="outline" className="w-full">
             <Plus className="h-4 w-4 mr-2" />
-            Building Blocks에서 Agent 선택
+            Select Agent from Building Blocks
           </Button>
         )}
       </DialogTrigger>
@@ -100,17 +100,17 @@ export function AgentSelector({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Bot className="h-5 w-5" />
-            Agent 선택
+            Select Agent
             {orchestrationType && (
               <Badge variant="outline" className="ml-2">
-                {orchestrationType} 최적화
+                {orchestrationType} Optimized
               </Badge>
             )}
           </DialogTitle>
           <DialogDescription>
             {orchestrationType 
-              ? `${orchestrationType} 오케스트레이션에 적합한 Agent를 선택하여 Agentflow 팀에 추가하세요`
-              : 'Building Blocks에서 생성한 Agent를 선택하여 AgentFlow 팀에 추가하세요'
+              ? `Select an agent suitable for ${orchestrationType} orchestration to add to your Agentflow team`
+              : 'Select an agent created in Building Blocks to add to your AgentFlow team'
             }
           </DialogDescription>
         </DialogHeader>
@@ -121,7 +121,7 @@ export function AgentSelector({
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Agent 이름으로 검색..."
+                placeholder="Search by agent name..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-10"
@@ -130,12 +130,12 @@ export function AgentSelector({
           </div>
           <Select value={agentType} onValueChange={setAgentType}>
             <SelectTrigger className="w-48">
-              <SelectValue placeholder="타입 필터" />
+              <SelectValue placeholder="Type Filter" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">모든 타입</SelectItem>
-              <SelectItem value="custom">커스텀</SelectItem>
-              <SelectItem value="template_based">템플릿 기반</SelectItem>
+              <SelectItem value="">All Types</SelectItem>
+              <SelectItem value="custom">Custom</SelectItem>
+              <SelectItem value="template_based">Template Based</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -156,10 +156,10 @@ export function AgentSelector({
                   <Bot className="h-10 w-10 text-blue-500" />
                 </div>
               </div>
-              <h3 className="text-xl font-semibold mb-3">사용 가능한 Agent가 없습니다</h3>
+              <h3 className="text-xl font-semibold mb-3">No Available Agents</h3>
               <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                Agentflow에 추가할 수 있는 Agent가 없습니다.<br />
-                먼저 Building Blocks에서 Agent를 생성하거나 템플릿을 사용해보세요.
+                There are no agents available to add to Agentflow.<br />
+                First create an agent in Building Blocks or try using a template.
               </p>
               <div className="flex gap-3 justify-center">
                 <Button 
@@ -171,7 +171,7 @@ export function AgentSelector({
                   className="shadow-md hover:shadow-lg transition-all"
                 >
                   <Bot className="h-4 w-4 mr-2" />
-                  Building Blocks로 이동
+                  Go to Building Blocks
                 </Button>
                 <Button 
                   onClick={() => {
@@ -181,17 +181,17 @@ export function AgentSelector({
                   className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-md hover:shadow-lg transition-all"
                 >
                   <Plus className="h-4 w-4 mr-2" />
-                  새 Agent 생성
+                  Create New Agent
                 </Button>
               </div>
             </div>
           ) : (
             <div className="space-y-3">
-              {/* 추천 에이전트 섹션 */}
+              {/* Recommended agents section */}
               {orchestrationType && preferredRoles.length > 0 && (
                 <div className="mb-4 p-3 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
                   <h4 className="font-medium text-sm text-blue-700 dark:text-blue-300 mb-2">
-                    🎯 {orchestrationType}에 추천하는 역할
+                    🎯 Recommended Roles for {orchestrationType}
                   </h4>
                   <div className="flex flex-wrap gap-1">
                     {preferredRoles.map((role, index) => (
@@ -205,7 +205,7 @@ export function AgentSelector({
 
               {agentsData?.agents
                 ?.sort((a, b) => {
-                  // 추천 역할과 일치하는 에이전트를 상단에 표시
+                  // Show agents matching recommended roles at the top
                   if (preferredRoles.length > 0) {
                     const aMatches = preferredRoles.some(role => 
                       a.name.toLowerCase().includes(role.toLowerCase()) ||
@@ -220,7 +220,7 @@ export function AgentSelector({
                     if (!aMatches && bMatches) return 1;
                   }
                   
-                  // 그 외에는 생성일 순으로 정렬
+                  // Otherwise sort by creation date
                   return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
                 })
                 ?.map((agent) => {
@@ -254,17 +254,17 @@ export function AgentSelector({
                             </div>
                             <div className="flex gap-1">
                               <Badge className={getAgentTypeColor(agent.agent_type)}>
-                                {agent.agent_type === 'custom' ? '커스텀' : '템플릿 기반'}
+                                {agent.agent_type === 'custom' ? 'Custom' : 'Template Based'}
                               </Badge>
                               {isRecommended && (
                                 <Badge className="bg-blue-500 hover:bg-blue-600 text-white">
-                                  ⭐ 추천
+                                  ⭐ Recommended
                                 </Badge>
                               )}
                               {isSelected && (
                                 <Badge className="bg-green-500 hover:bg-green-600">
                                   <Check className="h-3 w-3 mr-1" />
-                                  선택됨
+                                  Selected
                                 </Badge>
                               )}
                             </div>
@@ -283,7 +283,7 @@ export function AgentSelector({
                             </div>
                             <div className="flex items-center gap-1">
                               <Zap className="h-3 w-3" />
-                              {agent.tools?.length || 0}개 도구
+                              {agent.tools?.length || 0} tools
                             </div>
                           </div>
 
@@ -297,7 +297,7 @@ export function AgentSelector({
                               ))}
                               {agent.tools.length > 3 && (
                                 <Badge variant="outline" className="text-xs">
-                                  +{agent.tools.length - 3}개 더
+                                  +{agent.tools.length - 3} more
                                 </Badge>
                               )}
                             </div>
@@ -313,7 +313,7 @@ export function AgentSelector({
                               ))}
                               {agent.tools.length > 3 && (
                                 <Badge variant="secondary" className="text-xs">
-                                  +{agent.tools.length - 3}개 도구
+                                  +{agent.tools.length - 3} tools
                                 </Badge>
                               )}
                             </div>
@@ -328,7 +328,7 @@ export function AgentSelector({
                               handleSelectAgent(agent);
                             }}
                           >
-                            선택
+                            Select
                           </Button>
                         )}
                       </div>
@@ -344,8 +344,8 @@ export function AgentSelector({
         {agentsData && agentsData.total > 20 && (
           <div className="flex items-center justify-between pt-4 border-t">
             <p className="text-sm text-muted-foreground">
-              총 {agentsData.total}개 중 {((page - 1) * 20) + 1}-
-              {Math.min(page * 20, agentsData.total)}개 표시
+              Showing {((page - 1) * 20) + 1}-
+              {Math.min(page * 20, agentsData.total)} of {agentsData.total}
             </p>
             <div className="flex gap-2">
               <Button
@@ -354,7 +354,7 @@ export function AgentSelector({
                 disabled={page === 1}
                 onClick={() => setPage(page - 1)}
               >
-                이전
+                Previous
               </Button>
               <Button
                 variant="outline"
@@ -362,7 +362,7 @@ export function AgentSelector({
                 disabled={page * 20 >= agentsData.total}
                 onClick={() => setPage(page + 1)}
               >
-                다음
+                Next
               </Button>
             </div>
           </div>

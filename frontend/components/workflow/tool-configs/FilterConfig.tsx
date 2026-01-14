@@ -45,8 +45,8 @@ const OPERATORS = [
 ] as const;
 
 const LOGIC_OPTIONS = [
-  { value: 'and', label: 'AND (모든 조건 일치)' },
-  { value: 'or', label: 'OR (하나라도 일치)' },
+  { value: 'and', label: 'AND (All conditions match)' },
+  { value: 'or', label: 'OR (Any condition matches)' },
 ] as const;
 
 // ============================================
@@ -109,12 +109,12 @@ export default function FilterConfig({ data, onChange }: ToolConfigProps) {
           iconBgColor="bg-rose-100 dark:bg-rose-950"
           iconColor="text-rose-600 dark:text-rose-400"
           title="Filter"
-          description="조건에 따라 데이터 항목 필터링"
+          description="Filter data items based on conditions"
         />
 
         {/* Input */}
         <TextField
-          label="입력 데이터"
+          label="Input Data"
           value={config.input}
           onChange={(v) => updateField('input', v)}
           placeholder="{{input.items}} or {{previous.data}}"
@@ -122,7 +122,7 @@ export default function FilterConfig({ data, onChange }: ToolConfigProps) {
 
         {/* Logic */}
         <SelectField
-          label="조건 로직"
+          label="Condition Logic"
           value={config.logic}
           onChange={(v) => updateField('logic', v)}
           options={LOGIC_OPTIONS.map(l => ({ value: l.value, label: l.label }))}
@@ -130,7 +130,7 @@ export default function FilterConfig({ data, onChange }: ToolConfigProps) {
 
         {/* Conditions */}
         <div className="space-y-3">
-          <Label>조건</Label>
+          <Label>Conditions</Label>
           {config.conditions.map((condition, index) => (
             <div key={index} className="p-3 border rounded-lg bg-muted/30 space-y-2">
               <div className="flex gap-2">
@@ -177,21 +177,21 @@ export default function FilterConfig({ data, onChange }: ToolConfigProps) {
           ))}
           <Button variant="outline" size="sm" onClick={addCondition} className="w-full">
             <Plus className="h-4 w-4 mr-2" />
-            조건 추가
+            Add Condition
           </Button>
         </div>
 
         {/* Options */}
         <SwitchField
-          label="일치 항목 유지"
-          description={config.keep_matching ? '일치하는 항목 유지' : '일치하는 항목 제거'}
+          label="Keep Matching Items"
+          description={config.keep_matching ? 'Keep matching items' : 'Remove matching items'}
           checked={config.keep_matching}
           onChange={(v) => updateField('keep_matching', v)}
         />
 
         {/* Limit */}
         <NumberField
-          label="결과 제한 (0 = 제한 없음)"
+          label="Result Limit (0 = No limit)"
           value={config.limit}
           onChange={(v) => updateField('limit', v)}
           min={0}

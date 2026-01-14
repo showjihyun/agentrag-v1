@@ -32,95 +32,95 @@ export default function GeminiVideoDemo() {
   const videoCapabilities = [
     {
       title: 'Comprehensive Analysis',
-      description: '종합적인 비디오 분석',
+      description: 'Complete video analysis',
       icon: BarChart3,
       color: 'text-purple-600',
-      features: ['전체 요약', '시각적 요소', '오디오 분석', '구조 분석', '품질 평가'],
+      features: ['Full Summary', 'Visual Elements', 'Audio Analysis', 'Structure Analysis', 'Quality Assessment'],
       accuracy: '96%',
-      speed: '30-60초'
+      speed: '30-60s'
     },
     {
       title: 'Smart Summary',
-      description: '핵심 내용 요약',
+      description: 'Key content summary',
       icon: FileVideo,
       color: 'text-blue-600',
-      features: ['주요 내용', '핵심 포인트', '대상 청중', '시청 가치'],
+      features: ['Main Content', 'Key Points', 'Target Audience', 'Viewing Value'],
       accuracy: '94%',
-      speed: '15-30초'
+      speed: '15-30s'
     },
     {
       title: 'Audio Transcription',
-      description: '음성 텍스트 변환',
+      description: 'Speech to text conversion',
       icon: Mic,
       color: 'text-green-600',
-      features: ['화자 구분', '시간대별 정리', '키워드 추출', '내용 요약'],
+      features: ['Speaker Identification', 'Timeline Organization', 'Keyword Extraction', 'Content Summary'],
       accuracy: '93%',
-      speed: '20-40초'
+      speed: '20-40s'
     },
     {
       title: 'Object Detection',
-      description: '객체 및 인물 분석',
+      description: 'Object and person analysis',
       icon: Eye,
       color: 'text-orange-600',
-      features: ['객체 목록', '인물 분석', '배경 환경', '브랜드/로고'],
+      features: ['Object List', 'Person Analysis', 'Background Environment', 'Brand/Logo'],
       accuracy: '95%',
-      speed: '25-45초'
+      speed: '25-45s'
     },
     {
       title: 'Scene Analysis',
-      description: '장면 구성 분석',
+      description: 'Scene composition analysis',
       icon: Film,
       color: 'text-red-600',
-      features: ['장면 구분', '전환 방식', '시간 구조', '스토리텔링'],
+      features: ['Scene Segmentation', 'Transition Methods', 'Time Structure', 'Storytelling'],
       accuracy: '92%',
-      speed: '35-55초'
+      speed: '35-55s'
     }
   ];
 
   const useCases = [
     {
-      category: '교육 & 트레이닝',
+      category: 'Education & Training',
       icon: '🎓',
       examples: [
-        { name: '온라인 강의 분석', roi: '80% 시간 절약', complexity: 'Medium' },
-        { name: '교육 자료 요약', roi: '90% 효율성 향상', complexity: 'Simple' },
-        { name: '학습 진도 추적', roi: '75% 개선 효과', complexity: 'Complex' }
+        { name: 'Online Course Analysis', roi: '80% Time Saved', complexity: 'Medium' },
+        { name: 'Educational Material Summary', roi: '90% Efficiency Improvement', complexity: 'Simple' },
+        { name: 'Learning Progress Tracking', roi: '75% Improvement Effect', complexity: 'Complex' }
       ]
     },
     {
-      category: '비즈니스 & 마케팅',
+      category: 'Business & Marketing',
       icon: '💼',
       examples: [
-        { name: '제품 데모 분석', roi: '85% 인사이트 향상', complexity: 'Medium' },
-        { name: '광고 효과 측정', roi: '70% 정확도 향상', complexity: 'Complex' },
-        { name: '브랜드 모니터링', roi: '95% 자동화', complexity: 'Simple' }
+        { name: 'Product Demo Analysis', roi: '85% Insight Improvement', complexity: 'Medium' },
+        { name: 'Ad Effectiveness Measurement', roi: '70% Accuracy Improvement', complexity: 'Complex' },
+        { name: 'Brand Monitoring', roi: '95% Automation', complexity: 'Simple' }
       ]
     },
     {
-      category: '미디어 & 엔터테인먼트',
+      category: 'Media & Entertainment',
       icon: '🎬',
       examples: [
-        { name: '콘텐츠 큐레이션', roi: '90% 시간 단축', complexity: 'Simple' },
-        { name: '스토리보드 생성', roi: '75% 비용 절감', complexity: 'Medium' },
-        { name: '자막 자동 생성', roi: '95% 자동화', complexity: 'Simple' }
+        { name: 'Content Curation', roi: '90% Time Reduction', complexity: 'Simple' },
+        { name: 'Storyboard Generation', roi: '75% Cost Reduction', complexity: 'Medium' },
+        { name: 'Auto Subtitle Generation', roi: '95% Automation', complexity: 'Simple' }
       ]
     },
     {
-      category: '보안 & 모니터링',
+      category: 'Security & Monitoring',
       icon: '🔒',
       examples: [
-        { name: '보안 영상 분석', roi: '85% 정확도', complexity: 'Complex' },
-        { name: '품질 관리', roi: '80% 효율성', complexity: 'Medium' },
-        { name: '이상 행동 탐지', roi: '90% 자동 감지', complexity: 'Complex' }
+        { name: 'Security Video Analysis', roi: '85% Accuracy', complexity: 'Complex' },
+        { name: 'Quality Control', roi: '80% Efficiency', complexity: 'Medium' },
+        { name: 'Anomaly Detection', roi: '90% Auto Detection', complexity: 'Complex' }
       ]
     }
   ];
 
   const stats = [
-    { label: '분석 정확도', value: '94.2%', trend: '+2.8%', icon: Eye },
-    { label: '평균 처리 시간', value: '32초', trend: '-18%', icon: Clock },
-    { label: '지원 형식', value: '9개', trend: '+3개', icon: FileVideo },
-    { label: '성공률', value: '97.8%', trend: '+1.5%', icon: CheckCircle }
+    { label: 'Analysis Accuracy', value: '94.2%', trend: '+2.8%', icon: Eye },
+    { label: 'Avg Processing Time', value: '32s', trend: '-18%', icon: Clock },
+    { label: 'Supported Formats', value: '9', trend: '+3', icon: FileVideo },
+    { label: 'Success Rate', value: '97.8%', trend: '+1.5%', icon: CheckCircle }
   ];
 
   const roadmapItems = [
@@ -169,17 +169,17 @@ export default function GeminiVideoDemo() {
           </h1>
           
           <p className="text-2xl text-muted-foreground mb-8 max-w-4xl mx-auto">
-            세계 최초 Gemini 3.0 기반 완전 자동화 비디오 분석 플랫폼
+            World&apos;s First Fully Automated Video Analysis Platform Based on Gemini 3.0
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
             <Button size="lg" className="bg-gradient-to-r from-red-600 to-purple-600 hover:from-red-700 hover:to-purple-700 text-lg px-8 py-4">
               <Play className="h-6 w-6 mr-2" />
-              라이브 데모 시작
+              Start Live Demo
             </Button>
             <Button size="lg" variant="outline" className="text-lg px-8 py-4">
               <Upload className="h-6 w-6 mr-2" />
-              비디오 업로드 테스트
+              Test Video Upload
             </Button>
           </div>
 
@@ -204,11 +204,11 @@ export default function GeminiVideoDemo() {
         {/* Main Content */}
         <Tabs value={activeDemo} onValueChange={setActiveDemo} className="w-full">
           <TabsList className="grid w-full grid-cols-5 mb-8">
-            <TabsTrigger value="overview">개요</TabsTrigger>
-            <TabsTrigger value="capabilities">핵심 기능</TabsTrigger>
-            <TabsTrigger value="demo">라이브 데모</TabsTrigger>
-            <TabsTrigger value="usecases">사용 사례</TabsTrigger>
-            <TabsTrigger value="roadmap">로드맵</TabsTrigger>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="capabilities">Core Features</TabsTrigger>
+            <TabsTrigger value="demo">Live Demo</TabsTrigger>
+            <TabsTrigger value="usecases">Use Cases</TabsTrigger>
+            <TabsTrigger value="roadmap">Roadmap</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-8">
@@ -230,11 +230,11 @@ export default function GeminiVideoDemo() {
                         <div className="grid grid-cols-2 gap-2 text-sm">
                           <div className="text-center p-2 bg-green-50 dark:bg-green-900/20 rounded">
                             <div className="font-semibold text-green-600">{capability.accuracy}</div>
-                            <div className="text-xs text-green-600">정확도</div>
+                            <div className="text-xs text-green-600">Accuracy</div>
                           </div>
                           <div className="text-center p-2 bg-blue-50 dark:bg-blue-900/20 rounded">
                             <div className="font-semibold text-blue-600">{capability.speed}</div>
-                            <div className="text-xs text-blue-600">처리 시간</div>
+                            <div className="text-xs text-blue-600">Processing Time</div>
                           </div>
                         </div>
                         <div className="space-y-1">
@@ -255,9 +255,9 @@ export default function GeminiVideoDemo() {
             {/* Technology Highlights */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-2xl">기술적 혁신</CardTitle>
+                <CardTitle className="text-2xl">Technical Innovation</CardTitle>
                 <CardDescription>
-                  Gemini 3.0의 최신 비디오 처리 기술을 활용한 차세대 분석 플랫폼
+                  Next-generation analysis platform utilizing Gemini 3.0&apos;s latest video processing technology
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -265,25 +265,25 @@ export default function GeminiVideoDemo() {
                   <div className="space-y-4">
                     <h3 className="text-lg font-semibold flex items-center gap-2">
                       <Zap className="h-5 w-5 text-yellow-500" />
-                      핵심 기술
+                      Core Technology
                     </h3>
                     <div className="space-y-3">
                       <div className="p-3 border rounded-lg">
                         <h4 className="font-medium mb-1">🧠 Gemini 3.0 Native Processing</h4>
                         <p className="text-sm text-muted-foreground">
-                          2M 토큰 컨텍스트로 장시간 비디오 완전 분석
+                          Complete analysis of long videos with 2M token context
                         </p>
                       </div>
                       <div className="p-3 border rounded-lg">
                         <h4 className="font-medium mb-1">⚡ Real-time Frame Analysis</h4>
                         <p className="text-sm text-muted-foreground">
-                          실시간 프레임별 객체 및 장면 인식
+                          Real-time frame-by-frame object and scene recognition
                         </p>
                       </div>
                       <div className="p-3 border rounded-lg">
                         <h4 className="font-medium mb-1">🎵 Advanced Audio Processing</h4>
                         <p className="text-sm text-muted-foreground">
-                          다중 화자 구분 및 감정 분석
+                          Multi-speaker identification and emotion analysis
                         </p>
                       </div>
                     </div>
@@ -292,25 +292,25 @@ export default function GeminiVideoDemo() {
                   <div className="space-y-4">
                     <h3 className="text-lg font-semibold flex items-center gap-2">
                       <Award className="h-5 w-5 text-purple-500" />
-                      경쟁 우위
+                      Competitive Advantage
                     </h3>
                     <div className="space-y-3">
                       <div className="p-3 border rounded-lg bg-purple-50 dark:bg-purple-900/20">
-                        <h4 className="font-medium mb-1 text-purple-700">🏆 업계 최초</h4>
+                        <h4 className="font-medium mb-1 text-purple-700">🏆 Industry First</h4>
                         <p className="text-sm text-purple-600">
-                          Gemini 3.0 완전 통합 비디오 분석 플랫폼
+                          Fully integrated Gemini 3.0 video analysis platform
                         </p>
                       </div>
                       <div className="p-3 border rounded-lg bg-blue-50 dark:bg-blue-900/20">
-                        <h4 className="font-medium mb-1 text-blue-700">🚀 5배 성능</h4>
+                        <h4 className="font-medium mb-1 text-blue-700">🚀 5x Performance</h4>
                         <p className="text-sm text-blue-600">
-                          기존 솔루션 대비 5배 빠른 비디오 처리
+                          5x faster video processing compared to existing solutions
                         </p>
                       </div>
                       <div className="p-3 border rounded-lg bg-green-50 dark:bg-green-900/20">
-                        <h4 className="font-medium mb-1 text-green-700">🎯 94% 정확도</h4>
+                        <h4 className="font-medium mb-1 text-green-700">🎯 94% Accuracy</h4>
                         <p className="text-sm text-green-600">
-                          업계 최고 수준의 분석 정확도
+                          Industry-leading analysis accuracy
                         </p>
                       </div>
                     </div>
@@ -326,13 +326,13 @@ export default function GeminiVideoDemo() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Video className="h-6 w-6 text-red-600" />
-                    지원 형식 & 기능
+                    Supported Formats & Features
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <h4 className="font-semibold mb-2">📹 지원 형식</h4>
+                      <h4 className="font-semibold mb-2">📹 Supported Formats</h4>
                       <div className="space-y-1 text-sm">
                         <Badge variant="outline">MP4</Badge>
                         <Badge variant="outline">MOV</Badge>
@@ -345,13 +345,13 @@ export default function GeminiVideoDemo() {
                       </div>
                     </div>
                     <div>
-                      <h4 className="font-semibold mb-2">⚙️ 처리 옵션</h4>
+                      <h4 className="font-semibold mb-2">⚙️ Processing Options</h4>
                       <div className="space-y-1 text-sm">
-                        <div>• 최대 100MB 파일</div>
-                        <div>• 30분 길이 제한</div>
-                        <div>• 자동 프레임 샘플링</div>
-                        <div>• 오디오 포함/제외</div>
-                        <div>• 실시간 진행률</div>
+                        <div>• Max 100MB file size</div>
+                        <div>• 30 min length limit</div>
+                        <div>• Auto frame sampling</div>
+                        <div>• Audio include/exclude</div>
+                        <div>• Real-time progress</div>
                       </div>
                     </div>
                   </div>
@@ -362,7 +362,7 @@ export default function GeminiVideoDemo() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <BarChart3 className="h-6 w-6 text-purple-600" />
-                    분석 유형별 특징
+                    Analysis Type Features
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -384,9 +384,9 @@ export default function GeminiVideoDemo() {
           <TabsContent value="demo" className="space-y-8">
             <Card>
               <CardHeader>
-                <CardTitle>🎮 인터랙티브 비디오 분석 데모</CardTitle>
+                <CardTitle>🎮 Interactive Video Analysis Demo</CardTitle>
                 <CardDescription>
-                  실제 Gemini Video Block을 직접 체험해보세요
+                  Experience the actual Gemini Video Block firsthand
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -492,20 +492,20 @@ export default function GeminiVideoDemo() {
           <CardContent className="p-12 text-center">
             <Video className="h-16 w-16 mx-auto mb-6" />
             <h2 className="text-4xl font-bold mb-4">
-              비디오 AI의 새로운 시대를 열어보세요
+              Open a New Era of Video AI
             </h2>
             <p className="text-xl mb-8 opacity-90 max-w-3xl mx-auto">
-              Gemini 3.0 기반 비디오 분석으로 콘텐츠 제작과 분석을 혁신하고 
-              업무 효율성을 5배 향상시키는 차세대 플랫폼
+              Revolutionize content creation and analysis with Gemini 3.0-based video analysis 
+              and boost work efficiency by 5x with this next-generation platform
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button size="lg" variant="secondary" className="text-lg px-8 py-4">
                 <Star className="h-6 w-6 mr-2" />
-                무료 체험 시작
+                Start Free Trial
               </Button>
               <Button size="lg" variant="outline" className="border-white text-white hover:bg-white hover:text-red-600 text-lg px-8 py-4">
                 <ArrowRight className="h-6 w-6 mr-2" />
-                워크플로우 빌더로 이동
+                Go to Workflow Builder
               </Button>
             </div>
           </CardContent>

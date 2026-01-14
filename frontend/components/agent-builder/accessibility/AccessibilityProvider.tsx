@@ -1,6 +1,6 @@
 /**
  * Accessibility Provider
- * 접근성 표준 준수 및 다국어 지원을 위한 프로바이더
+ * Provider for accessibility standards compliance and multi-language support
  */
 
 import React, { createContext, useContext, useState, useEffect } from 'react';

@@ -1,14 +1,14 @@
 "use client";
 
 /**
- * Smart Parameter Input - 타입별 최적화된 입력 컴포넌트
+ * Smart Parameter Input - Type-optimized input component
  * 
  * Features:
- * - 자동완성
- * - 실시간 검증
- * - 타입별 최적화된 UI
- * - 도움말 툴팁
- * - 변수 참조 지원
+ * - Autocomplete
+ * - Real-time validation
+ * - Type-optimized UI
+ * - Help tooltips
+ * - Variable reference support
  */
 
 import React, { useState, useEffect } from "react";

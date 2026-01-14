@@ -77,7 +77,7 @@ export function AgentflowIntegrationPanel({
       return (
         <div className="flex items-center justify-center py-8">
           <RefreshCw className="h-6 w-6 animate-spin" />
-          <span className="ml-2">검증 중...</span>
+          <span className="ml-2">Validating...</span>
         </div>
       );
     }
@@ -98,25 +98,25 @@ export function AgentflowIntegrationPanel({
                 ) : (
                   <AlertTriangle className="h-5 w-5 text-red-500" />
                 )}
-                검증 상태
+                Validation Status
               </CardTitle>
               <Badge variant={isValid ? 'default' : 'destructive'}>
-                {isValid ? '유효함' : '문제 발견'}
+                {isValid ? 'Valid' : 'Issues Found'}
               </Badge>
             </div>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <span className="text-muted-foreground">에이전트 수:</span>
+                <span className="text-muted-foreground">Agent Count:</span>
                 <span className="ml-2 font-medium">{validationReport.agent_count}</span>
               </div>
               <div>
-                <span className="text-muted-foreground">연결 수:</span>
+                <span className="text-muted-foreground">Connection Count:</span>
                 <span className="ml-2 font-medium">{validationReport.edge_count}</span>
               </div>
               <div>
-                <span className="text-muted-foreground">오케스트레이션:</span>
+                <span className="text-muted-foreground">Orchestration:</span>
                 <span className="ml-2 font-medium">{validationReport.orchestration_type}</span>
               </div>
             </div>
@@ -129,7 +129,7 @@ export function AgentflowIntegrationPanel({
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 <AlertTriangle className="h-5 w-5 text-red-500" />
-                발견된 문제 ({validationReport.issues.length})
+                Issues Found ({validationReport.issues.length})
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -153,7 +153,7 @@ export function AgentflowIntegrationPanel({
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 <Info className="h-5 w-5 text-blue-500" />
-                개선 제안 ({validationReport.recommendations.length})
+                Recommendations ({validationReport.recommendations.length})
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -179,7 +179,7 @@ export function AgentflowIntegrationPanel({
       return (
         <div className="flex items-center justify-center py-8">
           <RefreshCw className="h-6 w-6 animate-spin" />
-          <span className="ml-2">실행 계획 생성 중...</span>
+          <span className="ml-2">Generating execution plan...</span>
         </div>
       );
     }
@@ -193,27 +193,27 @@ export function AgentflowIntegrationPanel({
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <Target className="h-5 w-5" />
-              실행 계획 개요
+              Execution Plan Overview
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <span className="text-muted-foreground">오케스트레이션:</span>
+                <span className="text-muted-foreground">Orchestration:</span>
                 <span className="ml-2 font-medium">{executionPlan.orchestration_type}</span>
               </div>
               <div>
-                <span className="text-muted-foreground">총 에이전트:</span>
+                <span className="text-muted-foreground">Total Agents:</span>
                 <span className="ml-2 font-medium">{executionPlan.total_agents}</span>
               </div>
               <div>
-                <span className="text-muted-foreground">총 연결:</span>
+                <span className="text-muted-foreground">Total Connections:</span>
                 <span className="ml-2 font-medium">{executionPlan.total_edges}</span>
               </div>
               <div>
-                <span className="text-muted-foreground">슈퍼바이저:</span>
+                <span className="text-muted-foreground">Supervisor:</span>
                 <span className="ml-2 font-medium">
-                  {executionPlan.supervisor_config?.enabled ? '활성화' : '비활성화'}
+                  {executionPlan.supervisor_config?.enabled ? 'Enabled' : 'Disabled'}
                 </span>
               </div>
             </div>
@@ -225,7 +225,7 @@ export function AgentflowIntegrationPanel({
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <GitBranch className="h-5 w-5" />
-              실행 단계
+              Execution Steps
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -235,10 +235,10 @@ export function AgentflowIntegrationPanel({
                   <AccordionItem key={index} value={`step-${index}`}>
                     <AccordionTrigger className="text-left">
                       <div className="flex items-center gap-2">
-                        <Badge variant="outline">단계 {step.step || index + 1}</Badge>
+                        <Badge variant="outline">Step {step.step || index + 1}</Badge>
                         <span>{step.name || step.execution_type}</span>
                         {step.execution_type === 'parallel' && (
-                          <Badge variant="secondary">병렬</Badge>
+                          <Badge variant="secondary">Parallel</Badge>
                         )}
                       </div>
                     </AccordionTrigger>
@@ -246,7 +246,7 @@ export function AgentflowIntegrationPanel({
                       <div className="space-y-2 text-sm">
                         {step.agents ? (
                           <div>
-                            <span className="font-medium">에이전트:</span>
+                            <span className="font-medium">Agents:</span>
                             <ul className="mt-1 space-y-1">
                               {step.agents.map((agent: any, agentIndex: number) => (
                                 <li key={agentIndex} className="flex items-center gap-2 ml-4">
@@ -269,7 +269,7 @@ export function AgentflowIntegrationPanel({
                         
                         {step.dependencies && step.dependencies.length > 0 && (
                           <div>
-                            <span className="font-medium">의존성:</span>
+                            <span className="font-medium">Dependencies:</span>
                             <div className="flex flex-wrap gap-1 mt-1">
                               {step.dependencies.map((dep: string, depIndex: number) => (
                                 <Badge key={depIndex} variant="secondary" className="text-xs">
@@ -285,7 +285,7 @@ export function AgentflowIntegrationPanel({
                 ))
               ) : (
                 <div className="text-center py-4 text-muted-foreground">
-                  실행 계획을 불러올 수 없습니다.
+                  Unable to load execution plan.
                 </div>
               )}
             </Accordion>
@@ -298,31 +298,31 @@ export function AgentflowIntegrationPanel({
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 <Zap className="h-5 w-5" />
-                슈퍼바이저 설정
+                Supervisor Configuration
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <span className="text-muted-foreground">LLM 제공자:</span>
+                  <span className="text-muted-foreground">LLM Provider:</span>
                   <span className="ml-2 font-medium">
                     {executionPlan.supervisor_config.llm_provider || 'ollama'}
                   </span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">모델:</span>
+                  <span className="text-muted-foreground">Model:</span>
                   <span className="ml-2 font-medium">
                     {executionPlan.supervisor_config.llm_model || 'llama3.1'}
                   </span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">최대 반복:</span>
+                  <span className="text-muted-foreground">Max Iterations:</span>
                   <span className="ml-2 font-medium">
                     {executionPlan.supervisor_config.max_iterations || 10}
                   </span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">결정 전략:</span>
+                  <span className="text-muted-foreground">Decision Strategy:</span>
                   <span className="ml-2 font-medium">
                     {executionPlan.supervisor_config.decision_strategy || 'llm_based'}
                   </span>
@@ -339,16 +339,16 @@ export function AgentflowIntegrationPanel({
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">통합 관리</h3>
+        <h3 className="text-lg font-semibold">Integration Management</h3>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={handleRefresh}>
             <RefreshCw className="h-4 w-4 mr-2" />
-            새로고침
+            Refresh
           </Button>
           {onExecute && (
             <Button size="sm" onClick={onExecute}>
               <Play className="h-4 w-4 mr-2" />
-              실행
+              Execute
             </Button>
           )}
         </div>
@@ -364,7 +364,7 @@ export function AgentflowIntegrationPanel({
               : 'text-muted-foreground hover:text-foreground'
           }`}
         >
-          검증 리포트
+          Validation Report
         </button>
         <button
           onClick={() => setActiveTab('execution')}
@@ -374,7 +374,7 @@ export function AgentflowIntegrationPanel({
               : 'text-muted-foreground hover:text-foreground'
           }`}
         >
-          실행 계획
+          Execution Plan
         </button>
         <button
           onClick={() => setActiveTab('monitoring')}
@@ -384,7 +384,7 @@ export function AgentflowIntegrationPanel({
               : 'text-muted-foreground hover:text-foreground'
           }`}
         >
-          모니터링
+          Monitoring
         </button>
       </div>
 
@@ -397,15 +397,15 @@ export function AgentflowIntegrationPanel({
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 <Clock className="h-5 w-5" />
-                실시간 모니터링
+                Real-time Monitoring
               </CardTitle>
               <CardDescription>
-                실행 중인 워크플로우의 상태를 실시간으로 모니터링합니다.
+                Monitor the status of running workflows in real-time.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="text-center py-8 text-muted-foreground">
-                모니터링 기능은 곧 제공될 예정입니다.
+                Monitoring feature coming soon.
               </div>
             </CardContent>
           </Card>

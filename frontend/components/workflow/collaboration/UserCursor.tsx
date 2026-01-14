@@ -1,7 +1,7 @@
 /**
  * User Cursor Component
  * 
- * 다른 사용자의 커서를 표시하는 컴포넌트
+ * Component to display other users' cursors
  */
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -34,7 +34,7 @@ export const UserCursor: React.FC<UserCursorProps> = ({
           transform: 'translate(-2px, -2px)'
         }}
       >
-        {/* 커서 아이콘 */}
+        {/* Cursor icon */}
         <div className="relative">
           <svg
             width="20"
@@ -51,7 +51,7 @@ export const UserCursor: React.FC<UserCursorProps> = ({
             />
           </svg>
           
-          {/* 사용자 이름 라벨 */}
+          {/* User name label */}
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -64,7 +64,7 @@ export const UserCursor: React.FC<UserCursorProps> = ({
               {user.name}
             </div>
             
-            {/* 말풍선 꼬리 */}
+            {/* Speech bubble tail */}
             <div
               className="absolute left-0 top-1/2 transform -translate-x-1 -translate-y-1/2"
               style={{
@@ -78,7 +78,7 @@ export const UserCursor: React.FC<UserCursorProps> = ({
           </motion.div>
         </div>
 
-        {/* 현재 편집 중인 노드 표시 */}
+        {/* Currently editing node indicator */}
         {position.nodeId && (
           <motion.div
             initial={{ scale: 0 }}
@@ -89,7 +89,7 @@ export const UserCursor: React.FC<UserCursorProps> = ({
               className="px-2 py-1 rounded text-white text-xs"
               style={{ backgroundColor: user.color }}
             >
-              편집 중
+              Editing
             </div>
           </motion.div>
         )}

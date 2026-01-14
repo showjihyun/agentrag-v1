@@ -566,16 +566,16 @@ export function ExecutionMonitor({
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <BarChart3 className="h-5 w-5" />
-                성능 메트릭
+                Performance Metrics
               </CardTitle>
               <CardDescription>
-                실행 성능과 리소스 사용량을 분석하세요
+                Analyze execution performance and resource usage
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
-                  <h4 className="font-medium">단계별 성능</h4>
+                  <h4 className="font-medium">Step-by-Step Performance</h4>
                   <div className="space-y-2">
                     {execution.steps.filter(s => s.duration).map((step) => (
                       <div key={step.id} className="flex items-center justify-between">
@@ -587,18 +587,18 @@ export function ExecutionMonitor({
                 </div>
 
                 <div className="space-y-4">
-                  <h4 className="font-medium">리소스 사용량</h4>
+                  <h4 className="font-medium">Resource Usage</h4>
                   <div className="space-y-3">
                     <div className="flex justify-between">
-                      <span className="text-sm">총 토큰 사용량</span>
+                      <span className="text-sm">Total Token Usage</span>
                       <span className="font-medium">{execution.metrics.totalTokens.toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-sm">예상 비용</span>
+                      <span className="text-sm">Estimated Cost</span>
                       <span className="font-medium">{formatCost(execution.metrics.totalCost)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-sm">평균 응답 시간</span>
+                      <span className="text-sm">Average Response Time</span>
                       <span className="font-medium">{formatDuration(execution.metrics.averageStepDuration)}</span>
                     </div>
                   </div>

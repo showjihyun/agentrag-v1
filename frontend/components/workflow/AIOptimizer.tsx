@@ -110,14 +110,14 @@ const optimizationConfig: Record<OptimizationType, {
 // Impact badge
 const ImpactBadge: React.FC<{ impact: Impact }> = ({ impact }) => {
   const config = {
-    low: { color: 'bg-gray-100 text-gray-600', label: '낮음' },
-    medium: { color: 'bg-yellow-100 text-yellow-700', label: '중간' },
-    high: { color: 'bg-green-100 text-green-700', label: '높음' },
+    low: { color: 'bg-gray-100 text-gray-600', label: 'Low' },
+    medium: { color: 'bg-yellow-100 text-yellow-700', label: 'Medium' },
+    high: { color: 'bg-green-100 text-green-700', label: 'High' },
   };
 
   return (
     <Badge className={cn('text-xs', config[impact.level].color)}>
-      영향: {config[impact.level].label}
+      Impact: {config[impact.level].label}
     </Badge>
   );
 };
@@ -150,7 +150,7 @@ const SuggestionCard: React.FC<{
               {suggestion.applied && (
                 <Badge variant="outline" className="text-xs text-green-600">
                   <CheckCircle2 className="w-3 h-3 mr-1" />
-                  적용됨
+                  Applied
                 </Badge>
               )}
             </div>
@@ -163,19 +163,19 @@ const SuggestionCard: React.FC<{
                 {suggestion.estimatedSavings.time && (
                   <span className="text-xs flex items-center gap-1 text-green-600">
                     <Clock className="w-3 h-3" />
-                    {suggestion.estimatedSavings.time} 절약
+                    {suggestion.estimatedSavings.time} saved
                   </span>
                 )}
                 {suggestion.estimatedSavings.cost && (
                   <span className="text-xs flex items-center gap-1 text-green-600">
                     <DollarSign className="w-3 h-3" />
-                    {suggestion.estimatedSavings.cost} 절약
+                    {suggestion.estimatedSavings.cost} saved
                   </span>
                 )}
                 {suggestion.estimatedSavings.percentage && (
                   <span className="text-xs flex items-center gap-1 text-green-600">
                     <TrendingDown className="w-3 h-3" />
-                    {suggestion.estimatedSavings.percentage}% 감소
+                    {suggestion.estimatedSavings.percentage}% reduction
                   </span>
                 )}
               </div>
@@ -189,7 +189,7 @@ const SuggestionCard: React.FC<{
                   onClick={() => setExpanded(!expanded)}
                 >
                   {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-                  영향받는 노드 ({suggestion.affectedNodes.length})
+                  Affected nodes ({suggestion.affectedNodes.length})
                 </button>
                 {expanded && (
                   <div className="flex flex-wrap gap-1 mt-1">
@@ -224,7 +224,7 @@ const SuggestionCard: React.FC<{
               ) : (
                 <>
                   <CheckCircle2 className="w-4 h-4 mr-1" />
-                  적용
+                  Apply
                 </>
               )}
             </Button>
@@ -292,9 +292,9 @@ export function AIOptimizer({
               <Sparkles className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h3 className="font-semibold">AI 최적화</h3>
+              <h3 className="font-semibold">AI Optimization</h3>
               <p className="text-xs text-muted-foreground">
-                {pendingSuggestions.length}개의 최적화 제안
+                {pendingSuggestions.length} optimization suggestions
               </p>
             </div>
           </div>
@@ -309,21 +309,21 @@ export function AIOptimizer({
         <div className="grid grid-cols-4 gap-2">
           <div className="p-2 bg-background rounded-lg text-center">
             <div className="text-lg font-bold">{metrics.totalNodes}</div>
-            <div className="text-xs text-muted-foreground">노드</div>
+            <div className="text-xs text-muted-foreground">Nodes</div>
           </div>
           <div className="p-2 bg-background rounded-lg text-center">
             <div className="text-lg font-bold">{metrics.estimatedDuration}</div>
-            <div className="text-xs text-muted-foreground">예상 시간</div>
+            <div className="text-xs text-muted-foreground">Est. Time</div>
           </div>
           <div className="p-2 bg-background rounded-lg text-center">
             <div className="text-lg font-bold">{metrics.estimatedCost}</div>
-            <div className="text-xs text-muted-foreground">예상 비용</div>
+            <div className="text-xs text-muted-foreground">Est. Cost</div>
           </div>
           <div className="p-2 bg-background rounded-lg text-center">
             <div className="text-lg font-bold text-green-600">
               {pendingSuggestions.length}
             </div>
-            <div className="text-xs text-muted-foreground">최적화 가능</div>
+            <div className="text-xs text-muted-foreground">Optimizable</div>
           </div>
         </div>
       </div>
@@ -333,12 +333,12 @@ export function AIOptimizer({
         <div className="p-4 border-b bg-green-50">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-green-800">예상 절감 효과</p>
+              <p className="text-sm font-medium text-green-800">Estimated Savings</p>
               <div className="flex items-center gap-4 mt-1">
                 {totalSavings.time > 0 && (
                   <span className="text-sm text-green-700 flex items-center gap-1">
                     <Clock className="w-4 h-4" />
-                    ~{totalSavings.time}초
+                    ~{totalSavings.time}s
                   </span>
                 )}
                 {totalSavings.cost > 0 && (
@@ -359,7 +359,7 @@ export function AIOptimizer({
               ) : (
                 <Play className="w-4 h-4 mr-1" />
               )}
-              모두 적용
+              Apply All
             </Button>
           </div>
         </div>
@@ -371,14 +371,14 @@ export function AIOptimizer({
           {isAnalyzing ? (
             <div className="flex flex-col items-center justify-center py-12">
               <Loader2 className="w-8 h-8 animate-spin text-primary mb-3" />
-              <p className="text-sm text-muted-foreground">워크플로우 분석 중...</p>
+              <p className="text-sm text-muted-foreground">Analyzing workflow...</p>
             </div>
           ) : pendingSuggestions.length === 0 && appliedSuggestions.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12">
               <CheckCircle2 className="w-12 h-12 text-green-500 mb-3" />
-              <p className="font-medium">워크플로우가 최적화되어 있습니다!</p>
+              <p className="font-medium">Workflow is optimized!</p>
               <p className="text-sm text-muted-foreground mt-1">
-                추가 최적화 제안이 없습니다.
+                No additional optimization suggestions.
               </p>
             </div>
           ) : (
@@ -387,7 +387,7 @@ export function AIOptimizer({
               {pendingSuggestions.length > 0 && (
                 <div className="space-y-3">
                   <h4 className="text-sm font-medium text-muted-foreground">
-                    최적화 제안 ({pendingSuggestions.length})
+                    Optimization Suggestions ({pendingSuggestions.length})
                   </h4>
                   {pendingSuggestions.map(suggestion => (
                     <SuggestionCard
@@ -404,7 +404,7 @@ export function AIOptimizer({
               {appliedSuggestions.length > 0 && (
                 <div className="space-y-3 mt-6">
                   <h4 className="text-sm font-medium text-muted-foreground">
-                    적용된 최적화 ({appliedSuggestions.length})
+                    Applied Optimizations ({appliedSuggestions.length})
                   </h4>
                   {appliedSuggestions.map(suggestion => (
                     <SuggestionCard
@@ -424,9 +424,9 @@ export function AIOptimizer({
       <div className="p-4 border-t bg-muted/30">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium">자동 최적화</p>
+            <p className="text-sm font-medium">Auto Optimization</p>
             <p className="text-xs text-muted-foreground">
-              저장 시 자동으로 최적화 적용
+              Automatically apply optimizations on save
             </p>
           </div>
           <Switch
