@@ -412,6 +412,8 @@ def create_agent(
             configuration=agent_data.configuration,
             tool_ids=agent_data.tool_ids,
             knowledgebase_ids=agent_data.knowledgebase_ids,
+            context_items=[item.dict() for item in agent_data.context_items] if agent_data.context_items else [],
+            mcp_servers=[server.dict() for server in agent_data.mcp_servers] if agent_data.mcp_servers else [],
         )
         
         # Execute command
@@ -431,6 +433,8 @@ def create_agent(
             llm_model=agent.llm_model,
             prompt_template_id=str(agent.prompt_template_id) if agent.prompt_template_id else None,
             configuration=agent.configuration or {},
+            context_items=agent.configuration.get("context_items", []) if agent.configuration else [],
+            mcp_servers=agent.configuration.get("mcp_servers", []) if agent.configuration else [],
             is_public=agent.is_public,
             created_at=agent.created_at,
             updated_at=agent.updated_at,
@@ -601,6 +605,8 @@ async def get_agent(
             llm_model=agent.llm_model,
             prompt_template_id=str(agent.prompt_template_id) if agent.prompt_template_id else None,
             configuration=agent.configuration or {},
+            context_items=agent.configuration.get("context_items", []) if agent.configuration else [],
+            mcp_servers=agent.configuration.get("mcp_servers", []) if agent.configuration else [],
             is_public=agent.is_public,
             created_at=agent.created_at,
             updated_at=agent.updated_at,
@@ -639,6 +645,119 @@ async def get_agent(
         raise
     except Exception as e:
         logger.error(f"Failed to get agent: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error"
+        )
+
+
+@router.put(
+    "/{agent_id}",
+    response_model=AgentResponse,
+    summary="Update agent",
+    description="Update an existing agent. Only the owner can update the agent.",
+)
+async def update_agent(
+    agent_id: str,
+    agent_data: AgentUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Update agent using DDD CQRS Command pattern."""
+    try:
+        logger.info(f"Updating agent {agent_id} for user {current_user.id}")
+        
+        facade = AgentBuilderFacade(db)
+        
+        # First check if agent exists and user has permission
+        query = GetAgentQuery(agent_id=agent_id)
+        agent = facade.agent_queries.handle_get(query)
+        
+        if str(agent.user_id) != str(current_user.id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have permission to update this agent"
+            )
+        
+        # Create update command
+        command = UpdateAgentCommand(
+            agent_id=agent_id,
+            name=agent_data.name,
+            description=agent_data.description,
+            llm_provider=agent_data.llm_provider,
+            llm_model=agent_data.llm_model,
+            prompt_template_id=agent_data.prompt_template_id,
+            configuration=agent_data.configuration,
+            tool_ids=agent_data.tool_ids,
+            knowledgebase_ids=agent_data.knowledgebase_ids,
+            context_items=[item.dict() for item in agent_data.context_items] if agent_data.context_items else None,
+            mcp_servers=[server.dict() for server in agent_data.mcp_servers] if agent_data.mcp_servers else None,
+            is_public=agent_data.is_public,
+        )
+        
+        # Execute command
+        updated_agent = facade.agent_commands.handle_update(command)
+        
+        logger.info(f"Agent updated successfully: {agent_id}")
+        
+        # Convert to response
+        return AgentResponse(
+            id=str(updated_agent.id),
+            user_id=str(updated_agent.user_id),
+            name=updated_agent.name,
+            description=updated_agent.description,
+            agent_type=updated_agent.agent_type,
+            template_id=str(updated_agent.template_id) if updated_agent.template_id else None,
+            llm_provider=updated_agent.llm_provider,
+            llm_model=updated_agent.llm_model,
+            prompt_template_id=str(updated_agent.prompt_template_id) if updated_agent.prompt_template_id else None,
+            configuration=updated_agent.configuration or {},
+            context_items=updated_agent.configuration.get("context_items", []) if updated_agent.configuration else [],
+            mcp_servers=updated_agent.configuration.get("mcp_servers", []) if updated_agent.configuration else [],
+            is_public=updated_agent.is_public,
+            created_at=updated_agent.created_at,
+            updated_at=updated_agent.updated_at,
+            deleted_at=updated_agent.deleted_at,
+            tools=[
+                {
+                    "tool_id": str(at.tool_id),
+                    "order": at.order,
+                    "configuration": at.configuration or {}
+                }
+                for at in updated_agent.tools
+            ] if updated_agent.tools else [],
+            knowledgebases=[
+                {
+                    "knowledgebase_id": str(ak.knowledgebase_id),
+                    "order": ak.order
+                }
+                for ak in updated_agent.knowledgebases
+            ] if updated_agent.knowledgebases else [],
+            version_count=0
+        )
+        
+    except ValueError as e:
+        logger.warning(f"Invalid agent ID format: {agent_id}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid agent ID format: {agent_id}"
+        )
+    except NotFoundError as e:
+        logger.warning(f"Agent not found: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+    except ValidationError as e:
+        logger.warning(f"Agent validation failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to update agent: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"

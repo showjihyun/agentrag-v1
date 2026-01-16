@@ -17,7 +17,9 @@ from typing import Dict, Any, Optional
 from datetime import datetime
 from sqlalchemy.orm import Session
 
-from backend.db.models.agent_builder import WebhookTrigger, Agent
+# TODO: WebhookTrigger model needs to be created
+# from backend.db.models.agent_builder import WebhookTrigger, Agent
+from backend.db.models.agent_builder import Agent
 from backend.services.agent_builder.agent_executor import AgentExecutor
 
 logger = logging.getLogger(__name__)

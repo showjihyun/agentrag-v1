@@ -43,7 +43,9 @@ import {
   Trash2,
   Copy,
   Eye,
-  EyeOff
+  EyeOff,
+  MessageSquare,
+  Bot
 } from 'lucide-react';
 
 // 커스텀 노드 컴포넌트들
@@ -68,8 +70,11 @@ import { WorkflowSettings } from './sidebar/WorkflowSettings';
 // 훅과 유틸리티
 import { useWorkflowStore } from '@/lib/stores/workflow-store';
 import { useWorkflowValidation } from '@/hooks/useWorkflowValidation';
-import { useWorkflowExecution } from '@/hooks/useWorkflowExecution';
+import { useWorkflowExecution, ExecutionUpdate } from '@/hooks/useWorkflowExecution';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+
+// AI Chat Panel
+import { AIAgentChatPanel } from '@/components/agent-builder/workflow/AIAgentChatPanel';
 
 // 타입 정의
 interface WorkflowEditorProps {
@@ -90,6 +95,22 @@ interface NodeTemplate {
   icon: React.ReactNode;
   category: string;
   defaultData: any;
+}
+
+interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+}
+
+interface ExecutionLog {
+  id: string;
+  nodeId: string;
+  nodeName: string;
+  status: 'running' | 'success' | 'error' | 'warning';
+  message: string;
+  timestamp: Date;
+  duration?: number;
 }
 
 // 노드 타입 정의
@@ -222,6 +243,12 @@ const WorkflowEditorContent: React.FC<WorkflowEditorProps> = ({
   const [executionResults, setExecutionResults] = useState<any>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   
+  // AI Chat Panel 상태
+  const [showAIChatPanel, setShowAIChatPanel] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [isSendingChat, setIsSendingChat] = useState(false);
+  const [executionLogs, setExecutionLogs] = useState<ExecutionLog[]>([]);
+  
   // 히스토리 관리
   const [history, setHistory] = useState<{ nodes: Node[], edges: Edge[] }[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
@@ -235,7 +262,69 @@ const WorkflowEditorContent: React.FC<WorkflowEditorProps> = ({
   } = useWorkflowStore();
   
   const { validateWorkflow } = useWorkflowValidation();
-  const { executeWorkflow } = useWorkflowExecution();
+  const { 
+    executeWorkflow, 
+    executeWorkflowStreaming,
+    streamingUpdates,
+    currentExecution 
+  } = useWorkflowExecution({
+    onStreamingUpdate: (update: ExecutionUpdate) => {
+      // 실행 로그 추가
+      const log: ExecutionLog = {
+        id: `${update.execution_id}_${Date.now()}`,
+        nodeId: update.data.node_id || 'workflow',
+        nodeName: update.data.node_name || update.update_type,
+        status: update.update_type.includes('error') ? 'error' 
+              : update.update_type.includes('complete') ? 'success' 
+              : 'running',
+        message: update.data.message || JSON.stringify(update.data),
+        timestamp: new Date(update.timestamp),
+        duration: update.data.execution_time_ms,
+      };
+      setExecutionLogs(prev => [...prev, log]);
+      
+      // AI 노드 결과를 채팅 메시지로 추가
+      if (update.update_type === 'node_complete' && update.data.node_type) {
+        const aiNodeTypes = ['llm', 'agent', 'orchestration'];
+        if (aiNodeTypes.includes(update.data.node_type)) {
+          const aiResponse: ChatMessage = {
+            role: 'assistant',
+            content: update.data.result?.response || update.data.result?.output || JSON.stringify(update.data.result, null, 2),
+            timestamp: new Date(update.timestamp),
+          };
+          setChatMessages(prev => [...prev, aiResponse]);
+        }
+      }
+      
+      // 워크플로우 완료 시 최종 결과 표시
+      if (update.update_type === 'workflow_complete') {
+        const finalMessage: ChatMessage = {
+          role: 'assistant',
+          content: `✅ Workflow completed successfully!\n\nExecution Time: ${update.data.execution_time_seconds?.toFixed(2)}s\n\nResults:\n${JSON.stringify(update.data.results, null, 2)}`,
+          timestamp: new Date(update.timestamp),
+        };
+        setChatMessages(prev => [...prev, finalMessage]);
+      }
+      
+      // 에러 발생 시 에러 메시지 표시
+      if (update.update_type === 'workflow_error' || update.update_type === 'node_error') {
+        const errorMessage: ChatMessage = {
+          role: 'assistant',
+          content: `❌ Error: ${update.data.error || 'Unknown error occurred'}`,
+          timestamp: new Date(update.timestamp),
+        };
+        setChatMessages(prev => [...prev, errorMessage]);
+      }
+    },
+    onExecutionComplete: (result) => {
+      setExecutionResults(result);
+      setIsExecuting(false);
+    },
+    onExecutionError: (error) => {
+      setValidationErrors([`Execution failed: ${error.message}`]);
+      setIsExecuting(false);
+    }
+  });
   
   // 드래그 앤 드롭 핸들러
   const onDragOver = useCallback((event: React.DragEvent) => {
@@ -400,15 +489,50 @@ const WorkflowEditorContent: React.FC<WorkflowEditorProps> = ({
     
     setIsExecuting(true);
     setValidationErrors([]);
+    setExecutionLogs([]); // 로그 초기화
+    
+    // AI 노드가 있는지 확인
+    const hasAINodes = nodes.some(node => 
+      ['llm', 'agent', 'orchestration'].includes(node.type || '')
+    );
+    
+    // AI 노드가 있으면 채팅 패널 자동 열기
+    if (hasAINodes) {
+      setShowAIChatPanel(true);
+      
+      // 실행 시작 메시지 추가
+      const startMessage: ChatMessage = {
+        role: 'assistant',
+        content: `🚀 Starting workflow execution...\n\nNodes: ${nodes.length}\nEdges: ${edges.length}\nAI Nodes: ${nodes.filter(n => ['llm', 'agent', 'orchestration'].includes(n.type || '')).length}`,
+        timestamp: new Date(),
+      };
+      setChatMessages(prev => [...prev, startMessage]);
+    }
     
     try {
-      const workflow = { nodes, edges };
+      // 워크플로우 데이터 변환 (타입 호환성)
+      const workflowData = {
+        nodes: nodes.map(n => ({
+          id: n.id,
+          type: n.type || 'unknown',
+          position: n.position,
+          data: n.data,
+        })),
+        edges: edges.map(e => ({
+          id: e.id,
+          source: e.source,
+          target: e.target,
+          ...(e.sourceHandle && { sourceHandle: e.sourceHandle }),
+          ...(e.targetHandle && { targetHandle: e.targetHandle }),
+          data: e.data,
+        })),
+      } as any;
       
       if (onExecute) {
-        await onExecute(workflow);
+        await onExecute(workflowData);
       } else {
-        const results = await executeWorkflow(workflow);
-        setExecutionResults(results);
+        // 스트리밍 모드로 실행하여 실시간 업데이트 받기
+        await executeWorkflowStreaming(workflowData);
       }
     } catch (error) {
       console.error('Failed to execute workflow:', error);
@@ -416,7 +540,59 @@ const WorkflowEditorContent: React.FC<WorkflowEditorProps> = ({
     } finally {
       setIsExecuting(false);
     }
-  }, [nodes, edges, readOnly, onExecute, executeWorkflow, validateWorkflow]);
+  }, [nodes, edges, readOnly, onExecute, executeWorkflowStreaming, validateWorkflow]);
+  
+  // AI 채팅 메시지 전송
+  const handleSendChatMessage = useCallback(async (message: string) => {
+    setIsSendingChat(true);
+    
+    // 사용자 메시지 추가
+    const userMessage: ChatMessage = {
+      role: 'user',
+      content: message,
+      timestamp: new Date(),
+    };
+    setChatMessages(prev => [...prev, userMessage]);
+    
+    try {
+      // 워크플로우 데이터 변환
+      const workflowData = {
+        nodes: nodes.map(n => ({
+          id: n.id,
+          type: n.type || 'unknown',
+          position: n.position,
+          data: n.data,
+        })),
+        edges: edges.map(e => ({
+          id: e.id,
+          source: e.source,
+          target: e.target,
+          ...(e.sourceHandle && { sourceHandle: e.sourceHandle }),
+          ...(e.targetHandle && { targetHandle: e.targetHandle }),
+          data: e.data,
+        })),
+      } as any;
+      
+      // 입력 데이터로 사용자 메시지 전달
+      await executeWorkflowStreaming(workflowData, { user_input: message });
+      
+    } catch (error) {
+      const errorMessage: ChatMessage = {
+        role: 'assistant',
+        content: `Error: ${error instanceof Error ? error.message : 'Failed to process message'}`,
+        timestamp: new Date(),
+      };
+      setChatMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsSendingChat(false);
+    }
+  }, [nodes, edges, executeWorkflowStreaming]);
+  
+  // 실행 로그 초기화
+  const handleClearLogs = useCallback(() => {
+    setExecutionLogs([]);
+    setChatMessages([]);
+  }, []);
   
   // 노드/엣지 삭제
   const handleDelete = useCallback(() => {
@@ -573,6 +749,24 @@ const WorkflowEditorContent: React.FC<WorkflowEditorProps> = ({
                 >
                   {showMiniMap ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </Button>
+                
+                <Separator orientation="vertical" className="h-6" />
+                
+                {/* AI Chat Toggle Button */}
+                <Button
+                  size="sm"
+                  variant={showAIChatPanel ? "default" : "outline"}
+                  onClick={() => setShowAIChatPanel(!showAIChatPanel)}
+                  className={showAIChatPanel ? "bg-blue-600 hover:bg-blue-700" : ""}
+                >
+                  <Bot className="w-4 h-4 mr-1" />
+                  AI Chat
+                  {chatMessages.length > 0 && (
+                    <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
+                      {chatMessages.length}
+                    </Badge>
+                  )}
+                </Button>
               </div>
             </Card>
           </Panel>
@@ -685,6 +879,22 @@ const WorkflowEditorContent: React.FC<WorkflowEditorProps> = ({
           )}
         </div>
       </div>
+      
+      {/* AI Agent Chat Panel */}
+      <AIAgentChatPanel
+        isOpen={showAIChatPanel}
+        onToggle={() => setShowAIChatPanel(!showAIChatPanel)}
+        chatMessages={chatMessages}
+        onSendMessage={handleSendChatMessage}
+        isSending={isSendingChat || isExecuting}
+        llmProvider="Workflow"
+        llmModel={nodes.find(n => n.type === 'llm')?.data?.model || 'AI Agent'}
+        executionLogs={executionLogs}
+        onClearLogs={handleClearLogs}
+        defaultWidth={35}
+        minWidth={25}
+        maxWidth={50}
+      />
     </div>
   );
 };

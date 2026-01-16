@@ -35,10 +35,15 @@ import {
   Code,
   TestTube,
 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ToolSelector } from './ToolSelector';
 import { PromptTemplateEditor } from './PromptTemplateEditor';
 import { AgentToolsPanel } from './AgentToolsPanel';
+import { ContextManager, type ContextItem } from './ContextManager';
+import { MCPServerSelector, type SelectedMCPServer } from './MCPServerSelector';
+import { AgentPreview } from './AgentPreview';
 import { LLM_PROVIDERS, getModelsForProvider, getAvailableProviders, LLMProvider } from '@/lib/llm-models';
+import { FileText, Server } from 'lucide-react';
 
 // LLM Config interface matching settings page
 interface LLMConfig {
@@ -65,7 +70,7 @@ const providerIdMap: Record<string, string> = {
 const agentFormSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100),
   description: z.string().optional(),
-  agent_type: z.string().min(1, 'Agent type is required'),
+  agent_type: z.string().default('custom'), // Hidden field with default value
   llm_provider: z.string().min(1, 'LLM provider is required'),
   llm_model: z.string().min(1, 'LLM model is required'),
   prompt_template: z.string().optional(),
@@ -89,8 +94,8 @@ const STEPS = [
   },
   {
     id: 3,
-    title: 'Tools',
-    description: 'Select capabilities',
+    title: 'Capabilities',
+    description: 'Tools, Context & MCP',
     icon: Wrench,
   },
   {
@@ -115,6 +120,8 @@ interface AgentWizardProps {
 }
 
 export function AgentWizard({ agentId, initialData, templateData, mode = 'create' }: AgentWizardProps = {}) {
+  console.log('[AgentWizard] Component rendered', { agentId, initialData, templateData, mode });
+  
   const router = useRouter();
   const { toast } = useToast();
   const [currentStep, setCurrentStep] = React.useState(1);
@@ -125,6 +132,23 @@ export function AgentWizard({ agentId, initialData, templateData, mode = 'create
   const [, forceUpdate] = React.useReducer(x => x + 1, 0);
   const [llmConfig, setLlmConfig] = React.useState<LLMConfig | null>(null);
   const [ollamaModels, setOllamaModels] = React.useState<string[]>([]);
+  
+  // Context & MCP state - initialize from initialData if available
+  const [contexts, setContexts] = React.useState<ContextItem[]>(
+    initialData?.context_items || []
+  );
+  const [selectedMCPServers, setSelectedMCPServers] = React.useState<SelectedMCPServer[]>(
+    initialData?.mcp_servers || []
+  );
+  const [capabilitiesTab, setCapabilitiesTab] = React.useState<string>('tools');
+
+  console.log('[AgentWizard] State:', { 
+    contextsCount: contexts.length, 
+    mcpServersCount: selectedMCPServers.length,
+    currentStep,
+    mode,
+    initialData: initialData ? 'loaded' : 'none'
+  });
 
   // Load LLM config from localStorage (set in settings/llm page)
   React.useEffect(() => {
@@ -247,7 +271,6 @@ export function AgentWizard({ agentId, initialData, templateData, mode = 'create
   // Watch form values for Review step
   const reviewName = form.watch('name');
   const reviewDescription = form.watch('description');
-  const reviewAgentType = form.watch('agent_type');
   const reviewLlmProvider = form.watch('llm_provider');
   const reviewLlmModel = form.watch('llm_model');
   const reviewToolIds = form.watch('tool_ids');
@@ -272,7 +295,7 @@ export function AgentWizard({ agentId, initialData, templateData, mode = 'create
   const validateStep = async (step: number): Promise<boolean> => {
     switch (step) {
       case 1:
-        return await form.trigger(['name', 'description', 'agent_type']);
+        return await form.trigger(['name', 'description']);
       case 2:
         return await form.trigger(['llm_provider', 'llm_model']);
       case 3:
@@ -322,6 +345,16 @@ export function AgentWizard({ agentId, initialData, templateData, mode = 'create
         // Send tool configurations if available, otherwise fall back to tool_ids
         ...(toolConfigurations.length > 0 && { tools: toolConfigurations }),
         ...(data.tool_ids && data.tool_ids.length > 0 && { tool_ids: data.tool_ids }),
+        // Add context items and MCP servers
+        context_items: contexts,
+        mcp_servers: selectedMCPServers.map(server => ({
+          id: server.id,
+          name: server.name,
+          command: server.command,
+          args: server.args,
+          env: server.env,
+          enabled: server.enabled
+        })),
       };
 
       if (mode === 'edit' && agentId) {
@@ -398,31 +431,6 @@ export function AgentWizard({ agentId, initialData, templateData, mode = 'create
                   </FormControl>
                   <FormDescription>
                     Help others understand the purpose of this agent
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="agent_type"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Agent Type</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select type" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="custom">Custom Agent</SelectItem>
-                      <SelectItem value="template">From Template</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormDescription>
-                    Start from scratch or use a template
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -649,29 +657,80 @@ export function AgentWizard({ agentId, initialData, templateData, mode = 'create
         
         return (
           <div className="space-y-6" onClick={(e) => e.stopPropagation()}>
-            <FormField
-              control={form.control}
-              name="tool_ids"
-              render={({ field }) => (
-                <FormItem>
-                  <FormControl>
-                    <div onClick={(e) => e.stopPropagation()}>
-                      <AgentToolsPanel
-                        agentId={agentId || 'new'}
-                        selectedTools={field.value || []}
-                        onToolsChange={(newValue) => {
-                          field.onChange(newValue);
-                        }}
-                        onToolsWithConfigChange={(toolsWithConfig) => {
-                          setSelectedToolsWithConfig(toolsWithConfig);
-                        }}
-                      />
-                    </div>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <Tabs value={capabilitiesTab} onValueChange={setCapabilitiesTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="tools" className="flex items-center gap-2">
+                  <Wrench className="h-4 w-4" />
+                  <span>Tools</span>
+                  {currentToolIds && currentToolIds.length > 0 && (
+                    <Badge variant="secondary" className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-xs">
+                      {currentToolIds.length}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="context" className="flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  <span>Context</span>
+                  {contexts.length > 0 && (
+                    <Badge variant="secondary" className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-xs">
+                      {contexts.length}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="mcp" className="flex items-center gap-2">
+                  <Server className="h-4 w-4" />
+                  <span>MCP</span>
+                  {selectedMCPServers.length > 0 && (
+                    <Badge variant="secondary" className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-xs">
+                      {selectedMCPServers.length}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="tools" className="mt-4">
+                <FormField
+                  control={form.control}
+                  name="tool_ids"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <AgentToolsPanel
+                            agentId={agentId || 'new'}
+                            selectedTools={field.value || []}
+                            onToolsChange={(newValue) => {
+                              field.onChange(newValue);
+                            }}
+                            onToolsWithConfigChange={(toolsWithConfig) => {
+                              setSelectedToolsWithConfig(toolsWithConfig);
+                            }}
+                            agentType={form.watch('agent_type')}
+                            agentDescription={form.watch('description')}
+                          />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </TabsContent>
+              
+              <TabsContent value="context" className="mt-4">
+                <ContextManager
+                  contexts={contexts}
+                  onContextsChange={setContexts}
+                  maxContexts={10}
+                />
+              </TabsContent>
+              
+              <TabsContent value="mcp" className="mt-4">
+                <MCPServerSelector
+                  selectedServers={selectedMCPServers}
+                  onServersChange={setSelectedMCPServers}
+                />
+              </TabsContent>
+            </Tabs>
           </div>
         );
 
@@ -761,13 +820,6 @@ export function AgentWizard({ agentId, initialData, templateData, mode = 'create
                   <div className="grid grid-cols-3 gap-2">
                     <span className="text-sm font-medium text-muted-foreground">Name:</span>
                     <span className="col-span-2 text-sm font-semibold">{currentValues.name}</span>
-                  </div>
-                  <Separator />
-                  <div className="grid grid-cols-3 gap-2">
-                    <span className="text-sm font-medium text-muted-foreground">Type:</span>
-                    <span className="col-span-2 text-sm">
-                      <Badge variant="outline">{currentValues.agent_type}</Badge>
-                    </span>
                   </div>
                   {currentValues.description && (
                     <>
@@ -881,55 +933,58 @@ export function AgentWizard({ agentId, initialData, templateData, mode = 'create
 
   return (
     <FormProvider {...form}>
-      <form 
-        onSubmit={(e) => {
-          console.log('Form onSubmit event triggered');
-          form.handleSubmit(onSubmit)(e);
-        }} 
-        className="space-y-6"
-      >
-        {/* Progress Bar */}
-        <Card>
-          <CardContent className="pt-6">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-semibold">
-                    Step {currentStep} of {STEPS.length}
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    {STEPS[currentStep - 1]?.title}
-                  </p>
-                </div>
-                {draftSaved && (
-                  <Badge variant="secondary" className="animate-in fade-in">
-                    <Check className="mr-1 h-3 w-3" />
-                    Draft Saved
-                  </Badge>
-                )}
-              </div>
-              <Progress value={progress} className="h-2" />
-              <div className="flex justify-between">
-                {STEPS.map((step) => {
-                  const Icon = step.icon;
-                  const isCompleted = step.id < currentStep;
-                  const isCurrent = step.id === currentStep;
-                  
-                  return (
-                    <div
-                      key={step.id}
-                      className={`flex flex-col items-center gap-2 ${
-                        isCurrent ? 'text-primary' : isCompleted ? 'text-green-600' : 'text-muted-foreground'
-                      }`}
-                    >
-                      <div
-                        className={`flex h-10 w-10 items-center justify-center rounded-full border-2 ${
-                          isCurrent
-                            ? 'border-primary bg-primary/10'
-                            : isCompleted
-                            ? 'border-green-600 bg-green-50'
-                            : 'border-muted'
-                        }`}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        {/* Main Form - Left Side (3/5) */}
+        <div className="lg:col-span-3">
+          <form 
+            onSubmit={(e) => {
+              console.log('Form onSubmit event triggered');
+              form.handleSubmit(onSubmit)(e);
+            }} 
+            className="space-y-6"
+          >
+            {/* Progress Bar */}
+            <Card>
+              <CardContent className="pt-6">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-semibold">
+                        Step {currentStep} of {STEPS.length}
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        {STEPS[currentStep - 1]?.title}
+                      </p>
+                    </div>
+                    {draftSaved && (
+                      <Badge variant="secondary" className="animate-in fade-in">
+                        <Check className="mr-1 h-3 w-3" />
+                        Draft Saved
+                      </Badge>
+                    )}
+                  </div>
+                  <Progress value={progress} className="h-2" />
+                  <div className="flex justify-between">
+                    {STEPS.map((step) => {
+                      const Icon = step.icon;
+                      const isCompleted = step.id < currentStep;
+                      const isCurrent = step.id === currentStep;
+                      
+                      return (
+                        <div
+                          key={step.id}
+                          className={`flex flex-col items-center gap-2 ${
+                            isCurrent ? 'text-primary' : isCompleted ? 'text-green-600' : 'text-muted-foreground'
+                          }`}
+                        >
+                          <div
+                            className={`flex h-10 w-10 items-center justify-center rounded-full border-2 ${
+                              isCurrent
+                                ? 'border-primary bg-primary/10'
+                                : isCompleted
+                                ? 'border-green-600 bg-green-50'
+                                : 'border-muted'
+                            }`}
                       >
                         {isCompleted ? (
                           <Check className="h-5 w-5" />
@@ -955,49 +1010,66 @@ export function AgentWizard({ agentId, initialData, templateData, mode = 'create
           <CardContent>{renderStepContent()}</CardContent>
         </Card>
 
-        {/* Navigation */}
-        <div className="flex justify-between">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={prevStep}
-            disabled={currentStep === 1}
-          >
-            <ChevronLeft className="mr-2 h-4 w-4" />
-            Previous
-          </Button>
-
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={saveDraft}
-            >
-              Save Draft
-            </Button>
-
-            {currentStep < STEPS.length ? (
-              <Button type="button" onClick={nextStep}>
-                Next
-                <ChevronRight className="ml-2 h-4 w-4" />
-              </Button>
-            ) : (
-              <Button 
-                type="submit" 
-                disabled={isSubmitting}
-                onClick={(e) => {
-                  console.log(`${mode === 'edit' ? 'Update' : 'Create'} Agent button clicked`);
-                  console.log('Form errors:', form.formState.errors);
-                  console.log('Form values:', form.getValues());
-                }}
+            {/* Navigation */}
+            <div className="flex justify-between">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={prevStep}
+                disabled={currentStep === 1}
               >
-                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {mode === 'edit' ? 'Update Agent' : 'Create Agent'}
+                <ChevronLeft className="mr-2 h-4 w-4" />
+                Previous
               </Button>
-            )}
+
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={saveDraft}
+                >
+                  Save Draft
+                </Button>
+
+                {currentStep < STEPS.length ? (
+                  <Button type="button" onClick={nextStep}>
+                    Next
+                    <ChevronRight className="ml-2 h-4 w-4" />
+                  </Button>
+                ) : (
+                  <Button 
+                    type="submit" 
+                    disabled={isSubmitting}
+                    onClick={(e) => {
+                      console.log(`${mode === 'edit' ? 'Update' : 'Create'} Agent button clicked`);
+                      console.log('Form errors:', form.formState.errors);
+                      console.log('Form values:', form.getValues());
+                    }}
+                  >
+                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {mode === 'edit' ? 'Update Agent' : 'Create Agent'}
+                  </Button>
+                )}
+              </div>
+            </div>
+          </form>
+        </div>
+
+        {/* Preview Panel - Right Side (2/5 for wider chat) */}
+        <div className="lg:col-span-2 hidden lg:block">
+          <div className="sticky top-6">
+            <AgentPreview
+              agentName={form.watch('name') || 'Untitled Agent'}
+              agentDescription={form.watch('description')}
+              llmProvider={form.watch('llm_provider') || 'ollama'}
+              llmModel={form.watch('llm_model') || 'llama3.1'}
+              contextItems={contexts}
+              mcpServers={selectedMCPServers}
+              promptTemplate={form.watch('prompt_template')}
+            />
           </div>
         </div>
-      </form>
+      </div>
     </FormProvider>
   );
 }

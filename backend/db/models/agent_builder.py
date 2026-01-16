@@ -64,6 +64,10 @@ class Agent(Base):
     llm_provider = Column(String(100), nullable=False)  # ollama, openai, claude
     llm_model = Column(String(100), nullable=False)
     configuration = Column(JSONB, default=dict)  # Agent-specific config
+    
+    # Context and MCP Configuration
+    context_items = Column(JSONB, default=list)  # List of context items (files, folders, etc.)
+    mcp_servers = Column(JSONB, default=list)  # List of MCP server configurations
 
     # Visibility
     is_public = Column(Boolean, default=False, index=True)

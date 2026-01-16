@@ -69,8 +69,8 @@ export default function ImprovedChatflowsPage() {
     } catch (error: any) {
       console.error('Failed to load chatflows:', error);
       toast({
-        title: '오류',
-        description: error.message || 'Chatflow 목록을 불러오는데 실패했습니다',
+        title: 'Error',
+        description: error.message || 'Failed to load chatflow list',
         variant: 'destructive',
       });
       setChatflows([]);
@@ -156,19 +156,19 @@ export default function ImprovedChatflowsPage() {
           try {
             const duplicatedFlow = {
               ...flow,
-              name: `${flow.name} (복사본)`,
+              name: `${flow.name} (Copy)`,
               id: undefined,
             };
             await flowsAPI.createChatflow(duplicatedFlow);
             toast({
-              title: '복제 완료',
-              description: `"${flow.name}" 복제가 완료되었습니다`,
+              title: 'Duplicated',
+              description: `"${flow.name}" has been duplicated`,
             });
             loadChatflows();
           } catch (error: any) {
             toast({
-              title: '오류',
-              description: error.message || '복제에 실패했습니다',
+              title: 'Error',
+              description: error.message || 'Failed to duplicate',
               variant: 'destructive',
             });
           }
@@ -193,14 +193,14 @@ export default function ImprovedChatflowsPage() {
     try {
       await flowsAPI.deleteFlow(flowToDelete);
       toast({
-        title: '삭제 완료',
-        description: 'Chatflow가 삭제되었습니다',
+        title: 'Deleted',
+        description: 'Chatflow has been deleted',
       });
       loadChatflows();
     } catch (error: any) {
       toast({
-        title: '오류',
-        description: error.message || '삭제에 실패했습니다',
+        title: 'Error',
+        description: error.message || 'Failed to delete',
         variant: 'destructive',
       });
     } finally {
@@ -232,7 +232,7 @@ export default function ImprovedChatflowsPage() {
               Chatflows
             </h1>
             <p className="text-muted-foreground text-lg">
-              RAG 기반 챗봇과 AI 어시스턴트를 구축하세요
+              Build RAG-based chatbots and AI assistants
             </p>
           </div>
         </div>
@@ -254,7 +254,7 @@ export default function ImprovedChatflowsPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <MessageSquare className="h-4 w-4" />
-              전체 Chatflow
+              Total Chatflows
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -265,7 +265,7 @@ export default function ImprovedChatflowsPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4" />
-              활성화
+              Active
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -276,7 +276,7 @@ export default function ImprovedChatflowsPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <TrendingUp className="h-4 w-4" />
-              총 대화 수
+              Total Conversations
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -287,7 +287,7 @@ export default function ImprovedChatflowsPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <Database className="h-4 w-4" />
-              RAG 연동
+              RAG Enabled
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -349,15 +349,15 @@ export default function ImprovedChatflowsPage() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Chatflow 삭제</AlertDialogTitle>
+            <AlertDialogTitle>Delete Chatflow</AlertDialogTitle>
             <AlertDialogDescription>
-              이 Chatflow를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
+              Are you sure you want to delete this Chatflow? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>취소</AlertDialogCancel>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
-              삭제
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

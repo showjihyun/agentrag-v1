@@ -31,24 +31,24 @@ export default function MarketplacePage() {
               </Badge>
             </div>
             <h1 className="text-4xl font-bold mb-4">
-              템플릿 마켓플레이스
+              Template Marketplace
             </h1>
             <p className="text-xl text-white/90 mb-6">
-              검증된 에이전트 팀 구성을 찾아보고 바로 사용해보세요. 
-              전문가들이 만든 워크플로우 템플릿으로 빠르게 시작하세요.
+              Discover and deploy verified agent team configurations instantly. 
+              Get started quickly with workflow templates created by experts.
             </p>
             <div className="flex items-center gap-6 text-sm">
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4" />
-                <span>1,000+ 활성 사용자</span>
+                <span>1,000+ Active Users</span>
               </div>
               <div className="flex items-center gap-2">
                 <Download className="w-4 h-4" />
-                <span>10,000+ 다운로드</span>
+                <span>10,000+ Downloads</span>
               </div>
               <div className="flex items-center gap-2">
                 <Star className="w-4 h-4" />
-                <span>평균 4.8점</span>
+                <span>4.8 Avg Rating</span>
               </div>
             </div>
           </div>
@@ -60,14 +60,14 @@ export default function MarketplacePage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              총 템플릿
+              Total Templates
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">156</div>
             <div className="flex items-center gap-1 text-xs text-green-600">
               <TrendingUp className="w-3 h-3" />
-              <span>+12 이번 주</span>
+              <span>+12 this week</span>
             </div>
           </CardContent>
         </Card>
@@ -75,13 +75,13 @@ export default function MarketplacePage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              인기 카테고리
+              Popular Category
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">고객 서비스</div>
+            <div className="text-2xl font-bold">Customer Service</div>
             <div className="text-xs text-muted-foreground">
-              32개 템플릿
+              32 templates
             </div>
           </CardContent>
         </Card>
@@ -89,13 +89,13 @@ export default function MarketplacePage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              이번 주 인기
+              Trending This Week
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">AI 리서치 팀</div>
+            <div className="text-2xl font-bold">AI Research Team</div>
             <div className="text-xs text-muted-foreground">
-              245회 다운로드
+              245 downloads
             </div>
           </CardContent>
         </Card>
@@ -103,7 +103,7 @@ export default function MarketplacePage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              평균 평점
+              Average Rating
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -112,7 +112,7 @@ export default function MarketplacePage() {
               <Star className="w-5 h-5 fill-yellow-400 text-yellow-400" />
             </div>
             <div className="text-xs text-muted-foreground">
-              2,847개 리뷰
+              2,847 reviews
             </div>
           </CardContent>
         </Card>
@@ -125,10 +125,10 @@ export default function MarketplacePage() {
             <div>
               <CardTitle className="flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-yellow-600" />
-                이번 주 추천 템플릿
+                Featured Templates This Week
               </CardTitle>
               <CardDescription>
-                전문가가 선별한 고품질 템플릿을 확인해보세요
+                Check out high-quality templates curated by experts
               </CardDescription>
             </div>
             <Badge className="bg-yellow-500 text-white">
@@ -139,9 +139,9 @@ export default function MarketplacePage() {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="p-4 bg-white rounded-lg border">
-              <h4 className="font-medium mb-2">🎧 고객 서비스 자동화</h4>
+              <h4 className="font-medium mb-2">🎧 Customer Service Automation</h4>
               <p className="text-sm text-muted-foreground mb-3">
-                문의 분류부터 답변 생성까지 완전 자동화
+                Fully automated from inquiry classification to response generation
               </p>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1 text-sm">
@@ -149,15 +149,15 @@ export default function MarketplacePage() {
                   <span>4.9</span>
                 </div>
                 <Button size="sm" variant="outline">
-                  사용하기
+                  Use Template
                 </Button>
               </div>
             </div>
 
             <div className="p-4 bg-white rounded-lg border">
-              <h4 className="font-medium mb-2">📊 데이터 분석 팀</h4>
+              <h4 className="font-medium mb-2">📊 Data Analysis Team</h4>
               <p className="text-sm text-muted-foreground mb-3">
-                데이터 수집, 분석, 리포트 생성 자동화
+                Automate data collection, analysis, and report generation
               </p>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1 text-sm">
@@ -165,15 +165,15 @@ export default function MarketplacePage() {
                   <span>4.8</span>
                 </div>
                 <Button size="sm" variant="outline">
-                  사용하기
+                  Use Template
                 </Button>
               </div>
             </div>
 
             <div className="p-4 bg-white rounded-lg border">
-              <h4 className="font-medium mb-2">✍️ 콘텐츠 제작 워크플로우</h4>
+              <h4 className="font-medium mb-2">✍️ Content Creation Workflow</h4>
               <p className="text-sm text-muted-foreground mb-3">
-                아이디어부터 최종 콘텐츠까지 한 번에
+                From idea to final content in one seamless flow
               </p>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1 text-sm">
@@ -181,7 +181,7 @@ export default function MarketplacePage() {
                   <span>4.7</span>
                 </div>
                 <Button size="sm" variant="outline">
-                  사용하기
+                  Use Template
                 </Button>
               </div>
             </div>
@@ -200,45 +200,45 @@ export default function MarketplacePage() {
       {/* Community Section */}
       <Card>
         <CardHeader>
-          <CardTitle>커뮤니티에 기여하기</CardTitle>
+          <CardTitle>Contribute to the Community</CardTitle>
           <CardDescription>
-            당신만의 템플릿을 공유하고 다른 사용자들과 함께 성장하세요
+            Share your templates and grow together with other users
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
-              <h3 className="font-semibold">템플릿 제작자가 되어보세요</h3>
+              <h3 className="font-semibold">Become a Template Creator</h3>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                <li>• 검증된 워크플로우를 템플릿으로 공유</li>
-                <li>• 커뮤니티 피드백을 통한 개선</li>
-                <li>• 사용량에 따른 리워드 획득</li>
-                <li>• 전문가 인증 배지 획득 기회</li>
+                <li>• Share verified workflows as templates</li>
+                <li>• Improve through community feedback</li>
+                <li>• Earn rewards based on usage</li>
+                <li>• Opportunity to earn expert verification badge</li>
               </ul>
               <Button className="w-full">
                 <Plus className="w-4 h-4 mr-2" />
-                템플릿 만들기
+                Create Template
               </Button>
             </div>
 
             <div className="space-y-4">
-              <h3 className="font-semibold">커뮤니티 통계</h3>
+              <h3 className="font-semibold">Community Statistics</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div className="text-center p-3 bg-muted rounded-lg">
                   <div className="text-2xl font-bold">1,247</div>
-                  <div className="text-xs text-muted-foreground">활성 제작자</div>
+                  <div className="text-xs text-muted-foreground">Active Creators</div>
                 </div>
                 <div className="text-center p-3 bg-muted rounded-lg">
                   <div className="text-2xl font-bold">15.2K</div>
-                  <div className="text-xs text-muted-foreground">총 다운로드</div>
+                  <div className="text-xs text-muted-foreground">Total Downloads</div>
                 </div>
                 <div className="text-center p-3 bg-muted rounded-lg">
                   <div className="text-2xl font-bold">4.8</div>
-                  <div className="text-xs text-muted-foreground">평균 평점</div>
+                  <div className="text-xs text-muted-foreground">Avg Rating</div>
                 </div>
                 <div className="text-center p-3 bg-muted rounded-lg">
                   <div className="text-2xl font-bold">98%</div>
-                  <div className="text-xs text-muted-foreground">만족도</div>
+                  <div className="text-xs text-muted-foreground">Satisfaction</div>
                 </div>
               </div>
             </div>

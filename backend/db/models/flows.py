@@ -1089,41 +1089,5 @@ class EmbedConfig(Base):
         return f"<EmbedConfig(id={self.id}, chatflow_id={self.chatflow_id})>"
 
 
-class MarketplaceReview(Base):
-    """Reviews for marketplace items."""
-
-    __tablename__ = "marketplace_reviews"
-
-    # Primary Key
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-
-    # Foreign Keys
-    item_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey("marketplace_items.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
-    user_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
-
-    # Review Content
-    rating = Column(Integer, nullable=False)  # 1-5
-    comment = Column(Text)
-
-    # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-
-    __table_args__ = (
-        UniqueConstraint("item_id", "user_id", name="uq_marketplace_review_user"),
-        CheckConstraint("rating >= 1 AND rating <= 5", name="check_review_rating_range"),
-        Index("ix_marketplace_reviews_item_created", "item_id", "created_at"),
-    )
-
-    def __repr__(self):
-        return f"<MarketplaceReview(id={self.id}, item_id={self.item_id}, rating={self.rating})>"
+# MarketplaceReview moved to backend/db/models/marketplace.py
+# Removed to avoid duplication - use MarketplaceReview from marketplace module

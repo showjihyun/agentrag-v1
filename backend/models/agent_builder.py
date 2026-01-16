@@ -19,6 +19,27 @@ class ToolConfiguration(BaseModel):
     order: int = Field(default=0, description="Execution order")
 
 
+class ContextItem(BaseModel):
+    """Schema for context item."""
+    
+    id: str = Field(..., description="Context item ID")
+    type: Literal["file", "folder", "url", "text"] = Field(..., description="Context type")
+    name: str = Field(..., description="Context item name")
+    value: str = Field(..., description="Context value (path, URL, or text)")
+    enabled: bool = Field(default=True, description="Whether context is enabled")
+
+
+class MCPServerConfig(BaseModel):
+    """Schema for MCP server configuration."""
+    
+    id: str = Field(..., description="MCP server ID")
+    name: str = Field(..., description="MCP server name")
+    command: str = Field(..., description="Command to run MCP server")
+    args: List[str] = Field(default_factory=list, description="Command arguments")
+    env: Dict[str, str] = Field(default_factory=dict, description="Environment variables")
+    enabled: bool = Field(default=True, description="Whether MCP server is enabled")
+
+
 class AgentCreate(BaseModel):
     """Schema for creating a new agent."""
     
@@ -43,6 +64,12 @@ class AgentCreate(BaseModel):
     )
     knowledgebase_ids: List[str] = Field(
         default_factory=list, description="List of knowledgebase IDs to attach"
+    )
+    context_items: List[ContextItem] = Field(
+        default_factory=list, description="List of context items"
+    )
+    mcp_servers: List[MCPServerConfig] = Field(
+        default_factory=list, description="List of MCP server configurations"
     )
     is_public: bool = Field(default=False, description="Whether agent is public")
     
@@ -76,6 +103,8 @@ class AgentUpdate(BaseModel):
     tool_ids: Optional[List[str]] = None
     tools: Optional[List[ToolConfiguration]] = None
     knowledgebase_ids: Optional[List[str]] = None
+    context_items: Optional[List[ContextItem]] = None
+    mcp_servers: Optional[List[MCPServerConfig]] = None
     is_public: Optional[bool] = None
 
 
@@ -92,6 +121,8 @@ class AgentResponse(BaseModel):
     llm_model: str
     prompt_template_id: Optional[str]
     configuration: Dict[str, Any]
+    context_items: List[Dict[str, Any]] = Field(default_factory=list)
+    mcp_servers: List[Dict[str, Any]] = Field(default_factory=list)
     is_public: bool
     created_at: datetime
     updated_at: Optional[datetime]

@@ -50,7 +50,7 @@ class RateLimiter:
         self.enabled = enabled
 
     async def check_rate_limit(
-        self, identifier: str, endpoint: Optional[str] = None
+        self, identifier: str, endpoint: Optional[str] = None, db_session=None
     ) -> Tuple[bool, Optional[str], Dict[str, int]]:
         """
         Check if request is within rate limits.
@@ -58,6 +58,7 @@ class RateLimiter:
         Args:
             identifier: User identifier (user_id or IP address)
             endpoint: Optional endpoint path for per-endpoint limits
+            db_session: Optional database session for config lookup
 
         Returns:
             Tuple of (is_allowed, error_message, remaining_counts)
@@ -69,6 +70,20 @@ class RateLimiter:
             return True, None, {}
 
         try:
+            # Get rate limits from DB config if available
+            rpm, rph, rpd = self.rpm, self.rph, self.rpd
+            
+            if db_session:
+                try:
+                    from backend.services.rate_limit_config_service import RateLimitConfigService
+                    config_service = RateLimitConfigService(db_session)
+                    limits = config_service.get_rate_limit_for_identifier(identifier, endpoint)
+                    rpm = limits.get("rpm", self.rpm)
+                    rph = limits.get("rph", self.rph)
+                    rpd = limits.get("rpd", self.rpd)
+                except Exception as config_error:
+                    logger.warning(f"Failed to get DB config, using defaults: {config_error}")
+            
             now = datetime.now()
 
             # Generate keys for different time windows
@@ -88,30 +103,30 @@ class RateLimiter:
 
             # Calculate remaining requests
             remaining = {
-                "minute": max(0, self.rpm - minute_count),
-                "hour": max(0, self.rph - hour_count),
-                "day": max(0, self.rpd - day_count),
+                "minute": max(0, rpm - minute_count),
+                "hour": max(0, rph - hour_count),
+                "day": max(0, rpd - day_count),
             }
 
             # Check limits
-            if minute_count > self.rpm:
+            if minute_count > rpm:
                 return (
                     False,
-                    f"Rate limit exceeded: {self.rpm} requests per minute",
+                    f"Rate limit exceeded: {rpm} requests per minute",
                     remaining,
                 )
 
-            if hour_count > self.rph:
+            if hour_count > rph:
                 return (
                     False,
-                    f"Rate limit exceeded: {self.rph} requests per hour",
+                    f"Rate limit exceeded: {rph} requests per hour",
                     remaining,
                 )
 
-            if day_count > self.rpd:
+            if day_count > rpd:
                 return (
                     False,
-                    f"Rate limit exceeded: {self.rpd} requests per day",
+                    f"Rate limit exceeded: {rpd} requests per day",
                     remaining,
                 )
 
@@ -126,6 +141,7 @@ class RateLimiter:
                         "day": day_count,
                     },
                     "remaining": remaining,
+                    "limits": {"rpm": rpm, "rph": rph, "rpd": rpd}
                 },
             )
 

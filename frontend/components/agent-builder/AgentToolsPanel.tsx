@@ -8,12 +8,15 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ToolRecommendations } from './ToolRecommendations';
 
 interface AgentToolsPanelProps {
   agentId: string;
   selectedTools: string[];
   onToolsChange: (tools: string[]) => void;
   onToolsWithConfigChange?: (tools: SelectedTool[]) => void;
+  agentType?: string;
+  agentDescription?: string;
 }
 
 interface SelectedTool {
@@ -35,9 +38,13 @@ interface Tool {
 function SimpleToolSelector({
   selectedTools,
   onToolsChange,
+  agentType,
+  agentDescription,
 }: {
   selectedTools: string[];
   onToolsChange: (tools: string[]) => void;
+  agentType?: string;
+  agentDescription?: string;
 }) {
   const [tools, setTools] = useState<Tool[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
@@ -81,6 +88,23 @@ function SimpleToolSelector({
 
   return (
     <div className="space-y-4">
+      {/* AI Recommendations */}
+      {agentDescription && (
+        <ToolRecommendations
+          agentType={agentType}
+          agentDescription={agentDescription}
+          selectedToolIds={selectedTools}
+          onToolSelect={(toolId) => {
+            if (!selectedTools.includes(toolId)) {
+              onToolsChange([...selectedTools, toolId]);
+            }
+          }}
+          onToolDeselect={(toolId) => {
+            onToolsChange(selectedTools.filter((id) => id !== toolId));
+          }}
+        />
+      )}
+
       {/* Selected Tools Summary */}
       {selectedTools.length > 0 && (
         <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg">
@@ -198,7 +222,9 @@ export function AgentToolsPanel({
   agentId, 
   selectedTools, 
   onToolsChange,
-  onToolsWithConfigChange 
+  onToolsWithConfigChange,
+  agentType,
+  agentDescription
 }: AgentToolsPanelProps) {
   return (
     <Card>
@@ -208,13 +234,15 @@ export function AgentToolsPanel({
           Agent Tools
         </CardTitle>
         <CardDescription>
-          Select tools for your agent. You can configure tool parameters after creating the agent.
+          Select tools for your agent. AI recommendations will appear based on your agent description.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <SimpleToolSelector
           selectedTools={selectedTools}
           onToolsChange={onToolsChange}
+          agentType={agentType}
+          agentDescription={agentDescription}
         />
       </CardContent>
     </Card>

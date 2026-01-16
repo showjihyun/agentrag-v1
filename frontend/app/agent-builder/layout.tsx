@@ -28,8 +28,11 @@ import {
   Store,
   Sparkles,
   ChevronRight,
+  ChevronLeft,
   Globe,
   Puzzle,
+  PanelLeftClose,
+  PanelLeft,
 } from 'lucide-react';
 
 const navigation = [
@@ -154,6 +157,10 @@ const settingsNavigation = [
 import { AgentBuilderErrorBoundary } from '@/components/agent-builder/AgentBuilderErrorBoundary';
 import { useAgentBuilderStore } from '@/lib/stores/agent-builder-store';
 
+// Sidebar width constants
+const SIDEBAR_WIDTH = 314; // 264px + 50px = 314px
+const SIDEBAR_COLLAPSED_WIDTH = 0;
+
 export default function AgentBuilderLayout({
   children,
 }: {
@@ -161,6 +168,9 @@ export default function AgentBuilderLayout({
 }) {
   const pathname = usePathname();
   const { sidebarOpen, setSidebarOpen } = useAgentBuilderStore();
+  
+  // Desktop sidebar collapsed state (separate from mobile)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   
   // Add mounting state to prevent hydration mismatch
   const [mounted, setMounted] = useState(false);
@@ -171,6 +181,7 @@ export default function AgentBuilderLayout({
   
   // Use safe sidebar state during SSR
   const safeSidebarOpen = mounted ? sidebarOpen : false;
+  const safeSidebarCollapsed = mounted ? sidebarCollapsed : false;
 
   return (
     <AgentBuilderErrorBoundary>
@@ -187,26 +198,46 @@ export default function AgentBuilderLayout({
           {/* Sidebar */}
           <aside
             className={cn(
-              "fixed inset-y-0 left-0 z-50 w-64 border-r bg-card transition-transform duration-300 lg:static lg:translate-x-0",
-              safeSidebarOpen ? "translate-x-0" : "-translate-x-full"
+              "fixed inset-y-0 left-0 z-50 border-r bg-card transition-all duration-300 ease-in-out lg:static",
+              // Mobile: slide in/out
+              safeSidebarOpen ? "translate-x-0" : "-translate-x-full",
+              // Desktop: collapse/expand with width transition
+              "lg:translate-x-0",
+              safeSidebarCollapsed ? "lg:w-0 lg:border-r-0 lg:overflow-hidden" : "lg:w-[314px]"
             )}
+            style={{
+              width: safeSidebarCollapsed ? 0 : SIDEBAR_WIDTH,
+            }}
           >
             {/* Header */}
-            <div className="flex h-16 items-center justify-between border-b px-4 lg:justify-center">
+            <div className="flex h-16 items-center justify-between border-b px-4">
               <Link href="/agent-builder" className="group flex items-center gap-2 hover:opacity-90 transition-opacity">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
                   <Sparkles className="h-4 w-4 text-primary-foreground" />
                 </div>
                 <h2 className="text-lg font-semibold">Agent Builder</h2>
               </Link>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="lg:hidden"
-                onClick={() => setSidebarOpen(false)}
-              >
-                <X className="h-5 w-5" />
-              </Button>
+              <div className="flex items-center gap-1">
+                {/* Desktop collapse button */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="hidden lg:flex"
+                  onClick={() => setSidebarCollapsed(true)}
+                  title="Collapse sidebar"
+                >
+                  <PanelLeftClose className="h-5 w-5" />
+                </Button>
+                {/* Mobile close button */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="lg:hidden"
+                  onClick={() => setSidebarOpen(false)}
+                >
+                  <X className="h-5 w-5" />
+                </Button>
+              </div>
             </div>
 
             <ScrollArea className="h-[calc(100vh-4rem)]">
@@ -539,7 +570,20 @@ export default function AgentBuilderLayout({
           </aside>
 
           {/* Main content */}
-          <div className="flex flex-1 flex-col overflow-hidden">
+          <div className="flex flex-1 flex-col overflow-hidden relative">
+            {/* Desktop sidebar expand button (shown when collapsed) */}
+            {safeSidebarCollapsed && (
+              <Button
+                variant="outline"
+                size="icon"
+                className="hidden lg:flex absolute left-2 top-4 z-10 h-8 w-8 shadow-md bg-background hover:bg-accent"
+                onClick={() => setSidebarCollapsed(false)}
+                title="Expand sidebar"
+              >
+                <PanelLeft className="h-4 w-4" />
+              </Button>
+            )}
+            
             {/* Mobile header */}
             <header className="flex h-16 items-center border-b bg-background px-4 lg:hidden">
               <Button

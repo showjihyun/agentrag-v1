@@ -1,174 +1,315 @@
+# ============================================
 # Core Framework
-fastapi>=0.109.0
-uvicorn[standard]>=0.27.0
-websockets>=12.0  # Required for WebSocket support
-pydantic>=2.7.4,<3.0.0
-pydantic-settings>=2.1.0
-python-multipart>=0.0.6
-email-validator>=2.0.0
+# ============================================
+fastapi==0.109.1
+uvicorn[standard]==0.27.0
+websockets==12.0
+pydantic==2.12.3
+pydantic-settings==2.11.0
+python-multipart==0.0.6
+email-validator==2.2.0
+starlette==0.35.1
 
-# LLM and Agent Orchestration (Numpy 2.x compatible - Fixed versions)
-langchain==0.3.19  # Required by langchain-community 0.3.18
+# ============================================
+# LLM and Agent Orchestration
+# ============================================
+langchain==0.3.19
 langchain-community==0.3.18
-langchain-core==0.3.37  # Required by langchain-community 0.3.18
+langchain-core==0.3.37
+langchain-text-splitters==0.3.6
+langchain-openai==1.0.0
+langchain-ollama==0.3.0
 langgraph==0.2.55
-langsmith==0.3.45  # Required by langchain-core 0.3.37+
-litellm==1.17.9  # LLM provider abstraction (Ollama, OpenAI, Claude)
+langgraph-checkpoint==2.1.2
+langgraph-prebuilt==1.0.5
+langgraph-sdk==0.1.74
+langsmith==0.3.45
+litellm==1.17.9
 
-# Embeddings (Numpy 2.x compatible - Fixed versions)
-transformers==4.44.2  # Hugging Face transformers (stable, numpy 2.x compatible)
-sentence-transformers==3.0.1  # Sentence embeddings (stable, numpy 2.x compatible)
-torch>=2.0.0
-torchvision>=0.15.0
+# LLM Providers
+openai==2.5.0
+anthropic==0.74.1
+groq==0.22.0
+ollama==0.4.7
+google-generativeai==0.8.5
 
-# Hybrid Search
+# ============================================
+# Embeddings & ML
+# ============================================
+transformers==4.44.2
+sentence-transformers==3.0.1
+torch==2.7.1+cu118
+torchvision==0.22.1+cu118
+torchaudio==2.7.1+cu118
+accelerate==1.6.0
+safetensors==0.5.3
+tokenizers==0.19.1
+tiktoken==0.5.2
+sentencepiece==0.2.1
+
+# ============================================
+# Hybrid Search & Ranking
+# ============================================
 rank-bm25==0.2.2
 
-# Korean Language Support (optional but recommended)
+# ============================================
+# Korean Language Support
+# ============================================
 konlpy==0.6.0
+kiwipiepy==0.21.0
+kiwipiepy_model==0.21.0
 
-# Reranking (Cross-encoder)
-# Note: This will download additional models (~100MB)
-# Comment out if you don't need reranking
-# sentence-transformers already includes CrossEncoder
-
+# ============================================
 # Vector Database
-# Milvus runs in Docker (agenticrag-milvus container)
-# Start with: docker-compose up -d milvus
-# Install grpcio first to avoid compilation: pip install --only-binary=:all: grpcio
-pymilvus>=2.6.0  # Uses pre-built grpcio (no compilation needed)
+# ============================================
+pymilvus==2.6.5
+pgvector==0.4.1
 
-# Database (Phase 5)
+# ============================================
+# Database
+# ============================================
 sqlalchemy==2.0.23
 psycopg2-binary==2.9.9
-asyncpg>=0.30.0
+asyncpg==0.30.0
 alembic==1.12.1
+sqlmodel==0.0.27
 
-# Authentication (Phase 5)
+# ============================================
+# Authentication & Security (Week 9-10)
+# ============================================
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
+Authlib==1.6.6
+python3-saml==1.16.0
+xmlsec==1.3.17
+oauthlib==3.3.1
+requests-oauthlib==2.0.0
+google-auth-oauthlib==1.2.3
+cryptography==46.0.3
+bcrypt==4.1.3
+argon2-cffi==23.1.0
 
+# ============================================
 # Cache and Session
+# ============================================
 redis==5.0.1
+aioredis==2.0.1  # Async Redis client
 
+# ============================================
 # Scheduling
-apscheduler==3.10.4
+# ============================================
+APScheduler==3.10.4
 croniter==2.0.1
 
-# OCR - EasyOCR (GPU supported, no protobuf conflict)
-# Note: PaddleOCR removed due to protobuf conflict with pymilvus
-# pymilvus requires protobuf>=5.27.2, paddlepaddle-gpu requires protobuf<=3.20.2
-# EasyOCR provides excellent OCR with GPU support and no conflicts
-shapely>=2.0.0  # Required by OCR
-pyclipper>=1.3.0  # Required by OCR
-opencv-python>=4.8.0  # Required by OCR
-Pillow>=10.0.0  # Image processing
+# ============================================
+# OCR & Image Processing
+# ============================================
+easyocr==1.7.2
+paddleocr==3.3.0
+paddlepaddle-gpu==2.6.2
+opencv-python==4.10.0.84
+opencv-contrib-python==4.10.0.84
+opencv-python-headless==4.12.0.88
+Pillow==10.4.0
+shapely==2.1.2
+pyclipper==1.3.0.post6
+ImageIO==2.37.2
+scikit-image==0.25.2
 
-# MCP Integration
-# Note: MCP servers are optional and can be run separately
-# If you need MCP functionality, uncomment the line below:
-# mcp>=1.0.0
-# For now, MCP functionality will be disabled if not installed
+# ============================================
+# Document Processing
+# ============================================
+docling==2.14.0
+docling-core==2.54.0
+docling-ibm-models==3.10.3
+docling-parse==3.4.0
+PyMuPDF==1.26.5
+pypdf==5.9.0
+PyPDF2==3.0.1
+pdf2image==1.17.0
+pdfplumber==0.11.8
+pdfminer.six==20251107
+python-docx==1.1.2
+python-pptx==1.0.2
+openpyxl==3.1.5
+xlrd==2.0.1
+xlsxwriter==3.2.9
+olefile==0.47
+pyhwp==0.1b12
+opendataloader-pdf==1.3.0
+camelot-py==1.0.9
 
-# Web Search
-duckduckgo-search>=6.0.0  # DuckDuckGo search API
+# ============================================
+# Web Search & HTTP
+# ============================================
+duckduckgo-search==8.1.1
+httpx==0.27.0
+httpcore==1.0.7
+httpx-sse==0.4.3
+requests==2.32.3
+beautifulsoup4==4.12.3
+aiohttp==3.13.1
+httptools==0.7.1
 
+# ============================================
+# Scientific Computing
+# ============================================
+numpy==2.1.3
+scipy==1.16.2
+scikit-learn==1.5.2
+pandas==2.3.3
+polars==1.36.1
+matplotlib==3.10.8
+
+# ============================================
 # Utilities
-python-dotenv>=1.0.1,<2.0.0
+# ============================================
+python-dotenv==1.2.1
 aiofiles==23.2.1
-pypdf2==3.0.1
-opendataloader-pdf>=0.1.0  # For better PDF table extraction
-python-docx==1.1.2  # Required by docling 2.14.0
-python-pptx==1.0.2  # For PowerPoint file parsing (required by docling 2.14.0)
-olefile==0.47  # For HWP file parsing
-pyhwp==0.1b12  # Better HWP parsing (optional, may have compatibility issues)
-psutil==5.9.8  # For system monitoring
+psutil==5.9.8
+nest-asyncio==1.6.0
+tenacity==8.2.3
+langdetect==1.0.9
+chardet==5.2.0
+python-dateutil==2.9.0.post0
+pytz==2025.2
+tzlocal==5.3.1
+arrow==1.3.0
 
-# HTTP and Web
-httpx==0.27.0  # Async HTTP client (latest stable)
-requests==2.32.3  # HTTP library (required by docling 2.14.0)
-beautifulsoup4==4.12.3  # HTML parsing (if needed)
+# ============================================
+# Security - Code Execution
+# ============================================
+RestrictedPython==7.0
+bleach==6.2.0
+docker==7.1.0
 
-# Scientific Computing (Numpy 2.x REQUIRED - Fixed version)
-numpy==2.1.3  # Stable numpy 2.x version
-scikit-learn==1.5.2  # For cosine similarity and ML utilities
+# ============================================
+# Knowledge Graph
+# ============================================
+networkx==3.2.1
+graphviz==0.20.3
 
-# Image Processing (OCR - Fixed versions)
-easyocr==1.7.2  # Multi-language OCR with GPU support
-pillow==10.4.0  # Image processing library
-opencv-python==4.10.0.84  # Computer vision (numpy 2.x compatible)
-nest-asyncio==1.6.0  # Nested event loop support for async OCR
+# ============================================
+# Notification & Monitoring
+# ============================================
+sendgrid==6.12.5
+boto3==1.42.4
+botocore==1.42.4
+sentry-sdk==2.47.0
 
-# Advanced Document Processing (Docling - Fixed versions)
-docling==2.14.0  # IBM Research document processing (tables, charts, layout)
-pdf2image==1.17.0  # PDF to image conversion for Docling
-poppler-utils; platform_system != "Windows"  # PDF rendering (Linux/Mac)
+# ============================================
+# Structured Logging & Tracing
+# ============================================
+structlog==25.5.0
+colorlog==6.10.1
+opentelemetry-api==1.39.0
+opentelemetry-sdk==1.39.0
+opentelemetry-instrumentation-fastapi==0.60b0
+opentelemetry-instrumentation-sqlalchemy==0.60b0
+opentelemetry-instrumentation-redis==0.60b0
+opentelemetry-instrumentation-httpx==0.60b0
+opentelemetry-exporter-jaeger==1.21.0
 
-# Knowledge Graph (Priority 4)
-networkx==3.2.1  # For knowledge graph and entity relationships
+# ============================================
+# PDF Export & Reporting
+# ============================================
+reportlab==4.0.7
+xhtml2pdf==0.2.17
+svglib==1.6.0
 
-# Retry and Resilience
-tenacity==8.2.3  # Retry logic for LLM calls
+# ============================================
+# API & Data Validation
+# ============================================
+jsonschema==4.23.0
+jsonpatch==1.33
+orjson==3.10.16
+ujson==5.11.0
+msgpack==1.1.0
 
-# Security - Restricted Code Execution
-RestrictedPython==7.0  # Secure Python code execution for logic blocks
-cryptography>=41.0.0  # Encryption for secrets management
-bleach>=6.0.0  # HTML sanitization for XSS prevention
-docker>=7.0.0  # Docker client for plugin sandboxing
-
-# Token Management
-tiktoken==0.5.2  # Token counting for LLM optimization
-
+# ============================================
 # Testing
+# ============================================
 pytest==7.4.0
 pytest-asyncio==0.21.1
 pytest-cov==4.1.0
 pytest-mock==3.12.0
-locust==2.15.1  # Performance testing
-
-# Language detection for metadata extraction
-langdetect==1.0.9
-
-# Character encoding detection
-chardet==5.2.0
-
-# Excel file support
-openpyxl==3.1.5  # For XLSX files (required by docling 2.14.0)
-xlrd==2.0.1  # For XLS files
-
-# Production server
-gunicorn==21.2.0  # WSGI server for production
-
-# Document Processing
-PyMuPDF>=1.23.0  # PDF processing and rendering
-python-docx>=1.1.0  # DOCX processing
-python-pptx>=0.6.23  # PPTX processing
+hypothesis==6.92.1
+locust==2.15.1
+coverage==7.12.0
 
 # ============================================
-# Notification & Monitoring Services
+# Code Quality
 # ============================================
+black==25.9.0
+flake8==7.3.0
+mypy==1.18.2
+isort==7.0.0
+autopep8==2.3.2
 
-# Email Services
-sendgrid>=6.10.0  # SendGrid email API
-boto3>=1.34.0  # AWS SDK (for SES email)
+# ============================================
+# Production Server
+# ============================================
+gunicorn==21.2.0
+gevent==25.9.1
 
-# Error Tracking
-sentry-sdk[fastapi]>=1.40.0  # Sentry error tracking with FastAPI integration
+# ============================================
+# Async & Concurrency
+# ============================================
+anyio==4.8.0
+asyncio==3.4.3  # Note: Built-in, but listed for clarity
+aiosqlite==0.21.0
+aiokafka==0.12.0
 
-# Structured Logging (Phase 2)
-structlog>=24.1.0  # Structured logging with context
+# ============================================
+# GraphQL (Optional)
+# ============================================
+strawberry-graphql==0.219.0
+graphql-core==3.2.6
 
-# Distributed Tracing (Phase 2)
-opentelemetry-api>=1.20.0  # OpenTelemetry API
-opentelemetry-sdk>=1.20.0  # OpenTelemetry SDK
-opentelemetry-instrumentation-fastapi>=0.41b0  # FastAPI instrumentation
-opentelemetry-instrumentation-sqlalchemy>=0.41b0  # SQLAlchemy instrumentation
-opentelemetry-instrumentation-redis>=0.41b0  # Redis instrumentation
-opentelemetry-instrumentation-httpx>=0.41b0  # HTTPX instrumentation
-opentelemetry-exporter-jaeger>=1.20.0  # Jaeger exporter
+# ============================================
+# Prometheus Metrics
+# ============================================
+prometheus_client==0.21.1
 
-# PDF Export
-reportlab>=4.0.0  # PDF generation library
+# ============================================
+# Additional Dependencies
+# ============================================
+click==8.1.8
+Jinja2==3.1.6
+MarkupSafe==2.1.5
+PyYAML==6.0.2
+tomlkit==0.13.2
+typing_extensions==4.15.0
+certifi==2025.1.31
+idna==3.10
+urllib3==2.3.0
+charset-normalizer==3.4.1
 
-# Google Gemini MultiModal AI (2026 Feature)
-google-generativeai>=0.8.0  # Google Gemini 3.0 API for multimodal processing
+# ============================================
+# Windows-specific
+# ============================================
+pywin32==307; platform_system == "Windows"
+pywin32-ctypes==0.2.3; platform_system == "Windows"
+
+# ============================================
+# Development Tools (Optional)
+# ============================================
+# Jupyter for notebooks
+jupyter==1.1.1
+jupyterlab==4.3.5
+ipython==9.0.2
+ipykernel==6.29.5
+
+# ============================================
+# Notes:
+# ============================================
+# 1. Week 9-10 Security dependencies added (Authlib, python3-saml, xmlsec)
+# 2. All versions pinned to currently installed versions
+# 3. Numpy 2.x compatible versions maintained
+# 4. GPU support for PyTorch (cu118)
+# 5. Korean language support included
+# 6. Complete OCR stack (EasyOCR + PaddleOCR)
+# 7. Full document processing suite
+# 8. Production-ready monitoring and logging
+# 9. Testing and code quality tools included
+# 10. Windows-specific dependencies conditional

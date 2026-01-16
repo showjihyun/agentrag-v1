@@ -1,15 +1,240 @@
-# Production Docker Compose for Agentic RAG System
+# ============================================
+# Production Docker Compose
+# Updated: 2026-01-16
+# Features: Optimized, Secure, Scalable
+# ============================================
+
 version: '3.8'
 
 services:
-  # Etcd - Required for Milvus
+  # ==========================================
+  # Backend API Service (Production)
+  # ==========================================
+  backend:
+    container_name: agenticrag-backend-prod
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.optimized
+    ports:
+      - "8000:8000"
+    environment:
+      # Database
+      DATABASE_URL: ${DATABASE_URL}
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_DB: ${POSTGRES_DB:-agenticrag}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      
+      # Redis
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_DB: ${REDIS_DB:-0}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_MAX_CONNECTIONS: 100
+      
+      # Milvus
+      MILVUS_HOST: ${MILVUS_HOST:-milvus}
+      MILVUS_PORT: ${MILVUS_PORT:-19530}
+      MILVUS_POOL_SIZE: 20
+      
+      # Security (REQUIRED in production)
+      SECRET_KEY: ${SECRET_KEY}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      
+      # OAuth
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
+      MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID}
+      MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET}
+      
+      # Payment
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      
+      # Email
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY}
+      
+      # Monitoring
+      SENTRY_DSN: ${SENTRY_DSN}
+      
+      # Application
+      DEBUG: false
+      LOG_LEVEL: INFO
+      ENVIRONMENT: production
+      
+      # LLM Providers
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+      
+      # CORS
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://yourdomain.com}
+      
+      # Rate Limiting
+      RATE_LIMIT_ENABLED: true
+    volumes:
+      - backend_uploads:/app/uploads:rw
+      - backend_logs:/app/logs:rw
+      - backend_data:/app/data:rw
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      milvus:
+        condition: service_healthy
+    deploy:
+      replicas: 2  # Run 2 instances for high availability
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8G
+        reservations:
+          cpus: '2'
+          memory: 4G
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health/simple"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - agenticrag-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ==========================================
+  # PostgreSQL (Production)
+  # ==========================================
+  postgres:
+    container_name: agenticrag-postgres-prod
+    image: postgres:15-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-agenticrag}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # Production tuning
+      POSTGRES_MAX_CONNECTIONS: 500
+      POSTGRES_SHARED_BUFFERS: 1GB
+      POSTGRES_EFFECTIVE_CACHE_SIZE: 4GB
+      POSTGRES_WORK_MEM: 64MB
+      POSTGRES_MAINTENANCE_WORK_MEM: 256MB
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backups/postgres:/backups
+    command: >
+      postgres
+      -c max_connections=500
+      -c shared_buffers=1GB
+      -c effective_cache_size=4GB
+      -c work_mem=64MB
+      -c maintenance_work_mem=256MB
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+      -c wal_buffers=16MB
+      -c default_statistics_target=100
+      -c checkpoint_completion_target=0.9
+      -c max_wal_size=2GB
+      -c min_wal_size=1GB
+      -c log_min_duration_statement=1000
+      -c log_connections=on
+      -c log_disconnections=on
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8G
+        reservations:
+          cpus: '2'
+          memory: 4G
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - agenticrag-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ==========================================
+  # Redis (Production)
+  # ==========================================
+  redis:
+    container_name: agenticrag-redis-prod
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD}
+      --appendonly yes
+      --maxmemory 8gb
+      --maxmemory-policy allkeys-lru
+      --maxclients 10000
+      --tcp-backlog 511
+      --timeout 300
+      --tcp-keepalive 60
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+    volumes:
+      - redis_data:/data
+      - ./backups/redis:/backups
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 8G
+        reservations:
+          cpus: '1'
+          memory: 4G
+    healthcheck:
+      test: ["CMD", "redis-cli", "--pass", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - agenticrag-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ==========================================
+  # Milvus Stack (Production)
+  # ==========================================
   etcd:
-    container_name: rag-etcd-prod
+    container_name: agenticrag-etcd-prod
     image: quay.io/coreos/etcd:v3.5.5
     environment:
       - ETCD_AUTO_COMPACTION_MODE=revision
       - ETCD_AUTO_COMPACTION_RETENTION=1000
-      - ETCD_QUOTA_BACKEND_BYTES=4294967296
+      - ETCD_QUOTA_BACKEND_BYTES=8589934592
       - ETCD_SNAPSHOT_COUNT=50000
     volumes:
       - etcd_data:/etcd
@@ -19,19 +244,19 @@ services:
       interval: 30s
       timeout: 20s
       retries: 3
-    restart: always
+    restart: unless-stopped
     networks:
-      - rag-network
+      - agenticrag-network
 
-  # MinIO - Object storage for Milvus
   minio:
-    container_name: rag-minio-prod
+    container_name: agenticrag-minio-prod
     image: minio/minio:RELEASE.2023-03-20T20-16-18Z
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     ports:
       - "9001:9001"
+      - "9000:9000"
     volumes:
       - minio_data:/minio_data
     command: minio server /minio_data --console-address ":9001"
@@ -40,164 +265,52 @@ services:
       interval: 30s
       timeout: 20s
       retries: 3
-    restart: always
+    restart: unless-stopped
     networks:
-      - rag-network
+      - agenticrag-network
 
-  # Milvus - Vector Database
   milvus:
-    container_name: rag-milvus-prod
+    container_name: agenticrag-milvus-prod
     image: milvusdb/milvus:v2.3.3
     command: ["milvus", "run", "standalone"]
     environment:
       ETCD_ENDPOINTS: etcd:2379
       MINIO_ADDRESS: minio:9000
-      MINIO_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      # Production tuning
+      MILVUS_PROXY_MAX_CONNECTIONS: 1000
+      MILVUS_QUERY_NODE_CACHE_SIZE: 8192
+      MILVUS_DATA_NODE_FLUSH_SIZE: 1048576
     volumes:
       - milvus_data:/var/lib/milvus
     ports:
       - "19530:19530"
+      - "9091:9091"
     depends_on:
       - etcd
       - minio
+    deploy:
+      resources:
+        limits:
+          cpus: '8'
+          memory: 16G
+        reservations:
+          cpus: '4'
+          memory: 8G
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
       interval: 30s
       start_period: 90s
       timeout: 20s
       retries: 3
-    restart: always
+    restart: unless-stopped
     networks:
-      - rag-network
+      - agenticrag-network
 
-  # PostgreSQL - User and Conversation Database
-  postgres:
-    container_name: rag-postgres-prod
-    image: postgres:15-alpine
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-agentic_rag}
-      POSTGRES_USER: ${POSTGRES_USER:-raguser}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ragpassword}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-raguser} -d ${POSTGRES_DB:-agentic_rag}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: always
-    networks:
-      - rag-network
-
-  # Redis - Session and Short-Term Memory
-  redis:
-    container_name: rag-redis-prod
-    image: redis:7-alpine
-    volumes:
-      - redis_data:/data
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-}
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    restart: always
-    networks:
-      - rag-network
-
-  # Backend - FastAPI Application
-  backend:
-    container_name: rag-backend-prod
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    ports:
-      - "${BACKEND_PORT:-8000}:8000"
-    volumes:
-      - backend_uploads:/app/uploads
-      - backend_logs:/app/logs
-    environment:
-      # Database
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-raguser}:${POSTGRES_PASSWORD:-ragpassword}@postgres:5432/${POSTGRES_DB:-agentic_rag}
-      
-      # Milvus
-      - MILVUS_HOST=milvus
-      - MILVUS_PORT=19530
-      - MILVUS_COLLECTION_NAME=documents
-      
-      # Redis
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
-      
-      # LLM
-      - LLM_PROVIDER=${LLM_PROVIDER:-ollama}
-      - LLM_MODEL=${LLM_MODEL:-llama3.1}
-      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
-      
-      # Embedding
-      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
-      
-      # Security
-      - SECRET_KEY=${SECRET_KEY:-your-secret-key-change-in-production}
-      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-your-jwt-secret-change-in-production}
-      - JWT_ALGORITHM=HS256
-      - ACCESS_TOKEN_EXPIRE_MINUTES=30
-      
-      # Application
-      - ENVIRONMENT=production
-      - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000}
-      
-    depends_on:
-      postgres:
-        condition: service_healthy
-      milvus:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    restart: always
-    networks:
-      - rag-network
-
-  # Frontend - Next.js Application
-  frontend:
-    container_name: rag-frontend-prod
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
-    ports:
-      - "${FRONTEND_PORT:-3000}:3000"
-    environment:
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
-      - NODE_ENV=production
-    depends_on:
-      backend:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    restart: always
-    networks:
-      - rag-network
-
-  # Nginx - Reverse Proxy (Optional)
+  # ==========================================
+  # Nginx Reverse Proxy (Production)
+  # ==========================================
   nginx:
-    container_name: rag-nginx-prod
+    container_name: agenticrag-nginx
     image: nginx:alpine
     ports:
       - "80:80"
@@ -205,29 +318,29 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/ssl:/etc/nginx/ssl:ro
+      - nginx_logs:/var/log/nginx
     depends_on:
-      - frontend
       - backend
-    restart: always
+    restart: unless-stopped
     networks:
-      - rag-network
+      - agenticrag-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   postgres_data:
-    driver: local
-  etcd_data:
-    driver: local
-  minio_data:
-    driver: local
-  milvus_data:
-    driver: local
   redis_data:
-    driver: local
+  etcd_data:
+  minio_data:
+  milvus_data:
   backend_uploads:
-    driver: local
   backend_logs:
-    driver: local
+  backend_data:
+  nginx_logs:
 
 networks:
-  rag-network:
+  agenticrag-network:
     driver: bridge

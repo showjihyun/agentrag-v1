@@ -8,6 +8,32 @@ from backend.db.models.feedback import AnswerFeedback
 from backend.db.models.usage import UsageLog
 from backend.db.models.oauth import OAuthCredential, OAuthState
 from backend.db.models.api_keys import APIKey
+from backend.db.models.organization import (
+    Organization,
+    OrganizationMember,
+    OrganizationRole,
+    Team,
+    TeamMember,
+    TeamRole,
+)
+from backend.db.models.marketplace import (
+    MarketplacePurchase,
+    MarketplaceReview,
+    MarketplaceRevenue,
+    MarketplaceCategory,
+    MarketplaceTag,
+    MarketplaceItemTag,
+)
+from backend.db.models.credits import (
+    CreditBalance,
+    CreditTransaction,
+    CreditPurchase,
+    CreditUsage,
+    CreditPricing,
+    CreditAlert,
+    CreditPackage,
+    TransactionType,
+)
 from backend.db.models.agent_builder import (
     # Agent models
     Agent,
@@ -62,7 +88,7 @@ from backend.db.models.flows import (
     TokenUsage,
     ModelPricing,
     EmbedConfig,
-    MarketplaceReview,
+    # MarketplaceReview moved to marketplace module
 )
 from backend.db.models.plugin import (
     PluginRegistry,
@@ -87,6 +113,20 @@ __all__ = [
     # OAuth models
     "OAuthCredential",
     "OAuthState",
+    # Organization models
+    "Organization",
+    "OrganizationMember",
+    "OrganizationRole",
+    "Team",
+    "TeamMember",
+    "TeamRole",
+    # Marketplace models
+    "MarketplacePurchase",
+    "MarketplaceReview",
+    "MarketplaceRevenue",
+    "MarketplaceCategory",
+    "MarketplaceTag",
+    "MarketplaceItemTag",
     # Agent Builder models
     "Agent",
     "AgentVersion",
@@ -128,12 +168,27 @@ __all__ = [
     "ExecutionLog",
     "APIKey",
     "MarketplaceItem",
+    # Marketplace models (extended)
+    "MarketplacePurchase",
+    "MarketplaceReview",
+    "MarketplaceRevenue",
+    "MarketplaceCategory",
+    "MarketplaceTag",
+    "MarketplaceItemTag",
+    # Credit system models
+    "CreditBalance",
+    "CreditTransaction",
+    "CreditPurchase",
+    "CreditUsage",
+    "CreditPricing",
+    "CreditAlert",
+    "CreditPackage",
+    "TransactionType",
     # Extended flow models
     "FlowTemplate",
     "TokenUsage",
     "ModelPricing",
     "EmbedConfig",
-    "MarketplaceReview",
     # Plugin models
     "PluginRegistry",
     "PluginConfiguration",

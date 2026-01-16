@@ -5,18 +5,26 @@
  * 
  * Real-time chat interface using Server-Sent Events (SSE) for streaming responses.
  * Provides better reliability and simpler implementation than WebSocket.
+ * 
+ * Enhanced with collapsible Thinking/Reasoning display.
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Loader2, Trash2, RefreshCw, Zap, Wrench, Brain } from 'lucide-react';
+import { Send, Loader2, Trash2, RefreshCw, Zap, Wrench, Brain, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import { useChatflowSSE, ChatMessage } from '@/hooks/useChatflowSSE';
+import { ThinkingBlock, type ThinkingStep } from '@/components/agent-builder/chat/ThinkingBlock';
 
 interface ChatflowSSEInterfaceProps {
   chatflowId: string;
@@ -38,6 +46,7 @@ export function ChatflowSSEInterface({
   const [inputMessage, setInputMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [thinkingSteps, setThinkingSteps] = useState<ThinkingStep[]>([]);
   
   const {
     state,
@@ -49,6 +58,40 @@ export function ChatflowSSEInterface({
     chatflowId,
     ...(sessionId && { sessionId }),
   });
+  
+  // Track thinking steps
+  useEffect(() => {
+    if (state.thinkingStep && state.isProcessing) {
+      const newStep: ThinkingStep = {
+        id: `step_${Date.now()}`,
+        type: 'reasoning',
+        content: state.thinkingStep,
+        timestamp: new Date(),
+        status: 'in_progress',
+      };
+      
+      setThinkingSteps(prev => {
+        // Update last step to completed if exists
+        const updated = prev.map((s, i) => 
+          i === prev.length - 1 ? { ...s, status: 'completed' as const } : s
+        );
+        return [...updated, newStep];
+      });
+    }
+  }, [state.thinkingStep, state.isProcessing]);
+  
+  // Clear thinking steps when processing completes
+  useEffect(() => {
+    if (!state.isProcessing && thinkingSteps.length > 0) {
+      // Mark all as completed
+      setThinkingSteps(prev => prev.map(s => ({ ...s, status: 'completed' as const })));
+    }
+  }, [state.isProcessing]);
+  
+  // Clear thinking steps when new message is sent
+  const handleClearThinkingSteps = () => {
+    setThinkingSteps([]);
+  };
   
   // Auto-scroll to bottom
   useEffect(() => {
@@ -63,6 +106,7 @@ export function ChatflowSSEInterface({
     
     const message = inputMessage.trim();
     setInputMessage('');
+    handleClearThinkingSteps(); // Clear previous thinking steps
     
     await sendMessage(message);
     
@@ -158,40 +202,45 @@ export function ChatflowSSEInterface({
           AI
         </div>
         
-        <div className="max-w-[80%] rounded-lg px-4 py-2 bg-muted text-foreground border">
-          {/* Thinking step */}
-          {state.thinkingStep && showThinking && (
-            <div className="mb-2 text-sm text-muted-foreground italic flex items-center gap-1">
-              <Brain className="h-3 w-3" />
-              {state.thinkingStep}
-            </div>
+        <div className="max-w-[80%] space-y-2">
+          {/* Thinking Block - Collapsible */}
+          {showThinking && (state.thinkingStep || thinkingSteps.length > 0) && (
+            <ThinkingBlock
+              isThinking={state.isProcessing && !!state.thinkingStep}
+              currentStep={state.thinkingStep}
+              steps={thinkingSteps}
+              defaultExpanded={false}
+            />
           )}
           
-          {/* Tool calls */}
-          {state.toolCalls.length > 0 && showToolCalls && (
-            <div className="mb-2 space-y-1">
-              {state.toolCalls.map((tool, index) => (
-                <div key={index} className="text-xs flex items-center gap-1">
-                  <Badge variant="outline">
-                    <Wrench className="h-3 w-3 mr-1" />
-                    {tool.name}
-                  </Badge>
-                  {tool.result ? (
-                    <span className="text-green-600">✓ Done</span>
-                  ) : (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-          
-          {/* Current response */}
-          <div className="whitespace-pre-wrap break-words">
-            {state.currentResponse}
-            {state.isProcessing && (
-              <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-1" />
+          {/* Main Response */}
+          <div className="rounded-lg px-4 py-2 bg-muted text-foreground border">
+            {/* Tool calls */}
+            {state.toolCalls.length > 0 && showToolCalls && (
+              <div className="mb-2 space-y-1">
+                {state.toolCalls.map((tool, index) => (
+                  <div key={index} className="text-xs flex items-center gap-1">
+                    <Badge variant="outline">
+                      <Wrench className="h-3 w-3 mr-1" />
+                      {tool.name}
+                    </Badge>
+                    {tool.result ? (
+                      <span className="text-green-600">✓ Done</span>
+                    ) : (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    )}
+                  </div>
+                ))}
+              </div>
             )}
+            
+            {/* Current response */}
+            <div className="whitespace-pre-wrap break-words">
+              {state.currentResponse}
+              {state.isProcessing && (
+                <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-1" />
+              )}
+            </div>
           </div>
         </div>
       </div>

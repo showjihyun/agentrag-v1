@@ -13,6 +13,8 @@ import {
   Maximize2,
   Minimize2,
   Check,
+  Bot,
+  Send,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,9 +32,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { flowsAPI } from '@/lib/api/flows';
 import type { Chatflow } from '@/lib/types/flows';
+import { useChatStyleStore } from '@/lib/stores/chat-style-store';
 
 interface EmbedConfig {
   chatflowId: string;
@@ -58,8 +62,8 @@ const DEFAULT_CONFIG: EmbedConfig = {
   buttonSize: 60,
   windowWidth: 400,
   windowHeight: 600,
-  welcomeMessage: '안녕하세요! 무엇을 도와드릴까요?',
-  placeholder: '메시지를 입력하세요...',
+  welcomeMessage: 'Hello! How can I help you today?',
+  placeholder: 'Type your message...',
   showBranding: true,
   allowFullscreen: true,
   autoOpen: false,
@@ -68,9 +72,73 @@ const DEFAULT_CONFIG: EmbedConfig = {
 
 export default function EmbedPage() {
   const { toast } = useToast();
+  const { config: styleConfig, updateConfig: updateStyleConfig } = useChatStyleStore();
   const [config, setConfig] = useState<EmbedConfig>(DEFAULT_CONFIG);
   const [previewOpen, setPreviewOpen] = useState(true);
   const [copied, setCopied] = useState<string | null>(null);
+  
+  // Preview chat messages (editable)
+  const [previewMessages, setPreviewMessages] = useState<Array<{
+    id: string;
+    role: 'user' | 'assistant';
+    content: string;
+  }>>([
+    { id: '1', role: 'assistant', content: 'Hello! How can I help you today?' },
+    { id: '2', role: 'user', content: 'I would like to check my order status' },
+    { id: '3', role: 'assistant', content: 'Please provide your order number and I will check it for you.' },
+  ]);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState('');
+
+  // Sync embed config with style store
+  useEffect(() => {
+    updateStyleConfig({
+      theme: config.theme,
+      primaryColor: config.primaryColor,
+      buttonSize: config.buttonSize,
+      windowWidth: config.windowWidth,
+      windowHeight: config.windowHeight,
+      welcomeMessage: config.welcomeMessage,
+      placeholder: config.placeholder,
+      showBranding: config.showBranding,
+      allowFullscreen: config.allowFullscreen,
+    });
+  }, [config, updateStyleConfig]);
+
+  // Message editing handlers
+  const handleEditMessage = (id: string, content: string) => {
+    setEditingMessageId(id);
+    setEditingContent(content);
+  };
+
+  const handleSaveMessage = (id: string) => {
+    setPreviewMessages(prev =>
+      prev.map(msg => (msg.id === id ? { ...msg, content: editingContent } : msg))
+    );
+    setEditingMessageId(null);
+    setEditingContent('');
+  };
+
+  const handleAddMessage = (role: 'user' | 'assistant') => {
+    const newMessage = {
+      id: Date.now().toString(),
+      role,
+      content: role === 'user' ? 'New user message' : 'New AI response',
+    };
+    setPreviewMessages(prev => [...prev, newMessage]);
+  };
+
+  const handleDeleteMessage = (id: string) => {
+    setPreviewMessages(prev => prev.filter(msg => msg.id !== id));
+  };
+
+  const handleResetMessages = () => {
+    setPreviewMessages([
+      { id: '1', role: 'assistant', content: 'Hello! How can I help you today?' },
+      { id: '2', role: 'user', content: 'I would like to check my order status' },
+      { id: '3', role: 'assistant', content: 'Please provide your order number and I will check it for you.' },
+    ]);
+  };
 
   // Fetch chatflows
   const { data: chatflowsData, isLoading } = useQuery({
@@ -154,8 +222,8 @@ function App() {
     setCopied(type);
     setTimeout(() => setCopied(null), 2000);
     toast({
-      title: '복사됨',
-      description: '코드가 클립보드에 복사되었습니다',
+      title: 'Copied',
+      description: 'Code has been copied to clipboard',
     });
   };
 
@@ -169,7 +237,7 @@ function App() {
             Embed Widget
           </h1>
           <p className="text-muted-foreground mt-1">
-            웹사이트에 AI 챗봇을 임베드하세요
+            Embed AI chatbot on your website
           </p>
         </div>
       </div>
@@ -182,9 +250,9 @@ function App() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <MessageSquare className="h-5 w-5" />
-                Chatflow 선택
+                Select Chatflow
               </CardTitle>
-              <CardDescription>임베드할 Chatflow를 선택하세요</CardDescription>
+              <CardDescription>Choose a Chatflow to embed</CardDescription>
             </CardHeader>
             <CardContent>
               <Select
@@ -192,7 +260,7 @@ function App() {
                 onValueChange={(v) => setConfig({ ...config, chatflowId: v })}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Chatflow 선택..." />
+                  <SelectValue placeholder="Select Chatflow..." />
                 </SelectTrigger>
                 <SelectContent>
                   {chatflows.map((flow) => (
@@ -204,7 +272,7 @@ function App() {
               </Select>
               {!config.chatflowId && (
                 <p className="text-sm text-muted-foreground mt-2">
-                  먼저 Chatflow를 선택해야 임베드 코드를 생성할 수 있습니다
+                  You must select a Chatflow first to generate embed code
                 </p>
               )}
             </CardContent>
@@ -215,13 +283,13 @@ function App() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Palette className="h-5 w-5" />
-                외관 설정
+                Appearance Settings
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>테마</Label>
+                  <Label>Theme</Label>
                   <Select
                     value={config.theme}
                     onValueChange={(v) => setConfig({ ...config, theme: v as any })}
@@ -230,14 +298,14 @@ function App() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="light">라이트</SelectItem>
-                      <SelectItem value="dark">다크</SelectItem>
-                      <SelectItem value="auto">자동 (시스템)</SelectItem>
+                      <SelectItem value="light">Light</SelectItem>
+                      <SelectItem value="dark">Dark</SelectItem>
+                      <SelectItem value="auto">Auto (System)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>위치</Label>
+                  <Label>Position</Label>
                   <Select
                     value={config.position}
                     onValueChange={(v) => setConfig({ ...config, position: v as any })}
@@ -246,15 +314,15 @@ function App() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="bottom-right">우측 하단</SelectItem>
-                      <SelectItem value="bottom-left">좌측 하단</SelectItem>
+                      <SelectItem value="bottom-right">Bottom Right</SelectItem>
+                      <SelectItem value="bottom-left">Bottom Left</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label>메인 색상</Label>
+                <Label>Primary Color</Label>
                 <div className="flex gap-2">
                   <Input
                     type="color"
@@ -271,7 +339,7 @@ function App() {
               </div>
 
               <div className="space-y-2">
-                <Label>버튼 크기: {config.buttonSize}px</Label>
+                <Label>Button Size: {config.buttonSize}px</Label>
                 <Slider
                   value={[config.buttonSize]}
                   onValueChange={([v]) => setConfig({ ...config, buttonSize: v ?? 60 })}
@@ -283,7 +351,7 @@ function App() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>창 너비: {config.windowWidth}px</Label>
+                  <Label>Window Width: {config.windowWidth}px</Label>
                   <Slider
                     value={[config.windowWidth]}
                     onValueChange={([v]) => setConfig({ ...config, windowWidth: v ?? 400 })}
@@ -293,7 +361,7 @@ function App() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>창 높이: {config.windowHeight}px</Label>
+                  <Label>Window Height: {config.windowHeight}px</Label>
                   <Slider
                     value={[config.windowHeight]}
                     onValueChange={([v]) => setConfig({ ...config, windowHeight: v ?? 600 })}
@@ -311,12 +379,12 @@ function App() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Settings className="h-5 w-5" />
-                동작 설정
+                Behavior Settings
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label>환영 메시지</Label>
+                <Label>Welcome Message</Label>
                 <Textarea
                   value={config.welcomeMessage}
                   onChange={(e) => setConfig({ ...config, welcomeMessage: e.target.value })}
@@ -325,7 +393,7 @@ function App() {
               </div>
 
               <div className="space-y-2">
-                <Label>입력 플레이스홀더</Label>
+                <Label>Input Placeholder</Label>
                 <Input
                   value={config.placeholder}
                   onChange={(e) => setConfig({ ...config, placeholder: e.target.value })}
@@ -334,8 +402,8 @@ function App() {
 
               <div className="flex items-center justify-between">
                 <div>
-                  <Label>브랜딩 표시</Label>
-                  <p className="text-xs text-muted-foreground">Powered by AgenticRAG 표시</p>
+                  <Label>Show Branding</Label>
+                  <p className="text-xs text-muted-foreground">Display "Powered by AgenticRAG"</p>
                 </div>
                 <Switch
                   checked={config.showBranding}
@@ -345,8 +413,8 @@ function App() {
 
               <div className="flex items-center justify-between">
                 <div>
-                  <Label>전체화면 허용</Label>
-                  <p className="text-xs text-muted-foreground">사용자가 전체화면으로 확장 가능</p>
+                  <Label>Allow Fullscreen</Label>
+                  <p className="text-xs text-muted-foreground">Users can expand to fullscreen</p>
                 </div>
                 <Switch
                   checked={config.allowFullscreen}
@@ -356,8 +424,8 @@ function App() {
 
               <div className="flex items-center justify-between">
                 <div>
-                  <Label>자동 열기</Label>
-                  <p className="text-xs text-muted-foreground">페이지 로드 후 자동으로 채팅창 열기</p>
+                  <Label>Auto Open</Label>
+                  <p className="text-xs text-muted-foreground">Automatically open chat after page load</p>
                 </div>
                 <Switch
                   checked={config.autoOpen}
@@ -367,7 +435,7 @@ function App() {
 
               {config.autoOpen && (
                 <div className="space-y-2">
-                  <Label>자동 열기 지연: {config.autoOpenDelay}초</Label>
+                  <Label>Auto Open Delay: {config.autoOpenDelay}s</Label>
                   <Slider
                     value={[config.autoOpenDelay]}
                     onValueChange={([v]) => setConfig({ ...config, autoOpenDelay: v ?? 3 })}
@@ -389,90 +457,189 @@ function App() {
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
                   <Eye className="h-5 w-5" />
-                  미리보기
+                  Preview
                 </CardTitle>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPreviewOpen(!previewOpen)}
-                >
-                  {previewOpen ? (
-                    <Minimize2 className="h-4 w-4" />
-                  ) : (
-                    <Maximize2 className="h-4 w-4" />
-                  )}
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleResetMessages}
+                  >
+                    Reset
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPreviewOpen(!previewOpen)}
+                  >
+                    {previewOpen ? (
+                      <Minimize2 className="h-4 w-4" />
+                    ) : (
+                      <Maximize2 className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             {previewOpen && (
-              <CardContent>
+              <CardContent className="space-y-4">
+                {/* Interactive Chat Preview */}
                 <div
-                  className="relative bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 rounded-lg overflow-hidden"
-                  style={{ height: '400px' }}
+                  className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border"
+                  style={{
+                    width: '100%',
+                    maxWidth: config.windowWidth,
+                    height: Math.min(config.windowHeight, 500),
+                    margin: '0 auto',
+                  }}
                 >
-                  {/* Mock Website */}
-                  <div className="absolute inset-0 p-4">
-                    <div className="h-8 bg-white dark:bg-gray-700 rounded mb-4" />
-                    <div className="space-y-2">
-                      <div className="h-4 bg-white/50 dark:bg-gray-600/50 rounded w-3/4" />
-                      <div className="h-4 bg-white/50 dark:bg-gray-600/50 rounded w-1/2" />
-                      <div className="h-4 bg-white/50 dark:bg-gray-600/50 rounded w-2/3" />
-                    </div>
-                  </div>
-
-                  {/* Chat Button */}
+                  {/* Header */}
                   <div
-                    className={`absolute ${
-                      config.position === 'bottom-right' ? 'right-4' : 'left-4'
-                    } bottom-4`}
+                    className="p-4 text-white flex items-center justify-between"
+                    style={{ backgroundColor: config.primaryColor }}
                   >
-                    <button
-                      className="rounded-full shadow-lg flex items-center justify-center text-white transition-transform hover:scale-105"
-                      style={{
-                        width: config.buttonSize,
-                        height: config.buttonSize,
-                        backgroundColor: config.primaryColor,
-                      }}
-                    >
-                      <MessageSquare className="h-6 w-6" />
-                    </button>
-                  </div>
-
-                  {/* Chat Window Preview */}
-                  <div
-                    className={`absolute ${
-                      config.position === 'bottom-right' ? 'right-4' : 'left-4'
-                    } bottom-20 bg-white dark:bg-gray-800 rounded-xl shadow-2xl overflow-hidden`}
-                    style={{
-                      width: Math.min(config.windowWidth, 350),
-                      height: Math.min(config.windowHeight, 300),
-                    }}
-                  >
-                    {/* Header */}
-                    <div
-                      className="p-3 text-white"
-                      style={{ backgroundColor: config.primaryColor }}
-                    >
-                      <p className="font-medium text-sm">AI Assistant</p>
+                    <div className="flex items-center gap-2">
+                      <Bot className="h-5 w-5" />
+                      <div>
+                        <p className="font-semibold text-sm">AI Assistant</p>
+                        <p className="text-xs opacity-80">Online</p>
+                      </div>
                     </div>
-                    {/* Messages */}
-                    <div className="p-3 space-y-2 text-sm">
-                      <div
-                        className="p-2 rounded-lg max-w-[80%] text-white"
-                        style={{ backgroundColor: config.primaryColor }}
+                    {config.allowFullscreen && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-white hover:bg-white/20 h-8 w-8 p-0"
                       >
-                        {config.welcomeMessage}
-                      </div>
-                    </div>
-                    {/* Input */}
-                    <div className="absolute bottom-0 left-0 right-0 p-2 border-t">
-                      <div className="flex gap-2">
-                        <div className="flex-1 px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-full text-xs text-muted-foreground">
-                          {config.placeholder}
-                        </div>
-                      </div>
-                    </div>
+                        <Maximize2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
+
+                  {/* Messages Area */}
+                  <ScrollArea className="h-[calc(100%-120px)] p-4">
+                    <div className="space-y-3">
+                      {previewMessages.map((message) => (
+                        <div
+                          key={message.id}
+                          className={`flex ${
+                            message.role === 'user' ? 'justify-end' : 'justify-start'
+                          } group`}
+                        >
+                          <div className="flex flex-col max-w-[80%] gap-1">
+                            <div
+                              className={`rounded-lg px-3 py-2 text-sm ${
+                                message.role === 'user'
+                                  ? 'text-white'
+                                  : 'bg-muted'
+                              }`}
+                              style={{
+                                backgroundColor:
+                                  message.role === 'user' ? config.primaryColor : undefined,
+                              }}
+                            >
+                              {editingMessageId === message.id ? (
+                                <div className="space-y-2">
+                                  <Textarea
+                                    value={editingContent}
+                                    onChange={(e) => setEditingContent(e.target.value)}
+                                    className="min-h-[60px] text-sm"
+                                    autoFocus
+                                  />
+                                  <div className="flex gap-2">
+                                    <Button
+                                      size="sm"
+                                      onClick={() => handleSaveMessage(message.id)}
+                                    >
+                                      <Check className="h-3 w-3 mr-1" />
+                                      Save
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => setEditingMessageId(null)}
+                                    >
+                                      Cancel
+                                    </Button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <p className="whitespace-pre-wrap">{message.content}</p>
+                              )}
+                            </div>
+                            {/* Edit/Delete buttons */}
+                            {editingMessageId !== message.id && (
+                              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 px-2 text-xs"
+                                  onClick={() => handleEditMessage(message.id, message.content)}
+                                >
+                                  Edit
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 px-2 text-xs text-red-500 hover:text-red-600"
+                                  onClick={() => handleDeleteMessage(message.id)}
+                                >
+                                  Delete
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+
+                  {/* Input Area */}
+                  <div className="p-3 border-t bg-background">
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder={config.placeholder}
+                        className="flex-1"
+                        disabled
+                      />
+                      <Button
+                        size="icon"
+                        style={{ backgroundColor: config.primaryColor }}
+                        disabled
+                      >
+                        <Send className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    {config.showBranding && (
+                      <p className="text-xs text-center text-muted-foreground mt-2">
+                        Powered by AgenticRAG
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Add Message Buttons */}
+                <div className="flex gap-2 justify-center">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleAddMessage('user')}
+                  >
+                    <MessageSquare className="h-4 w-4 mr-2" />
+                    Add User Message
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleAddMessage('assistant')}
+                  >
+                    <Bot className="h-4 w-4 mr-2" />
+                    Add AI Response
+                  </Button>
+                </div>
+
+                <div className="text-xs text-muted-foreground text-center">
+                  💡 Hover over messages to see edit/delete buttons
                 </div>
               </CardContent>
             )}
@@ -483,10 +650,10 @@ function App() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Code className="h-5 w-5" />
-                임베드 코드
+                Embed Code
               </CardTitle>
               <CardDescription>
-                아래 코드를 웹사이트에 추가하세요
+                Add the code below to your website
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -517,7 +684,7 @@ function App() {
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">
-                    이 코드를 {'<body>'} 태그 끝에 추가하세요
+                    Add this code at the end of the {'<body>'} tag
                   </p>
                 </TabsContent>
 
@@ -541,7 +708,7 @@ function App() {
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">
-                    먼저 npm install @agenticrag/react 를 실행하세요
+                    First run: npm install @agenticrag/react
                   </p>
                 </TabsContent>
 
@@ -565,7 +732,7 @@ function App() {
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">
-                    iFrame을 원하는 위치에 추가하세요
+                    Add the iFrame wherever you want
                   </p>
                 </TabsContent>
               </Tabs>
@@ -577,15 +744,15 @@ function App() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="font-medium">SDK 문서</h3>
+                  <h3 className="font-medium">SDK Documentation</h3>
                   <p className="text-sm text-muted-foreground">
-                    TypeScript, Python SDK 사용법 확인
+                    Check TypeScript and Python SDK usage
                   </p>
                 </div>
                 <Button variant="outline" asChild>
                   <a href="/docs/sdk" target="_blank">
                     <ExternalLink className="h-4 w-4 mr-2" />
-                    문서 보기
+                    View Docs
                   </a>
                 </Button>
               </div>

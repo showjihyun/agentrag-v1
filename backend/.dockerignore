@@ -1,3 +1,8 @@
+# ============================================
+# Docker Ignore File
+# Updated: 2026-01-16
+# ============================================
+
 # Python
 __pycache__/
 *.py[cod]
@@ -8,12 +13,17 @@ venv/
 env/
 ENV/
 .venv
+*.egg-info/
+dist/
+build/
 
 # Testing
 .pytest_cache/
 .coverage
 htmlcov/
 *.cover
+.hypothesis/
+.tox/
 
 # IDE
 .vscode/
@@ -21,6 +31,7 @@ htmlcov/
 *.swp
 *.swo
 *~
+.DS_Store
 
 # Logs
 logs/
@@ -30,22 +41,77 @@ logs/
 *.db
 *.sqlite
 *.sqlite3
+agenticrag.db
 
-# Uploads
+# Uploads (exclude from image, use volumes)
 uploads/
 
 # Environment
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
 
 # Documentation
 *.md
+!README.md
 docs/
 
 # Git
 .git/
 .gitignore
+.gitattributes
 
 # CI/CD
 .github/
+.gitlab-ci.yml
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Backups
+backups/
+*.bak
+*.backup
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Node modules (if any)
+node_modules/
+
+# Jupyter
+*.ipynb
+.ipynb_checkpoints/
+
+# Data files (use volumes)
+data/
+*.csv
+*.json
+*.parquet
+
+# Model files (too large)
+models/
+*.pt
+*.pth
+*.onnx
+*.h5
+
+# Scripts (development only)
+scripts/dev/
+scripts/test/
+
+# Monitoring configs (use separate files)
+monitoring/
+
+# SSL certificates (use secrets)
+*.pem
+*.key
+*.crt
+*.csr
+
+# Alembic (include migrations)
+# alembic/versions/*.py  # Keep migrations

@@ -20,11 +20,11 @@ from backend.core.auth_dependencies import get_current_user
 from backend.db.models.user import User
 from backend.db.models.flows import (
     MarketplaceItem,
-    MarketplaceReview,
     Agentflow,
     Chatflow,
     FlowTemplate,
 )
+from backend.db.models.marketplace import MarketplaceReview
 
 logger = logging.getLogger(__name__)
 

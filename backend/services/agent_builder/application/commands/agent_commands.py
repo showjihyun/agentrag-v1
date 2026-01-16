@@ -38,6 +38,8 @@ class CreateAgentCommand:
     configuration: Dict[str, Any] = field(default_factory=dict)
     tool_ids: List[str] = field(default_factory=list)
     knowledgebase_ids: List[str] = field(default_factory=list)
+    context_items: List[Dict[str, Any]] = field(default_factory=list)
+    mcp_servers: List[Dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
@@ -50,6 +52,8 @@ class UpdateAgentCommand:
     system_prompt: Optional[str] = None
     model_config: Optional[Dict[str, Any]] = None
     is_public: Optional[bool] = None
+    context_items: Optional[List[Dict[str, Any]]] = None
+    mcp_servers: Optional[List[Dict[str, Any]]] = None
 
 
 @dataclass
@@ -96,6 +100,12 @@ class AgentCommandHandler:
         if command.system_prompt:
             configuration["system_prompt"] = command.system_prompt
         
+        # Add context_items and mcp_servers to configuration
+        if command.context_items:
+            configuration["context_items"] = command.context_items
+        if command.mcp_servers:
+            configuration["mcp_servers"] = command.mcp_servers
+        
         aggregate = AgentAggregate.create(
             user_id=UUID(command.user_id),
             name=command.name,
@@ -121,9 +131,13 @@ class AgentCommandHandler:
             return None
         
         # Prepare configuration
-        configuration = {}
+        configuration = aggregate.configuration.copy() if aggregate.configuration else {}
         if command.system_prompt:
             configuration["system_prompt"] = command.system_prompt
+        if command.context_items is not None:
+            configuration["context_items"] = command.context_items
+        if command.mcp_servers is not None:
+            configuration["mcp_servers"] = command.mcp_servers
         
         aggregate.update(
             user_id=UUID(command.user_id),

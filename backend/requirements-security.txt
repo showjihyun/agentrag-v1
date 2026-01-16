@@ -1,0 +1,39 @@
+# Security & Authentication Dependencies for Week 9-10
+# SSO/SAML Integration, Audit Logging, Data Encryption
+
+# OAuth 2.0 Support
+Authlib==1.6.6
+oauthlib==3.3.1
+requests-oauthlib==2.0.0
+google-auth-oauthlib==1.2.3
+google-auth==2.41.1
+
+# SAML 2.0 Support
+python3-saml==1.16.0
+xmlsec==1.3.17
+lxml==5.4.0
+
+# Encryption & Security
+cryptography==46.0.3
+bcrypt==4.1.3
+argon2-cffi==23.1.0
+passlib[bcrypt]==1.7.4
+python-jose[cryptography]==3.3.0
+
+# Code Security
+RestrictedPython==7.0
+bleach==6.2.0
+
+# AWS Services (Optional - uncomment if using AWS)
+# boto3==1.42.4
+# botocore==1.42.4
+
+# HashiCorp Vault (Optional - uncomment if using Vault)
+# hvac>=1.2.0
+
+# Additional Security Tools
+pycryptodome==3.23.0
+pyasn1==0.6.1
+pyasn1_modules==0.4.2
+rsa==4.9.1
+ecdsa==0.19.1

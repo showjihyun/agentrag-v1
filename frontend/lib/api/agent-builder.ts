@@ -13,6 +13,8 @@ export interface Agent {
   llm_model: string;
   prompt_template_id?: string;
   configuration?: Record<string, any>;
+  context_items?: ContextItem[];
+  mcp_servers?: MCPServerConfig[];
   is_public: boolean;
   created_at: string;
   updated_at: string;
@@ -37,6 +39,23 @@ export interface ToolConfiguration {
   order: number;
 }
 
+export interface ContextItem {
+  id: string;
+  type: 'file' | 'folder' | 'url' | 'text';
+  name: string;
+  value: string;
+  enabled: boolean;
+}
+
+export interface MCPServerConfig {
+  id: string;
+  name: string;
+  command: string;
+  args: string[];
+  env: Record<string, string>;
+  enabled: boolean;
+}
+
 export interface AgentCreate {
   name: string;
   description?: string;
@@ -47,6 +66,8 @@ export interface AgentCreate {
   configuration?: Record<string, any>;
   tool_ids?: string[];
   tools?: ToolConfiguration[];
+  context_items?: ContextItem[];
+  mcp_servers?: MCPServerConfig[];
 }
 
 export interface AgentUpdate {
@@ -58,6 +79,8 @@ export interface AgentUpdate {
   configuration?: Record<string, any>;
   tool_ids?: string[];
   tools?: ToolConfiguration[];
+  context_items?: ContextItem[];
+  mcp_servers?: MCPServerConfig[];
   is_public?: boolean;
 }
 

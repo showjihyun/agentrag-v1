@@ -100,15 +100,15 @@ interface AgentTemplate {
 }
 
 const TEMPLATE_CATEGORIES = [
-  { value: 'all', label: '전체', icon: '🌟' },
-  { value: 'customer_service', label: '고객 서비스', icon: '🎧' },
-  { value: 'content_creation', label: '콘텐츠 제작', icon: '✍️' },
-  { value: 'data_analysis', label: '데이터 분석', icon: '📊' },
-  { value: 'automation', label: '자동화', icon: '🤖' },
-  { value: 'research', label: '리서치', icon: '🔍' },
-  { value: 'marketing', label: '마케팅', icon: '📢' },
-  { value: 'development', label: '개발', icon: '💻' },
-  { value: 'education', label: '교육', icon: '🎓' },
+  { value: 'all', label: 'All', icon: '🌟' },
+  { value: 'customer_service', label: 'Customer Service', icon: '🎧' },
+  { value: 'content_creation', label: 'Content Creation', icon: '✍️' },
+  { value: 'data_analysis', label: 'Data Analysis', icon: '📊' },
+  { value: 'automation', label: 'Automation', icon: '🤖' },
+  { value: 'research', label: 'Research', icon: '🔍' },
+  { value: 'marketing', label: 'Marketing', icon: '📢' },
+  { value: 'development', label: 'Development', icon: '💻' },
+  { value: 'education', label: 'Education', icon: '🎓' },
 ];
 
 const COMPLEXITY_COLORS = {
@@ -118,10 +118,270 @@ const COMPLEXITY_COLORS = {
 };
 
 const COMPLEXITY_LABELS = {
-  beginner: '초급',
-  intermediate: '중급',
-  advanced: '고급',
+  beginner: 'Beginner',
+  intermediate: 'Intermediate',
+  advanced: 'Advanced',
 };
+
+// Mock template data
+const MOCK_TEMPLATES: AgentTemplate[] = [
+  {
+    id: '1',
+    name: 'Customer Support Automation',
+    description: 'Automated customer inquiry handling with intelligent routing, response generation, and escalation management',
+    category: 'customer_service',
+    orchestration_type: 'sequential',
+    agents: [
+      { id: 'a1', name: 'Inquiry Classifier', role: 'Categorizes customer inquiries by type and urgency', agent_id: 'classifier-001' },
+      { id: 'a2', name: 'Response Generator', role: 'Generates contextual responses based on inquiry type', agent_id: 'responder-001' },
+      { id: 'a3', name: 'Quality Checker', role: 'Reviews responses for accuracy and tone', agent_id: 'qa-001' },
+    ],
+    tags: ['customer-service', 'automation', 'support', 'chatbot'],
+    is_public: true,
+    is_featured: true,
+    is_verified: true,
+    created_by: { id: 'u1', name: 'Sarah Johnson', is_premium: true },
+    created_at: '2024-01-15T10:00:00Z',
+    updated_at: '2024-01-15T10:00:00Z',
+    usage_count: 1247,
+    rating: 4.9,
+    rating_count: 342,
+    complexity_level: 'intermediate',
+    estimated_execution_time: 45,
+    cost_estimate: 0.0125,
+  },
+  {
+    id: '2',
+    name: 'Content Marketing Pipeline',
+    description: 'End-to-end content creation from ideation to publication with SEO optimization and social media distribution',
+    category: 'content_creation',
+    orchestration_type: 'sequential',
+    agents: [
+      { id: 'b1', name: 'Topic Researcher', role: 'Identifies trending topics and keywords', agent_id: 'researcher-001' },
+      { id: 'b2', name: 'Content Writer', role: 'Creates engaging, SEO-optimized content', agent_id: 'writer-001' },
+      { id: 'b3', name: 'SEO Optimizer', role: 'Optimizes content for search engines', agent_id: 'seo-001' },
+      { id: 'b4', name: 'Social Media Adapter', role: 'Adapts content for different platforms', agent_id: 'social-001' },
+    ],
+    tags: ['content', 'marketing', 'seo', 'social-media'],
+    is_public: true,
+    is_featured: true,
+    is_verified: true,
+    created_by: { id: 'u2', name: 'Michael Chen', is_premium: true },
+    created_at: '2024-01-14T14:30:00Z',
+    updated_at: '2024-01-14T14:30:00Z',
+    usage_count: 892,
+    rating: 4.8,
+    rating_count: 256,
+    complexity_level: 'advanced',
+    estimated_execution_time: 120,
+    cost_estimate: 0.0340,
+  },
+  {
+    id: '3',
+    name: 'Data Analysis & Reporting',
+    description: 'Automated data collection, analysis, visualization, and report generation with actionable insights',
+    category: 'data_analysis',
+    orchestration_type: 'parallel',
+    agents: [
+      { id: 'c1', name: 'Data Collector', role: 'Gathers data from multiple sources', agent_id: 'collector-001' },
+      { id: 'c2', name: 'Statistical Analyzer', role: 'Performs statistical analysis and trend detection', agent_id: 'analyzer-001' },
+      { id: 'c3', name: 'Visualization Creator', role: 'Creates charts and visual representations', agent_id: 'viz-001' },
+      { id: 'c4', name: 'Report Generator', role: 'Compiles findings into comprehensive reports', agent_id: 'reporter-001' },
+    ],
+    tags: ['data', 'analytics', 'reporting', 'insights'],
+    is_public: true,
+    is_featured: false,
+    is_verified: true,
+    created_by: { id: 'u3', name: 'Emily Rodriguez', is_premium: false },
+    created_at: '2024-01-13T09:15:00Z',
+    updated_at: '2024-01-13T09:15:00Z',
+    usage_count: 654,
+    rating: 4.7,
+    rating_count: 189,
+    complexity_level: 'advanced',
+    estimated_execution_time: 180,
+    cost_estimate: 0.0450,
+  },
+  {
+    id: '4',
+    name: 'Email Campaign Manager',
+    description: 'Automated email marketing campaign creation, personalization, and performance tracking',
+    category: 'marketing',
+    orchestration_type: 'sequential',
+    agents: [
+      { id: 'd1', name: 'Audience Segmenter', role: 'Segments audience based on behavior and demographics', agent_id: 'segment-001' },
+      { id: 'd2', name: 'Email Composer', role: 'Creates personalized email content', agent_id: 'composer-001' },
+      { id: 'd3', name: 'A/B Test Manager', role: 'Manages A/B testing and optimization', agent_id: 'abtest-001' },
+    ],
+    tags: ['email', 'marketing', 'automation', 'personalization'],
+    is_public: true,
+    is_featured: false,
+    is_verified: true,
+    created_by: { id: 'u4', name: 'David Kim', is_premium: true },
+    created_at: '2024-01-12T16:45:00Z',
+    updated_at: '2024-01-12T16:45:00Z',
+    usage_count: 523,
+    rating: 4.6,
+    rating_count: 145,
+    complexity_level: 'intermediate',
+    estimated_execution_time: 60,
+    cost_estimate: 0.0180,
+  },
+  {
+    id: '5',
+    name: 'Code Review Assistant',
+    description: 'Automated code review with security scanning, best practices checking, and improvement suggestions',
+    category: 'development',
+    orchestration_type: 'parallel',
+    agents: [
+      { id: 'e1', name: 'Security Scanner', role: 'Identifies security vulnerabilities', agent_id: 'security-001' },
+      { id: 'e2', name: 'Code Quality Checker', role: 'Checks code quality and best practices', agent_id: 'quality-001' },
+      { id: 'e3', name: 'Performance Analyzer', role: 'Analyzes performance bottlenecks', agent_id: 'perf-001' },
+      { id: 'e4', name: 'Documentation Reviewer', role: 'Reviews and suggests documentation improvements', agent_id: 'docs-001' },
+    ],
+    tags: ['development', 'code-review', 'security', 'quality'],
+    is_public: true,
+    is_featured: false,
+    is_verified: true,
+    created_by: { id: 'u5', name: 'Alex Thompson', is_premium: false },
+    created_at: '2024-01-11T11:20:00Z',
+    updated_at: '2024-01-11T11:20:00Z',
+    usage_count: 789,
+    rating: 4.8,
+    rating_count: 234,
+    complexity_level: 'advanced',
+    estimated_execution_time: 90,
+    cost_estimate: 0.0280,
+  },
+  {
+    id: '6',
+    name: 'Research Paper Summarizer',
+    description: 'Automated academic paper analysis with key findings extraction, citation management, and literature review',
+    category: 'research',
+    orchestration_type: 'sequential',
+    agents: [
+      { id: 'f1', name: 'Paper Analyzer', role: 'Analyzes paper structure and content', agent_id: 'analyzer-002' },
+      { id: 'f2', name: 'Key Findings Extractor', role: 'Extracts main findings and contributions', agent_id: 'extractor-001' },
+      { id: 'f3', name: 'Citation Manager', role: 'Manages citations and references', agent_id: 'citation-001' },
+    ],
+    tags: ['research', 'academic', 'summarization', 'literature'],
+    is_public: true,
+    is_featured: false,
+    is_verified: false,
+    created_by: { id: 'u6', name: 'Dr. Lisa Wang', is_premium: false },
+    created_at: '2024-01-10T13:00:00Z',
+    updated_at: '2024-01-10T13:00:00Z',
+    usage_count: 412,
+    rating: 4.5,
+    rating_count: 98,
+    complexity_level: 'intermediate',
+    estimated_execution_time: 75,
+    cost_estimate: 0.0220,
+  },
+  {
+    id: '7',
+    name: 'Social Media Manager',
+    description: 'Multi-platform social media content creation, scheduling, and engagement tracking',
+    category: 'marketing',
+    orchestration_type: 'parallel',
+    agents: [
+      { id: 'g1', name: 'Content Creator', role: 'Creates platform-specific content', agent_id: 'creator-002' },
+      { id: 'g2', name: 'Hashtag Optimizer', role: 'Optimizes hashtags for reach', agent_id: 'hashtag-001' },
+      { id: 'g3', name: 'Engagement Tracker', role: 'Tracks and analyzes engagement metrics', agent_id: 'tracker-001' },
+    ],
+    tags: ['social-media', 'marketing', 'engagement', 'content'],
+    is_public: true,
+    is_featured: false,
+    is_verified: true,
+    created_by: { id: 'u7', name: 'Jessica Martinez', is_premium: true },
+    created_at: '2024-01-09T15:30:00Z',
+    updated_at: '2024-01-09T15:30:00Z',
+    usage_count: 967,
+    rating: 4.7,
+    rating_count: 287,
+    complexity_level: 'beginner',
+    estimated_execution_time: 30,
+    cost_estimate: 0.0095,
+  },
+  {
+    id: '8',
+    name: 'E-Learning Course Builder',
+    description: 'Automated course content creation with quizzes, assessments, and personalized learning paths',
+    category: 'education',
+    orchestration_type: 'sequential',
+    agents: [
+      { id: 'h1', name: 'Curriculum Designer', role: 'Designs course structure and learning objectives', agent_id: 'curriculum-001' },
+      { id: 'h2', name: 'Content Developer', role: 'Creates educational content and materials', agent_id: 'developer-001' },
+      { id: 'h3', name: 'Assessment Creator', role: 'Creates quizzes and assessments', agent_id: 'assessment-001' },
+      { id: 'h4', name: 'Learning Path Optimizer', role: 'Personalizes learning paths for students', agent_id: 'optimizer-001' },
+    ],
+    tags: ['education', 'e-learning', 'course', 'assessment'],
+    is_public: true,
+    is_featured: false,
+    is_verified: true,
+    created_by: { id: 'u8', name: 'Prof. James Wilson', is_premium: false },
+    created_at: '2024-01-08T10:00:00Z',
+    updated_at: '2024-01-08T10:00:00Z',
+    usage_count: 345,
+    rating: 4.6,
+    rating_count: 112,
+    complexity_level: 'advanced',
+    estimated_execution_time: 150,
+    cost_estimate: 0.0380,
+  },
+  {
+    id: '9',
+    name: 'Invoice Processing System',
+    description: 'Automated invoice extraction, validation, and payment processing with fraud detection',
+    category: 'automation',
+    orchestration_type: 'sequential',
+    agents: [
+      { id: 'i1', name: 'Document Parser', role: 'Extracts data from invoice documents', agent_id: 'parser-001' },
+      { id: 'i2', name: 'Data Validator', role: 'Validates invoice data and checks for errors', agent_id: 'validator-001' },
+      { id: 'i3', name: 'Fraud Detector', role: 'Detects potential fraudulent invoices', agent_id: 'fraud-001' },
+      { id: 'i4', name: 'Payment Processor', role: 'Processes approved payments', agent_id: 'payment-001' },
+    ],
+    tags: ['automation', 'finance', 'invoice', 'fraud-detection'],
+    is_public: true,
+    is_featured: false,
+    is_verified: true,
+    created_by: { id: 'u9', name: 'Robert Brown', is_premium: true },
+    created_at: '2024-01-07T14:15:00Z',
+    updated_at: '2024-01-07T14:15:00Z',
+    usage_count: 678,
+    rating: 4.8,
+    rating_count: 201,
+    complexity_level: 'advanced',
+    estimated_execution_time: 100,
+    cost_estimate: 0.0310,
+  },
+  {
+    id: '10',
+    name: 'Product Launch Coordinator',
+    description: 'Coordinates all aspects of product launch including marketing, PR, and customer communication',
+    category: 'marketing',
+    orchestration_type: 'parallel',
+    agents: [
+      { id: 'j1', name: 'Launch Planner', role: 'Creates comprehensive launch timeline', agent_id: 'planner-001' },
+      { id: 'j2', name: 'PR Manager', role: 'Manages press releases and media outreach', agent_id: 'pr-001' },
+      { id: 'j3', name: 'Marketing Coordinator', role: 'Coordinates marketing campaigns', agent_id: 'marketing-001' },
+      { id: 'j4', name: 'Customer Communicator', role: 'Manages customer communications', agent_id: 'comms-001' },
+    ],
+    tags: ['marketing', 'product-launch', 'coordination', 'pr'],
+    is_public: true,
+    is_featured: false,
+    is_verified: false,
+    created_by: { id: 'u10', name: 'Amanda Lee', is_premium: false },
+    created_at: '2024-01-06T09:45:00Z',
+    updated_at: '2024-01-06T09:45:00Z',
+    usage_count: 234,
+    rating: 4.4,
+    rating_count: 67,
+    complexity_level: 'intermediate',
+    estimated_execution_time: 85,
+    cost_estimate: 0.0260,
+  },
+];
 
 interface TemplateMarketplaceProps {
   onTemplateSelect?: (template: AgentTemplate) => void;
@@ -143,13 +403,31 @@ export function TemplateMarketplace({
   const [selectedTemplate, setSelectedTemplate] = useState<AgentTemplate | null>(null);
   const [showTemplateDetails, setShowTemplateDetails] = useState(false);
 
-  // Fetch templates
+  // Fetch templates (using mock data for now)
   const { data: templatesData, isLoading } = useQuery({
     queryKey: ['team-templates', selectedCategory, searchQuery, sortBy],
-    queryFn: () => agentBuilderAPI.getTeamTemplates({
-      category: selectedCategory === 'all' ? undefined : selectedCategory,
-      search: searchQuery || undefined,
-    }),
+    queryFn: async () => {
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Filter mock data
+      let filtered = MOCK_TEMPLATES;
+      
+      if (selectedCategory !== 'all') {
+        filtered = filtered.filter(t => t.category === selectedCategory);
+      }
+      
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        filtered = filtered.filter(t => 
+          t.name.toLowerCase().includes(query) ||
+          t.description.toLowerCase().includes(query) ||
+          t.tags.some(tag => tag.toLowerCase().includes(query))
+        );
+      }
+      
+      return { templates: filtered };
+    },
   });
 
   // Create template mutation
@@ -158,16 +436,16 @@ export function TemplateMarketplace({
       agentBuilderAPI.createTeamTemplate(data),
     onSuccess: () => {
       toast({
-        title: '템플릿 생성 완료',
-        description: '새로운 팀 템플릿이 마켓플레이스에 추가되었습니다.',
+        title: 'Template Created',
+        description: 'New team template has been added to the marketplace.',
       });
       queryClient.invalidateQueries({ queryKey: ['team-templates'] });
       setShowCreateDialog(false);
     },
     onError: () => {
       toast({
-        title: '템플릿 생성 실패',
-        description: '템플릿 생성 중 오류가 발생했습니다.',
+        title: 'Template Creation Failed',
+        description: 'An error occurred while creating the template.',
         variant: 'destructive',
       });
     },
@@ -178,7 +456,7 @@ export function TemplateMarketplace({
     mutationFn: async (template: AgentTemplate) => {
       // Create agentflow from template
       return agentBuilderAPI.createAgentflowWithAgents({
-        name: `${template.name} (복사본)`,
+        name: `${template.name} (Copy)`,
         description: template.description,
         orchestration_type: template.orchestration_type,
         tags: [...template.tags, 'from_template'],
@@ -194,8 +472,8 @@ export function TemplateMarketplace({
     },
     onSuccess: (result) => {
       toast({
-        title: '템플릿 적용 완료',
-        description: '템플릿을 기반으로 새로운 워크플로우가 생성되었습니다.',
+        title: 'Template Applied',
+        description: 'A new workflow has been created based on the template.',
       });
       if (onTemplateSelect && selectedTemplate) {
         onTemplateSelect(selectedTemplate);
@@ -203,8 +481,8 @@ export function TemplateMarketplace({
     },
     onError: () => {
       toast({
-        title: '템플릿 적용 실패',
-        description: '템플릿 적용 중 오류가 발생했습니다.',
+        title: 'Template Application Failed',
+        description: 'An error occurred while applying the template.',
         variant: 'destructive',
       });
     },
@@ -257,13 +535,13 @@ export function TemplateMarketplace({
         {template.is_featured && (
           <Badge className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white">
             <Crown className="w-3 h-3 mr-1" />
-            추천
+            Featured
           </Badge>
         )}
         {template.is_verified && (
           <Badge className="bg-blue-500 text-white">
             <CheckCircle2 className="w-3 h-3 mr-1" />
-            검증됨
+            Verified
           </Badge>
         )}
       </div>
@@ -308,7 +586,7 @@ export function TemplateMarketplace({
             {template.orchestration_type}
           </Badge>
           <Badge variant="outline" className="text-xs">
-            {template.agents.length}개 에이전트
+            {template.agents.length} agents
           </Badge>
         </div>
       </CardHeader>
@@ -372,15 +650,15 @@ export function TemplateMarketplace({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">템플릿 마켓플레이스</h2>
+          <h2 className="text-2xl font-bold">Template Marketplace</h2>
           <p className="text-muted-foreground">
-            검증된 에이전트 팀 구성을 찾아보고 바로 사용해보세요
+            Discover and deploy verified agent team configurations
           </p>
         </div>
         {showCreateButton && (
           <Button onClick={() => setShowCreateDialog(true)}>
             <Plus className="w-4 h-4 mr-2" />
-            템플릿 만들기
+            Create Template
           </Button>
         )}
       </div>
@@ -391,7 +669,7 @@ export function TemplateMarketplace({
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
             <Input
-              placeholder="템플릿 검색..."
+              placeholder="Search templates..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
@@ -404,9 +682,9 @@ export function TemplateMarketplace({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="popular">인기순</SelectItem>
-            <SelectItem value="recent">최신순</SelectItem>
-            <SelectItem value="rating">평점순</SelectItem>
+            <SelectItem value="popular">Most Popular</SelectItem>
+            <SelectItem value="recent">Most Recent</SelectItem>
+            <SelectItem value="rating">Highest Rated</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -471,7 +749,7 @@ export function TemplateMarketplace({
                       disabled={useTemplateMutation.isPending}
                     >
                       <Download className="w-4 h-4 mr-2" />
-                      {useTemplateMutation.isPending ? '적용 중...' : '템플릿 사용'}
+                      {useTemplateMutation.isPending ? 'Applying...' : 'Use Template'}
                     </Button>
                   </div>
                 </div>
@@ -482,7 +760,7 @@ export function TemplateMarketplace({
                 <div className="lg:col-span-2 space-y-6">
                   {/* Agents */}
                   <div>
-                    <h3 className="font-semibold mb-3">포함된 에이전트 ({selectedTemplate.agents.length}개)</h3>
+                    <h3 className="font-semibold mb-3">Included Agents ({selectedTemplate.agents.length})</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {selectedTemplate.agents.map((agent, index) => (
                         <Card key={agent.id} className="p-3">
@@ -502,7 +780,7 @@ export function TemplateMarketplace({
 
                   {/* Tags */}
                   <div>
-                    <h3 className="font-semibold mb-3">태그</h3>
+                    <h3 className="font-semibold mb-3">Tags</h3>
                     <div className="flex flex-wrap gap-2">
                       {selectedTemplate.tags.map((tag) => (
                         <Badge key={tag} variant="secondary">
@@ -517,10 +795,10 @@ export function TemplateMarketplace({
                 <div className="space-y-4">
                   {/* Stats */}
                   <Card className="p-4">
-                    <h3 className="font-semibold mb-3">통계</h3>
+                    <h3 className="font-semibold mb-3">Statistics</h3>
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-muted-foreground">평점</span>
+                        <span className="text-sm text-muted-foreground">Rating</span>
                         <div className="flex items-center gap-1">
                           <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
                           <span className="text-sm font-medium">
@@ -529,21 +807,21 @@ export function TemplateMarketplace({
                         </div>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-muted-foreground">사용 횟수</span>
+                        <span className="text-sm text-muted-foreground">Usage Count</span>
                         <span className="text-sm font-medium">{selectedTemplate.usage_count}</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-muted-foreground">복잡도</span>
+                        <span className="text-sm text-muted-foreground">Complexity</span>
                         <Badge className={COMPLEXITY_COLORS[selectedTemplate.complexity_level]}>
                           {COMPLEXITY_LABELS[selectedTemplate.complexity_level]}
                         </Badge>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-muted-foreground">예상 실행 시간</span>
-                        <span className="text-sm font-medium">~{selectedTemplate.estimated_execution_time}초</span>
+                        <span className="text-sm text-muted-foreground">Est. Execution Time</span>
+                        <span className="text-sm font-medium">~{selectedTemplate.estimated_execution_time}s</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-muted-foreground">예상 비용</span>
+                        <span className="text-sm text-muted-foreground">Est. Cost</span>
                         <span className="text-sm font-medium">${selectedTemplate.cost_estimate.toFixed(4)}</span>
                       </div>
                     </div>
@@ -551,7 +829,7 @@ export function TemplateMarketplace({
 
                   {/* Creator */}
                   <Card className="p-4">
-                    <h3 className="font-semibold mb-3">제작자</h3>
+                    <h3 className="font-semibold mb-3">Creator</h3>
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-white font-medium">
                         {selectedTemplate.created_by.name.charAt(0).toUpperCase()}
@@ -559,7 +837,7 @@ export function TemplateMarketplace({
                       <div>
                         <p className="font-medium">{selectedTemplate.created_by.name}</p>
                         <p className="text-xs text-muted-foreground">
-                          {new Date(selectedTemplate.created_at).toLocaleDateString()}에 생성
+                          Created on {new Date(selectedTemplate.created_at).toLocaleDateString()}
                         </p>
                       </div>
                     </div>
@@ -575,31 +853,31 @@ export function TemplateMarketplace({
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>새 템플릿 만들기</DialogTitle>
+            <DialogTitle>Create New Template</DialogTitle>
             <DialogDescription>
-              다른 사용자들과 공유할 에이전트 팀 템플릿을 만드세요.
+              Create an agent team template to share with other users.
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4">
             <div>
-              <Label>템플릿 이름</Label>
-              <Input placeholder="예: 고객 서비스 자동화 팀" />
+              <Label>Template Name</Label>
+              <Input placeholder="e.g., Customer Service Automation Team" />
             </div>
             
             <div>
-              <Label>설명</Label>
+              <Label>Description</Label>
               <Textarea
-                placeholder="이 템플릿의 용도와 특징을 설명하세요"
+                placeholder="Describe the purpose and features of this template"
                 rows={3}
               />
             </div>
             
             <div>
-              <Label>카테고리</Label>
+              <Label>Category</Label>
               <Select>
                 <SelectTrigger>
-                  <SelectValue placeholder="카테고리 선택" />
+                  <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
                   {TEMPLATE_CATEGORIES.slice(1).map((category) => (
@@ -613,7 +891,7 @@ export function TemplateMarketplace({
             
             <div className="flex gap-2 pt-4">
               <Button variant="outline" onClick={() => setShowCreateDialog(false)} className="flex-1">
-                취소
+                Cancel
               </Button>
               <Button
                 onClick={() => {
@@ -622,7 +900,7 @@ export function TemplateMarketplace({
                 }}
                 className="flex-1"
               >
-                템플릿 만들기
+                Create Template
               </Button>
             </div>
           </div>

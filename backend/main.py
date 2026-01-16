@@ -918,6 +918,12 @@ from backend.api import llm_settings
 
 # Users Search API
 from backend.api import users_search
+from backend.api import organizations
+from backend.api import marketplace_enhanced
+from backend.api import credits
+# TODO: WebhookTrigger model needs to be created before enabling this
+# from backend.api import webhook_management
+from backend.api.admin import rate_limit_management
 
 app.include_router(agent_builder_dashboard.router)
 app.include_router(agent_builder_agents.router)
@@ -948,6 +954,16 @@ app.include_router(agent_builder_advanced_export.router)
 app.include_router(agent_builder_api_keys.router)
 app.include_router(agent_builder_tools.router)
 app.include_router(agent_builder_analytics.router)
+# Organization & Multi-tenancy API
+app.include_router(organizations.router)
+# Enhanced Marketplace API (Purchase & Payment)
+app.include_router(marketplace_enhanced.router)
+# Credit System API
+app.include_router(credits.router)
+# Webhook Management API (TODO: Enable after WebhookTrigger model is created)
+# app.include_router(webhook_management.router)
+# Rate Limit Management API (Admin)
+app.include_router(rate_limit_management.router)
 app.include_router(agent_builder_custom_tools.router)
 app.include_router(agent_builder_workflow_generator.router)
 app.include_router(agent_builder_agent_chat.router)  # KB-aware agent chat

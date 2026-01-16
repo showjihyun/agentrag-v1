@@ -199,7 +199,7 @@ export default function AgentsPage() {
   };
 
   const handleCreateFromTemplate = (template: any) => {
-    // 템플릿 데이터를 쿼리 파라미터로 전달하여 새 Agent 생성 페이지로 이동
+    // Pass template data as query parameter to navigate to new Agent creation page
     const templateData = encodeURIComponent(JSON.stringify(template));
     router.push(`/agent-builder/agents/new?template=${templateData}`);
   };
@@ -219,13 +219,13 @@ export default function AgentsPage() {
       setFavoriteAgents(newFavorites);
       
       toast({
-        title: isFavorite ? '즐겨찾기 해제' : '즐겨찾기 추가',
-        description: `${isFavorite ? '즐겨찾기에서 제거' : '즐겨찾기에 추가'}되었습니다`,
+        title: isFavorite ? 'Removed from Favorites' : 'Added to Favorites',
+        description: `${isFavorite ? 'Removed from' : 'Added to'} favorites`,
       });
     } catch (error) {
       toast({
-        title: '오류',
-        description: '즐겨찾기 설정에 실패했습니다',
+        title: 'Error',
+        description: 'Failed to update favorites',
         variant: 'destructive',
       });
     }
@@ -324,7 +324,7 @@ export default function AgentsPage() {
             Agents
           </h1>
           <p className="text-muted-foreground">
-            AI 에이전트를 생성하고 관리하여 강력한 워크플로우를 구축하세요
+            Create and manage AI agents to build powerful workflows
           </p>
         </div>
         <div className="flex gap-3">
@@ -335,7 +335,7 @@ export default function AgentsPage() {
             className="shadow-md hover:shadow-lg transition-all"
           >
             <TrendingUp className="mr-2 h-4 w-4" />
-            {showRecommendations ? 'AI 추천 숨기기' : 'AI 추천 보기'}
+            {showRecommendations ? 'Hide AI Recommendations' : 'Show AI Recommendations'}
           </Button>
           <Button
             variant="outline"
@@ -344,20 +344,20 @@ export default function AgentsPage() {
             className="shadow-md hover:shadow-lg transition-all"
           >
             <BarChart3 className="mr-2 h-4 w-4" />
-            {showMetrics ? '메트릭 숨기기' : '메트릭 보기'}
+            {showMetrics ? 'Hide Metrics' : 'Show Metrics'}
           </Button>
           <AgentTemplateSelector
             onSelect={handleCreateFromTemplate}
             trigger={
               <Button variant="outline" size="lg" className="shadow-md hover:shadow-lg transition-all">
                 <Sparkles className="mr-2 h-4 w-4" />
-                템플릿에서 생성
+                Create from Template
               </Button>
             }
           />
           <Button onClick={handleCreateAgent} size="lg" className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 shadow-md hover:shadow-lg transition-all">
             <Plus className="mr-2 h-4 w-4" />
-            새 Agent 생성
+            Create New Agent
           </Button>
         </div>
       </div>
@@ -368,10 +368,10 @@ export default function AgentsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BarChart3 className="h-5 w-5" />
-              성능 대시보드
+              Performance Dashboard
             </CardTitle>
             <CardDescription>
-              전체 에이전트의 성능 메트릭과 사용 통계를 확인하세요
+              Check performance metrics and usage statistics for all agents
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -388,10 +388,10 @@ export default function AgentsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <TrendingUp className="h-5 w-5" />
-                인기 상승 에이전트
+                Trending Agents
               </CardTitle>
               <CardDescription>
-                최근 7일간 가장 많이 사용되고 있는 에이전트들
+                Most used agents in the last 7 days
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -410,7 +410,7 @@ export default function AgentsPage() {
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-sm truncate">{item.agent.name}</p>
                         <p className="text-xs text-muted-foreground">
-                          {item.execution_count}회 실행 • {Math.round(item.success_rate)}% 성공률
+                          {item.execution_count} runs • {Math.round(item.success_rate)}% success rate
                         </p>
                       </div>
                       <Badge variant="secondary" className="text-xs">
@@ -422,7 +422,7 @@ export default function AgentsPage() {
               ) : (
                 <div className="text-center py-6 text-muted-foreground">
                   <TrendingUp className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>트렌딩 데이터를 불러오는 중...</p>
+                  <p>Loading trending data...</p>
                 </div>
               )}
             </CardContent>
@@ -433,10 +433,10 @@ export default function AgentsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Sparkles className="h-5 w-5" />
-                맞춤 추천
+                Personalized Recommendations
               </CardTitle>
               <CardDescription>
-                사용 패턴을 기반으로 추천하는 에이전트들
+                Agents recommended based on your usage patterns
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -467,7 +467,7 @@ export default function AgentsPage() {
               ) : (
                 <div className="text-center py-6 text-muted-foreground">
                   <Sparkles className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>추천 데이터를 불러오는 중...</p>
+                  <p>Loading recommendations...</p>
                 </div>
               )}
             </CardContent>
@@ -481,7 +481,7 @@ export default function AgentsPage() {
           <AgentAdvancedFilters
             filters={advancedFilters}
             onFiltersChange={setAdvancedFilters}
-            availableTags={['AI', '분석', '콘텐츠', '검색', '번역', '관리', '자동화']}
+            availableTags={['AI', 'Analysis', 'Content', 'Search', 'Translation', 'Management', 'Automation']}
             availableOrchestrationTypes={['sequential', 'parallel', 'hierarchical', 'consensus', 'adaptive']}
           />
         </CardContent>
@@ -519,11 +519,11 @@ export default function AgentsPage() {
             </div>
           </div>
           <h3 className="text-2xl font-bold mb-3 bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-            첫 번째 Agent를 만들어보세요
+            Create Your First Agent
           </h3>
           <p className="text-muted-foreground mb-6 max-w-md">
-            템플릿을 사용하여 빠르게 시작하거나, 처음부터 직접 만들어보세요.<br />
-            강력한 AI 워크플로우의 첫 걸음입니다.
+            Get started quickly using a template, or build from scratch.<br />
+            This is the first step to powerful AI workflows.
           </p>
           <div className="flex gap-4">
             <AgentTemplateSelector
@@ -531,13 +531,13 @@ export default function AgentsPage() {
               trigger={
                 <Button variant="outline" size="lg" className="shadow-md hover:shadow-lg transition-all">
                   <Sparkles className="mr-2 h-4 w-4" />
-                  템플릿에서 생성
+                  Create from Template
                 </Button>
               }
             />
             <Button onClick={handleCreateAgent} size="lg" className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 shadow-md hover:shadow-lg transition-all">
               <Plus className="mr-2 h-4 w-4" />
-              새 Agent 생성
+              Create New Agent
             </Button>
           </div>
         </div>
@@ -605,7 +605,7 @@ export default function AgentsPage() {
                           {isFavorite && (
                             <Badge className="text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300">
                               <Star className="h-3 w-3 mr-1" />
-                              즐겨찾기
+                              Favorite
                             </Badge>
                           )}
                           {(() => {

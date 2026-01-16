@@ -1,4 +1,197 @@
+# ============================================
+# Docker Compose for Agentic RAG System
+# Updated: 2026-01-16
+# Includes: All Week 1-8 services + Security
+# ============================================
+
+version: '3.8'
+
 services:
+  # ==========================================
+  # Backend API Service
+  # ==========================================
+  backend:
+    container_name: agenticrag-backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      # Database
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/agenticrag
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: agenticrag
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
+      REDIS_PASSWORD: ""
+      REDIS_MAX_CONNECTIONS: 50
+      
+      # Milvus
+      MILVUS_HOST: milvus
+      MILVUS_PORT: 19530
+      MILVUS_POOL_SIZE: 10
+      
+      # Security (Week 9-10)
+      SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-in-production}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-your-encryption-key-change-in-production}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-your-jwt-secret-change-in-production}
+      
+      # OAuth (Week 9-10)
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
+      MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
+      
+      # Payment (Week 3-4)
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      
+      # Email
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
+      
+      # Monitoring
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      
+      # Application
+      DEBUG: ${DEBUG:-false}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      
+      # LLM Providers
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+    volumes:
+      - backend_uploads:/app/uploads
+      - backend_logs:/app/logs
+      - backend_data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      milvus:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8G
+        reservations:
+          cpus: '2'
+          memory: 2G
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health/simple"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - agenticrag-network
+
+  # ==========================================
+  # PostgreSQL - Main Database
+  # ==========================================
+  postgres:
+    container_name: agenticrag-postgres
+    image: postgres:15-alpine
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: agenticrag
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      # Performance tuning
+      POSTGRES_MAX_CONNECTIONS: 200
+      POSTGRES_SHARED_BUFFERS: 512MB
+      POSTGRES_EFFECTIVE_CACHE_SIZE: 2GB
+      POSTGRES_WORK_MEM: 32MB
+      POSTGRES_MAINTENANCE_WORK_MEM: 128MB
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    command: >
+      postgres
+      -c max_connections=200
+      -c shared_buffers=512MB
+      -c effective_cache_size=2GB
+      -c work_mem=32MB
+      -c maintenance_work_mem=128MB
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+      -c wal_buffers=16MB
+      -c default_statistics_target=100
+      -c checkpoint_completion_target=0.9
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '1'
+          memory: 1G
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d agenticrag"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - agenticrag-network
+
+  # ==========================================
+  # Redis - Cache & Session Store
+  # ==========================================
+  redis:
+    container_name: agenticrag-redis
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 4gb
+      --maxmemory-policy allkeys-lru
+      --maxclients 1000
+      --tcp-backlog 511
+      --timeout 300
+      --tcp-keepalive 60
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - agenticrag-network
+
+  # ==========================================
+  # Milvus Vector Database
+  # ==========================================
+  
   # Etcd - Required for Milvus
   etcd:
     container_name: agenticrag-etcd
@@ -50,9 +243,10 @@ services:
     environment:
       ETCD_ENDPOINTS: etcd:2379
       MINIO_ADDRESS: minio:9000
-      # Performance tuning for concurrent users
-      MILVUS_PROXY_MAX_CONNECTIONS: 200
-      MILVUS_QUERY_NODE_CACHE_SIZE: 2048
+      # Performance tuning
+      MILVUS_PROXY_MAX_CONNECTIONS: 500
+      MILVUS_QUERY_NODE_CACHE_SIZE: 4096
+      MILVUS_DATA_NODE_FLUSH_SIZE: 524288
     volumes:
       - milvus_data:/var/lib/milvus
     ports:
@@ -68,7 +262,7 @@ services:
           memory: 8G
         reservations:
           cpus: '2'
-          memory: 2G
+          memory: 4G
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
       interval: 30s
@@ -79,82 +273,104 @@ services:
     networks:
       - agenticrag-network
 
-  # PostgreSQL - User and Conversation Database
-  postgres:
-    container_name: agenticrag-postgres
-    image: postgres:15-alpine
+  # ==========================================
+  # Optional: Monitoring Services
+  # ==========================================
+  
+  # Jaeger - Distributed Tracing (Optional)
+  jaeger:
+    container_name: agenticrag-jaeger
+    image: jaegertracing/all-in-one:1.50
     ports:
-      - "5433:5432"
+      - "5775:5775/udp"
+      - "6831:6831/udp"
+      - "6832:6832/udp"
+      - "5778:5778"
+      - "16686:16686"  # Jaeger UI
+      - "14268:14268"
+      - "14250:14250"
+      - "9411:9411"
     environment:
-      POSTGRES_DB: agenticrag
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      # Performance tuning for 5-100 concurrent users
-      POSTGRES_MAX_CONNECTIONS: 200
-      POSTGRES_SHARED_BUFFERS: 256MB
-      POSTGRES_EFFECTIVE_CACHE_SIZE: 1GB
-      POSTGRES_WORK_MEM: 16MB
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: 2G
-        reservations:
-          cpus: '1'
-          memory: 512M
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d agenticrag"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      COLLECTOR_ZIPKIN_HOST_PORT: :9411
     restart: unless-stopped
     networks:
       - agenticrag-network
+    profiles:
+      - monitoring
 
-  # Redis - Session and Short-Term Memory
-  redis:
-    container_name: agenticrag-redis
-    image: redis:7-alpine
+  # Prometheus - Metrics Collection (Optional)
+  prometheus:
+    container_name: agenticrag-prometheus
+    image: prom/prometheus:v2.47.0
     ports:
-      - "6380:6379"
+      - "9090:9090"
     volumes:
-      - redis_data:/data
-    command: >
-      redis-server
-      --appendonly yes
-      --maxmemory 2gb
-      --maxmemory-policy allkeys-lru
-      --maxclients 500
-      --tcp-backlog 511
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
-          memory: 2G
-        reservations:
-          cpus: '0.5'
-          memory: 512M
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
     restart: unless-stopped
     networks:
       - agenticrag-network
+    profiles:
+      - monitoring
 
+  # Grafana - Metrics Visualization (Optional)
+  grafana:
+    container_name: agenticrag-grafana
+    image: grafana/grafana:10.1.0
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_INSTALL_PLUGINS: redis-datasource
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    networks:
+      - agenticrag-network
+    profiles:
+      - monitoring
 
-
+# ==========================================
+# Volumes
+# ==========================================
 volumes:
   postgres_data:
-  etcd_data:
-  minio_data:
-  milvus_data:
+    driver: local
   redis_data:
+    driver: local
+  etcd_data:
+    driver: local
+  minio_data:
+    driver: local
+  milvus_data:
+    driver: local
   backend_uploads:
+    driver: local
+  backend_logs:
+    driver: local
+  backend_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
 
+# ==========================================
+# Networks
+# ==========================================
 networks:
   agenticrag-network:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/16

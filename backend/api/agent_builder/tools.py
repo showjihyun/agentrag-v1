@@ -257,6 +257,103 @@ async def list_categories(
         )
 
 
+@router.post("/recommend")
+async def recommend_tools(
+    agent_type: Optional[str] = Query(None, description="Agent type"),
+    description: Optional[str] = Query(None, description="Agent description"),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Get tool recommendations based on agent type and description.
+    
+    **Query Parameters:**
+    - agent_type: Type of agent (custom, template_based, etc.)
+    - description: Agent description for context-aware recommendations
+    
+    **Returns:**
+    - List of recommended tools with reasoning
+    
+    **Errors:**
+    - 401: Unauthorized
+    - 500: Internal server error
+    """
+    try:
+        logger.info(f"Getting tool recommendations for user {current_user.id}")
+        
+        # Get all available tools
+        tool_configs = ToolRegistry.list_tools()
+        tools = [convert_tool_config_to_dict(tc) for tc in tool_configs]
+        
+        # Simple keyword-based recommendation logic
+        recommendations = []
+        
+        # Keywords mapping for different use cases
+        keyword_mappings = {
+            'search': ['web_search', 'brave_search', 'google_search'],
+            'data': ['vector_search', 'database', 'sql', 'postgres'],
+            'code': ['python_code', 'code_interpreter', 'github'],
+            'file': ['filesystem', 'file_manager'],
+            'communication': ['slack', 'email', 'discord'],
+            'analysis': ['data_analysis', 'statistical_analysis'],
+            'image': ['image_generation', 'vision', 'dalle'],
+            'document': ['pdf_reader', 'document_parser'],
+        }
+        
+        description_lower = (description or '').lower()
+        
+        for tool in tools:
+            score = 0
+            reasons = []
+            
+            # Check description keywords
+            for keyword, tool_ids in keyword_mappings.items():
+                if keyword in description_lower:
+                    if any(tid in tool['id'].lower() for tid in tool_ids):
+                        score += 3
+                        reasons.append(f"'{keyword}' 관련 작업에 적합")
+            
+            # Category-based scoring
+            if 'search' in description_lower and tool['category'] == 'search':
+                score += 2
+                reasons.append("검색 기능 제공")
+            elif 'data' in description_lower and tool['category'] == 'data':
+                score += 2
+                reasons.append("데이터 처리 기능 제공")
+            elif 'code' in description_lower and tool['category'] == 'developer':
+                score += 2
+                reasons.append("코드 실행 기능 제공")
+            
+            # Popular tools get a small boost
+            popular_tools = ['web_search', 'vector_search', 'python_code']
+            if tool['id'] in popular_tools:
+                score += 1
+                reasons.append("인기 도구")
+            
+            if score > 0:
+                recommendations.append({
+                    "tool": tool,
+                    "score": score,
+                    "reasons": reasons,
+                    "recommended": score >= 2
+                })
+        
+        # Sort by score
+        recommendations.sort(key=lambda x: x['score'], reverse=True)
+        
+        # Return top 10 recommendations
+        return {
+            "recommendations": recommendations[:10],
+            "total": len(recommendations)
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to get tool recommendations: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get tool recommendations"
+        )
+
+
 @router.get("/{tool_id}")
 async def get_tool(
     tool_id: str,

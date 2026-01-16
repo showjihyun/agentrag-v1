@@ -15,7 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { agentBuilderAPI, Block, Agent } from '@/lib/api/agent-builder';
 import { useRouter } from 'next/navigation';
 
-// 통합된 Building Block 타입
+// Unified Building Block type
 interface BuildingBlock {
   id: string;
   name: string;
@@ -82,7 +82,7 @@ export default function BuildingBlocksPage() {
     }
   };
 
-  // 통합된 Building Blocks 생성
+  // Create unified Building Blocks
   const buildingBlocks: BuildingBlock[] = [
     ...blocks.map(block => ({
       id: block.id,
@@ -250,13 +250,13 @@ export default function BuildingBlocksPage() {
             Building Blocks
           </h1>
           <p className="text-muted-foreground">
-            재사용 가능한 구성 요소와 AI 에이전트 라이브러리
+            Reusable components and AI agent library
           </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={handleCreateBlock}>
             <Plus className="mr-2 h-4 w-4" />
-            Block 생성
+            Create Block
           </Button>
         </div>
       </div>
@@ -264,7 +264,7 @@ export default function BuildingBlocksPage() {
       {/* Tabs for Categories */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="all">전체</TabsTrigger>
+          <TabsTrigger value="all">All</TabsTrigger>
           <TabsTrigger value="agents">AI Agents</TabsTrigger>
           <TabsTrigger value="llm">LLM Blocks</TabsTrigger>
           <TabsTrigger value="tool">Tool Blocks</TabsTrigger>
@@ -279,7 +279,7 @@ export default function BuildingBlocksPage() {
               <div className="relative">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Building Blocks 검색..."
+                  placeholder="Search Building Blocks..."
                   className="pl-10"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -288,12 +288,12 @@ export default function BuildingBlocksPage() {
             </div>
             <Select value={sortBy} onValueChange={setSortBy}>
               <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="정렬 기준" />
+                <SelectValue placeholder="Sort by" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="name">이름순</SelectItem>
-                <SelectItem value="recent">최근 업데이트</SelectItem>
-                <SelectItem value="type">유형별</SelectItem>
+                <SelectItem value="name">Name</SelectItem>
+                <SelectItem value="recent">Recently Updated</SelectItem>
+                <SelectItem value="type">Type</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -303,7 +303,7 @@ export default function BuildingBlocksPage() {
             <Card>
               <CardContent className="pt-6">
                 <div className="text-2xl font-bold">{buildingBlocks.length}</div>
-                <p className="text-xs text-muted-foreground">전체 Building Blocks</p>
+                <p className="text-xs text-muted-foreground">Total Building Blocks</p>
               </CardContent>
             </Card>
             <Card>
@@ -323,7 +323,7 @@ export default function BuildingBlocksPage() {
                 <div className="text-2xl font-bold text-green-600">
                   {buildingBlocks.filter(b => b.is_public).length}
                 </div>
-                <p className="text-xs text-muted-foreground">공개 Components</p>
+                <p className="text-xs text-muted-foreground">Public Components</p>
               </CardContent>
             </Card>
           </div>
@@ -355,19 +355,19 @@ export default function BuildingBlocksPage() {
                 </div>
               </div>
               <h3 className="text-lg font-semibold mb-2">
-                {searchQuery ? '검색 결과가 없습니다' : 
-                 activeTab === 'agents' ? 'AI Agent가 없습니다' : 'Building Block이 없습니다'}
+                {searchQuery ? 'No results found' : 
+                 activeTab === 'agents' ? 'No AI Agents' : 'No Building Blocks'}
               </h3>
               <p className="text-sm text-muted-foreground mb-4">
-                {searchQuery ? '검색어를 조정해보세요' : 
-                 activeTab === 'agents' ? '첫 번째 AI Agent를 생성해보세요' : '첫 번째 Building Block을 생성해보세요'}
+                {searchQuery ? 'Try adjusting your search terms' : 
+                 activeTab === 'agents' ? 'Create your first AI Agent' : 'Create your first Building Block'}
               </p>
               {!searchQuery && (
                 <div className="flex gap-2">
                   {activeTab !== 'agents' && (
                     <Button variant="outline" onClick={handleCreateBlock}>
                       <Plus className="mr-2 h-4 w-4" />
-                      Block 생성
+                      Create Block
                     </Button>
                   )}
                 </div>
@@ -402,15 +402,15 @@ export default function BuildingBlocksPage() {
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => handleEdit(item)}>
                             <Edit className="mr-2 h-4 w-4" />
-                            편집
+                            Edit
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleTest(item)}>
                             <Play className="mr-2 h-4 w-4" />
-                            테스트
+                            Test
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleDuplicate(item)}>
                             <Copy className="mr-2 h-4 w-4" />
-                            복제
+                            Duplicate
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem 
@@ -418,7 +418,7 @@ export default function BuildingBlocksPage() {
                             className="text-destructive"
                           >
                             <Trash className="mr-2 h-4 w-4" />
-                            삭제
+                            Delete
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -426,7 +426,7 @@ export default function BuildingBlocksPage() {
                   </CardHeader>
                   <CardContent>
                     <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
-                      {item.description || '설명이 없습니다'}
+                      {item.description || 'No description available'}
                     </p>
                     
                     {/* Type-specific badges */}
@@ -444,18 +444,18 @@ export default function BuildingBlocksPage() {
                                 <TooltipTrigger asChild>
                                   <Badge variant="outline" className="text-xs">
                                     <Brain className="mr-1 h-3 w-3" />
-                                    {item.capabilities.length} 기능
+                                    {item.capabilities.length} capabilities
                                   </Badge>
                                 </TooltipTrigger>
                                 <TooltipContent>
                                   <div className="max-w-xs">
-                                    <p className="font-medium mb-1">기능:</p>
+                                    <p className="font-medium mb-1">Capabilities:</p>
                                     <ul className="text-xs space-y-1">
                                       {item.capabilities.slice(0, 3).map((cap, idx) => (
                                         <li key={idx}>• {cap}</li>
                                       ))}
                                       {item.capabilities.length > 3 && (
-                                        <li>• +{item.capabilities.length - 3}개 더</li>
+                                        <li>• +{item.capabilities.length - 3} more</li>
                                       )}
                                     </ul>
                                   </div>
@@ -466,7 +466,7 @@ export default function BuildingBlocksPage() {
                           {item.tools && item.tools.length > 0 && (
                             <Badge variant="outline" className="text-xs">
                               <Settings2 className="mr-1 h-3 w-3" />
-                              {item.tools.length} 도구
+                              {item.tools.length} tools
                             </Badge>
                           )}
                         </>
@@ -479,11 +479,11 @@ export default function BuildingBlocksPage() {
                                   <ArrowDownToLine className="mr-1 h-3 w-3" />
                                   {item.input_schema?.properties ? 
                                     Object.keys(item.input_schema.properties).length : 0
-                                  } 입력
+                                  } inputs
                                 </Badge>
                               </TooltipTrigger>
                               <TooltipContent>
-                                <p>입력 매개변수 수</p>
+                                <p>Number of input parameters</p>
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
@@ -495,11 +495,11 @@ export default function BuildingBlocksPage() {
                                   <ArrowUpFromLine className="mr-1 h-3 w-3" />
                                   {item.output_schema?.properties ? 
                                     Object.keys(item.output_schema.properties).length : 0
-                                  } 출력
+                                  } outputs
                                 </Badge>
                               </TooltipTrigger>
                               <TooltipContent>
-                                <p>출력 매개변수 수</p>
+                                <p>Number of output parameters</p>
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
@@ -508,7 +508,7 @@ export default function BuildingBlocksPage() {
                       
                       {item.is_public && (
                         <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
-                          공개
+                          Public
                         </Badge>
                       )}
                     </div>
