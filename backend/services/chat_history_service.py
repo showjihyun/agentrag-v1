@@ -327,8 +327,8 @@ def get_chat_history_service() -> ChatHistoryService:
     global _chat_history_service
     if _chat_history_service is None:
         try:
-            from backend.core.dependencies import get_redis_client
-            redis = get_redis_client()
+            from backend.core.dependencies import get_container
+            redis = get_container().get_redis_client()
             _chat_history_service = ChatHistoryService(redis_client=redis)
         except Exception:
             _chat_history_service = ChatHistoryService()

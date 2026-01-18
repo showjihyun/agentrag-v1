@@ -65,8 +65,8 @@ class SystemMetrics:
 class EnhancedPluginMonitor:
     """강화된 플러그인 성능 모니터"""
     
-    def __init__(self):
-        self.redis_client = get_redis_client()
+    def __init__(self, redis_client=None):
+        self.redis_client = redis_client
         
         # 메트릭 버퍼 (24시간 보관)
         self.plugin_metrics: Dict[str, TimedCircularBuffer] = {}
@@ -445,4 +445,16 @@ class EnhancedPluginMonitor:
             return {}
 
 # 전역 인스턴스
-enhanced_plugin_monitor = EnhancedPluginMonitor()
+enhanced_plugin_monitor = None
+
+async def get_enhanced_plugin_monitor() -> EnhancedPluginMonitor:
+    """Get or create enhanced plugin monitor instance."""
+    global enhanced_plugin_monitor
+    if enhanced_plugin_monitor is None:
+        try:
+            redis_client = await get_redis_client()
+            enhanced_plugin_monitor = EnhancedPluginMonitor(redis_client)
+        except Exception as e:
+            logger.warning(f"Failed to initialize enhanced plugin monitor with Redis: {e}")
+            enhanced_plugin_monitor = EnhancedPluginMonitor(None)
+    return enhanced_plugin_monitor

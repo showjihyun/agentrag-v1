@@ -56,6 +56,8 @@ import {
 interface BlockPaletteProps {
   onAddNode: (type: string, toolId?: string, toolName?: string) => void;
   executionLogs?: ExecutionLog[];
+  showLogs?: boolean;
+  onToggleLogs?: () => void;
 }
 
 interface ExecutionLog {
@@ -169,7 +171,7 @@ const BLOCKS: Tool[] = [
   { id: 'ai_block', name: 'AI Processing', description: 'AI/LLM processing', icon: Bot, category: 'block', popular: true },
 ];
 
-export function ImprovedBlockPalette({ onAddNode, executionLogs = [] }: BlockPaletteProps) {
+export function ImprovedBlockPalette({ onAddNode, executionLogs = [], showLogs = true, onToggleLogs }: BlockPaletteProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('tools');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -349,15 +351,43 @@ export function ImprovedBlockPalette({ onAddNode, executionLogs = [] }: BlockPal
   
   return (
     <div className="flex flex-col h-full relative">
-      {/* Main Content Area - 70% */}
-      <div className="flex-1 flex flex-col min-h-0 max-h-[70%] relative z-10">
+      {/* Main Content Area - Adjusts based on logs visibility */}
+      <div className={cn(
+        "flex-1 flex flex-col min-h-0 relative z-10",
+        showLogs ? "max-h-[70%]" : "max-h-full"
+      )}>
         <Card className="flex-1 flex flex-col min-h-0 border-b-0">
           {/* Header */}
           <div className="p-4 border-b flex-shrink-0">
-            <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-              <Wrench className="h-5 w-5" />
-              Block Palette
-            </h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <Wrench className="h-5 w-5" />
+                Block Palette
+              </h3>
+              {onToggleLogs && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={onToggleLogs}
+                        className="h-8 w-8 p-0"
+                      >
+                        {showLogs ? (
+                          <Minimize2 className="h-4 w-4" />
+                        ) : (
+                          <Maximize2 className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {showLogs ? 'Hide Execution Logs' : 'Show Execution Logs'}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </div>
             
             {/* Search with keyboard shortcut hint */}
             <div className="relative">
@@ -760,67 +790,69 @@ export function ImprovedBlockPalette({ onAddNode, executionLogs = [] }: BlockPal
         </Card>
       </div>
       
-      {/* Execution Logs Panel - 30% */}
-      <div className="h-[30%] min-h-[200px] max-h-[30%] flex-shrink-0 relative z-0">
-        <Card className="h-full flex flex-col border-t-2 border-t-gray-200 dark:border-t-gray-700">
-          <div className="p-3 border-b bg-gray-50 dark:bg-gray-900 flex-shrink-0">
-            <div className="flex items-center justify-between">
-              <h4 className="text-sm font-semibold flex items-center gap-2">
-                <TrendingUp className="h-4 w-4" />
-                Execution Logs
-              </h4>
-              <Badge variant="outline" className="text-xs">
-                {executionLogs.length} events
-              </Badge>
+      {/* Execution Logs Panel - 30% - Only show if showLogs is true */}
+      {showLogs && (
+        <div className="h-[30%] min-h-[200px] max-h-[30%] flex-shrink-0 relative z-0">
+          <Card className="h-full flex flex-col border-t-2 border-t-gray-200 dark:border-t-gray-700">
+            <div className="p-3 border-b bg-gray-50 dark:bg-gray-900 flex-shrink-0">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-semibold flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4" />
+                  Execution Logs
+                </h4>
+                <Badge variant="outline" className="text-xs">
+                  {executionLogs.length} events
+                </Badge>
+              </div>
             </div>
-          </div>
-          
-          <div className="flex-1 min-h-0">
-            <ScrollArea className="h-full">
-              <div className="p-3 space-y-1">
-                {executionLogs.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">No execution logs yet</p>
-                    <p className="text-xs mt-1">Logs will appear here when you run workflows</p>
-                  </div>
-                ) : (
-                  executionLogs.map((log) => (
-                    <div
-                      key={log.id}
-                      className="p-2 rounded border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
-                    >
-                      <div className="flex items-start gap-2">
-                        <span className={`text-sm font-mono ${getLogColor(log.type)}`}>
-                          {getLogIcon(log.type)}
-                        </span>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-xs font-medium truncate">
-                              {log.nodeName}
-                            </span>
-                            {log.duration && (
-                              <Badge variant="outline" className="text-xs">
-                                {log.duration}ms
-                              </Badge>
-                            )}
+            
+            <div className="flex-1 min-h-0">
+              <ScrollArea className="h-full">
+                <div className="p-3 space-y-1">
+                  {executionLogs.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">No execution logs yet</p>
+                      <p className="text-xs mt-1">Logs will appear here when you run workflows</p>
+                    </div>
+                  ) : (
+                    executionLogs.map((log) => (
+                      <div
+                        key={log.id}
+                        className="p-2 rounded border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
+                      >
+                        <div className="flex items-start gap-2">
+                          <span className={`text-sm font-mono ${getLogColor(log.type)}`}>
+                            {getLogIcon(log.type)}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-xs font-medium truncate">
+                                {log.nodeName}
+                              </span>
+                              {log.duration && (
+                                <Badge variant="outline" className="text-xs">
+                                  {log.duration}ms
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground line-clamp-2">
+                              {log.message}
+                            </p>
+                            <p className="text-xs text-gray-400 mt-1">
+                              {log.timestamp.toLocaleTimeString()}
+                            </p>
                           </div>
-                          <p className="text-xs text-muted-foreground line-clamp-2">
-                            {log.message}
-                          </p>
-                          <p className="text-xs text-gray-400 mt-1">
-                            {log.timestamp.toLocaleTimeString()}
-                          </p>
                         </div>
                       </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </ScrollArea>
-          </div>
-        </Card>
-      </div>
+                    ))
+                  )}
+                </div>
+              </ScrollArea>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

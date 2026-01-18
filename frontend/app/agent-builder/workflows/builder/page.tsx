@@ -50,6 +50,7 @@ export default function WorkflowBuilderPage() {
   const [currentExecution, setCurrentExecution] = useState<WorkflowExecution | null>(null);
   const [executionHistory, setExecutionHistory] = useState<WorkflowExecution[]>([]);
   const [showExecutionPanel, setShowExecutionPanel] = useState(true);
+  const [showExecutionLogs, setShowExecutionLogs] = useState(true);
   
   const addLog = useCallback((log: Omit<ExecutionLog, 'id' | 'timestamp'>) => {
     setExecutionLogs(prev => [
@@ -457,6 +458,8 @@ export default function WorkflowBuilderPage() {
           <ImprovedBlockPalette
             onAddNode={handleAddNode}
             executionLogs={executionLogs}
+            showLogs={showExecutionLogs}
+            onToggleLogs={() => setShowExecutionLogs(!showExecutionLogs)}
           />
         </div>
         

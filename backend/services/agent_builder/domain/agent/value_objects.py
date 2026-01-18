@@ -58,8 +58,16 @@ class LLMSettings:
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "LLMSettings":
+        provider_str = data.get("provider", "ollama")
+        # Handle provider string conversion with fallback
+        try:
+            provider = LLMProvider(provider_str)
+        except ValueError:
+            # If provider is not in enum, default to OLLAMA
+            provider = LLMProvider.OLLAMA
+        
         return cls(
-            provider=LLMProvider(data.get("provider", "ollama")),
+            provider=provider,
             model=data.get("model", "llama3.1"),
             temperature=data.get("temperature", 0.7),
             max_tokens=data.get("max_tokens", 2000),

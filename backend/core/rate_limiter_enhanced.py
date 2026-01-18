@@ -285,8 +285,8 @@ def get_rate_limiter() -> EnhancedRateLimiter:
     global _rate_limiter
     if _rate_limiter is None:
         try:
-            from backend.core.dependencies import get_redis_client
-            redis = get_redis_client()
+            from backend.core.dependencies import get_container
+            redis = get_container().get_redis_client()
             _rate_limiter = EnhancedRateLimiter(redis)
         except Exception:
             _rate_limiter = EnhancedRateLimiter(None)

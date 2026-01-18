@@ -100,7 +100,7 @@ class AdvancedSystemsManager:
     async def _initialize_event_bus(self):
         """Event Bus 초기화"""
         try:
-            redis_client = get_redis_client()
+            redis_client = await get_redis_client()
             self.event_bus = ValidatedEventBus(redis_client)
             await self.event_bus.start_consuming()
             logger.info("Event Bus initialized")

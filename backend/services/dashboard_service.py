@@ -345,8 +345,8 @@ def get_dashboard_service() -> DashboardService:
     global _dashboard_service
     if _dashboard_service is None:
         try:
-            from backend.core.dependencies import get_redis_client
-            redis = get_redis_client()
+            from backend.core.dependencies import get_container
+            redis = get_container().get_redis_client()
             _dashboard_service = DashboardService(redis)
         except Exception:
             _dashboard_service = DashboardService()

@@ -5,9 +5,9 @@ import uuid
 from typing import List, Optional
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File, Body
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from backend.core.auth_dependencies import get_current_user
 from backend.db.database import get_db
@@ -108,83 +108,17 @@ class AgentExecuteRequest(BaseModel):
 )
 async def get_trending_agents(
     time_period: str = Query("7d", description="Time period for trending analysis (1d, 7d, 30d)"),
-    limit: int = Query(10, ge=1, le=50, description="Maximum number of trending agents"),
+    limit: int = Query(10, ge=1, le=50, description="Maximum number of trending agents to return"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Get trending agents based on usage patterns."""
-    try:
-        logger.info(f"Getting trending agents for period: {time_period}")
-        
-        # Mock trending agents data
-        trending_agents = [
-            {
-                "agent": {
-                    "id": "550e8400-e29b-41d4-a716-446655440010",
-                    "name": "데이터 분석 전문가",
-                    "description": "고급 데이터 분석 및 시각화를 수행하는 AI 에이전트",
-                    "agent_type": "custom",
-                    "llm_provider": "openai",
-                    "llm_model": "gpt-4",
-                    "is_public": True,
-                    "created_at": "2024-12-01T00:00:00Z",
-                    "updated_at": "2024-12-25T00:00:00Z"
-                },
-                "trend_score": 95.5,
-                "execution_count": 1247,
-                "success_rate": 94.2,
-                "unique_users": 89
-            },
-            {
-                "agent": {
-                    "id": "550e8400-e29b-41d4-a716-446655440011",
-                    "name": "콘텐츠 생성기",
-                    "description": "창의적이고 매력적인 콘텐츠를 자동 생성하는 AI 에이전트",
-                    "agent_type": "template_based",
-                    "llm_provider": "openai",
-                    "llm_model": "gpt-4",
-                    "is_public": True,
-                    "created_at": "2024-11-15T00:00:00Z",
-                    "updated_at": "2024-12-24T00:00:00Z"
-                },
-                "trend_score": 88.3,
-                "execution_count": 892,
-                "success_rate": 91.7,
-                "unique_users": 67
-            },
-            {
-                "agent": {
-                    "id": "550e8400-e29b-41d4-a716-446655440012",
-                    "name": "고객 서비스 봇",
-                    "description": "24/7 고객 문의 응답 및 지원을 제공하는 AI 에이전트",
-                    "agent_type": "custom",
-                    "llm_provider": "claude",
-                    "llm_model": "claude-3-sonnet",
-                    "is_public": True,
-                    "created_at": "2024-10-20T00:00:00Z",
-                    "updated_at": "2024-12-23T00:00:00Z"
-                },
-                "trend_score": 82.1,
-                "execution_count": 1456,
-                "success_rate": 96.8,
-                "unique_users": 123
-            }
-        ]
-        
-        return TrendingAgentsResponse(
-            trending_agents=trending_agents[:limit],
-            time_period=time_period,
-            total_count=len(trending_agents)
-        )
-        
-    except Exception as e:
-        logger.error(f"Failed to get trending agents: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to get trending agents"
-        )
-
-
+    """Get trending agents - returns empty list for now."""
+    return TrendingAgentsResponse(
+        trending_agents=[],
+        time_period=time_period,
+        total_count=0
+    )
+    limit: int = Query(10, ge=1, le=50, description="Maximum number of trending agents"),
 @router.get(
     "/personalized-recommendations",
     response_model=PersonalizedRecommendationResponse,
@@ -193,75 +127,15 @@ async def get_trending_agents(
 )
 async def get_personalized_recommendations(
     orchestration_type: Optional[str] = Query(None, description="Filter by orchestration type"),
-    limit: int = Query(10, ge=1, le=50, description="Maximum number of recommendations"),
+    limit: int = Query(5, ge=1, le=20, description="Maximum number of recommendations"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Get personalized agent recommendations using AI analysis."""
-    try:
-        logger.info(f"Getting personalized recommendations for user {current_user.id}")
-        
-        # Mock personalized recommendations
-        recommendations = [
-            {
-                "agent": {
-                    "id": "550e8400-e29b-41d4-a716-446655440001",
-                    "name": "맞춤형 데이터 분석가",
-                    "description": "사용자의 분석 패턴에 최적화된 데이터 분석 에이전트",
-                    "agent_type": "custom",
-                    "llm_provider": "openai",
-                    "llm_model": "gpt-4",
-                    "is_public": True,
-                    "created_at": "2024-12-01T00:00:00Z",
-                    "updated_at": "2024-12-25T00:00:00Z"
-                },
-                "score": 0.95,
-                "reasons": ["사용자의 데이터 분석 히스토리와 일치", "선호하는 시각화 스타일 반영"]
-            },
-            {
-                "agent": {
-                    "id": "550e8400-e29b-41d4-a716-446655440002",
-                    "name": "스마트 콘텐츠 생성기",
-                    "description": "사용자의 글쓰기 스타일을 학습한 콘텐츠 생성 에이전트",
-                    "agent_type": "custom",
-                    "llm_provider": "openai",
-                    "llm_model": "gpt-4",
-                    "is_public": True,
-                    "created_at": "2024-12-01T00:00:00Z",
-                    "updated_at": "2024-12-25T00:00:00Z"
-                },
-                "score": 0.88,
-                "reasons": ["사용자의 콘텐츠 생성 패턴 분석", "선호하는 톤앤매너 반영"]
-            },
-            {
-                "agent": {
-                    "id": "550e8400-e29b-41d4-a716-446655440003",
-                    "name": "개인화된 고객 서비스",
-                    "description": "사용자의 고객 응대 스타일에 맞춘 서비스 에이전트",
-                    "agent_type": "custom",
-                    "llm_provider": "anthropic",
-                    "llm_model": "claude-3-sonnet",
-                    "is_public": True,
-                    "created_at": "2024-12-01T00:00:00Z",
-                    "updated_at": "2024-12-25T00:00:00Z"
-                },
-                "score": 0.82,
-                "reasons": ["고객 응대 히스토리 분석", "선호하는 커뮤니케이션 스타일"]
-            }
-        ]
-        
-        return PersonalizedRecommendationResponse(
-            recommendations=recommendations[:limit],
-            total_count=len(recommendations),
-            orchestration_type=orchestration_type
-        )
-        
-    except Exception as e:
-        logger.error(f"Failed to get personalized recommendations: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to get personalized recommendations"
-        )
+    """Get personalized recommendations - returns empty list for now."""
+    return PersonalizedRecommendationResponse(
+        recommendations=[],
+        total_count=0
+    )
 
 
 @router.get(
@@ -276,56 +150,8 @@ async def get_agent_templates(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Get agent templates with filtering options."""
-    try:
-        logger.info(f"Getting agent templates for user {current_user.id}")
-        
-        # Mock templates data
-        templates = [
-            {
-                "id": "550e8400-e29b-41d4-a716-446655440030",
-                "name": "데이터 분석 전문가",
-                "description": "데이터를 수집하고 분석하여 인사이트를 제공하는 전문 에이전트",
-                "category": "analytics",
-                "orchestration_types": ["sequential", "pipeline"],
-                "complexity": "intermediate",
-                "capabilities": ["데이터 분석", "통계 처리", "시각화", "보고서 생성"],
-                "tools": ["python_code", "data_visualization", "statistical_analysis"],
-                "configuration": {
-                    "llm_provider": "openai",
-                    "llm_model": "gpt-4",
-                    "system_prompt": "당신은 데이터 분석 전문가입니다.",
-                    "temperature": 0.3
-                },
-                "use_case": "순차적 데이터 처리 파이프라인에서 분석 단계를 담당"
-            }
-        ]
-        
-        # Apply filters
-        filtered_templates = templates
-        if orchestration_type:
-            filtered_templates = [t for t in filtered_templates if orchestration_type in t["orchestration_types"]]
-        if category:
-            filtered_templates = [t for t in filtered_templates if t["category"] == category]
-        if complexity:
-            filtered_templates = [t for t in filtered_templates if t["complexity"] == complexity]
-        
-        return {
-            "templates": filtered_templates,
-            "total": len(filtered_templates),
-            "filters": {
-                "orchestration_type": orchestration_type,
-                "category": category,
-                "complexity": complexity
-            }
-        }
-        
-    except Exception as e:
-        logger.error(f"Failed to get agent templates: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to get agent templates"
-        )
+    """Get agent templates - returns empty list for now."""
+    return {"templates": [], "total_count": 0}
 
 
 @router.get(
@@ -339,48 +165,8 @@ async def search_users(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Search users for agent sharing."""
-    try:
-        logger.info(f"Searching users with query: {q}")
-        
-        # Mock user search data
-        users = [
-            {
-                "id": "550e8400-e29b-41d4-a716-446655440040",
-                "name": "김철수",
-                "email": "kim@example.com",
-                "avatar": None
-            },
-            {
-                "id": "550e8400-e29b-41d4-a716-446655440041",
-                "name": "이영희",
-                "email": "lee@example.com",
-                "avatar": None
-            }
-        ]
-        
-        # Filter users based on query
-        filtered_users = [
-            user for user in users 
-            if q.lower() in user["name"].lower() or q.lower() in user["email"].lower()
-        ]
-        
-        return {
-            "users": filtered_users[:limit]
-        }
-        
-    except Exception as e:
-        logger.error(f"Failed to search users: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to search users"
-        )
-
-
-# ============================================================================
-# CRUD OPERATIONS
-# ============================================================================
-
+    """Search users for agent sharing - returns empty list for now."""
+    return {"users": [], "total_count": 0}
 @router.post(
     "",
     response_model=AgentResponse,
@@ -388,7 +174,7 @@ async def search_users(
     summary="Create a new agent",
     description="Create a new custom agent with specified tools, prompts, and configuration.",
 )
-def create_agent(
+async def create_agent(
     agent_data: AgentCreate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -417,43 +203,48 @@ def create_agent(
         )
         
         # Execute command
-        agent = facade.agent_commands.handle_create(command)
+        aggregate = facade.agent_commands.handle_create(command)
         
-        logger.info(f"Agent created successfully: {agent.id}")
+        logger.info(f"Agent created successfully: {aggregate.id}")
         
-        # Convert Agent ORM object to AgentResponse
+        # Get the agent entity from the aggregate
+        agent = aggregate.agent
+        
+        # Convert AgentAggregate to AgentResponse
+        configuration = agent.config.to_dict() if agent.config else {}
+        
         return AgentResponse(
             id=str(agent.id),
             user_id=str(agent.user_id),
             name=agent.name,
             description=agent.description,
-            agent_type=agent.agent_type,
-            template_id=str(agent.template_id) if agent.template_id else None,
+            agent_type=agent.agent_type.value if hasattr(agent.agent_type, 'value') else str(agent.agent_type),
+            template_id=agent.template_id,
             llm_provider=agent.llm_provider,
             llm_model=agent.llm_model,
-            prompt_template_id=str(agent.prompt_template_id) if agent.prompt_template_id else None,
-            configuration=agent.configuration or {},
-            context_items=agent.configuration.get("context_items", []) if agent.configuration else [],
-            mcp_servers=agent.configuration.get("mcp_servers", []) if agent.configuration else [],
+            prompt_template_id=None,  # Not directly available in domain model
+            configuration=configuration,
+            context_items=configuration.get("context_items", []),
+            mcp_servers=configuration.get("mcp_servers", []),
             is_public=agent.is_public,
             created_at=agent.created_at,
             updated_at=agent.updated_at,
             deleted_at=agent.deleted_at,
             tools=[
                 {
-                    "tool_id": str(at.tool_id),
-                    "order": at.order,
-                    "configuration": at.configuration or {}
+                    "tool_id": tool.tool_id,
+                    "order": tool.order,
+                    "configuration": tool.configuration or {}
                 }
-                for at in agent.tools
-            ] if agent.tools else [],
+                for tool in agent.tools
+            ],
             knowledgebases=[
                 {
-                    "knowledgebase_id": str(ak.knowledgebase_id),
-                    "order": ak.order
+                    "knowledgebase_id": kb.knowledgebase_id,
+                    "order": kb.priority if hasattr(kb, 'priority') else 0
                 }
-                for ak in agent.knowledgebases
-            ] if agent.knowledgebases else [],
+                for kb in agent.knowledgebases
+            ],
             version_count=0
         )
         
@@ -495,10 +286,66 @@ async def list_agents(
     try:
         logger.info(f"Listing agents for user {current_user.id}")
         
-        # Temporarily return mock data to fix the 500 error
+        facade = AgentBuilderFacade(db)
+        
+        # Create query
+        query = ListAgentsQuery(
+            user_id=str(current_user.id),
+            limit=limit,
+            offset=skip
+        )
+        
+        # Execute query
+        agent_dicts = facade.agent_queries.handle_list(query)
+        
+        # Convert to AgentResponse objects
+        from datetime import datetime
+        agents = []
+        for agent_dict in agent_dicts:
+            # Parse datetime strings
+            created_at = datetime.fromisoformat(agent_dict["created_at"]) if agent_dict.get("created_at") else None
+            updated_at = datetime.fromisoformat(agent_dict["updated_at"]) if agent_dict.get("updated_at") else None
+            
+            configuration = agent_dict.get("configuration", {})
+            
+            agents.append(AgentResponse(
+                id=agent_dict["id"],
+                user_id=agent_dict["user_id"],
+                name=agent_dict["name"],
+                description=agent_dict.get("description"),
+                agent_type=agent_dict["agent_type"],
+                template_id=agent_dict.get("template_id"),
+                llm_provider=agent_dict.get("llm_provider", "openai"),
+                llm_model=agent_dict.get("llm_model", "gpt-3.5-turbo"),
+                prompt_template_id=None,
+                configuration=configuration,
+                context_items=configuration.get("context_items", []),
+                mcp_servers=configuration.get("mcp_servers", []),
+                is_public=agent_dict.get("is_public", False),
+                created_at=created_at,
+                updated_at=updated_at,
+                deleted_at=None,
+                tools=[
+                    {
+                        "tool_id": tool["tool_id"],
+                        "order": tool.get("order", 0),
+                        "configuration": tool.get("configuration", {})
+                    }
+                    for tool in agent_dict.get("tools", [])
+                ],
+                knowledgebases=[
+                    {
+                        "knowledgebase_id": kb["knowledgebase_id"],
+                        "order": kb.get("priority", 0)
+                    }
+                    for kb in agent_dict.get("knowledgebases", [])
+                ],
+                version_count=0
+            ))
+        
         return AgentListResponse(
-            agents=[],
-            total=0,
+            agents=agents,
+            total=len(agents),
             limit=limit,
             offset=skip
         )
@@ -527,40 +374,11 @@ async def get_similar_agents(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Get agents similar to the specified agent."""
-    try:
-        logger.info(f"Getting similar agents for agent {agent_id}")
-        
-        # Mock similar agents data
-        similar_agents = [
-            {
-                "agent": {
-                    "id": "550e8400-e29b-41d4-a716-446655440020",
-                    "name": "고급 데이터 분석가",
-                    "description": "복잡한 데이터셋 분석 및 예측 모델링 전문",
-                    "agent_type": "custom",
-                    "llm_provider": "openai",
-                    "llm_model": "gpt-4",
-                    "is_public": True,
-                    "created_at": "2024-11-01T00:00:00Z",
-                    "updated_at": "2024-12-20T00:00:00Z"
-                },
-                "similarity": 0.92,
-                "common_features": ["데이터 분석", "통계 처리", "시각화"]
-            }
-        ]
-        
-        return SimilarAgentsResponse(
-            similar_agents=similar_agents[:limit],
-            total_count=len(similar_agents)
-        )
-        
-    except Exception as e:
-        logger.error(f"Failed to get similar agents: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to get similar agents"
-        )
+    """Get agents similar to the specified agent - returns empty list for now."""
+    return SimilarAgentsResponse(
+        similar_agents=[],
+        total_count=0
+    )
 
 
 @router.get(
@@ -584,48 +402,61 @@ async def get_agent(
         query = GetAgentQuery(agent_id=agent_id)
         
         # Execute query
-        agent = facade.agent_queries.handle_get(query)
+        agent_dict = facade.agent_queries.handle_get(query)
+        
+        if not agent_dict:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Agent {agent_id} not found"
+            )
         
         # Check permissions (owner or has read permission)
-        if str(agent.user_id) != str(current_user.id) and not agent.is_public:
+        if str(agent_dict["user_id"]) != str(current_user.id) and not agent_dict.get("is_public", False):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You don't have permission to access this agent"
             )
         
-        # Convert Agent ORM object to AgentResponse
+        # Convert query result to AgentResponse
+        configuration = agent_dict.get("configuration", {})
+        
+        # Parse datetime strings
+        from datetime import datetime
+        created_at = datetime.fromisoformat(agent_dict["created_at"]) if agent_dict.get("created_at") else None
+        updated_at = datetime.fromisoformat(agent_dict["updated_at"]) if agent_dict.get("updated_at") else None
+        
         return AgentResponse(
-            id=str(agent.id),
-            user_id=str(agent.user_id),
-            name=agent.name,
-            description=agent.description,
-            agent_type=agent.agent_type,
-            template_id=str(agent.template_id) if agent.template_id else None,
-            llm_provider=agent.llm_provider,
-            llm_model=agent.llm_model,
-            prompt_template_id=str(agent.prompt_template_id) if agent.prompt_template_id else None,
-            configuration=agent.configuration or {},
-            context_items=agent.configuration.get("context_items", []) if agent.configuration else [],
-            mcp_servers=agent.configuration.get("mcp_servers", []) if agent.configuration else [],
-            is_public=agent.is_public,
-            created_at=agent.created_at,
-            updated_at=agent.updated_at,
-            deleted_at=agent.deleted_at,
+            id=agent_dict["id"],
+            user_id=agent_dict["user_id"],
+            name=agent_dict["name"],
+            description=agent_dict.get("description"),
+            agent_type=agent_dict["agent_type"],
+            template_id=agent_dict.get("template_id"),
+            llm_provider=agent_dict.get("llm_provider", "openai"),
+            llm_model=agent_dict.get("llm_model", "gpt-3.5-turbo"),
+            prompt_template_id=None,  # Not in query result
+            configuration=configuration,
+            context_items=configuration.get("context_items", []),
+            mcp_servers=configuration.get("mcp_servers", []),
+            is_public=agent_dict.get("is_public", False),
+            created_at=created_at,
+            updated_at=updated_at,
+            deleted_at=None,
             tools=[
                 {
-                    "tool_id": str(at.tool_id),
-                    "order": at.order,
-                    "configuration": at.configuration or {}
+                    "tool_id": tool["tool_id"],
+                    "order": tool.get("order", 0),
+                    "configuration": tool.get("configuration", {})
                 }
-                for at in agent.tools
-            ] if agent.tools else [],
+                for tool in agent_dict.get("tools", [])
+            ],
             knowledgebases=[
                 {
-                    "knowledgebase_id": str(ak.knowledgebase_id),
-                    "order": ak.order
+                    "knowledgebase_id": kb["knowledgebase_id"],
+                    "order": kb.get("priority", 0)
                 }
-                for ak in agent.knowledgebases
-            ] if agent.knowledgebases else [],
+                for kb in agent_dict.get("knowledgebases", [])
+            ],
             version_count=0
         )
         
@@ -671,9 +502,9 @@ async def update_agent(
         
         # First check if agent exists and user has permission
         query = GetAgentQuery(agent_id=agent_id)
-        agent = facade.agent_queries.handle_get(query)
+        agent_dict = facade.agent_queries.handle_get(query)
         
-        if str(agent.user_id) != str(current_user.id):
+        if str(agent_dict["user_id"]) != str(current_user.id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You don't have permission to update this agent"
@@ -696,43 +527,48 @@ async def update_agent(
         )
         
         # Execute command
-        updated_agent = facade.agent_commands.handle_update(command)
+        updated_aggregate = facade.agent_commands.handle_update(command)
         
         logger.info(f"Agent updated successfully: {agent_id}")
         
+        # Get the agent entity from the aggregate
+        updated_agent = updated_aggregate.agent
+        
         # Convert to response
+        configuration = updated_agent.config.to_dict() if updated_agent.config else {}
+        
         return AgentResponse(
             id=str(updated_agent.id),
             user_id=str(updated_agent.user_id),
             name=updated_agent.name,
             description=updated_agent.description,
-            agent_type=updated_agent.agent_type,
-            template_id=str(updated_agent.template_id) if updated_agent.template_id else None,
+            agent_type=updated_agent.agent_type.value if hasattr(updated_agent.agent_type, 'value') else str(updated_agent.agent_type),
+            template_id=updated_agent.template_id,
             llm_provider=updated_agent.llm_provider,
             llm_model=updated_agent.llm_model,
-            prompt_template_id=str(updated_agent.prompt_template_id) if updated_agent.prompt_template_id else None,
-            configuration=updated_agent.configuration or {},
-            context_items=updated_agent.configuration.get("context_items", []) if updated_agent.configuration else [],
-            mcp_servers=updated_agent.configuration.get("mcp_servers", []) if updated_agent.configuration else [],
+            prompt_template_id=None,  # Not directly available in domain model
+            configuration=configuration,
+            context_items=configuration.get("context_items", []),
+            mcp_servers=configuration.get("mcp_servers", []),
             is_public=updated_agent.is_public,
             created_at=updated_agent.created_at,
             updated_at=updated_agent.updated_at,
             deleted_at=updated_agent.deleted_at,
             tools=[
                 {
-                    "tool_id": str(at.tool_id),
-                    "order": at.order,
-                    "configuration": at.configuration or {}
+                    "tool_id": tool.tool_id,
+                    "order": tool.order,
+                    "configuration": tool.configuration or {}
                 }
-                for at in updated_agent.tools
-            ] if updated_agent.tools else [],
+                for tool in updated_agent.tools
+            ],
             knowledgebases=[
                 {
-                    "knowledgebase_id": str(ak.knowledgebase_id),
-                    "order": ak.order
+                    "knowledgebase_id": kb.knowledgebase_id,
+                    "order": kb.priority if hasattr(kb, 'priority') else 0
                 }
-                for ak in updated_agent.knowledgebases
-            ] if updated_agent.knowledgebases else [],
+                for kb in updated_agent.knowledgebases
+            ],
             version_count=0
         )
         
@@ -761,4 +597,211 @@ async def update_agent(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
+        )
+
+# ============================================================================
+# AGENT TOOLS MANAGEMENT
+# ============================================================================
+
+class ToolItem(BaseModel):
+    """Tool item for updating agent tools."""
+    tool_id: str
+    configuration: dict = Field(default_factory=dict)
+    order: int = 0
+
+
+class UpdateToolsRequest(BaseModel):
+    """Request model for updating agent tools."""
+    tools: List[ToolItem] = Field(default_factory=list, description="List of tools to attach to the agent")
+
+
+@router.put(
+    "/{agent_id}/tools",
+    response_model=AgentResponse,
+    summary="Update agent tools",
+    description="Update the tools attached to an agent.",
+)
+async def update_agent_tools(
+    agent_id: str,
+    request: UpdateToolsRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Update agent tools using DDD aggregate pattern."""
+    try:
+        from uuid import UUID
+        
+        logger.info(f"Updating tools for agent {agent_id}")
+        
+        # Get the agent
+        facade = AgentBuilderFacade(db)
+        query = GetAgentQuery(agent_id=agent_id)
+        agent_dict = facade.agent_queries.handle_get(query)
+        
+        if not agent_dict:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Agent {agent_id} not found"
+            )
+        
+        # Check permissions
+        if str(agent_dict["user_id"]) != str(current_user.id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have permission to update this agent"
+            )
+        
+        # Get the aggregate
+        from backend.services.agent_builder.infrastructure.persistence.agent_repository import AgentRepositoryImpl
+        repository = AgentRepositoryImpl(db)
+        aggregate = repository.find_by_id(UUID(agent_id))
+        
+        if not aggregate:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Agent {agent_id} not found"
+            )
+        
+        # Get current tool IDs
+        current_tool_ids = {tool.tool_id for tool in aggregate.agent.tools}
+        new_tool_ids = {tool.tool_id for tool in request.tools}
+        
+        # Detach removed tools
+        for tool_id in current_tool_ids - new_tool_ids:
+            aggregate.detach_tool(tool_id, UUID(str(current_user.id)))
+        
+        # Attach new tools
+        for tool_item in request.tools:
+            if tool_item.tool_id not in current_tool_ids:
+                aggregate.attach_tool(
+                    tool_item.tool_id, 
+                    UUID(str(current_user.id)), 
+                    configuration=tool_item.configuration,
+                    order=tool_item.order
+                )
+        
+        # Save the aggregate
+        repository.save(aggregate)
+        
+        # Return updated agent
+        agent = aggregate.agent
+        configuration = agent.config.to_dict() if agent.config else {}
+        
+        return AgentResponse(
+            id=str(agent.id),
+            user_id=str(agent.user_id),
+            name=agent.name,
+            description=agent.description,
+            agent_type=agent.agent_type.value if hasattr(agent.agent_type, 'value') else str(agent.agent_type),
+            template_id=agent.template_id,
+            llm_provider=agent.llm_provider,
+            llm_model=agent.llm_model,
+            prompt_template_id=None,
+            configuration=configuration,
+            context_items=configuration.get("context_items", []),
+            mcp_servers=configuration.get("mcp_servers", []),
+            is_public=agent.is_public,
+            created_at=agent.created_at,
+            updated_at=agent.updated_at,
+            deleted_at=agent.deleted_at,
+            tools=[
+                {
+                    "tool_id": tool.tool_id,
+                    "order": tool.order,
+                    "configuration": tool.configuration or {}
+                }
+                for tool in agent.tools
+            ],
+            knowledgebases=[
+                {
+                    "knowledgebase_id": kb.knowledgebase_id,
+                    "order": kb.priority if hasattr(kb, 'priority') else 0
+                }
+                for kb in agent.knowledgebases
+            ],
+            version_count=0
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to update agent tools: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update agent tools: {str(e)}"
+        )
+
+
+# ============================================================================
+# AGENT EXECUTION
+# ============================================================================
+
+class AgentExecuteRequest(BaseModel):
+    """Request model for agent execution."""
+    input: Optional[str] = Field(None, description="Input text for the agent")
+    input_data: Optional[dict] = Field(None, description="Input data for the agent")
+    session_id: Optional[str] = Field(None, description="Session ID for conversation context")
+    workflow_id: Optional[str] = Field(None, description="Workflow ID if part of a workflow")
+    
+    def get_input_data(self) -> dict:
+        """Get input data from either field."""
+        if self.input_data:
+            return self.input_data
+        elif self.input:
+            # If input is a string, wrap it in a dict
+            return {"input": self.input}
+        else:
+            return {}
+
+
+class AgentExecuteResponse(BaseModel):
+    """Response model for agent execution."""
+    output: dict = Field(..., description="Agent execution output")
+    execution_id: Optional[str] = Field(None, description="Execution ID for tracking")
+    status: str = Field(..., description="Execution status")
+
+
+@router.post(
+    "/{agent_id}/execute",
+    response_model=AgentExecuteResponse,
+    summary="Execute agent",
+    description="Execute an agent with the provided input data.",
+)
+async def execute_agent(
+    agent_id: str,
+    request: AgentExecuteRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Execute an agent using the agent plugin manager."""
+    try:
+        from backend.services.plugins.agents.agent_plugin_manager import AgentPluginManager
+        
+        logger.info(f"Executing agent {agent_id} for user {current_user.id}")
+        
+        # Get the agent plugin manager
+        manager = AgentPluginManager(db)
+        
+        # Execute the agent
+        result = await manager.execute_custom_agent(
+            agent_id=agent_id,
+            input_data=request.get_input_data(),
+            user_id=str(current_user.id),
+            session_id=request.session_id,
+            workflow_id=request.workflow_id
+        )
+        
+        return AgentExecuteResponse(
+            output=result.get("output", {}),
+            execution_id=result.get("execution_id"),
+            status=result.get("status", "completed")
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to execute agent: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to execute agent: {str(e)}"
         )

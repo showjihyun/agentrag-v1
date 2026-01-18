@@ -455,11 +455,12 @@ export function TemplateMarketplace({
   const useTemplateMutation = useMutation({
     mutationFn: async (template: AgentTemplate) => {
       // Create agentflow from template
-      return agentBuilderAPI.createAgentflowWithAgents({
+      return agentBuilderAPI.createAgentflow({
         name: `${template.name} (Copy)`,
         description: template.description,
         orchestration_type: template.orchestration_type,
         tags: [...template.tags, 'from_template'],
+        category: template.category,
         agents_config: template.agents.map((agent, index) => ({
           agent_id: agent.agent_id || '',
           name: agent.name,
@@ -478,11 +479,13 @@ export function TemplateMarketplace({
       if (onTemplateSelect && selectedTemplate) {
         onTemplateSelect(selectedTemplate);
       }
+      setShowTemplateDetails(false);
     },
-    onError: () => {
+    onError: (error: any) => {
+      console.error('Template application error:', error);
       toast({
         title: 'Template Application Failed',
-        description: 'An error occurred while applying the template.',
+        description: error?.message || 'An error occurred while applying the template.',
         variant: 'destructive',
       });
     },
@@ -490,9 +493,15 @@ export function TemplateMarketplace({
 
   // Filter and sort templates
   const filteredTemplates = React.useMemo(() => {
-    if (!templatesData?.templates) return [];
+    if (!templatesData?.templates) {
+      console.log('No templates data available');
+      return [];
+    }
 
     let filtered = templatesData.templates;
+    console.log('Total templates:', filtered.length);
+    console.log('Selected category:', selectedCategory);
+    console.log('Search query:', searchQuery);
 
     // Apply sorting
     switch (sortBy) {
@@ -509,8 +518,9 @@ export function TemplateMarketplace({
         break;
     }
 
+    console.log('Filtered templates:', filtered.length);
     return filtered;
-  }, [templatesData?.templates, sortBy]);
+  }, [templatesData?.templates, sortBy, selectedCategory, searchQuery]);
 
   // Handle template selection
   const handleTemplateSelect = (template: AgentTemplate) => {
@@ -720,6 +730,23 @@ export function TemplateMarketplace({
                     </CardContent>
                   </Card>
                 ))}
+              </div>
+            ) : filteredTemplates.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted mb-4">
+                  <Search className="w-8 h-8 text-muted-foreground" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">No templates found</h3>
+                <p className="text-muted-foreground mb-4">
+                  {searchQuery 
+                    ? `No templates match "${searchQuery}"`
+                    : 'No templates available in this category'}
+                </p>
+                {searchQuery && (
+                  <Button variant="outline" onClick={() => setSearchQuery('')}>
+                    Clear Search
+                  </Button>
+                )}
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

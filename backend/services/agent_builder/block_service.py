@@ -110,9 +110,10 @@ class BlockService:
             self._create_version(block, "1.0.0", False)
         
         self._publish_event(BlockCreatedEvent(
-            aggregate_id=block.id,
-            block_id=block.id,
-            user_id=user_id,
+            aggregate_id=str(block.id),
+            aggregate_type="block",
+            block_id=str(block.id),
+            user_id=str(user_id),
             block_name=block.name,
             block_type=block.block_type,
             is_public=block.is_public
@@ -166,9 +167,10 @@ class BlockService:
             self._create_version(block, new_version, is_breaking)
         
         self._publish_event(BlockUpdatedEvent(
-            aggregate_id=block.id,
-            block_id=block.id,
-            user_id=block.user_id,
+            aggregate_id=str(block.id),
+            aggregate_type="block",
+            block_id=str(block.id),
+            user_id=str(block.user_id),
             updated_fields=["configuration"],
             is_breaking_change=is_breaking,
             new_version=new_version
@@ -185,9 +187,10 @@ class BlockService:
             self.block_repo.delete(block)
         
         self._publish_event(BlockDeletedEvent(
-            aggregate_id=block.id,
-            block_id=block.id,
-            user_id=block.user_id,
+            aggregate_id=str(block.id),
+            aggregate_type="block",
+            block_id=str(block.id),
+            user_id=str(block.user_id),
             block_name=block.name
         ))
         

@@ -52,17 +52,38 @@ class AgentQueryHandler:
             return None
         
         agent = aggregate.agent
+        config_dict = agent.config.to_dict() if agent.config else {}
+        
         return {
             "id": str(agent.id),
             "user_id": str(agent.user_id),
             "name": agent.name,
             "description": agent.description,
             "agent_type": agent.agent_type.value,
-            "system_prompt": agent.system_prompt,
-            "model_config": agent.model_config.to_dict() if agent.model_config else {},
-            "tools": agent.tools,
+            "template_id": agent.template_id,
+            "llm_provider": agent.llm_provider,
+            "llm_model": agent.llm_model,
+            "configuration": config_dict,
+            "tools": [
+                {
+                    "tool_id": tool.tool_id,
+                    "order": tool.order,
+                    "configuration": tool.configuration,
+                    "enabled": tool.enabled
+                }
+                for tool in agent.tools
+            ],
+            "knowledgebases": [
+                {
+                    "knowledgebase_id": kb.knowledgebase_id,
+                    "priority": kb.priority,
+                    "search_top_k": kb.search_top_k,
+                    "similarity_threshold": kb.similarity_threshold
+                }
+                for kb in agent.knowledgebases
+            ],
             "is_public": agent.is_public,
-            "status": agent.status.value,
+            "status": agent.status.value if agent.status else "active",
             "created_at": agent.created_at.isoformat() if agent.created_at else None,
             "updated_at": agent.updated_at.isoformat() if agent.updated_at else None,
         }
@@ -83,14 +104,43 @@ class AgentQueryHandler:
         else:
             aggregates = []
         
-        return [
-            {
-                "id": str(a.agent.id),
-                "name": a.agent.name,
-                "description": a.agent.description,
-                "agent_type": a.agent.agent_type.value,
-                "is_public": a.agent.is_public,
-                "status": a.agent.status.value,
-            }
-            for a in aggregates
-        ]
+        result = []
+        for aggregate in aggregates:
+            agent = aggregate.agent
+            config_dict = agent.config.to_dict() if agent.config else {}
+            
+            result.append({
+                "id": str(agent.id),
+                "user_id": str(agent.user_id),
+                "name": agent.name,
+                "description": agent.description,
+                "agent_type": agent.agent_type.value,
+                "template_id": agent.template_id,
+                "llm_provider": agent.llm_provider,
+                "llm_model": agent.llm_model,
+                "configuration": config_dict,
+                "tools": [
+                    {
+                        "tool_id": tool.tool_id,
+                        "order": tool.order,
+                        "configuration": tool.configuration,
+                        "enabled": tool.enabled
+                    }
+                    for tool in agent.tools
+                ],
+                "knowledgebases": [
+                    {
+                        "knowledgebase_id": kb.knowledgebase_id,
+                        "priority": kb.priority,
+                        "search_top_k": kb.search_top_k,
+                        "similarity_threshold": kb.similarity_threshold
+                    }
+                    for kb in agent.knowledgebases
+                ],
+                "is_public": agent.is_public,
+                "status": agent.status.value if agent.status else "active",
+                "created_at": agent.created_at.isoformat() if agent.created_at else None,
+                "updated_at": agent.updated_at.isoformat() if agent.updated_at else None,
+            })
+        
+        return result

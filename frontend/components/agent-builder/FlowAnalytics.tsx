@@ -49,69 +49,137 @@ export function FlowAnalytics({ flows, type, timeRange = 'month' }: FlowAnalytic
     const totalFlows = filteredFlows.length;
     const activeFlows = filteredFlows.filter(f => f.is_active).length;
     const totalExecutions = filteredFlows.reduce((sum, f) => sum + (f.execution_count || 0), 0);
+    
+    // 실제 성공 횟수 계산 (success_count가 있으면 사용, 없으면 0)
     const successfulExecutions = filteredFlows.reduce((sum, f) => 
-      sum + (f.success_count || Math.floor((f.execution_count || 0) * 0.85)), 0
+      sum + (f.success_count || 0), 0
     );
     const successRate = totalExecutions > 0 ? (successfulExecutions / totalExecutions) * 100 : 0;
 
-    // 평균 실행 시간 (시뮬레이션)
-    const avgExecutionTime = filteredFlows.reduce((sum, f) => 
-      sum + (f.avg_execution_time || Math.random() * 5000 + 1000), 0
-    ) / Math.max(totalFlows, 1);
+    // 실제 평균 실행 시간 계산 (avg_execution_time이 있으면 사용)
+    const flowsWithExecutionTime = filteredFlows.filter(f => f.avg_execution_time);
+    const avgExecutionTime = flowsWithExecutionTime.length > 0
+      ? flowsWithExecutionTime.reduce((sum, f) => sum + (f.avg_execution_time || 0), 0) / flowsWithExecutionTime.length
+      : 0;
 
-    // 상위 성과자
+    // 상위 성과자 (실제 데이터 기반)
     const topPerformers = filteredFlows
-      .filter(f => f.execution_count > 0)
+      .filter(f => (f.execution_count || 0) > 0)
       .sort((a, b) => (b.execution_count || 0) - (a.execution_count || 0))
       .slice(0, 5)
       .map(f => ({
         ...f,
-        successRate: f.execution_count > 0 
-          ? ((f.success_count || Math.floor(f.execution_count * 0.85)) / f.execution_count) * 100
+        successRate: (f.execution_count || 0) > 0 
+          ? ((f.success_count || 0) / (f.execution_count || 0)) * 100
           : 0
       }));
 
-    // 트렌드 데이터 (시뮬레이션)
+    // 실제 트렌드 데이터 계산 (최근 7일)
+    const now = new Date();
     const recentTrends = {
-      executions: Array.from({ length: 7 }, (_, i) => ({
-        period: `${7-i}일 전`,
-        count: Math.floor(Math.random() * 100) + 50,
-        change: (Math.random() - 0.5) * 20
-      })),
-      success: Array.from({ length: 7 }, (_, i) => ({
-        period: `${7-i}일 전`,
-        rate: Math.random() * 20 + 80,
-        change: (Math.random() - 0.5) * 10
-      }))
+      executions: Array.from({ length: 7 }, (_, i) => {
+        const date = new Date(now);
+        date.setDate(date.getDate() - (6 - i));
+        const dateStr = date.toISOString().split('T')[0];
+        
+        // 해당 날짜에 생성되거나 업데이트된 플로우의 실행 횟수 추정
+        const dayFlows = filteredFlows.filter(f => {
+          const flowDate = new Date(f.updated_at || f.created_at);
+          return flowDate.toISOString().split('T')[0] === dateStr;
+        });
+        
+        const count = dayFlows.reduce((sum, f) => sum + (f.execution_count || 0), 0);
+        
+        return {
+          period: i === 0 ? 'Today' : i === 1 ? 'Yesterday' : `${7-i}d ago`,
+          count: count,
+          change: 0 // 실제 변화율은 이전 기간 데이터가 필요
+        };
+      }),
+      success: Array.from({ length: 7 }, (_, i) => {
+        const date = new Date(now);
+        date.setDate(date.getDate() - (6 - i));
+        const dateStr = date.toISOString().split('T')[0];
+        
+        const dayFlows = filteredFlows.filter(f => {
+          const flowDate = new Date(f.updated_at || f.created_at);
+          return flowDate.toISOString().split('T')[0] === dateStr;
+        });
+        
+        const dayExecutions = dayFlows.reduce((sum, f) => sum + (f.execution_count || 0), 0);
+        const daySuccess = dayFlows.reduce((sum, f) => sum + (f.success_count || 0), 0);
+        const rate = dayExecutions > 0 ? (daySuccess / dayExecutions) * 100 : 0;
+        
+        return {
+          period: i === 0 ? 'Today' : i === 1 ? 'Yesterday' : `${7-i}d ago`,
+          rate: rate,
+          change: 0
+        };
+      })
     };
 
-    // 카테고리 분석
-    const categories = type === 'agentflow' 
-      ? ['research', 'support', 'content', 'business']
-      : ['rag', 'support', 'assistant', 'custom'];
+    // 실제 카테고리 분석 (tags 또는 category 기반)
+    const categoryMap = new Map<string, number>();
+    filteredFlows.forEach(flow => {
+      // category 필드가 있으면 사용
+      if (flow.category) {
+        categoryMap.set(flow.category, (categoryMap.get(flow.category) || 0) + 1);
+      } 
+      // tags가 있으면 첫 번째 태그를 카테고리로 사용
+      else if (flow.tags && flow.tags.length > 0) {
+        const category = flow.tags[0];
+        categoryMap.set(category, (categoryMap.get(category) || 0) + 1);
+      }
+      // 둘 다 없으면 'uncategorized'
+      else {
+        categoryMap.set('uncategorized', (categoryMap.get('uncategorized') || 0) + 1);
+      }
+    });
     
-    const categoryBreakdown = categories.map(category => {
-      const count = Math.floor(Math.random() * totalFlows * 0.3) + 1;
-      return {
+    const categoryBreakdown = Array.from(categoryMap.entries())
+      .map(([category, count]) => ({
         category,
         count,
         percentage: totalFlows > 0 ? (count / totalFlows) * 100 : 0
-      };
-    });
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5); // 상위 5개 카테고리만
 
-    // 성능 인사이트
-    const performanceInsights = [];
-    if (successRate < 70) {
-      performanceInsights.push('성공률이 낮습니다. 플로우 설정을 검토해보세요.');
-    }
-    if (avgExecutionTime > 10000) {
-      performanceInsights.push('평균 실행 시간이 깁니다. 성능 최적화를 고려해보세요.');
-    }
-    if (activeFlows / totalFlows < 0.5) {
-      performanceInsights.push('비활성 플로우가 많습니다. 사용하지 않는 플로우를 정리해보세요.');
-    }
-    if (totalExecutions === 0) {
-      performanceInsights.push('실행된 플로우가 없습니다. 플로우를 테스트해보세요.');
+    // 실제 데이터 기반 성능 인사이트
+    const performanceInsights: string[] = [];
+    
+    if (totalFlows === 0) {
+      performanceInsights.push('No flows created yet. Create your first flow to get started.');
+    } else {
+      if (totalExecutions === 0) {
+        performanceInsights.push('No executions recorded. Test your flows to see performance metrics.');
+      } else {
+        if (successRate < 70) {
+          performanceInsights.push(`Success rate is ${successRate.toFixed(1)}%. Review flow configurations to improve reliability.`);
+        }
+        if (successRate >= 95) {
+          performanceInsights.push(`Excellent success rate of ${successRate.toFixed(1)}%! Your flows are performing well.`);
+        }
+      }
+      
+      if (avgExecutionTime > 10000) {
+        performanceInsights.push(`Average execution time is ${(avgExecutionTime / 1000).toFixed(1)}s. Consider optimizing for better performance.`);
+      }
+      
+      const inactiveRatio = totalFlows > 0 ? (totalFlows - activeFlows) / totalFlows : 0;
+      if (inactiveRatio > 0.5) {
+        performanceInsights.push(`${Math.round(inactiveRatio * 100)}% of flows are inactive. Consider archiving unused flows.`);
+      }
+      
+      if (topPerformers.length > 0) {
+        const topFlow = topPerformers[0];
+        performanceInsights.push(`"${topFlow.name}" is your most executed flow with ${topFlow.execution_count} runs.`);
+      }
+      
+      if (categoryBreakdown.length > 0) {
+        const topCategory = categoryBreakdown[0];
+        performanceInsights.push(`Most flows are in "${topCategory.category}" category (${topCategory.count} flows).`);
+      }
     }
 
     return {
@@ -146,19 +214,19 @@ export function FlowAnalytics({ flows, type, timeRange = 'month' }: FlowAnalytic
 
   return (
     <div className="space-y-6">
-      {/* 개요 메트릭 */}
+      {/* Overview Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               {type === 'agentflow' ? <Users className="h-4 w-4" /> : <MessageSquare className="h-4 w-4" />}
-              총 플로우
+              Total Flows
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{analytics.totalFlows}</div>
             <div className="text-xs text-muted-foreground">
-              활성: {analytics.activeFlows}개 ({analytics.totalFlows > 0 ? Math.round((analytics.activeFlows / analytics.totalFlows) * 100) : 0}%)
+              Active: {analytics.activeFlows} ({analytics.totalFlows > 0 ? Math.round((analytics.activeFlows / analytics.totalFlows) * 100) : 0}%)
             </div>
           </CardContent>
         </Card>
@@ -167,14 +235,13 @@ export function FlowAnalytics({ flows, type, timeRange = 'month' }: FlowAnalytic
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <Activity className="h-4 w-4" />
-              총 실행 횟수
+              Total Executions
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{analytics.totalExecutions.toLocaleString()}</div>
-            <div className="text-xs text-muted-foreground flex items-center gap-1">
-              {getTrendIcon(5.2)}
-              지난 주 대비 +5.2%
+            <div className="text-xs text-muted-foreground">
+              {analytics.totalExecutions === 0 ? 'No executions yet' : 'All time'}
             </div>
           </CardContent>
         </Card>
@@ -183,14 +250,16 @@ export function FlowAnalytics({ flows, type, timeRange = 'month' }: FlowAnalytic
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <CheckCircle className="h-4 w-4" />
-              성공률
+              Success Rate
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold ${getSuccessRateColor(analytics.successRate)}`}>
-              {analytics.successRate.toFixed(1)}%
+              {analytics.totalExecutions > 0 ? `${analytics.successRate.toFixed(1)}%` : 'N/A'}
             </div>
-            <Progress value={analytics.successRate} className="mt-2" />
+            {analytics.totalExecutions > 0 && (
+              <Progress value={analytics.successRate} className="mt-2" />
+            )}
           </CardContent>
         </Card>
 
@@ -198,26 +267,27 @@ export function FlowAnalytics({ flows, type, timeRange = 'month' }: FlowAnalytic
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <Clock className="h-4 w-4" />
-              평균 실행 시간
+              Avg Execution Time
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatExecutionTime(analytics.avgExecutionTime)}</div>
-            <div className="text-xs text-muted-foreground flex items-center gap-1">
-              {getTrendIcon(-2.1)}
-              지난 주 대비 -2.1%
+            <div className="text-2xl font-bold">
+              {analytics.avgExecutionTime > 0 ? formatExecutionTime(analytics.avgExecutionTime) : 'N/A'}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {analytics.avgExecutionTime === 0 ? 'No data available' : 'Average'}
             </div>
           </CardContent>
         </Card>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* 상위 성과자 */}
+        {/* Top Performers */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BarChart3 className="h-5 w-5" />
-              상위 성과 플로우
+              Top Performing Flows
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -232,7 +302,7 @@ export function FlowAnalytics({ flows, type, timeRange = 'month' }: FlowAnalytic
                       <div>
                         <div className="font-medium truncate max-w-[200px]">{flow.name}</div>
                         <div className="text-xs text-muted-foreground">
-                          {flow.execution_count}회 실행
+                          {flow.execution_count} executions
                         </div>
                       </div>
                     </div>
@@ -240,59 +310,68 @@ export function FlowAnalytics({ flows, type, timeRange = 'month' }: FlowAnalytic
                       <div className={`text-sm font-semibold ${getSuccessRateColor(flow.successRate)}`}>
                         {flow.successRate.toFixed(1)}%
                       </div>
-                      <div className="text-xs text-muted-foreground">성공률</div>
+                      <div className="text-xs text-muted-foreground">success</div>
                     </div>
                   </div>
                 ))
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
-                  <Activity className="mx-auto h-8 w-8 mb-2" />
-                  <p>실행된 플로우가 없습니다</p>
+                  <Activity className="mx-auto h-8 w-8 mb-2 opacity-50" />
+                  <p className="text-sm">No executed flows yet</p>
+                  <p className="text-xs mt-1">Execute flows to see performance data</p>
                 </div>
               )}
             </div>
           </CardContent>
         </Card>
 
-        {/* 카테고리 분석 */}
+        {/* Category Analysis */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <PieChart className="h-5 w-5" />
-              카테고리별 분포
+              Category Distribution
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {analytics.categoryBreakdown.map((category) => (
-                <div key={category.category} className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="capitalize">{category.category}</span>
-                    <span>{category.count}개 ({category.percentage.toFixed(1)}%)</span>
+            {analytics.categoryBreakdown.length > 0 ? (
+              <div className="space-y-3">
+                {analytics.categoryBreakdown.map((category) => (
+                  <div key={category.category} className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="capitalize">{category.category}</span>
+                      <span>{category.count} ({category.percentage.toFixed(1)}%)</span>
+                    </div>
+                    <Progress value={category.percentage} className="h-2" />
                   </div>
-                  <Progress value={category.percentage} className="h-2" />
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <PieChart className="mx-auto h-8 w-8 mb-2 opacity-50" />
+                <p className="text-sm">No categories found</p>
+                <p className="text-xs mt-1">Add tags or categories to your flows</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
 
-      {/* 성능 인사이트 */}
+      {/* Performance Insights */}
       {analytics.performanceInsights.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-yellow-500" />
-              성능 인사이트
+              Performance Insights
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
               {analytics.performanceInsights.map((insight, index) => (
-                <div key={index} className="flex items-start gap-2 p-3 rounded-lg bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800">
-                  <AlertTriangle className="h-4 w-4 text-yellow-600 mt-0.5 shrink-0" />
-                  <p className="text-sm text-yellow-800 dark:text-yellow-200">{insight}</p>
+                <div key={index} className="flex items-start gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
+                  <AlertTriangle className="h-4 w-4 text-blue-600 mt-0.5 shrink-0" />
+                  <p className="text-sm text-blue-800 dark:text-blue-200">{insight}</p>
                 </div>
               ))}
             </div>
@@ -300,33 +379,40 @@ export function FlowAnalytics({ flows, type, timeRange = 'month' }: FlowAnalytic
         </Card>
       )}
 
-      {/* 실행 트렌드 */}
+      {/* Execution Trends */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Calendar className="h-5 w-5" />
-            최근 7일 실행 트렌드
+            Recent 7-Day Execution Trend
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-7 gap-2">
-            {analytics.recentTrends.executions.map((trend, index) => (
-              <div key={index} className="text-center">
-                <div className="text-xs text-muted-foreground mb-1">{trend.period}</div>
-                <div className="h-20 bg-gray-100 dark:bg-gray-800 rounded flex items-end justify-center p-1">
-                  <div 
-                    className="bg-blue-500 rounded-sm w-full transition-all"
-                    style={{ height: `${Math.max((trend.count / 150) * 100, 10)}%` }}
-                  />
-                </div>
-                <div className="text-xs font-medium mt-1">{trend.count}</div>
-                <div className="text-xs text-muted-foreground flex items-center justify-center gap-1">
-                  {getTrendIcon(trend.change)}
-                  {Math.abs(trend.change).toFixed(1)}%
-                </div>
-              </div>
-            ))}
-          </div>
+          {analytics.totalExecutions > 0 ? (
+            <div className="grid grid-cols-7 gap-2">
+              {analytics.recentTrends.executions.map((trend, index) => {
+                const maxCount = Math.max(...analytics.recentTrends.executions.map(t => t.count), 1);
+                return (
+                  <div key={index} className="text-center">
+                    <div className="text-xs text-muted-foreground mb-1 truncate">{trend.period}</div>
+                    <div className="h-20 bg-gray-100 dark:bg-gray-800 rounded flex items-end justify-center p-1">
+                      <div 
+                        className="bg-blue-500 rounded-sm w-full transition-all"
+                        style={{ height: `${Math.max((trend.count / maxCount) * 100, 5)}%` }}
+                      />
+                    </div>
+                    <div className="text-xs font-medium mt-1">{trend.count}</div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <Calendar className="mx-auto h-8 w-8 mb-2 opacity-50" />
+              <p className="text-sm">No execution data available</p>
+              <p className="text-xs mt-1">Execute flows to see trend analysis</p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

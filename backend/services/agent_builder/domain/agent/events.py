@@ -80,7 +80,7 @@ class AgentCloned(DomainEvent):
 @dataclass
 class AgentToolAttached(DomainEvent):
     """Event raised when a tool is attached to an agent."""
-    tool_id: UUID = None
+    tool_id: str = None
     user_id: UUID = None
     configuration: Dict[str, Any] = field(default_factory=dict)
 
@@ -88,5 +88,5 @@ class AgentToolAttached(DomainEvent):
 @dataclass
 class AgentToolDetached(DomainEvent):
     """Event raised when a tool is detached from an agent."""
-    tool_id: UUID = None
+    tool_id: str = None
     user_id: UUID = None

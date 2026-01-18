@@ -66,17 +66,17 @@ interface APIKey {
 }
 
 const PERMISSIONS = [
-  { id: 'agentflows:read', label: 'Agentflows 읽기', description: 'Agentflow 목록 및 상세 조회' },
-  { id: 'agentflows:write', label: 'Agentflows 쓰기', description: 'Agentflow 생성, 수정, 삭제' },
-  { id: 'agentflows:execute', label: 'Agentflows 실행', description: 'Agentflow 실행' },
-  { id: 'chatflows:read', label: 'Chatflows 읽기', description: 'Chatflow 목록 및 상세 조회' },
-  { id: 'chatflows:write', label: 'Chatflows 쓰기', description: 'Chatflow 생성, 수정, 삭제' },
-  { id: 'chatflows:execute', label: 'Chatflows 실행', description: 'Chatflow 채팅 실행' },
-  { id: 'workflows:read', label: 'Workflows 읽기', description: 'Workflow 목록 및 상세 조회' },
-  { id: 'workflows:write', label: 'Workflows 쓰기', description: 'Workflow 생성, 수정, 삭제' },
-  { id: 'workflows:execute', label: 'Workflows 실행', description: 'Workflow 실행' },
-  { id: 'knowledgebases:read', label: 'Knowledgebases 읽기', description: '지식베이스 조회 및 검색' },
-  { id: 'knowledgebases:write', label: 'Knowledgebases 쓰기', description: '지식베이스 생성, 문서 업로드' },
+  { id: 'agentflows:read', label: 'Read Agentflows', description: 'View agentflow list and details' },
+  { id: 'agentflows:write', label: 'Write Agentflows', description: 'Create, update, delete agentflows' },
+  { id: 'agentflows:execute', label: 'Execute Agentflows', description: 'Execute agentflows' },
+  { id: 'chatflows:read', label: 'Read Chatflows', description: 'View chatflow list and details' },
+  { id: 'chatflows:write', label: 'Write Chatflows', description: 'Create, update, delete chatflows' },
+  { id: 'chatflows:execute', label: 'Execute Chatflows', description: 'Execute chatflow conversations' },
+  { id: 'workflows:read', label: 'Read Workflows', description: 'View workflow list and details' },
+  { id: 'workflows:write', label: 'Write Workflows', description: 'Create, update, delete workflows' },
+  { id: 'workflows:execute', label: 'Execute Workflows', description: 'Execute workflows' },
+  { id: 'knowledgebases:read', label: 'Read Knowledgebases', description: 'View and search knowledgebases' },
+  { id: 'knowledgebases:write', label: 'Write Knowledgebases', description: 'Create knowledgebases, upload documents' },
 ];
 
 export default function APIKeysPage() {
@@ -136,8 +136,8 @@ export default function APIKeysPage() {
       setApiKeys(mockKeys);
     } catch (error) {
       toast({
-        title: '오류',
-        description: 'API 키 목록을 불러오는데 실패했습니다',
+        title: 'Error',
+        description: 'Failed to load API keys',
         variant: 'destructive',
       });
     } finally {
@@ -153,8 +153,8 @@ export default function APIKeysPage() {
       setNewKeyVisible(true);
       
       toast({
-        title: 'API 키 생성 완료',
-        description: '새 API 키가 생성되었습니다. 키를 안전한 곳에 저장하세요.',
+        title: 'API Key Created',
+        description: 'New API key has been created. Please save it in a secure location.',
       });
       
       loadAPIKeys();
@@ -167,8 +167,8 @@ export default function APIKeysPage() {
       });
     } catch (error) {
       toast({
-        title: '오류',
-        description: 'API 키 생성에 실패했습니다',
+        title: 'Error',
+        description: 'Failed to create API key',
         variant: 'destructive',
       });
     }
@@ -181,13 +181,13 @@ export default function APIKeysPage() {
       // Mock API call
       setApiKeys(apiKeys.filter((k) => k.id !== keyToDelete));
       toast({
-        title: '삭제 완료',
-        description: 'API 키가 삭제되었습니다',
+        title: 'Deleted',
+        description: 'API key has been deleted',
       });
     } catch (error) {
       toast({
-        title: '오류',
-        description: 'API 키 삭제에 실패했습니다',
+        title: 'Error',
+        description: 'Failed to delete API key',
         variant: 'destructive',
       });
     } finally {
@@ -209,8 +209,8 @@ export default function APIKeysPage() {
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     toast({
-      title: '복사됨',
-      description: 'API 키가 클립보드에 복사되었습니다',
+      title: 'Copied',
+      description: 'API key has been copied to clipboard',
     });
   };
 
@@ -222,10 +222,10 @@ export default function APIKeysPage() {
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
 
-    if (diffMins < 1) return '방금 전';
-    if (diffMins < 60) return `${diffMins}분 전`;
-    if (diffHours < 24) return `${diffHours}시간 전`;
-    return `${diffDays}일 전`;
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return `${diffDays}d ago`;
   };
 
   return (
@@ -238,36 +238,36 @@ export default function APIKeysPage() {
             API Keys
           </h1>
           <p className="text-muted-foreground mt-1">
-            API 키를 생성하고 관리하여 외부 애플리케이션에서 접근하세요
+            Create and manage API keys to access from external applications
           </p>
         </div>
         <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="mr-2 h-4 w-4" />
-              새 API 키
+              New API Key
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-lg">
             <DialogHeader>
-              <DialogTitle>새 API 키 생성</DialogTitle>
+              <DialogTitle>Create New API Key</DialogTitle>
               <DialogDescription>
-                새 API 키를 생성합니다. 키는 생성 후 한 번만 표시됩니다.
+                Create a new API key. The key will only be shown once after creation.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="name">키 이름</Label>
+                <Label htmlFor="name">Key Name</Label>
                 <Input
                   id="name"
-                  placeholder="예: Production API Key"
+                  placeholder="e.g., Production API Key"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label>권한</Label>
+                <Label>Permissions</Label>
                 <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto border rounded-md p-3">
                   {PERMISSIONS.map((permission) => (
                     <div key={permission.id} className="flex items-start space-x-2">
@@ -303,7 +303,7 @@ export default function APIKeysPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="rate_limit">Rate Limit (요청/분)</Label>
+                <Label htmlFor="rate_limit">Rate Limit (requests/min)</Label>
                 <Input
                   id="rate_limit"
                   type="number"
@@ -315,7 +315,7 @@ export default function APIKeysPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="expires">만료 기간</Label>
+                <Label htmlFor="expires">Expiration Period</Label>
                 <Select
                   value={formData.expires_in}
                   onValueChange={(v) => setFormData({ ...formData, expires_in: v })}
@@ -324,20 +324,20 @@ export default function APIKeysPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="never">만료 없음</SelectItem>
-                    <SelectItem value="30d">30일</SelectItem>
-                    <SelectItem value="90d">90일</SelectItem>
-                    <SelectItem value="1y">1년</SelectItem>
+                    <SelectItem value="never">Never Expires</SelectItem>
+                    <SelectItem value="30d">30 Days</SelectItem>
+                    <SelectItem value="90d">90 Days</SelectItem>
+                    <SelectItem value="1y">1 Year</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
-                취소
+                Cancel
               </Button>
               <Button onClick={handleCreateKey} disabled={!formData.name || formData.permissions.length === 0}>
-                생성
+                Create
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -351,10 +351,10 @@ export default function APIKeysPage() {
             <div className="flex items-center justify-between">
               <CardTitle className="text-green-700 dark:text-green-300 flex items-center gap-2">
                 <CheckCircle className="h-5 w-5" />
-                새 API 키가 생성되었습니다
+                New API Key Created
               </CardTitle>
               <Button variant="ghost" size="sm" onClick={() => setNewKeyVisible(false)}>
-                닫기
+                Close
               </Button>
             </div>
           </CardHeader>
@@ -367,7 +367,7 @@ export default function APIKeysPage() {
             </div>
             <p className="text-sm text-yellow-600 dark:text-yellow-400 mt-2 flex items-center gap-1">
               <AlertTriangle className="h-4 w-4" />
-              이 키는 다시 표시되지 않습니다. 안전한 곳에 저장하세요.
+              This key will not be shown again. Please save it in a secure location.
             </p>
           </CardContent>
         </Card>
@@ -392,13 +392,13 @@ export default function APIKeysPage() {
         <Card className="p-12">
           <div className="text-center">
             <Key className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">API 키가 없습니다</h3>
+            <h3 className="text-lg font-semibold mb-2">No API Keys</h3>
             <p className="text-muted-foreground mb-4">
-              첫 번째 API 키를 생성하여 외부 애플리케이션에서 접근하세요
+              Create your first API key to access from external applications
             </p>
             <Button onClick={() => setCreateDialogOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
-              새 API 키 생성
+              Create New API Key
             </Button>
           </div>
         </Card>
@@ -412,15 +412,15 @@ export default function APIKeysPage() {
                     <CardTitle className="flex items-center gap-2">
                       {apiKey.name}
                       {apiKey.is_active ? (
-                        <Badge variant="default">활성</Badge>
+                        <Badge variant="default">Active</Badge>
                       ) : (
-                        <Badge variant="secondary">비활성</Badge>
+                        <Badge variant="secondary">Inactive</Badge>
                       )}
                     </CardTitle>
                     <CardDescription className="mt-1">
-                      생성: {new Date(apiKey.created_at).toLocaleDateString()}
+                      Created: {new Date(apiKey.created_at).toLocaleDateString()}
                       {apiKey.expires_at && (
-                        <> · 만료: {new Date(apiKey.expires_at).toLocaleDateString()}</>
+                        <> · Expires: {new Date(apiKey.expires_at).toLocaleDateString()}</>
                       )}
                     </CardDescription>
                   </div>
@@ -470,26 +470,26 @@ export default function APIKeysPage() {
                 <div className="grid grid-cols-3 gap-4 text-sm">
                   <div className="flex items-center gap-2">
                     <Activity className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-muted-foreground">사용 횟수:</span>
+                    <span className="text-muted-foreground">Usage:</span>
                     <span className="font-medium">{apiKey.usage_count.toLocaleString()}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Clock className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-muted-foreground">마지막 사용:</span>
+                    <span className="text-muted-foreground">Last used:</span>
                     <span className="font-medium">
-                      {apiKey.last_used_at ? formatTimeAgo(apiKey.last_used_at) : '없음'}
+                      {apiKey.last_used_at ? formatTimeAgo(apiKey.last_used_at) : 'Never'}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Shield className="h-4 w-4 text-muted-foreground" />
                     <span className="text-muted-foreground">Rate Limit:</span>
-                    <span className="font-medium">{apiKey.rate_limit}/분</span>
+                    <span className="font-medium">{apiKey.rate_limit}/min</span>
                   </div>
                 </div>
 
                 {/* Permissions */}
                 <div>
-                  <p className="text-sm text-muted-foreground mb-2">권한:</p>
+                  <p className="text-sm text-muted-foreground mb-2">Permissions:</p>
                   <div className="flex flex-wrap gap-1">
                     {apiKey.permissions.map((perm) => (
                       <Badge key={perm} variant="outline" className="text-xs">
@@ -508,18 +508,18 @@ export default function APIKeysPage() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>API 키 삭제</AlertDialogTitle>
+            <AlertDialogTitle>Delete API Key</AlertDialogTitle>
             <AlertDialogDescription>
-              이 API 키를 삭제하시겠습니까? 이 키를 사용하는 모든 애플리케이션이 작동을 멈춥니다.
+              Are you sure you want to delete this API key? All applications using this key will stop working.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>취소</AlertDialogCancel>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteKey}
               className="bg-destructive text-destructive-foreground"
             >
-              삭제
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

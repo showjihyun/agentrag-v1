@@ -34,8 +34,8 @@ class CacheConfig:
 class PluginCacheManager:
     """플러그인 캐시 관리자"""
     
-    def __init__(self):
-        self.redis_client = get_redis_client()
+    def __init__(self, redis_client=None):
+        self.redis_client = redis_client
         
         # L1 캐시 (메모리)
         self.l1_cache: Dict[str, CircularBuffer] = {}
@@ -372,4 +372,16 @@ class PluginCacheManager:
         return cleaned_count
 
 # 전역 인스턴스
-plugin_cache_manager = PluginCacheManager()
+plugin_cache_manager = None
+
+async def get_plugin_cache_manager() -> PluginCacheManager:
+    """Get or create plugin cache manager instance."""
+    global plugin_cache_manager
+    if plugin_cache_manager is None:
+        try:
+            redis_client = await get_redis_client()
+            plugin_cache_manager = PluginCacheManager(redis_client)
+        except Exception as e:
+            logger.warning(f"Failed to initialize plugin cache manager with Redis: {e}")
+            plugin_cache_manager = PluginCacheManager(None)
+    return plugin_cache_manager

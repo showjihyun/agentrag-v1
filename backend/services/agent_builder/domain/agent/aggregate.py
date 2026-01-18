@@ -256,7 +256,7 @@ class AgentAggregate:
         
         self._events.append(AgentToolAttached(
             aggregate_id=self._agent.id,
-            tool_id=UUID(tool_id) if isinstance(tool_id, str) else tool_id,
+            tool_id=tool_id,
             user_id=user_id,
             configuration=configuration or {},
         ))
@@ -267,7 +267,7 @@ class AgentAggregate:
         
         self._events.append(AgentToolDetached(
             aggregate_id=self._agent.id,
-            tool_id=UUID(tool_id) if isinstance(tool_id, str) else tool_id,
+            tool_id=tool_id,
             user_id=user_id,
         ))
     

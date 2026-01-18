@@ -14,7 +14,7 @@ from backend.services.agent_builder.domain.agent.repository import AgentReposito
 from backend.services.agent_builder.domain.agent.aggregate import AgentAggregate
 from backend.services.agent_builder.domain.agent.entities import AgentEntity
 from backend.services.agent_builder.domain.agent.value_objects import (
-    AgentType, AgentStatus, ModelConfig
+    AgentType, AgentStatus, ModelConfig, AgentConfig, ToolBinding, KnowledgebaseBinding
 )
 
 logger = logging.getLogger(__name__)
@@ -28,7 +28,7 @@ class AgentRepositoryImpl(AgentRepositoryInterface):
     
     def save(self, aggregate: AgentAggregate) -> None:
         """Save agent aggregate."""
-        from backend.db.models.agent_builder import Agent
+        from backend.db.models.agent_builder import Agent, AgentTool
         
         agent = aggregate.agent
         
@@ -45,6 +45,17 @@ class AgentRepositoryImpl(AgentRepositoryInterface):
             db_agent.is_public = agent.is_public
             db_agent.updated_at = agent.updated_at
             db_agent.deleted_at = agent.deleted_at
+            
+            # Update tools - remove all existing and add new ones
+            self.db.query(AgentTool).filter(AgentTool.agent_id == agent.id).delete()
+            for tool in agent.tools:
+                db_tool = AgentTool(
+                    agent_id=agent.id,
+                    tool_id=tool.tool_id,
+                    configuration=tool.configuration,
+                    order=tool.order
+                )
+                self.db.add(db_tool)
         else:
             # Create new - map domain entity fields to database model fields
             configuration = agent.config.to_dict() if agent.config else {}
@@ -61,6 +72,16 @@ class AgentRepositoryImpl(AgentRepositoryInterface):
                 is_public=agent.is_public,
             )
             self.db.add(db_agent)
+            
+            # Add tools
+            for tool in agent.tools:
+                db_tool = AgentTool(
+                    agent_id=agent.id,
+                    tool_id=tool.tool_id,
+                    configuration=tool.configuration,
+                    order=tool.order
+                )
+                self.db.add(db_tool)
         
         self.db.commit()
         logger.debug(f"Saved agent: {agent.id}")
@@ -127,15 +148,55 @@ class AgentRepositoryImpl(AgentRepositoryInterface):
     
     def _to_entity(self, db_agent) -> AgentEntity:
         """Convert DB model to domain entity."""
+        # Build AgentConfig from database configuration
+        config_dict = db_agent.configuration or {}
+        config_dict["llm_provider"] = db_agent.llm_provider
+        config_dict["llm_model"] = db_agent.llm_model
+        config = AgentConfig.from_dict(config_dict)
+        
+        # Build tool bindings from database relationships
+        tool_bindings = [
+            ToolBinding(
+                tool_id=str(at.tool_id),
+                configuration=at.configuration or {},
+                order=at.order if hasattr(at, 'order') else 0
+            )
+            for at in (db_agent.tools or [])
+        ]
+        
+        # Build knowledgebase bindings from database relationships
+        kb_bindings = [
+            KnowledgebaseBinding(
+                knowledgebase_id=str(ak.knowledgebase_id),
+                priority=ak.order if hasattr(ak, 'order') else 0
+            )
+            for ak in (db_agent.knowledgebases or [])
+        ]
+        
+        # Handle agent_type with fallback
+        try:
+            agent_type = AgentType(db_agent.agent_type) if db_agent.agent_type else AgentType.CUSTOM
+        except ValueError:
+            logger.warning(f"Unknown agent_type '{db_agent.agent_type}', defaulting to CUSTOM")
+            agent_type = AgentType.CUSTOM
+        
         return AgentEntity(
             id=db_agent.id,
             user_id=db_agent.user_id,
             name=db_agent.name,
             description=db_agent.description,
-            agent_type=AgentType(db_agent.agent_type) if db_agent.agent_type else AgentType.ASSISTANT,
-            system_prompt=db_agent.system_prompt,
-            model_config=ModelConfig.from_dict(db_agent.model_config or {}),
-            tools=db_agent.tools or [],
+            agent_type=agent_type,
+            config=config,
+            template_id=str(db_agent.template_id) if db_agent.template_id else None,
             is_public=db_agent.is_public,
-            status=AgentStatus(db_agent.status) if db_agent.status else AgentStatus.DRAFT,
+            is_active=db_agent.deleted_at is None,
+            tools=tool_bindings,
+            knowledgebases=kb_bindings,
+            created_at=db_agent.created_at,
+            updated_at=db_agent.updated_at,
+            deleted_at=db_agent.deleted_at,
+            # Optional fields that may not exist in DB
+            system_prompt=config_dict.get("system_prompt"),
+            model_config=None,  # Not used in current implementation
+            status=AgentStatus.ACTIVE if db_agent.deleted_at is None else AgentStatus.ARCHIVED,
         )
