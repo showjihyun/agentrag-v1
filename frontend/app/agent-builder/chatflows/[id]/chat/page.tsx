@@ -25,6 +25,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { flowsAPI, ChatMessage, ChatRequest } from '@/lib/api/flows';
 import { useAuth } from '@/contexts/AuthContext';
+import { ThinkingAnimation } from '@/components/chat/ThinkingAnimation';
 
 // Import sessionAPI separately to avoid potential circular dependency issues
 import { sessionAPI } from '@/lib/api/flows';
@@ -61,6 +62,7 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
   const [llmProvider, setLlmProvider] = useState<string>('ollama');
   const [llmModel, setLlmModel] = useState<string>('llama3.3:70b');
   const [llmConfig, setLlmConfig] = useState<any>({});
+  const [thinkingStage, setThinkingStage] = useState<'analyzing' | 'reasoning' | 'searching' | 'generating' | 'complete'>('analyzing');
 
   const { data: flowData, isLoading: flowLoading } = useQuery({
     queryKey: ['chatflow', id],
@@ -284,6 +286,17 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
 
     try {
       setMessages(prev => [...prev, assistantMessage]);
+      
+      // Start thinking animation cycle
+      setThinkingStage('analyzing');
+      const stageInterval = setInterval(() => {
+        setThinkingStage(prev => {
+          if (prev === 'analyzing') return 'reasoning';
+          if (prev === 'reasoning') return 'searching';
+          if (prev === 'searching') return 'generating';
+          return 'generating';
+        });
+      }, 1500);
 
       // Prepare chat request with dynamic LLM settings
       const chatRequest: ChatRequest = {
@@ -306,6 +319,9 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
         try {
           const response = await flowsAPI.sendWorkflowChatMessage(id, chatRequest);
           
+          clearInterval(stageInterval);
+          setThinkingStage('complete');
+          
           if (response.success && response.response) {
             setMessages(prev => prev.map(msg => 
               msg.id === assistantMessage.id 
@@ -318,6 +334,7 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
           
           setIsLoading(false);
         } catch (error: any) {
+          clearInterval(stageInterval);
           console.error('Non-streaming API error:', error);
           
           // Check if it's an authentication error
@@ -365,13 +382,23 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
               hasReceivedData = true;
               const data = JSON.parse(event.data);
               
+              // Update thinking stage based on response
+              if (data.type === 'content' && !data.content) {
+                // Still thinking
+                setThinkingStage('generating');
+              }
+              
               if (data.type === 'content') {
+                clearInterval(stageInterval);
+                setThinkingStage('generating');
                 setMessages(prev => prev.map(msg => 
                   msg.id === assistantMessage.id 
                     ? { ...msg, content: msg.content + data.content }
                     : msg
                 ));
               } else if (data.type === 'done') {
+                clearInterval(stageInterval);
+                setThinkingStage('complete');
                 setMessages(prev => prev.map(msg => 
                   msg.id === assistantMessage.id 
                     ? { ...msg, isStreaming: false }
@@ -381,6 +408,7 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
                 eventSource.close();
                 setEventSource(null);
               } else if (data.type === 'error') {
+                clearInterval(stageInterval);
                 throw new Error(data.error || 'Streaming error occurred');
               }
             } catch (error) {
@@ -390,6 +418,7 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
 
           eventSource.onerror = (error) => {
             console.error('EventSource error:', error);
+            clearInterval(stageInterval);
             eventSource.close();
             setEventSource(null);
             
@@ -417,6 +446,7 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
           setTimeout(() => {
             if (!hasReceivedData && eventSource.readyState !== EventSource.CLOSED) {
               console.log('Streaming timeout, falling back to non-streaming API...');
+              clearInterval(stageInterval);
               eventSource.close();
               setEventSource(null);
               fallbackToNonStreaming();
@@ -425,6 +455,7 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
 
         } catch (error: any) {
           console.error('Failed to create EventSource:', error);
+          clearInterval(stageInterval);
           
           // Check if it's an authentication error
           if (error?.message?.includes('Authentication')) {
@@ -445,6 +476,7 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
 
     } catch (error: any) {
       console.error('Chat error:', error);
+      clearInterval(stageInterval);
       
       // Check if it's an authentication error
       if (error?.status === 401 || error?.message?.includes('Authentication')) {
@@ -1182,19 +1214,37 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
                     </div>
                   )}
                   <div
-                    className={`max-w-[80%] rounded-lg px-4 py-2 ${
+                    className={`max-w-[80%] ${
                       message.role === 'user'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 dark:bg-gray-800 text-foreground'
+                        ? 'rounded-lg px-4 py-2 bg-blue-600 text-white'
+                        : ''
                     }`}
                   >
-                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                    {message.isStreaming && (
-                      <Loader2 className="h-3 w-3 animate-spin mt-1 opacity-50" />
+                    {/* Show thinking animation for streaming assistant messages */}
+                    {message.role === 'assistant' && message.isStreaming && !message.content && (
+                      <ThinkingAnimation 
+                        stage={thinkingStage}
+                        message="Processing your request..."
+                        className="mb-2"
+                      />
                     )}
-                    <p className="text-xs opacity-70 mt-1">
-                      {message.timestamp.toLocaleTimeString()}
-                    </p>
+                    
+                    {/* Show message content */}
+                    {message.content && (
+                      <div className={`rounded-lg px-4 py-2 ${
+                        message.role === 'user'
+                          ? ''
+                          : 'bg-gray-100 dark:bg-gray-800 text-foreground'
+                      }`}>
+                        <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                        {message.isStreaming && (
+                          <Loader2 className="h-3 w-3 animate-spin mt-1 opacity-50" />
+                        )}
+                        <p className="text-xs opacity-70 mt-1">
+                          {message.timestamp.toLocaleTimeString()}
+                        </p>
+                      </div>
+                    )}
                   </div>
                   {message.role === 'user' && (
                     <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">

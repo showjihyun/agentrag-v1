@@ -1026,3 +1026,192 @@ async def get_workflow_statistics(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get workflow statistics"
         )
+
+
+
+@router.post(
+    "/{workflow_id}/nodes/agent",
+    summary="Add agent to workflow",
+    description="Add an agent as a node to the workflow for agent orchestration.",
+)
+async def add_agent_to_workflow(
+    workflow_id: str,
+    agent_data: Dict[str, Any],
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Add an agent as a node to a workflow.
+    
+    Request body:
+    {
+        "agent_id": "uuid",
+        "position_x": 100,
+        "position_y": 200,
+        "role": "worker",  # optional
+        "max_retries": 3,  # optional
+        "timeout_seconds": 60,  # optional
+        "auto_convert": true  # optional, convert to block
+    }
+    """
+    try:
+        from backend.services.agent_builder.integration_service import AgentWorkflowIntegrationService
+        
+        # Validate workflow exists and user has access
+        facade = AgentBuilderFacade(db)
+        workflow = facade.get_workflow(workflow_id)
+        
+        if not workflow:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Workflow {workflow_id} not found"
+            )
+        
+        # Check permissions
+        if str(workflow.workflow.user_id) != str(current_user.id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have permission to modify this workflow"
+            )
+        
+        # Extract parameters
+        agent_id = agent_data.get("agent_id")
+        if not agent_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="agent_id is required"
+            )
+        
+        position_x = agent_data.get("position_x", 0)
+        position_y = agent_data.get("position_y", 0)
+        role = agent_data.get("role", "worker")
+        max_retries = agent_data.get("max_retries", 3)
+        timeout_seconds = agent_data.get("timeout_seconds", 60)
+        auto_convert = agent_data.get("auto_convert", True)
+        
+        # Add agent to workflow
+        integration_service = AgentWorkflowIntegrationService(db)
+        
+        node = integration_service.add_agent_block_to_workflow(
+            workflow_id=workflow_id,
+            agent_id=agent_id,
+            position_x=position_x,
+            position_y=position_y,
+            auto_convert=auto_convert,
+            role=role,
+            max_retries=max_retries,
+            timeout_seconds=timeout_seconds,
+        )
+        
+        db.commit()
+        
+        logger.info(f"Added agent {agent_id} to workflow {workflow_id}")
+        
+        return {
+            "node_id": str(node.id),
+            "workflow_id": workflow_id,
+            "agent_id": agent_id,
+            "node_type": node.node_type,
+            "name": node.name,
+            "position": {
+                "x": node.position_x,
+                "y": node.position_y,
+            },
+            "configuration": node.configuration,
+        }
+        
+    except NotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+    except ValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to add agent to workflow: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to add agent to workflow"
+        )
+
+
+@router.get(
+    "/{workflow_id}/agents",
+    summary="Get agents in workflow",
+    description="Get all agent nodes in the workflow.",
+)
+async def get_workflow_agents(
+    workflow_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get all agent nodes in a workflow."""
+    try:
+        from backend.db.models.agent_builder import WorkflowNode, Agent
+        
+        # Validate workflow exists and user has access
+        facade = AgentBuilderFacade(db)
+        workflow = facade.get_workflow(workflow_id)
+        
+        if not workflow:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Workflow {workflow_id} not found"
+            )
+        
+        # Check permissions
+        if str(workflow.workflow.user_id) != str(current_user.id) and not workflow.workflow.is_public:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied"
+            )
+        
+        # Get agent nodes
+        agent_nodes = db.query(WorkflowNode).filter(
+            WorkflowNode.workflow_id == workflow_id,
+            WorkflowNode.node_type == "agent"
+        ).all()
+        
+        # Enrich with agent details
+        result = []
+        for node in agent_nodes:
+            agent_id = node.configuration.get("agent_id")
+            if agent_id:
+                agent = db.query(Agent).filter(Agent.id == agent_id).first()
+                if agent:
+                    result.append({
+                        "node_id": str(node.id),
+                        "agent_id": str(agent.id),
+                        "name": node.name,
+                        "description": node.description,
+                        "position": {
+                            "x": node.position_x,
+                            "y": node.position_y,
+                        },
+                        "configuration": node.configuration,
+                        "agent_details": {
+                            "llm_provider": agent.llm_provider,
+                            "llm_model": agent.llm_model,
+                            "agent_type": agent.agent_type,
+                        }
+                    })
+        
+        return {
+            "workflow_id": workflow_id,
+            "agents": result,
+            "total": len(result),
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get workflow agents: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get workflow agents"
+        )

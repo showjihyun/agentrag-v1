@@ -366,3 +366,49 @@ export const DEFAULT_SUPERVISOR_CONFIG: SupervisorConfig = {
     token_efficiency: 0.7  // 70%
   }
 };
+
+// Icon name mappings for orchestration types (used with lucide-react)
+export const ORCHESTRATION_ICONS: Record<OrchestrationTypeValue, string> = {
+  // Core Patterns
+  sequential: 'ArrowRight',
+  parallel: 'Zap',
+  hierarchical: 'Users',
+  adaptive: 'GitBranch',
+  // 2025 Trends
+  consensus_building: 'MessageSquare',
+  dynamic_routing: 'Route',
+  swarm_intelligence: 'Hexagon',
+  event_driven: 'Bell',
+  reflection: 'RefreshCw',
+  // 2026 Next-Gen
+  neuromorphic: 'Brain',
+  quantum_enhanced: 'Atom',
+  bio_inspired: 'Leaf',
+  self_evolving: 'TrendingUp',
+  federated: 'Network',
+  emotional_ai: 'Heart',
+  predictive: 'Sparkles'
+};
+
+// Human-readable labels for orchestration types
+export const ORCHESTRATION_LABELS: Record<OrchestrationTypeValue, string> = {
+  // Core Patterns
+  sequential: 'Sequential Execution',
+  parallel: 'Parallel Execution',
+  hierarchical: 'Hierarchical Management',
+  adaptive: 'Adaptive Routing',
+  // 2025 Trends
+  consensus_building: 'Consensus Building',
+  dynamic_routing: 'Dynamic Routing',
+  swarm_intelligence: 'Swarm Intelligence',
+  event_driven: 'Event Driven',
+  reflection: 'Self Reflection',
+  // 2026 Next-Gen
+  neuromorphic: 'Neuromorphic Processing',
+  quantum_enhanced: 'Quantum Enhanced',
+  bio_inspired: 'Bio-Inspired',
+  self_evolving: 'Self-Evolving',
+  federated: 'Federated Learning',
+  emotional_ai: 'Emotional AI',
+  predictive: 'Predictive Orchestration'
+};

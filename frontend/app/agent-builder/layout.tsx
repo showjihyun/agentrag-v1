@@ -59,6 +59,14 @@ const navigation = [
     icon: GitBranch,
     description: 'General purpose workflows'
   },
+  { 
+    name: 'Agentic RAG', 
+    href: '/agent-builder/agentic-rag', 
+    icon: Sparkles,
+    badge: 'New',
+    badgeVariant: 'outline' as const,
+    description: 'Intelligent retrieval with reflection'
+  },
   // Building Blocks
   { 
     name: 'Agents', 
@@ -121,14 +129,15 @@ const navigation = [
     icon: Key,
     description: 'External integrations'
   },
-  { 
-    name: 'A2A Protocol', 
-    href: '/agent-builder/a2a', 
-    icon: Globe,
-    badge: 'New',
-    badgeVariant: 'outline' as const,
-    description: 'Agent-to-Agent connections'
-  },
+  // Temporarily hidden - A2A Protocol
+  // { 
+  //   name: 'A2A Protocol', 
+  //   href: '/agent-builder/a2a', 
+  //   icon: Globe,
+  //   badge: 'New',
+  //   badgeVariant: 'outline' as const,
+  //   description: 'Agent-to-Agent connections'
+  // },
   { 
     name: 'Embed', 
     href: '/agent-builder/embed', 
@@ -249,7 +258,7 @@ export default function AgentBuilderLayout({
                     Flows
                   </div>
                   <div className="space-y-1">
-                    {navigation.slice(0, 3).map((item) => {
+                    {navigation.slice(0, 4).map((item) => {
                       const Icon = item.icon;
                       const isActive = pathname?.startsWith(item.href);
                       return (
@@ -306,7 +315,7 @@ export default function AgentBuilderLayout({
                     Building Blocks
                   </div>
                   <div className="space-y-1">
-                    {navigation.slice(3, 7).map((item) => {
+                    {navigation.slice(4, 8).map((item) => {
                       const Icon = item.icon;
                       const isActive = pathname?.startsWith(item.href);
                       return (
@@ -363,7 +372,7 @@ export default function AgentBuilderLayout({
                     Data & Knowledge
                   </div>
                   <div className="space-y-1">
-                    {navigation.slice(7, 9).map((item) => {
+                    {navigation.slice(8, 10).map((item) => {
                       const Icon = item.icon;
                       const isActive = pathname?.startsWith(item.href);
                       return (
@@ -420,7 +429,7 @@ export default function AgentBuilderLayout({
                     Observability
                   </div>
                   <div className="space-y-1">
-                    {navigation.slice(9, 11).map((item) => {
+                    {navigation.slice(10, 12).map((item) => {
                       const Icon = item.icon;
                       const isActive = pathname?.startsWith(item.href);
                       return (
@@ -477,7 +486,7 @@ export default function AgentBuilderLayout({
                     Developer
                   </div>
                   <div className="space-y-1">
-                    {navigation.slice(11).map((item) => {
+                    {navigation.slice(12).map((item) => {
                       const Icon = item.icon;
                       const isActive = pathname?.startsWith(item.href);
                       return (

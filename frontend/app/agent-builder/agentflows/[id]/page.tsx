@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
   Edit,
@@ -18,6 +18,21 @@ import {
   MoreVertical,
   TrendingUp,
   Network,
+  ArrowRight,
+  Zap,
+  GitBranch,
+  MessageSquare,
+  Route,
+  Hexagon,
+  Bell,
+  RefreshCw,
+  Brain,
+  Atom,
+  Leaf,
+  Heart,
+  Sparkles,
+  Plus,
+  Bot,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -47,18 +62,38 @@ import { flowsAPI } from '@/lib/api/flows';
 import { useState } from 'react';
 import { 
   ORCHESTRATION_TYPES,
-  ORCHESTRATION_ICONS,
   ORCHESTRATION_LABELS,
   CATEGORY_COLORS,
   type OrchestrationTypeValue 
 } from '@/lib/constants/orchestration';
+import { AddAgentToFlowDialog } from '@/components/agent-builder/add-agent-to-flow-dialog';
 
-// Orchestration constants are now imported from the constants file
+// Icon mapping for orchestration types
+const ICON_MAP: Record<string, any> = {
+  ArrowRight,
+  Zap,
+  Users,
+  GitBranch,
+  MessageSquare,
+  Route,
+  Hexagon,
+  Bell,
+  RefreshCw,
+  Brain,
+  Atom,
+  Leaf,
+  TrendingUp,
+  Network,
+  Heart,
+  Sparkles,
+};
 
 export default function AgentflowDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [addAgentDialogOpen, setAddAgentDialogOpen] = useState(false);
   
   // Unwrap params using React.use()
   const { id } = React.use(params);
@@ -138,7 +173,9 @@ export default function AgentflowDetailPage({ params }: { params: Promise<{ id: 
     );
   }
 
-  const OrchIcon = ORCHESTRATION_ICONS[flow.orchestration_type as keyof typeof ORCHESTRATION_ICONS] || Network;
+  const OrchIcon = flow.orchestration_type 
+    ? ICON_MAP[ORCHESTRATION_TYPES[flow.orchestration_type]?.icon] || Network
+    : Network;
 
   return (
     <div className="container mx-auto p-6 max-w-6xl">
@@ -265,7 +302,11 @@ export default function AgentflowDetailPage({ params }: { params: Promise<{ id: 
                   <p className="text-sm text-muted-foreground mb-1">Orchestration Type</p>
                   <div className="flex items-center gap-2">
                     <OrchIcon className="h-5 w-5 text-purple-600" />
-                    <p className="font-medium">{ORCHESTRATION_LABELS[flow.orchestration_type as keyof typeof ORCHESTRATION_LABELS]}</p>
+                    <p className="font-medium">
+                      {flow.orchestration_type 
+                        ? ORCHESTRATION_LABELS[flow.orchestration_type as OrchestrationTypeValue] || flow.orchestration_type
+                        : 'Not specified'}
+                    </p>
                   </div>
                 </div>
                 <div>
@@ -297,28 +338,63 @@ export default function AgentflowDetailPage({ params }: { params: Promise<{ id: 
 
         {/* Agents Tab */}
         <TabsContent value="agents" className="space-y-4">
+          <div className="flex justify-between items-center mb-4">
+            <p className="text-sm text-muted-foreground">
+              {flow.agents && flow.agents.length > 0
+                ? `${flow.agents.length} agent(s) configured`
+                : 'No agents configured yet'}
+            </p>
+            <Button
+              onClick={() => setAddAgentDialogOpen(true)}
+              size="sm"
+              className="bg-gradient-to-r from-purple-600 to-blue-600"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Agent
+            </Button>
+          </div>
+
           {flow.agents && flow.agents.length > 0 ? (
             flow.agents.map((agent: any, index: number) => (
               <Card key={agent.id || index} className="border-2 hover:shadow-lg transition-all">
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <Badge variant="outline" className="text-lg px-3 py-1">
-                        {index + 1}
-                      </Badge>
+                      <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900">
+                        <Bot className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                      </div>
                       <div>
                         <CardTitle className="text-lg">{agent.name}</CardTitle>
                         {agent.role && (
-                          <CardDescription className="mt-1">{agent.role}</CardDescription>
+                          <CardDescription className="mt-1">
+                            Role: {agent.role}
+                          </CardDescription>
                         )}
                       </div>
                     </div>
-                    <Badge variant="secondary">Priority: {agent.priority || index + 1}</Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary">Priority: {agent.priority || index + 1}</Badge>
+                      {agent.capabilities && agent.capabilities.length > 0 && (
+                        <Badge variant="outline">{agent.capabilities.length} capabilities</Badge>
+                      )}
+                    </div>
                   </div>
                 </CardHeader>
                 {agent.description && (
                   <CardContent>
-                    <p className="text-sm text-muted-foreground">{agent.description}</p>
+                    <p className="text-sm text-muted-foreground mb-3">{agent.description}</p>
+                    {agent.capabilities && agent.capabilities.length > 0 && (
+                      <div>
+                        <p className="text-xs font-medium mb-2">Capabilities:</p>
+                        <div className="flex gap-1 flex-wrap">
+                          {agent.capabilities.map((cap: string, idx: number) => (
+                            <Badge key={idx} variant="secondary" className="text-xs">
+                              {cap}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 )}
               </Card>
@@ -326,8 +402,15 @@ export default function AgentflowDetailPage({ params }: { params: Promise<{ id: 
           ) : (
             <Card>
               <CardContent className="pt-6 text-center text-muted-foreground">
-                <Users className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>No agents configured</p>
+                <Bot className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <p className="mb-4">No agents configured</p>
+                <Button
+                  onClick={() => setAddAgentDialogOpen(true)}
+                  variant="outline"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Your First Agent
+                </Button>
               </CardContent>
             </Card>
           )}
@@ -410,6 +493,20 @@ export default function AgentflowDetailPage({ params }: { params: Promise<{ id: 
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Add Agent Dialog */}
+      <AddAgentToFlowDialog
+        open={addAgentDialogOpen}
+        onOpenChange={setAddAgentDialogOpen}
+        agentflowId={id}
+        onAgentAdded={() => {
+          queryClient.invalidateQueries({ queryKey: ['agentflow', id] });
+          toast({
+            title: 'Agent Added',
+            description: 'Agent has been added to the agentflow',
+          });
+        }}
+      />
     </div>
   );
 }

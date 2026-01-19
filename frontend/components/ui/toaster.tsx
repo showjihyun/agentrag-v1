@@ -1,10 +1,10 @@
 'use client';
 
 import { Toaster as Sonner } from 'sonner';
-import { useSafeTheme } from './ThemeWrapper';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export function Toaster() {
-  const { theme } = useSafeTheme();
+  const { theme } = useTheme();
 
   return (
     <Sonner

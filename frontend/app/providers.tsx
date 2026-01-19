@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ThemeProviderWrapper } from '@/contexts/ThemeContext';
 import { ToastProvider } from '@/components/Toast';
+import { Toaster } from '@/components/ui/toaster';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -39,6 +40,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <ToastProvider>
           <AuthProvider>
             {children}
+            <Toaster />
           </AuthProvider>
         </ToastProvider>
         {process.env.NODE_ENV === 'development' && <ReactQueryDevtools />}
