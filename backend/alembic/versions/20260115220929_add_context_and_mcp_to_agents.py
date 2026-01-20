@@ -18,15 +18,21 @@ depends_on = None
 
 def upgrade():
     """Add context_items and mcp_servers columns to agents table."""
-    # Add context_items column
-    op.add_column('agents', sa.Column('context_items', postgresql.JSONB(), nullable=True))
+    # Check if columns exist before adding
+    from sqlalchemy import inspect
+    conn = op.get_bind()
+    inspector = inspect(conn)
+    columns = [col['name'] for col in inspector.get_columns('agents')]
     
-    # Add mcp_servers column
-    op.add_column('agents', sa.Column('mcp_servers', postgresql.JSONB(), nullable=True))
+    # Add context_items column if it doesn't exist
+    if 'context_items' not in columns:
+        op.add_column('agents', sa.Column('context_items', postgresql.JSONB(), nullable=True))
+        op.execute("UPDATE agents SET context_items = '[]'::jsonb WHERE context_items IS NULL")
     
-    # Set default values for existing rows
-    op.execute("UPDATE agents SET context_items = '[]'::jsonb WHERE context_items IS NULL")
-    op.execute("UPDATE agents SET mcp_servers = '[]'::jsonb WHERE mcp_servers IS NULL")
+    # Add mcp_servers column if it doesn't exist
+    if 'mcp_servers' not in columns:
+        op.add_column('agents', sa.Column('mcp_servers', postgresql.JSONB(), nullable=True))
+        op.execute("UPDATE agents SET mcp_servers = '[]'::jsonb WHERE mcp_servers IS NULL")
 
 
 def downgrade():
