@@ -25,6 +25,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { flowsAPI, ChatMessage, ChatRequest } from '@/lib/api/flows';
 import { useAuth } from '@/contexts/AuthContext';
+import { ThinkingBlock, ThinkingIndicator, type ThinkingStep } from '@/components/agent-builder/chat/ThinkingBlock';
 
 // Import sessionAPI separately to avoid potential circular dependency issues
 import { sessionAPI } from '@/lib/api/flows';
@@ -61,6 +62,11 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
   const [llmProvider, setLlmProvider] = useState<string>('ollama');
   const [llmModel, setLlmModel] = useState<string>('llama3.3:70b');
   const [llmConfig, setLlmConfig] = useState<any>({});
+  
+  // Thinking/Reasoning state
+  const [isThinking, setIsThinking] = useState(false);
+  const [currentThinkingStep, setCurrentThinkingStep] = useState<string | null>(null);
+  const [thinkingSteps, setThinkingSteps] = useState<Record<string, ThinkingStep[]>>({});
 
   const { data: flowData, isLoading: flowLoading } = useQuery({
     queryKey: ['chatflow', id],
@@ -267,6 +273,8 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
+    setIsThinking(true);
+    setCurrentThinkingStep('메시지 분석 중...');
 
     // Close any existing EventSource
     if (eventSource) {
@@ -281,9 +289,42 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
       timestamp: new Date(),
       isStreaming: true,
     };
+    
+    // Initialize thinking steps for this message
+    const messageThinkingSteps: ThinkingStep[] = [];
+    
+    const addThinkingStep = (type: ThinkingStep['type'], content: string, status: ThinkingStep['status'] = 'completed') => {
+      const step: ThinkingStep = {
+        id: `step-${Date.now()}-${Math.random()}`,
+        type,
+        content,
+        timestamp: new Date(),
+        status,
+      };
+      messageThinkingSteps.push(step);
+      setThinkingSteps(prev => ({
+        ...prev,
+        [assistantMessage.id]: [...messageThinkingSteps],
+      }));
+      console.log('Added thinking step:', step, 'Total steps:', messageThinkingSteps.length);
+    };
 
     try {
       setMessages(prev => [...prev, assistantMessage]);
+      
+      // Add initial thinking step immediately
+      const initialStep: ThinkingStep = {
+        id: `step-${Date.now()}-1`,
+        type: 'analyzing',
+        content: '사용자 질문 분석 중...',
+        timestamp: new Date(),
+        status: 'in_progress',
+      };
+      
+      setThinkingSteps(prev => ({
+        ...prev,
+        [assistantMessage.id]: [initialStep],
+      }));
 
       // Prepare chat request with dynamic LLM settings
       const chatRequest: ChatRequest = {
@@ -304,9 +345,42 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
       // Fallback function for non-streaming API
       async function fallbackToNonStreaming() {
         try {
+          // Add thinking steps
+          setCurrentThinkingStep('AI 모델 준비 중...');
+          addThinkingStep('analyzing', '사용자 질문 분석 완료', 'completed');
+          
+          setCurrentThinkingStep('응답 생성 중...');
+          addThinkingStep('reasoning', 'AI 모델로 응답 생성 중', 'in_progress');
+          
           const response = await flowsAPI.sendWorkflowChatMessage(id, chatRequest);
           
           if (response.success && response.response) {
+            // 모든 in_progress 단계를 completed로 업데이트
+            setThinkingSteps(prev => {
+              const steps = prev[assistantMessage.id] || [];
+              const updatedSteps = steps.map(step => {
+                if (step.status === 'in_progress') {
+                  return { ...step, status: 'completed' as const };
+                }
+                return step;
+              });
+              // Add final synthesis step
+              updatedSteps.push({
+                id: `step-${Date.now()}-final`,
+                type: 'synthesizing',
+                content: '응답 생성 완료',
+                timestamp: new Date(),
+                status: 'completed',
+              });
+              return {
+                ...prev,
+                [assistantMessage.id]: updatedSteps,
+              };
+            });
+            
+            setIsThinking(false);
+            setCurrentThinkingStep(null);
+            
             setMessages(prev => prev.map(msg => 
               msg.id === assistantMessage.id 
                 ? { ...msg, content: response.response!, isStreaming: false }
@@ -319,6 +393,8 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
           setIsLoading(false);
         } catch (error: any) {
           console.error('Non-streaming API error:', error);
+          setIsThinking(false);
+          setCurrentThinkingStep(null);
           
           // Check if it's an authentication error
           if (error?.status === 401 || error?.message?.includes('Authentication')) {
@@ -355,76 +431,212 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
       // Use streaming if enabled
       if (flowConfig.chat_config?.streaming !== false) {
         try {
+          // Add thinking steps with delays for visibility
+          setTimeout(() => {
+            addThinkingStep('analyzing', '사용자 질문 분석 완료', 'completed');
+            setCurrentThinkingStep('Knowledge Base 검색 중...');
+          }, 100);
+          
+          setTimeout(() => {
+            if (flowConfig.rag_config?.enabled) {
+              addThinkingStep('searching', 'Knowledge Base에서 관련 정보 검색', 'completed');
+            }
+            setCurrentThinkingStep('AI 모델 추론 중...');
+          }, 300);
+          
+          setTimeout(() => {
+            addThinkingStep('reasoning', 'AI 모델로 응답 생성 시작', 'in_progress');
+          }, 500);
+          
           const eventSource = flowsAPI.createWorkflowChatStream(id, chatRequest);
           setEventSource(eventSource);
 
           let hasReceivedData = false;
+          let isFirstContent = true;
+          let streamTimeout: NodeJS.Timeout | null = null;
 
           eventSource.onmessage = (event) => {
             try {
               hasReceivedData = true;
               const data = JSON.parse(event.data);
               
-              if (data.type === 'content') {
+              console.log('SSE event received:', data);
+              
+              if (data.type === 'start') {
+                console.log('Stream started');
+              } else if (data.type === 'content') {
+                // First content received - update thinking state
+                if (isFirstContent) {
+                  setCurrentThinkingStep('응답 스트리밍 중...');
+                  addThinkingStep('synthesizing', '응답 생성 및 스트리밍 시작', 'in_progress');
+                  isFirstContent = false;
+                }
+                
                 setMessages(prev => prev.map(msg => 
                   msg.id === assistantMessage.id 
                     ? { ...msg, content: msg.content + data.content }
                     : msg
                 ));
               } else if (data.type === 'done') {
+                // Streaming complete - 추론 상태를 즉시 업데이트
+                console.log('Stream done - updating thinking state');
+                
+                if (streamTimeout) clearTimeout(streamTimeout);
+                
+                // 모든 in_progress 단계를 completed로 업데이트
+                setThinkingSteps(prev => {
+                  const steps = prev[assistantMessage.id] || [];
+                  const updatedSteps = steps.map(step => {
+                    // in_progress 상태인 단계를 모두 completed로 변경
+                    if (step.status === 'in_progress') {
+                      return { ...step, status: 'completed' as const };
+                    }
+                    return step;
+                  });
+                  return {
+                    ...prev,
+                    [assistantMessage.id]: updatedSteps,
+                  };
+                });
+                
+                // 추론 상태를 false로 설정
+                setIsThinking(false);
+                setCurrentThinkingStep(null);
+                
+                // 메시지 스트리밍 완료 표시
+                setMessages(prev => prev.map(msg => 
+                  msg.id === assistantMessage.id 
+                    ? { ...msg, isStreaming: false }
+                    : msg
+                ));
+                
+                setIsLoading(false);
+                eventSource.close();
+                setEventSource(null);
+              } else if (data.type === 'error') {
+                console.error('Stream error:', data.error);
+                if (streamTimeout) clearTimeout(streamTimeout);
+                setIsThinking(false);
+                setCurrentThinkingStep(null);
+                throw new Error(data.error || 'Streaming error occurred');
+              }
+            } catch (error) {
+              console.error('Error parsing SSE data:', error, 'Raw data:', event.data);
+              
+              // 만약 JSON 파싱에 실패했다면, 이전 형식(plain text)일 수 있음
+              // 이 경우 content로 처리
+              if (event.data && !event.data.includes('{')) {
+                // Plain text content
+                if (isFirstContent) {
+                  setCurrentThinkingStep('응답 스트리밍 중...');
+                  addThinkingStep('synthesizing', '응답 생성 및 스트리밍 시작', 'in_progress');
+                  isFirstContent = false;
+                }
+                
+                setMessages(prev => prev.map(msg => 
+                  msg.id === assistantMessage.id 
+                    ? { ...msg, content: msg.content + event.data }
+                    : msg
+                ));
+              } else {
+                setIsThinking(false);
+                setCurrentThinkingStep(null);
+              }
+            }
+          };
+
+          eventSource.onerror = (error) => {
+            console.warn('EventSource connection failed, falling back to non-streaming API');
+            eventSource.close();
+            setEventSource(null);
+            
+            // 추론 상태를 즉시 false로 설정
+            setIsThinking(false);
+            setCurrentThinkingStep(null);
+            
+            // 모든 in_progress 단계를 완료로 표시
+            setThinkingSteps(prev => {
+              const steps = prev[assistantMessage.id] || [];
+              if (steps.length > 0) {
+                const updatedSteps = steps.map(step => {
+                  if (step.status === 'in_progress') {
+                    return { ...step, status: 'completed' as const };
+                  }
+                  return step;
+                });
+                return {
+                  ...prev,
+                  [assistantMessage.id]: updatedSteps,
+                };
+              }
+              return prev;
+            });
+            
+            // If we haven't received any data, fallback to non-streaming
+            if (!hasReceivedData) {
+              console.log('No data received, using fallback API...');
+              fallbackToNonStreaming();
+            } else {
+              // If we received some data but connection dropped
+              const currentContent = messages.find(m => m.id === assistantMessage.id)?.content || '';
+              
+              if (!currentContent || currentContent.trim().length === 0) {
+                // No content yet, try fallback
+                fallbackToNonStreaming();
+              } else {
+                // We have partial content, just mark as complete
                 setMessages(prev => prev.map(msg => 
                   msg.id === assistantMessage.id 
                     ? { ...msg, isStreaming: false }
                     : msg
                 ));
                 setIsLoading(false);
-                eventSource.close();
-                setEventSource(null);
-              } else if (data.type === 'error') {
-                throw new Error(data.error || 'Streaming error occurred');
+                
+                toast({
+                  title: '연결 중단',
+                  description: '스트리밍 연결이 중단되었지만 부분 응답을 받았습니다.',
+                });
               }
-            } catch (error) {
-              console.error('Error parsing SSE data:', error);
-            }
-          };
-
-          eventSource.onerror = (error) => {
-            console.error('EventSource error:', error);
-            eventSource.close();
-            setEventSource(null);
-            
-            // If we haven't received any data, fallback to non-streaming
-            if (!hasReceivedData) {
-              console.log('Falling back to non-streaming API...');
-              fallbackToNonStreaming();
-            } else {
-              setMessages(prev => prev.map(msg => 
-                msg.id === assistantMessage.id 
-                  ? { ...msg, content: msg.content || '죄송합니다. 응답을 생성하는 중 오류가 발생했습니다.', isStreaming: false }
-                  : msg
-              ));
-              setIsLoading(false);
-              
-              toast({
-                title: '연결 오류',
-                description: '스트리밍 연결에 문제가 발생했습니다.',
-                variant: 'destructive',
-              });
             }
           };
 
           // Timeout fallback after 10 seconds
-          setTimeout(() => {
+          streamTimeout = setTimeout(() => {
             if (!hasReceivedData && eventSource.readyState !== EventSource.CLOSED) {
               console.log('Streaming timeout, falling back to non-streaming API...');
               eventSource.close();
               setEventSource(null);
+              
+              // 추론 상태를 즉시 false로 설정
+              setIsThinking(false);
+              setCurrentThinkingStep(null);
+              
+              // 모든 in_progress 단계를 완료로 표시
+              setThinkingSteps(prev => {
+                const steps = prev[assistantMessage.id] || [];
+                if (steps.length > 0) {
+                  const updatedSteps = steps.map(step => {
+                    if (step.status === 'in_progress') {
+                      return { ...step, status: 'completed' as const };
+                    }
+                    return step;
+                  });
+                  return {
+                    ...prev,
+                    [assistantMessage.id]: updatedSteps,
+                  };
+                }
+                return prev;
+              });
+              
               fallbackToNonStreaming();
             }
           }, 10000);
 
         } catch (error: any) {
           console.error('Failed to create EventSource:', error);
+          setIsThinking(false);
+          setCurrentThinkingStep(null);
           
           // Check if it's an authentication error
           if (error?.message?.includes('Authentication')) {
@@ -445,6 +657,8 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
 
     } catch (error: any) {
       console.error('Chat error:', error);
+      setIsThinking(false);
+      setCurrentThinkingStep(null);
       
       // Check if it's an authentication error
       if (error?.status === 401 || error?.message?.includes('Authentication')) {
@@ -1169,40 +1383,87 @@ export default function ChatflowChatPage({ params }: { params: Promise<{ id: str
         <CardContent className="flex-1 p-0">
           <ScrollArea className="h-full p-4">
             <div className="space-y-4">
-              {messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`flex gap-3 ${
-                    message.role === 'user' ? 'justify-end' : 'justify-start'
-                  }`}
-                >
-                  {message.role === 'assistant' && (
-                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
-                      <Bot className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                    </div>
-                  )}
-                  <div
-                    className={`max-w-[80%] rounded-lg px-4 py-2 ${
-                      message.role === 'user'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 dark:bg-gray-800 text-foreground'
-                    }`}
-                  >
-                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                    {message.isStreaming && (
-                      <Loader2 className="h-3 w-3 animate-spin mt-1 opacity-50" />
+              {messages.map((message, messageIndex) => {
+                const isLastMessage = messageIndex === messages.length - 1;
+                const messageSteps = thinkingSteps[message.id] || [];
+                
+                // 이 메시지가 실제로 추론 중인지 확인
+                // - 마지막 메시지이고
+                // - 전역 isThinking이 true이고
+                // - 메시지가 스트리밍 중이면 추론 중
+                const isMessageThinking = isLastMessage && isThinking && message.isStreaming;
+                
+                // ThinkingBlock을 표시할 조건:
+                // - assistant 메시지이고
+                // - (추론 단계가 있거나 현재 추론 중)
+                const showThinking = message.role === 'assistant' && (messageSteps.length > 0 || isMessageThinking);
+                
+                console.log('Rendering message:', {
+                  id: message.id,
+                  isLastMessage,
+                  isThinking,
+                  isStreaming: message.isStreaming,
+                  isMessageThinking,
+                  showThinking,
+                  stepsCount: messageSteps.length
+                });
+                
+                return (
+                  <div key={message.id} className="space-y-2">
+                    {/* Thinking Block - AI 메시지 전에 표시 */}
+                    {showThinking && (
+                      <div className="mb-2">
+                        <ThinkingBlock
+                          isThinking={isMessageThinking}
+                          currentStep={isMessageThinking ? currentThinkingStep : null}
+                          steps={messageSteps}
+                          defaultExpanded={false}
+                        />
+                      </div>
                     )}
-                    <p className="text-xs opacity-70 mt-1">
-                      {message.timestamp.toLocaleTimeString()}
-                    </p>
-                  </div>
-                  {message.role === 'user' && (
-                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-                      <User className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                    
+                    {/* Message */}
+                    <div
+                      className={`flex gap-3 ${
+                        message.role === 'user' ? 'justify-end' : 'justify-start'
+                      }`}
+                    >
+                      {message.role === 'assistant' && (
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+                          <Bot className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                        </div>
+                      )}
+                      <div
+                        className={`max-w-[80%] rounded-lg px-4 py-2 ${
+                          message.role === 'user'
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-gray-100 dark:bg-gray-800 text-foreground'
+                        }`}
+                      >
+                        <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                        {message.isStreaming && (
+                          <div className="flex items-center gap-2 mt-2">
+                            <Loader2 className="h-3 w-3 animate-spin opacity-50" />
+                            <ThinkingIndicator 
+                              isThinking={true} 
+                              text="생성 중..." 
+                              className="text-xs"
+                            />
+                          </div>
+                        )}
+                        <p className="text-xs opacity-70 mt-1">
+                          {message.timestamp.toLocaleTimeString()}
+                        </p>
+                      </div>
+                      {message.role === 'user' && (
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                          <User className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              ))}
+                  </div>
+                );
+              })}
               <div ref={messagesEndRef} />
             </div>
           </ScrollArea>
