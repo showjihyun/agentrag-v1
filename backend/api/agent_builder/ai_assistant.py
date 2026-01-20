@@ -22,9 +22,24 @@ from backend.services.agent_builder.workflow_debugger import (
 
 router = APIRouter(prefix="/ai-assistant", tags=["ai-assistant"])
 
-# Global instances
-ai_assistant = AIAssistant()
+# Global instances - lazy initialization
+_ai_assistant: Optional[AIAssistant] = None
 debugger_sessions: Dict[str, WorkflowDebugger] = {}
+
+
+def get_ai_assistant() -> AIAssistant:
+    """Get or create AI assistant instance"""
+    global _ai_assistant
+    if _ai_assistant is None:
+        try:
+            _ai_assistant = AIAssistant()
+        except Exception as e:
+            # If LLM is not available, create a dummy instance
+            # This allows the server to start even without LLM configured
+            import logging
+            logging.warning(f"Failed to initialize AIAssistant: {e}. Some features will be unavailable.")
+            _ai_assistant = None
+    return _ai_assistant
 
 
 # Pydantic Models

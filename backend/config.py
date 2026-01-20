@@ -582,7 +582,7 @@ class Settings(BaseSettings):
     MAX_CONVERSATION_HISTORY: int = 20
 
     # Application Configuration
-    DEBUG: bool = False
+    DEBUG: bool = Field(default=False, env="DEBUG")
     LOG_LEVEL: str = "INFO"
     LOG_FORMAT: str = "json"  # json | text
     LOG_FILE: Optional[str] = "logs/app.log"

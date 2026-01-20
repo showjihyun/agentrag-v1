@@ -1,0 +1,70 @@
+# ============================================
+# Minimal Requirements for AgenticRAG
+# Install only essential packages for basic functionality
+# ============================================
+
+# Core Framework
+fastapi==0.115.7
+uvicorn[standard]==0.30.6
+pydantic==2.9.2
+pydantic-settings==2.8.1
+python-dotenv==1.0.1
+
+# Database
+sqlalchemy==2.0.32
+psycopg2-binary==2.9.9
+asyncpg==0.30.0
+alembic==1.14.0
+
+# Cache
+redis==5.2.1
+
+# Vector Database
+pymilvus==2.5.0
+
+# LLM
+langchain==0.2.17
+langchain-core==0.2.43
+langchain-openai==0.1.25
+langchain-ollama==0.2.3
+openai==1.109.1
+litellm==1.81.0
+
+# Embeddings
+sentence-transformers==3.3.1
+torch==2.9.1
+transformers==4.51.2
+
+# Document Processing
+PyPDF2==3.0.1
+python-docx==1.2.0
+openpyxl==3.1.5
+beautifulsoup4==4.13.3
+
+# HTTP & Web
+httpx==0.28.1
+requests==2.32.3
+aiohttp==3.11.11
+
+# Security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+cryptography==44.0.2
+
+# Utilities
+python-dateutil==2.9.0.post0
+tenacity==8.5.0
+structlog==25.5.0
+APScheduler==3.10.4
+croniter==6.0.0
+
+# Scientific
+numpy==1.24.4
+scikit-learn==1.6.1
+
+# Search
+rank-bm25==0.2.2
+duckduckgo-search==7.3.2
+
+# Windows
+pywin32==310; platform_system == "Windows"
