@@ -1112,7 +1112,7 @@ class KnowledgebaseType(str, enum.Enum):
 class Knowledgebase(Base):
     """Knowledgebase model for agent-specific document collections."""
 
-    __tablename__ = "knowledgebases"
+    __tablename__ = "knowledge_bases"
 
     # Primary Key
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -1212,7 +1212,7 @@ class KnowledgebaseDocument(Base):
     # Foreign Keys
     knowledgebase_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("knowledgebases.id", ondelete="CASCADE"),
+        ForeignKey("knowledge_bases.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
@@ -1250,7 +1250,7 @@ class KnowledgebaseVersion(Base):
     # Foreign Keys
     knowledgebase_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("knowledgebases.id", ondelete="CASCADE"),
+        ForeignKey("knowledge_bases.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
@@ -1292,7 +1292,7 @@ class AgentKnowledgebase(Base):
     )
     knowledgebase_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("knowledgebases.id", ondelete="CASCADE"),
+        ForeignKey("knowledge_bases.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )

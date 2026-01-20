@@ -25,6 +25,8 @@ export interface LLMModel {
 export const OFFLINE_MODELS: LLMModel[] = [
   { id: 'llama3.3:70b', name: 'Llama 3.3 70B', description: 'Latest Llama model' },
   { id: 'llama3.1:70b', name: 'Llama 3.1 70B', description: 'Powerful reasoning' },
+  { id: 'llama3.1:8b', name: 'Llama 3.1 8B', description: 'Fast and efficient' },
+  { id: 'gps-oss:20b', name: 'GPS-OSS 20B', description: 'Open-source model' },
   { id: 'qwen2.5:72b', name: 'Qwen 2.5 72B', description: 'Multilingual excellence' },
   { id: 'deepseek-r1:70b', name: 'DeepSeek R1 70B', description: 'Advanced reasoning' },
   { id: 'mixtral:8x7b', name: 'Mixtral 8x7B', description: 'Mixture of experts' },

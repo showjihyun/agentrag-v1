@@ -5,6 +5,7 @@ from uuid import UUID
 import logging
 from datetime import datetime
 import uuid
+import json
 
 from sqlalchemy.orm import Session
 
@@ -436,6 +437,9 @@ class ChatflowService:
         try:
             start_time = datetime.utcnow()
             
+            # Send start event
+            yield f"data: {json.dumps({'type': 'start', 'session_id': session_id})}\n\n"
+            
             # Get or create session
             session = await self._get_or_create_session(
                 session_id, user_id, workflow_id, config
@@ -496,7 +500,8 @@ class ChatflowService:
             async for chunk in stream_generator:
                 if chunk:
                     full_response += chunk
-                    yield chunk
+                    # Send content event
+                    yield f"data: {json.dumps({'type': 'content', 'content': chunk})}\n\n"
             
             # Calculate response time
             response_time = (datetime.utcnow() - start_time).total_seconds()
@@ -536,9 +541,13 @@ class ChatflowService:
                 response_time=response_time
             )
             
+            # Send done event with usage stats
+            yield f"data: {json.dumps({'type': 'done', 'usage': tokens_used, 'response_time': response_time})}\n\n"
+            
         except Exception as e:
             logger.error(f"Chat stream failed: {e}", exc_info=True)
-            yield f"data: {{'error': '{str(e)}'}}\n\n"
+            # Send error event
+            yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
     async def _enhance_context_with_references(
         self,
         context_messages: List[Dict[str, str]],

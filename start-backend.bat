@@ -25,6 +25,7 @@ cd /d "%PROJECT_ROOT%"
 set PYTHONPATH=%PROJECT_ROOT%
 set PYTHONWARNINGS=ignore::DeprecationWarning,ignore::UserWarning,ignore::FutureWarning
 set HF_HUB_DISABLE_SYMLINKS_WARNING=1
+set DEBUG=True
 
 REM Determine Python executable
 set PYTHON_EXE=

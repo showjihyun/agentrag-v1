@@ -71,9 +71,14 @@ export function ThinkingBlock({
 }: ThinkingBlockProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
+  // 추론이 진행 중이지 않고 단계도 없으면 표시하지 않음
   if (!isThinking && steps.length === 0) {
     return null;
   }
+
+  // 모든 단계가 완료되었는지 확인
+  const allStepsCompleted = steps.length > 0 && steps.every(step => step.status === 'completed');
+  const isActuallyThinking = isThinking && !allStepsCompleted;
 
   return (
     <Collapsible
@@ -89,7 +94,7 @@ export function ThinkingBlock({
             className="w-full justify-between px-4 py-3 h-auto hover:bg-transparent"
           >
             <div className="flex items-center gap-2">
-              {isThinking ? (
+              {isActuallyThinking ? (
                 <div className="relative">
                   <Brain className="h-5 w-5 text-purple-600 dark:text-purple-400" />
                   <span className="absolute -top-1 -right-1 flex h-2 w-2">
@@ -98,20 +103,20 @@ export function ThinkingBlock({
                   </span>
                 </div>
               ) : (
-                <Brain className="h-5 w-5 text-muted-foreground" />
+                <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
               )}
               
               <span className="font-medium text-sm">
-                {isThinking ? 'Thinking...' : '추론 완료'}
+                {isActuallyThinking ? '추론 중...' : '추론 완료'}
               </span>
               
-              {isThinking && currentStep && (
+              {isActuallyThinking && currentStep && (
                 <Badge variant="secondary" className="text-xs animate-pulse">
                   {currentStep}
                 </Badge>
               )}
               
-              {!isThinking && steps.length > 0 && (
+              {!isActuallyThinking && steps.length > 0 && (
                 <Badge variant="outline" className="text-xs">
                   {steps.length}단계
                 </Badge>
@@ -119,7 +124,7 @@ export function ThinkingBlock({
             </div>
             
             <div className="flex items-center gap-2">
-              {isThinking && (
+              {isActuallyThinking && (
                 <Loader2 className="h-4 w-4 animate-spin text-purple-600" />
               )}
               {isExpanded ? (
@@ -135,7 +140,7 @@ export function ThinkingBlock({
         <CollapsibleContent>
           <div className="px-4 pb-4 space-y-2">
             {/* 현재 진행 중인 단계 */}
-            {isThinking && currentStep && (
+            {isActuallyThinking && currentStep && (
               <div className="flex items-start gap-2 p-2 rounded bg-white/50 dark:bg-black/20">
                 <Loader2 className="h-4 w-4 animate-spin text-purple-600 mt-0.5" />
                 <div className="flex-1">
@@ -161,7 +166,7 @@ export function ThinkingBlock({
             )}
             
             {/* 빈 상태 */}
-            {!isThinking && steps.length === 0 && (
+            {!isActuallyThinking && steps.length === 0 && (
               <p className="text-sm text-muted-foreground text-center py-2">
                 추론 과정이 기록되지 않았습니다
               </p>

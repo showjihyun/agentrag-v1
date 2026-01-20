@@ -212,6 +212,9 @@ export function AIAgentConfig({
         // Save to localStorage
         localStorage.setItem('ollama_models', JSON.stringify(models));
         
+        // Force re-render to update available models
+        setLoadingModels(false);
+        
         // Update model if current one is not in the list
         if (models.length > 0 && !models.includes(model)) {
           setModel(models[0]);
@@ -231,13 +234,11 @@ export function AIAgentConfig({
     }
   }, [model]);
 
-  // Auto-fetch Ollama models on mount if provider is ollama and no models in localStorage
+  // Auto-fetch Ollama models on mount if provider is ollama
   useEffect(() => {
     if (provider === 'ollama') {
-      const savedModels = localStorage.getItem('ollama_models');
-      if (!savedModels || JSON.parse(savedModels).length === 0) {
-        fetchOllamaModels();
-      }
+      // Always fetch fresh models when provider is ollama
+      fetchOllamaModels();
     }
   }, [provider, fetchOllamaModels]);
 

@@ -587,6 +587,27 @@ export class RAGApiClient {
   async getCurrentUser(): Promise<any> {
     return this.request<any>('/api/auth/me');
   }
+
+  // Test Chat API (Agent Preview)
+  async testChat(request: {
+    message: string;
+    provider: string;
+    model: string;
+    system_prompt?: string;
+    temperature?: number;
+    max_tokens?: number;
+  }): Promise<{
+    response: string;
+    provider: string;
+    model: string;
+    processing_time_ms: number;
+    timestamp: string;
+  }> {
+    return this.request('/api/agent-builder/test-chat', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
 }
 
 export const apiClient = new RAGApiClient();

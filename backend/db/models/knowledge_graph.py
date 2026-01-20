@@ -92,7 +92,7 @@ class KnowledgeGraph(Base):
     # Foreign Keys
     knowledgebase_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("knowledgebases.id", ondelete="CASCADE"),
+        ForeignKey("knowledge_bases.id", ondelete="CASCADE"),
         nullable=False,
         unique=True,
         index=True,

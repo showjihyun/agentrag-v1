@@ -59,7 +59,7 @@ const providerModels: Record<string, string[]> = {
   openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo'],
   anthropic: ['claude-3-5-sonnet-20241022', 'claude-3-opus-20240229', 'claude-3-sonnet-20240229', 'claude-3-haiku-20240307'],
   gemini: ['gemini-2.0-flash-exp', 'gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-pro'],
-  ollama: ['llama3.1', 'llama3.2', 'mistral', 'codellama', 'phi3', 'qwen2.5'],
+  ollama: ['llama3.3:70b', 'llama3.1:70b', 'llama3.1:8b', 'gps-oss:20b', 'llama3.2', 'mistral', 'codellama', 'phi3', 'qwen2.5'],
 };
 
 export default function LLMSettingsPage() {

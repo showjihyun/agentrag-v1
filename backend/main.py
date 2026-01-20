@@ -1096,6 +1096,10 @@ app.include_router(exports_api.router)
 from backend.api import chat_history as chat_history_api
 app.include_router(chat_history_api.router)
 
+# Test Chat API (Agent Preview)
+from backend.api.agent_builder import test_chat as agent_builder_test_chat
+app.include_router(agent_builder_test_chat.router)
+
 
 @app.get("/metrics")
 async def metrics():

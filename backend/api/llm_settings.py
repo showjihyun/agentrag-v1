@@ -142,7 +142,7 @@ async def get_llm_configuration():
         providers.append(LLMProvider(
             name="ollama",
             display_name="Ollama (Local)",
-            models=ollama_models or ["llama3.3:70b", "llama3.1:8b", "mistral:7b"],
+            models=ollama_models or ["llama3.3:70b", "llama3.1:70b", "llama3.1:8b", "gps-oss:20b", "mistral:7b"],
             requires_api_key=False,
             is_available=ollama_available
         ))
