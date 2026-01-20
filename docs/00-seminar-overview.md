@@ -288,9 +288,9 @@ A: 오픈소스이며 MIT 라이선스로 무료입니다. LLM API 비용만 발
 
 ## 연락처
 
-**기술 지원**: support@agenticbuilder.com  
-**영업 문의**: sales@agenticbuilder.com  
-**보안 이슈**: security@agenticbuilder.com
+**기술 지원**: showjihyun@gmail.com
+**영업 문의**: showjihyun@gmail.com 
+**보안 이슈**: showjihyun@gmail.com
 
 ---
 
