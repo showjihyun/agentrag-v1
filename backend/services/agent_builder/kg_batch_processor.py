@@ -462,19 +462,19 @@ class KGBatchProcessor:
         
         try:
             # 새로운 DB 세션 생성 (프로세스 간 공유 불가)
-            from backend.db.database import get_db
+            from backend.db.session_utils import get_db_session
             
-            db = next(get_db())
-            extraction_service = AdvancedKGExtractionService(db)
-            
-            # 문서 처리 로직 (간소화된 버전)
-            # 실제로는 더 복잡한 처리가 필요
-            
-            return {
-                "success": True,
-                "entity_count": 10,  # 임시값
-                "relationship_count": 5  # 임시값
-            }
+            with get_db_session() as db:
+                extraction_service = AdvancedKGExtractionService(db)
+                
+                # 문서 처리 로직 (간소화된 버전)
+                # 실제로는 더 복잡한 처리가 필요
+                
+                return {
+                    "success": True,
+                    "entity_count": 10,  # 임시값
+                    "relationship_count": 5  # 임시값
+                }
             
         except Exception as e:
             logger.error(f"Process document failed: {document_id} - {e}")

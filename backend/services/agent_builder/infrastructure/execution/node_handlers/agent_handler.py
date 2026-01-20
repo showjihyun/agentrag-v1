@@ -14,6 +14,7 @@ from backend.services.agent_builder.infrastructure.execution.base_handler import
     BaseNodeHandler, NodeExecutionResult
 )
 from backend.services.agent_builder.infrastructure.execution.node_handler_registry import register_handler
+from backend.db.session_utils import get_db_session
 
 logger = logging.getLogger(__name__)
 
@@ -63,12 +64,9 @@ class AgentNodeHandler(BaseNodeHandler):
             
             # Import and execute agent
             from backend.services.agent_builder.agent_executor import AgentExecutor
-            from backend.db.session import get_db
             
-            # Get DB session
-            db = next(get_db())
-            
-            try:
+            # Get DB session with proper cleanup
+            with get_db_session() as db:
                 executor = AgentExecutor(db)
                 result = await executor.execute_agent(
                     agent_id=agent_id,
@@ -94,9 +92,6 @@ class AgentNodeHandler(BaseNodeHandler):
                         "tokens_used": result.execution_context.get("tokens_used", 0),
                     },
                 )
-                
-            finally:
-                db.close()
                 
         except Exception as e:
             duration_ms = int((time.time() - start_time) * 1000)
