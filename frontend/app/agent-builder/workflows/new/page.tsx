@@ -461,8 +461,8 @@ export default function NewWorkflowPage() {
     setValidationErrors([...result.errors, ...result.warnings]);
 
     toast({
-      title: '✨ AI 워크플로우 적용됨',
-      description: `${convertedNodes.length}개 노드, ${convertedEdges.length}개 연결이 캔버스에 추가되었습니다`,
+      title: '✨ AI Workflow Applied',
+      description: `${convertedNodes.length} nodes and ${convertedEdges.length} edges added to canvas`,
     });
   }, [toast]);
 
@@ -695,14 +695,14 @@ export default function NewWorkflowPage() {
               <DialogTrigger asChild>
                 <Button variant="outline" className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 border-purple-300 hover:border-purple-400">
                   <Sparkles className="mr-2 h-4 w-4 text-purple-500" />
-                  AI 워크플로우 생성
+                  AI Workflow Generator
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2">
                     <Wand2 className="h-5 w-5 text-purple-500" />
-                    AI 워크플로우 생성기
+                    AI Workflow Generator
                   </DialogTitle>
                 </DialogHeader>
                 <NLPWorkflowGenerator

@@ -246,7 +246,33 @@ docker-compose ps
 - **API Documentation**: http://localhost:8000/docs
 - **Admin Dashboard**: http://localhost:3000/admin
 
-### 5. Create Your First Workflow
+### 5. Local Network Access (Mobile/Tablet)
+
+Want to access from your phone or tablet? Run the setup script:
+
+**Windows:**
+```cmd
+setup-local-network.bat
+```
+
+**Mac/Linux:**
+```bash
+chmod +x setup-local-network.sh
+./setup-local-network.sh
+```
+
+This will:
+- ✅ Detect your local IP address automatically
+- ✅ Configure frontend to use your IP
+- ✅ Show access URLs for other devices
+
+Then access from any device on the same WiFi:
+- **Frontend**: `http://YOUR_IP:3000`
+- **Backend**: `http://YOUR_IP:8000`
+
+📖 **Detailed Guide**: See [LOCAL_NETWORK_ACCESS_GUIDE.md](LOCAL_NETWORK_ACCESS_GUIDE.md) or [한국어 가이드](LOCAL_NETWORK_ACCESS_GUIDE_KR.md)
+
+### 6. Create Your First Workflow
 1. Open the workflow builder at http://localhost:3000
 2. Drag and drop blocks from the palette
 3. Connect blocks to create your workflow

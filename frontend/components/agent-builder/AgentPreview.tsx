@@ -22,6 +22,7 @@ import {
 
 import { ThinkingBlock, ThinkingIndicator, type ThinkingStep } from './chat/ThinkingBlock';
 import { useChatStyleStore } from '@/lib/stores/chat-style-store';
+import { apiClient } from '@/lib/api-client';
 
 interface ContextItem {
   id: string;
@@ -80,138 +81,171 @@ export function AgentPreview({
     // Add user message to chat
     setChatHistory(prev => [...prev, { role: 'user', content: userMessage }]);
 
-    // Simulate thinking process
+    // Thinking process - use timestamp to ensure unique IDs across messages
+    const messageId = Date.now();
     const thinkingSteps: ThinkingStep[] = [];
     setCurrentThinkingSteps([]);
 
-    // Step 1: Analyzing
-    await new Promise(resolve => setTimeout(resolve, 300));
-    const step1: ThinkingStep = {
-      id: '1',
-      type: 'analyzing',
-      content: '사용자 메시지를 분석하고 있습니다...',
-      timestamp: new Date(),
-      status: 'completed'
-    };
-    thinkingSteps.push(step1);
-    setCurrentThinkingSteps([...thinkingSteps]);
+    try {
+      // Step 1: Analyzing
+      const step1: ThinkingStep = {
+        id: `${messageId}-1`,
+        type: 'analyzing',
+        content: 'Analyzing user message...',
+        timestamp: new Date(),
+        status: 'in_progress'
+      };
+      thinkingSteps.push(step1);
+      setCurrentThinkingSteps([...thinkingSteps]);
+      await new Promise(resolve => setTimeout(resolve, 200));
 
-    // Step 2: Context check
-    await new Promise(resolve => setTimeout(resolve, 300));
-    const enabledContexts = contextItems.filter(c => c.enabled).length;
-    const step2: ThinkingStep = {
-      id: '2',
-      type: 'searching',
-      content: enabledContexts > 0 
-        ? `${enabledContexts}개의 컨텍스트에서 관련 정보를 검색하고 있습니다...`
-        : '컨텍스트가 설정되지 않았습니다. 기본 지식으로 응답합니다.',
-      timestamp: new Date(),
-      status: 'completed'
-    };
-    thinkingSteps.push(step2);
-    setCurrentThinkingSteps([...thinkingSteps]);
+      // Step 2: Context check
+      const enabledContexts = contextItems.filter(c => c.enabled).length;
+      const step2: ThinkingStep = {
+        id: `${messageId}-2`,
+        type: 'searching',
+        content: enabledContexts > 0 
+          ? `Searching ${enabledContexts} context source(s)...`
+          : 'No context configured. Using base knowledge.',
+        timestamp: new Date(),
+        status: 'in_progress'
+      };
+      if (thinkingSteps[0]) thinkingSteps[0].status = 'completed';
+      thinkingSteps.push(step2);
+      setCurrentThinkingSteps([...thinkingSteps]);
+      await new Promise(resolve => setTimeout(resolve, 200));
 
-    // Step 3: Planning - 질문 복잡도에 따라 결정
-    await new Promise(resolve => setTimeout(resolve, 300));
-    const enabledMcpServers = mcpServers.filter(m => m.enabled).length;
-    const isComplexQuery = userMessage.length > 20 || userMessage.includes('?') || userMessage.includes('어떻게') || userMessage.includes('무엇');
-    
-    if (isComplexQuery || enabledMcpServers > 0 || enabledContexts > 0) {
-      let planningContent = '응답 전략을 수립하고 있습니다...';
+      // Step 3: Planning (if complex)
+      const enabledMcpServers = mcpServers.filter(m => m.enabled).length;
+      const isComplexQuery = userMessage.length > 20 || userMessage.includes('?');
       
-      if (enabledMcpServers > 0) {
-        planningContent = `${enabledMcpServers}개의 MCP 서버를 활용한 응답 전략을 수립하고 있습니다...`;
-      } else if (enabledContexts > 0) {
-        planningContent = `컨텍스트 정보를 활용한 응답 전략을 수립하고 있습니다...`;
-      } else if (isComplexQuery) {
-        planningContent = '복잡한 질문에 대한 단계별 응답 전략을 수립하고 있습니다...';
+      if (isComplexQuery || enabledMcpServers > 0 || enabledContexts > 0) {
+        let planningContent = 'Planning response strategy...';
+        
+        if (enabledMcpServers > 0) {
+          planningContent = `Planning strategy with ${enabledMcpServers} MCP server(s)...`;
+        } else if (enabledContexts > 0) {
+          planningContent = `Planning strategy with context information...`;
+        }
+        
+        const step3: ThinkingStep = {
+          id: `${messageId}-3`,
+          type: 'planning',
+          content: planningContent,
+          timestamp: new Date(),
+          status: 'in_progress'
+        };
+        if (thinkingSteps[1]) thinkingSteps[1].status = 'completed';
+        thinkingSteps.push(step3);
+        setCurrentThinkingSteps([...thinkingSteps]);
+        await new Promise(resolve => setTimeout(resolve, 200));
+      } else {
+        if (thinkingSteps[1]) thinkingSteps[1].status = 'completed';
       }
-      
-      const step3: ThinkingStep = {
-        id: '3',
-        type: 'planning',
-        content: planningContent,
+
+      // Step 4: Calling LLM
+      const stepIndex = thinkingSteps.length;
+      const step4: ThinkingStep = {
+        id: `${messageId}-${stepIndex + 1}`,
+        type: 'reasoning',
+        content: `Generating response with ${llmProvider}/${llmModel}...`,
+        timestamp: new Date(),
+        status: 'in_progress'
+      };
+      if (stepIndex > 2 && thinkingSteps[2]) thinkingSteps[2].status = 'completed';
+      else if (thinkingSteps[1]) thinkingSteps[1].status = 'completed';
+      thinkingSteps.push(step4);
+      setCurrentThinkingSteps([...thinkingSteps]);
+
+      // Build system prompt
+      let systemPrompt = `You are "${agentName}", an AI assistant.`;
+      if (agentDescription) {
+        systemPrompt += ` ${agentDescription}`;
+      }
+      if (promptTemplate) {
+        systemPrompt += `\n\n${promptTemplate}`;
+      }
+      if (enabledContexts > 0) {
+        const contextInfo = contextItems
+          .filter(c => c.enabled)
+          .map(c => `- ${c.name} (${c.type}): ${c.value}`)
+          .join('\n');
+        systemPrompt += `\n\nAvailable Context:\n${contextInfo}`;
+      }
+
+      // Call actual LLM API
+      const response = await apiClient.testChat({
+        message: userMessage,
+        provider: llmProvider,
+        model: llmModel,
+        system_prompt: systemPrompt,
+        temperature: 0.7,
+        max_tokens: 2000,
+      });
+
+      // Step 5: Synthesizing
+      const step5: ThinkingStep = {
+        id: `${messageId}-${stepIndex + 2}`,
+        type: 'synthesizing',
+        content: 'Finalizing response...',
         timestamp: new Date(),
         status: 'completed'
       };
-      thinkingSteps.push(step3);
+      if (thinkingSteps[stepIndex]) thinkingSteps[stepIndex].status = 'completed';
+      thinkingSteps.push(step5);
       setCurrentThinkingSteps([...thinkingSteps]);
-      await new Promise(resolve => setTimeout(resolve, 300));
-    }
+      await new Promise(resolve => setTimeout(resolve, 200));
 
-    // Step 4: Reasoning
-    const step4: ThinkingStep = {
-      id: '4',
-      type: 'reasoning',
-      content: `${llmProvider}/${llmModel} 모델을 사용하여 최적의 응답을 생성하고 있습니다...`,
-      timestamp: new Date(),
-      status: 'completed'
-    };
-    thinkingSteps.push(step4);
-    setCurrentThinkingSteps([...thinkingSteps]);
-    await new Promise(resolve => setTimeout(resolve, 300));
+      // Add assistant response
+      setChatHistory(prev => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: response.response,
+          thinkingSteps: thinkingSteps
+        }
+      ]);
 
-    // Step 5: Synthesizing
-    const step5: ThinkingStep = {
-      id: '5',
-      type: 'synthesizing',
-      content: '최종 응답을 종합하고 있습니다...',
-      timestamp: new Date(),
-      status: 'completed'
-    };
-    thinkingSteps.push(step5);
-    setCurrentThinkingSteps([...thinkingSteps]);
-    await new Promise(resolve => setTimeout(resolve, 300));
-
-    // Generate response
-    let responseMessage = `안녕하세요! 저는 **"${agentName}"** 에이전트입니다. 👋\n\n`;
-    
-    // Add a personalized greeting based on the message
-    if (userMessage.toLowerCase().includes('안녕') || userMessage.toLowerCase().includes('hello')) {
-      responseMessage += `반갑습니다! 무엇을 도와드릴까요?\n\n`;
-    } else {
-      responseMessage += `"${userMessage.length > 50 ? userMessage.substring(0, 50) + '...' : userMessage}"에 대해 답변드리겠습니다.\n\n`;
-    }
-    
-    responseMessage += `### 📋 현재 설정\n\n`;
-    responseMessage += `- **LLM 모델**: ${llmProvider}/${llmModel}\n`;
-    
-    if (enabledContexts > 0) {
-      const contextList = contextItems.filter(c => c.enabled).map(c => c.name).slice(0, 3).join(', ');
-      responseMessage += `- **Context**: ${enabledContexts}개 활성화 (${contextList}${contextItems.filter(c => c.enabled).length > 3 ? '...' : ''})\n`;
-    } else {
-      responseMessage += `- **Context**: 없음\n`;
-    }
-    
-    if (enabledMcpServers > 0) {
-      const mcpList = mcpServers.filter(m => m.enabled).map(m => m.name).slice(0, 3).join(', ');
-      responseMessage += `- **MCP 서버**: ${enabledMcpServers}개 연결 (${mcpList}${mcpServers.filter(m => m.enabled).length > 3 ? '...' : ''})\n`;
-    } else {
-      responseMessage += `- **MCP 서버**: 없음\n`;
-    }
-    
-    responseMessage += `\n---\n\n`;
-    
-    if (enabledContexts === 0 && enabledMcpServers === 0) {
-      responseMessage += `💡 **추천**: Step 3의 **Context**와 **MCP** 탭에서 추가 기능을 설정하면 더 강력한 Agent를 만들 수 있습니다!\n\n`;
-      responseMessage += `- **Context**: 파일, 문서, URL을 추가하여 Agent에게 배경 지식 제공\n`;
-      responseMessage += `- **MCP**: 외부 도구(검색, 데이터베이스 등)를 연결하여 실시간 정보 활용\n\n`;
-    } else {
-      responseMessage += `✅ 설정이 완료되었습니다! Agent 생성 후 실제 대화를 시작할 수 있습니다.\n\n`;
-    }
-    
-    responseMessage += `📝 **참고**: 이것은 시뮬레이션입니다. Agent를 생성하면 실제 LLM 모델과 대화할 수 있습니다.`;
-    
-    setChatHistory(prev => [
-      ...prev,
-      {
-        role: 'assistant',
-        content: responseMessage,
-        thinkingSteps: thinkingSteps
+    } catch (error: any) {
+      console.error('Test chat error:', error);
+      
+      // Mark last step as completed (we'll show error in message)
+      if (thinkingSteps.length > 0) {
+        const lastStep = thinkingSteps[thinkingSteps.length - 1];
+        if (lastStep) {
+          lastStep.status = 'completed';
+        }
       }
-    ]);
-    setCurrentThinkingSteps([]);
-    setIsLoading(false);
+      
+      // Generate error message
+      let errorMessage = '❌ Failed to generate response.\n\n';
+      
+      if (error.message?.includes('Ollama') || error.message?.includes('connection')) {
+        errorMessage += '**Issue**: Cannot connect to Ollama.\n\n';
+        errorMessage += '**Solution**: Please ensure Ollama is running on your system:\n';
+        errorMessage += '1. Start Ollama: `ollama serve`\n';
+        errorMessage += '2. Verify model is installed: `ollama list`\n';
+        errorMessage += `3. Pull model if needed: \`ollama pull ${llmModel}\``;
+      } else if (error.message?.includes('API key') || error.message?.includes('authentication')) {
+        errorMessage += `**Issue**: API key not configured for ${llmProvider}.\n\n`;
+        errorMessage += '**Solution**: Please set your API key in Settings > LLM Settings.';
+      } else {
+        errorMessage += `**Error**: ${error.message || 'Unknown error'}\n\n`;
+        errorMessage += '**Note**: This is a test environment. The actual agent will have full error handling.';
+      }
+      
+      setChatHistory(prev => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: errorMessage,
+          thinkingSteps: thinkingSteps
+        }
+      ]);
+    } finally {
+      setCurrentThinkingSteps([]);
+      setIsLoading(false);
+    }
   };
 
   const getContextIcon = (type: string) => {
@@ -429,7 +463,7 @@ export function AgentPreview({
                     <div className="max-w-[80%]">
                       <ThinkingBlock
                         isThinking={true}
-                        currentStep={currentThinkingSteps[currentThinkingSteps.length - 1]?.content}
+                        currentStep={currentThinkingSteps[currentThinkingSteps.length - 1]?.content || null}
                         steps={currentThinkingSteps}
                         defaultExpanded={true}
                       />

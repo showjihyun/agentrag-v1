@@ -173,6 +173,8 @@ export function AgentWizard({ agentId, initialData, templateData, mode = 'create
             const data = await response.json();
             const models = data.models?.map((m: any) => m.name) || [];
             setOllamaModels(models);
+            // Save to localStorage for use by other components
+            localStorage.setItem('ollama_models', JSON.stringify(models));
           }
         } catch (error) {
           console.error('Failed to fetch Ollama models:', error);
@@ -1061,8 +1063,8 @@ export function AgentWizard({ agentId, initialData, templateData, mode = 'create
             <AgentPreview
               agentName={form.watch('name') || 'Untitled Agent'}
               agentDescription={form.watch('description')}
-              llmProvider={form.watch('llm_provider') || 'ollama'}
-              llmModel={form.watch('llm_model') || 'llama3.1'}
+              llmProvider={form.watch('llm_provider') || getDefaultProvider()}
+              llmModel={form.watch('llm_model') || getDefaultModel()}
               contextItems={contexts}
               mcpServers={selectedMCPServers}
               promptTemplate={form.watch('prompt_template')}
