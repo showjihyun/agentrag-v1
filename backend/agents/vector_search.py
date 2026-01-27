@@ -426,16 +426,32 @@ class VectorSearchAgent:
         """직접 Milvus를 사용한 벡터 검색"""
         all_results = []
         
+        # Convert filters dict to Milvus expression string
+        filter_expr = None
+        if filters:
+            filter_conditions = []
+            for key, value in filters.items():
+                if isinstance(value, str):
+                    filter_conditions.append(f'{key} == "{value}"')
+                elif isinstance(value, (int, float)):
+                    filter_conditions.append(f'{key} == {value}')
+                elif isinstance(value, bool):
+                    filter_conditions.append(f'{key} == {str(value).lower()}')
+            
+            if filter_conditions:
+                filter_expr = " && ".join(filter_conditions)
+                logger.debug(f"Converted filters to expression: {filter_expr}")
+        
         for query in queries:
             try:
                 # Generate query embedding
                 query_embedding = await self.embedding_service.embed_text(query)
                 
-                # Search in Milvus
+                # Search in Milvus with string expression
                 search_results = await self.milvus_manager.search(
                     query_embedding=query_embedding,
                     top_k=top_k * 2,
-                    filters=filters
+                    filters=filter_expr  # Pass string expression, not dict
                 )
                 
                 # Convert to standard format

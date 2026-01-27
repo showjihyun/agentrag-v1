@@ -467,6 +467,7 @@ class KnowledgebaseResponse(BaseModel):
     description: Optional[str]
     milvus_collection_name: str
     embedding_model: str
+    embedding_dimension: Optional[int] = Field(default=None, description="Embedding vector dimension")
     chunk_size: int
     chunk_overlap: int
     kg_enabled: Optional[bool] = Field(default=False)

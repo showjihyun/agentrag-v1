@@ -35,6 +35,42 @@ logger = get_logger(__name__)
 router = APIRouter(prefix="/api/agent-builder/knowledge-graphs", tags=["Knowledge Graphs"])
 
 
+@router.get("", response_model=List[KnowledgeGraphResponse])
+async def list_knowledge_graphs(
+    knowledgebase_id: Optional[UUID] = Query(None, description="Filter by knowledgebase ID"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """List knowledge graphs, optionally filtered by knowledgebase."""
+    
+    query = db.query(KnowledgeGraph).filter(KnowledgeGraph.user_id == current_user.id)
+    
+    if knowledgebase_id:
+        query = query.filter(KnowledgeGraph.knowledgebase_id == knowledgebase_id)
+    
+    kgs = query.order_by(KnowledgeGraph.created_at.desc()).all()
+    
+    return [
+        KnowledgeGraphResponse(
+            id=str(kg.id),
+            knowledgebase_id=str(kg.knowledgebase_id),
+            name=kg.name,
+            description=kg.description,
+            auto_extraction_enabled=kg.auto_extraction_enabled,
+            entity_extraction_model=kg.entity_extraction_model,
+            relation_extraction_model=kg.relation_extraction_model,
+            entity_count=kg.entity_count,
+            relationship_count=kg.relationship_count,
+            processing_status=kg.processing_status,
+            processing_error=kg.processing_error,
+            last_processed_at=kg.last_processed_at,
+            created_at=kg.created_at,
+            updated_at=kg.updated_at,
+        )
+        for kg in kgs
+    ]
+
+
 @router.post("", response_model=KnowledgeGraphResponse)
 async def create_knowledge_graph(
     request: KnowledgeGraphCreateRequest,

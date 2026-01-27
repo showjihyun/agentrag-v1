@@ -77,13 +77,26 @@ class KnowledgebaseService:
             # Generate unique collection name
             collection_name = f"kb_{uuid.uuid4().hex[:16]}"
             
+            # Determine embedding model
+            embedding_model = kb_data.embedding_model or "jhgan/ko-sroberta-multitask"
+            
+            # Get the correct embedding dimension for the model
+            from backend.services.embedding import EmbeddingService
+            embedding_dim = EmbeddingService.get_model_dimension(embedding_model)
+            
+            logger.info(
+                f"Creating knowledgebase with model={embedding_model}, "
+                f"dimension={embedding_dim}"
+            )
+            
             kb = Knowledgebase(
                 id=str(uuid.uuid4()),
                 user_id=user_id,
                 name=kb_data.name,
                 description=kb_data.description,
                 milvus_collection_name=collection_name,
-                embedding_model=kb_data.embedding_model or "jhgan/ko-sroberta-multitask",
+                embedding_model=embedding_model,
+                embedding_dimension=embedding_dim,  # Store dimension in DB
                 chunk_size=kb_data.chunk_size,
                 chunk_overlap=kb_data.chunk_overlap,
                 kg_enabled=getattr(kb_data, 'kg_enabled', False)
@@ -104,7 +117,10 @@ class KnowledgebaseService:
             self.db.commit()
             self.db.refresh(kb)
             
-            logger.info(f"Created knowledgebase: {kb.id} ({kb.name})")
+            logger.info(
+                f"Created knowledgebase: {kb.id} ({kb.name}) "
+                f"with collection {collection_name} (dim={embedding_dim})"
+            )
             return kb
             
         except Exception as e:
@@ -437,8 +453,17 @@ class KnowledgebaseService:
                         "chunk_index": chunk.chunk_index
                     })
             
-            # 5. Generate embeddings in batches
-            embedding_service = EmbeddingService()
+            # 5. Generate embeddings using KB's embedding model
+            embedding_model = kb.embedding_model or "jhgan/ko-sroberta-multitask"
+            embedding_service = EmbeddingService(model_name=embedding_model)
+            
+            # Get embedding dimension from KB or service
+            embedding_dim = getattr(kb, 'embedding_dimension', None) or embedding_service.dimension
+            
+            logger.info(
+                f"Using embedding model: {embedding_model} (dimension: {embedding_dim})"
+            )
+            
             texts = [pc["text"] for pc in processed_chunks]
             
             # Batch embeddings for efficiency (embed_batch is already async)
@@ -447,7 +472,7 @@ class KnowledgebaseService:
             # 6. Store in Milvus in batches
             milvus_manager = MilvusManager(
                 collection_name=kb.milvus_collection_name,
-                embedding_dim=embedding_service.dimension
+                embedding_dim=embedding_dim
             )
             
             # Prepare batch insert data
@@ -466,10 +491,12 @@ class KnowledgebaseService:
                 })
             
             # Batch insert to Milvus (already async)
+            logger.info(f"Inserting {len(insert_data)} chunks to Milvus for document {file.filename}")
             await self._batch_insert_to_milvus(
                 milvus_manager,
                 insert_data
             )
+            logger.info(f"Successfully inserted {len(insert_data)} chunks to Milvus")
             
             # 7. BM25 인덱스 업데이트
             if korean_processor:
@@ -518,6 +545,14 @@ class KnowledgebaseService:
                 f"Failed to process document {file.filename}: {e}",
                 exc_info=True
             )
+            # Update document status to failed
+            try:
+                if 'doc' in locals():
+                    doc.status = "failed"
+                    doc.error_message = str(e)
+                    self.db.flush()
+            except:
+                pass
             return None
     
     async def _batch_insert_to_milvus(
@@ -531,35 +566,54 @@ class KnowledgebaseService:
         Args:
             milvus_manager: Milvus manager instance
             insert_data: List of data to insert
-        """
-        # Prepare embeddings and metadata for batch insert
-        embeddings = [item["embedding"] for item in insert_data]
-        metadata_list = []
-        
-        for i, item in enumerate(insert_data):
-            # Milvus expects specific metadata fields
-            meta = {
-                "id": str(uuid.uuid4()),
-                "text": item["text"],
-                "document_id": item["metadata"]["document_id"],
-                "chunk_index": item["metadata"]["chunk_index"],
-                "document_name": item["metadata"]["filename"],
-                "knowledgebase_id": item["metadata"]["knowledgebase_id"],
-                "file_type": "pdf",  # TODO: get from actual file type
-                "upload_date": datetime.utcnow().isoformat()
-            }
-            metadata_list.append(meta)
-        
-        # Insert in batches of 100
-        batch_size = 100
-        for i in range(0, len(embeddings), batch_size):
-            batch_embeddings = embeddings[i:i + batch_size]
-            batch_metadata = metadata_list[i:i + batch_size]
             
-            await milvus_manager.insert_embeddings(
-                embeddings=batch_embeddings,
-                metadata=batch_metadata
-            )
+        Raises:
+            Exception: If insertion fails
+        """
+        try:
+            # Prepare embeddings and metadata for batch insert
+            embeddings = [item["embedding"] for item in insert_data]
+            metadata_list = []
+            
+            for i, item in enumerate(insert_data):
+                # Milvus expects specific metadata fields
+                meta = {
+                    "id": str(uuid.uuid4()),
+                    "text": item["text"],
+                    "document_id": item["metadata"]["document_id"],
+                    "chunk_index": item["metadata"]["chunk_index"],
+                    "document_name": item["metadata"]["filename"],
+                    "knowledgebase_id": item["metadata"]["knowledgebase_id"],
+                    "file_type": "pdf",  # TODO: get from actual file type
+                    "upload_date": datetime.utcnow().isoformat()
+                }
+                metadata_list.append(meta)
+            
+            # Insert in batches of 100
+            batch_size = 100
+            total_inserted = 0
+            
+            for i in range(0, len(embeddings), batch_size):
+                batch_embeddings = embeddings[i:i + batch_size]
+                batch_metadata = metadata_list[i:i + batch_size]
+                
+                try:
+                    ids = await milvus_manager.insert_embeddings(
+                        embeddings=batch_embeddings,
+                        metadata=batch_metadata
+                    )
+                    total_inserted += len(ids)
+                    logger.info(f"Inserted batch {i//batch_size + 1}: {len(ids)} entities")
+                except Exception as e:
+                    logger.error(f"Failed to insert batch {i//batch_size + 1}: {e}", exc_info=True)
+                    raise
+            
+            logger.info(f"Successfully inserted {total_inserted} total entities to Milvus")
+            
+        except Exception as e:
+            logger.error(f"Milvus batch insert failed: {e}", exc_info=True)
+            raise
+
     
     async def search_knowledgebase(
         self,
@@ -596,10 +650,20 @@ class KnowledgebaseService:
             from backend.services.embedding import EmbeddingService
             from backend.services.milvus import MilvusManager
             
-            embedding_service = EmbeddingService()
+            # Use KB's embedding model
+            embedding_model = kb.embedding_model or "jhgan/ko-sroberta-multitask"
+            embedding_service = EmbeddingService(model_name=embedding_model)
+            
+            # Get embedding dimension from KB or service
+            embedding_dim = getattr(kb, 'embedding_dimension', None) or embedding_service.dimension
+            
             milvus_manager = MilvusManager(
                 collection_name=kb.milvus_collection_name,
-                embedding_dim=embedding_service.dimension
+                embedding_dim=embedding_dim
+            )
+            
+            logger.info(
+                f"Searching KB {kb_id} with model: {embedding_model} (dim: {embedding_dim})"
             )
             
             # 한글 처리기 가져오기

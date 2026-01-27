@@ -83,6 +83,47 @@ class EmbeddingSettings(BaseSettings):
     EMBEDDING_BATCH_SIZE_LARGE: int = Field(default=64, description="Batch size for large docs")
 
 
+# Embedding Model Dimension Mapping
+# This maps model names to their embedding dimensions
+EMBEDDING_MODEL_DIMENSIONS = {
+    # OpenAI Models
+    "text-embedding-3-small": 1536,
+    "text-embedding-3-large": 3072,
+    "text-embedding-ada-002": 1536,
+    
+    # Korean Optimized Models
+    "jhgan/ko-sroberta-multitask": 768,
+    "BM-K/KoSimCSE-roberta": 768,
+    "BM-K/KoSimCSE-bert-multitask": 768,
+    
+    # Multilingual Models
+    "sentence-transformers/paraphrase-multilingual-mpnet-base-v2": 768,
+    "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2": 384,
+    "sentence-transformers/distiluse-base-multilingual-cased-v2": 512,
+    
+    # English Models (not recommended for Korean)
+    "sentence-transformers/all-MiniLM-L6-v2": 384,
+    "sentence-transformers/all-mpnet-base-v2": 768,
+    "sentence-transformers/all-MiniLM-L12-v2": 384,
+    
+    # Default fallback
+    "default": 768
+}
+
+
+def get_embedding_dimension(model_name: str) -> int:
+    """
+    Get the embedding dimension for a given model.
+    
+    Args:
+        model_name: Name of the embedding model
+        
+    Returns:
+        int: Embedding dimension for the model
+    """
+    return EMBEDDING_MODEL_DIMENSIONS.get(model_name, EMBEDDING_MODEL_DIMENSIONS["default"])
+
+
 class RerankerSettings(BaseSettings):
     """Reranker model configuration."""
     

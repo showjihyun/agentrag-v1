@@ -75,6 +75,22 @@ class EmbeddingService:
         logger.info(
             f"EmbeddingService initialized: model={model_name}, dimension={self.dimension}"
         )
+    
+    @staticmethod
+    def get_model_dimension(model_name: str) -> int:
+        """
+        Get the expected embedding dimension for a model without loading it.
+        
+        This is useful for creating Milvus collections before processing documents.
+        
+        Args:
+            model_name: Name of the embedding model
+            
+        Returns:
+            int: Expected embedding dimension
+        """
+        from backend.config.llm import get_embedding_dimension
+        return get_embedding_dimension(model_name)
 
     def _load_model(self) -> None:
         """

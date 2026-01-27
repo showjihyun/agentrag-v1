@@ -1135,6 +1135,7 @@ class Knowledgebase(Base):
     # Vector Search Configuration (for vector and hybrid types)
     milvus_collection_name = Column(String(255), unique=True, nullable=True, index=True)
     embedding_model = Column(String(100), nullable=True)
+    embedding_dimension = Column(Integer, nullable=True, index=True)  # Dimension of embedding vectors
 
     # Chunking Configuration
     chunk_size = Column(Integer, default=500)

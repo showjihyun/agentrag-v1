@@ -25,7 +25,43 @@ class HybridSearchService:
     def __init__(self, db: Session, vector_agent: Optional[VectorSearchAgent] = None):
         self.db = db
         self.kg_service = KnowledgeGraphService(db)
-        self.vector_agent = vector_agent
+        
+        # Initialize vector agent if not provided
+        if vector_agent is None:
+            try:
+                # Try to initialize VectorSearchAgent with available services
+                from backend.core.dependencies_optimized import get_milvus_manager, get_embedding_service
+                
+                try:
+                    milvus_manager = get_milvus_manager()
+                    embedding_service = get_embedding_service()
+                    
+                    self.vector_agent = VectorSearchAgent(
+                        milvus_manager=milvus_manager,
+                        embedding_service=embedding_service,
+                    )
+                    logger.info("✅ VectorSearchAgent initialized successfully with Milvus")
+                except Exception as init_error:
+                    logger.warning(f"Failed to initialize Milvus/Embedding services: {init_error}")
+                    # Try alternative initialization
+                    try:
+                        from backend.services.embedding_service import get_embedding_service as get_emb_svc
+                        embedding_service = get_emb_svc()
+                        
+                        self.vector_agent = VectorSearchAgent(
+                            embedding_service=embedding_service,
+                        )
+                        logger.info("✅ VectorSearchAgent initialized with embedding service only")
+                    except Exception as fallback_error:
+                        logger.warning(f"Failed to initialize VectorSearchAgent fallback: {fallback_error}")
+                        self.vector_agent = None
+                        
+            except Exception as e:
+                logger.warning(f"❌ Failed to initialize VectorSearchAgent: {e}")
+                self.vector_agent = None
+        else:
+            self.vector_agent = vector_agent
+            logger.info("✅ VectorSearchAgent provided externally")
     
     async def search(
         self,
@@ -139,39 +175,69 @@ class HybridSearchService:
         return results
     
     async def _vector_search(
-        self, 
-        knowledgebase_id: str, 
-        query: str, 
+        self,
+        knowledgebase_id: str,
+        query: str,
         limit: int
     ) -> List[Dict[str, Any]]:
-        """Perform vector search."""
-        
+        """Perform vector search using KB-specific collection and embedding model."""
+
         try:
-            if not self.vector_agent:
-                logger.warning("Vector agent not available")
+            # Get KB to access its collection and embedding settings
+            kb = self.db.query(Knowledgebase).filter(Knowledgebase.id == knowledgebase_id).first()
+            if not kb:
+                logger.warning(f"Knowledgebase {knowledgebase_id} not found")
                 return []
-            
-            # Use vector search agent
-            vector_results = await self.vector_agent.search(
-                query=query,
-                top_k=limit,
-                filters={"knowledgebase_id": knowledgebase_id} if knowledgebase_id else None
+
+            # Import required services
+            from backend.services.embedding import EmbeddingService
+            from backend.services.milvus import MilvusManager
+
+            # Use KB's embedding model
+            embedding_model = kb.embedding_model or "jhgan/ko-sroberta-multitask"
+            embedding_service = EmbeddingService(model_name=embedding_model)
+
+            # Get embedding dimension from KB or service
+            embedding_dim = getattr(kb, 'embedding_dimension', None) or embedding_service.dimension
+
+            # Create MilvusManager for KB's specific collection
+            milvus_manager = MilvusManager(
+                collection_name=kb.milvus_collection_name,
+                embedding_dim=embedding_dim
             )
-            
-            return [
-                {
+
+            logger.info(
+                f"Vector search in KB {knowledgebase_id}: "
+                f"collection={kb.milvus_collection_name}, model={embedding_model}, dim={embedding_dim}"
+            )
+
+            # Generate query embedding
+            query_embedding = await embedding_service.embed_text(query)
+
+            # Search in KB's Milvus collection
+            results = await milvus_manager.search(
+                query_embedding=query_embedding,
+                top_k=limit,
+                filters=f'knowledgebase_id == "{knowledgebase_id}"'
+            )
+
+            # Convert results to standard format
+            formatted_results = []
+            for result in results:
+                formatted_results.append({
                     "type": "document",
-                    "document_id": result.get("document_id"),
-                    "chunk_id": result.get("chunk_id"),
-                    "content": result.get("content"),
-                    "score": result.get("score", 0.0),
-                    "metadata": result.get("metadata", {}),
-                }
-                for result in vector_results
-            ]
-            
+                    "document_id": getattr(result, 'document_id', '') or result.get('document_id', '') if isinstance(result, dict) else getattr(result, 'document_id', ''),
+                    "chunk_id": getattr(result, 'id', '') or result.get('id', '') if isinstance(result, dict) else getattr(result, 'id', ''),
+                    "content": getattr(result, 'text', '') or result.get('text', '') if isinstance(result, dict) else getattr(result, 'text', ''),
+                    "score": float(getattr(result, 'score', 0.0) if not isinstance(result, dict) else result.get('score', 0.0)),
+                    "metadata": result.get('metadata', {}) if isinstance(result, dict) else {},
+                })
+
+            logger.info(f"Vector search returned {len(formatted_results)} results")
+            return formatted_results
+
         except Exception as e:
-            logger.error(f"Vector search error: {str(e)}")
+            logger.error(f"Vector search error: {str(e)}", exc_info=True)
             return []
     
     async def _knowledge_graph_search(

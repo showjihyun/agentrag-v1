@@ -624,9 +624,10 @@ class MilvusManager:
             # Search parameters (must match index metric_type)
             search_params = get_search_params(index_type, collection_size, metric_type)
 
+            filter_str = f" with filters: {filters}" if filters else ""
             logger.info(
                 f"Searching for top {top_k} results (index: {index_type}, size: {collection_size})"
-                f"{' with filters: ' + filters if filters else ''}"
+                f"{filter_str}"
             )
 
             # Perform search
