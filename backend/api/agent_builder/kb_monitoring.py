@@ -119,9 +119,9 @@ async def get_warmer_stats(
         
         # Note: In production, use a singleton or dependency injection
         # This is a simplified version
-        embedding_service = get_embedding_service()
-        milvus_manager = get_milvus_manager()
-        llm_manager = get_llm_manager()
+        embedding_service = await get_embedding_service()
+        milvus_manager = await get_milvus_manager()
+        llm_manager = await get_llm_manager()
         
         processor = SpeculativeProcessor(
             embedding_service=embedding_service,
@@ -246,9 +246,9 @@ async def warm_agent_cache(
             }
         
         # Initialize processor and warmer
-        embedding_service = get_embedding_service()
-        milvus_manager = get_milvus_manager()
-        llm_manager = get_llm_manager()
+        embedding_service = await get_embedding_service()
+        milvus_manager = await get_milvus_manager()
+        llm_manager = await get_llm_manager()
         
         processor = SpeculativeProcessor(
             embedding_service=embedding_service,

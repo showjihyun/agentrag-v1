@@ -239,10 +239,10 @@ class KBCacheScheduler:
             )
             
             # Initialize processor
-            embedding_service = get_embedding_service()
-            milvus_manager = get_milvus_manager()
-            llm_manager = get_llm_manager()
-            redis_client = get_redis_client()
+            embedding_service = await get_embedding_service()
+            milvus_manager = await get_milvus_manager()
+            llm_manager = await get_llm_manager()
+            redis_client = await get_redis_client()
             
             processor = SpeculativeProcessor(
                 embedding_service=embedding_service,
