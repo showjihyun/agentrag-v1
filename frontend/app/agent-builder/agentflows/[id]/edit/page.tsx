@@ -635,7 +635,7 @@ export default function EditAgentflowPage({ params }: { params: Promise<{ id: st
             {formData.orchestration_type && ORCHESTRATION_TYPES[formData.orchestration_type] && (
               <div className="mt-4 p-4 rounded-lg bg-muted">
                 <div className="flex items-center gap-2 mb-2">
-                  {React.createElement(ORCHESTRATION_TYPES[formData.orchestration_type].icon, {
+                  {React.createElement(getIconComponent(ORCHESTRATION_TYPES[formData.orchestration_type].icon), {
                     className: `h-4 w-4 ${
                       ORCHESTRATION_TYPES[formData.orchestration_type].category === 'core' ? 'text-blue-500' :
                       ORCHESTRATION_TYPES[formData.orchestration_type].category === '2025_trends' ? 'text-purple-500' :

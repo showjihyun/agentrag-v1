@@ -80,6 +80,61 @@ export class FlowsAPI {
   }
 
   /**
+   * Add agent to agentflow
+   */
+  async addAgentToAgentflow(
+    agentflowId: string,
+    agentData: {
+      agent_id: string;
+      role: string;
+      name?: string;
+      description?: string;
+      capabilities?: string[];
+      priority?: number;
+      max_retries?: number;
+      timeout_seconds?: number;
+      dependencies?: string[];
+    }
+  ): Promise<any> {
+    return apiClient['request'](`/api/agent-builder/agentflows/${agentflowId}/agents`, {
+      method: 'POST',
+      body: JSON.stringify(agentData),
+    });
+  }
+
+  /**
+   * Remove agent from agentflow
+   */
+  async removeAgentFromAgentflow(
+    agentflowId: string,
+    agentflowAgentId: string
+  ): Promise<void> {
+    return apiClient['request'](
+      `/api/agent-builder/agentflows/${agentflowId}/agents/${agentflowAgentId}`,
+      {
+        method: 'DELETE',
+      }
+    );
+  }
+
+  /**
+   * Get agentflow execution plan
+   */
+  async getAgentflowExecutionPlan(agentflowId: string): Promise<any> {
+    return apiClient['request'](`/api/agent-builder/agentflows/${agentflowId}/execution-plan`);
+  }
+
+  /**
+   * Execute agentflow
+   */
+  async executeAgentflow(agentflowId: string, inputData: Record<string, any>): Promise<any> {
+    return apiClient['request'](`/api/agent-builder/agentflows/${agentflowId}/execute`, {
+      method: 'POST',
+      body: JSON.stringify(inputData),
+    });
+  }
+
+  /**
    * Create a new Chatflow
    */
   async createChatflow(data: CreateChatflowRequest): Promise<Chatflow> {

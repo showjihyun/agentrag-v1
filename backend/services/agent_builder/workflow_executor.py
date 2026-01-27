@@ -1009,24 +1009,119 @@ class WorkflowExecutor:
         """
         Execute agent node.
         
-        Calls an AI agent to process the data.
+        Calls an AI agent to process the data using the AgentflowAgentExecutor.
+        Supports both direct agent_id reference and AgentflowAgent configuration.
         """
-        agent_id = node_data.get("agentId")
-        agent_type = node_data.get("agentType", "general")
+        from backend.db.models.agent_builder import Agent
+        from backend.db.models.flows import AgentflowAgent
+        from backend.services.agent_builder.agentflow_agent_executor import AgentflowAgentExecutor
         
-        logger.info(f"Executing agent: {agent_id or agent_type}")
+        # Get agent reference - support multiple formats
+        agent_id = node_data.get("agentId") or node_data.get("agent_id")
+        agentflow_agent_id = node_data.get("agentflow_agent_id")
         
-        # TODO: Implement actual agent execution
-        # For now, simulate agent processing
-        await asyncio.sleep(0.5)  # Simulate processing time
+        logger.info(f"Executing agent node: agent_id={agent_id}, agentflow_agent_id={agentflow_agent_id}")
         
-        result = {
-            "agent_output": f"Processed by {agent_type} agent",
-            "input": data,
-            "timestamp": datetime.utcnow().isoformat(),
-        }
+        # Get user_id from data for API key retrieval
+        user_id = data.get("_user_id") if isinstance(data, dict) else None
         
-        return result
+        if not user_id:
+            logger.warning("No user_id in data, agent execution may fail without API keys")
+        
+        # Case 1: AgentflowAgent reference (from Agentflow)
+        if agentflow_agent_id:
+            agentflow_agent = self.db.query(AgentflowAgent).filter(
+                AgentflowAgent.id == agentflow_agent_id
+            ).first()
+            
+            if not agentflow_agent:
+                raise ValueError(f"AgentflowAgent {agentflow_agent_id} not found")
+            
+            # Use AgentflowAgentExecutor for full orchestration support
+            executor = AgentflowAgentExecutor(self.db)
+            
+            # Prepare input data
+            input_data = {
+                "input": data.get("output") if isinstance(data, dict) and "output" in data else data,
+                "message": data.get("message") if isinstance(data, dict) else str(data),
+            }
+            
+            # Execute with full context
+            result = await executor.execute_agent(
+                agentflow_agent=agentflow_agent,
+                input_data=input_data,
+                execution_context=self.execution_context,
+                user_id=user_id or "system",
+            )
+            
+            if result.get("success"):
+                return result.get("output", {})
+            else:
+                raise ValueError(f"Agent execution failed: {result.get('error')}")
+        
+        # Case 2: Direct Agent reference (simple execution)
+        elif agent_id:
+            agent = self.db.query(Agent).filter(
+                Agent.id == agent_id
+            ).first()
+            
+            if not agent:
+                raise ValueError(f"Agent {agent_id} not found")
+            
+            # Create a temporary AgentflowAgent for execution
+            from uuid import uuid4
+            temp_agentflow_agent = AgentflowAgent(
+                id=uuid4(),
+                agentflow_id=None,
+                agent_id=agent.id,
+                name=agent.name,
+                role=node_data.get("role", "worker"),
+                description=agent.description,
+                capabilities=[],
+                priority=1,
+                max_retries=node_data.get("max_retries", 3),
+                timeout_seconds=node_data.get("timeout_seconds", 60),
+                dependencies=[],
+                input_mapping=node_data.get("input_mapping", {}),
+                output_mapping=node_data.get("output_mapping", {}),
+            )
+            
+            # Use AgentflowAgentExecutor
+            executor = AgentflowAgentExecutor(self.db)
+            
+            # Prepare input data
+            input_data = {
+                "input": data.get("output") if isinstance(data, dict) and "output" in data else data,
+                "message": data.get("message") if isinstance(data, dict) else str(data),
+            }
+            
+            # Execute
+            result = await executor.execute_agent(
+                agentflow_agent=temp_agentflow_agent,
+                input_data=input_data,
+                execution_context=self.execution_context,
+                user_id=user_id or "system",
+            )
+            
+            if result.get("success"):
+                return result.get("output", {})
+            else:
+                raise ValueError(f"Agent execution failed: {result.get('error')}")
+        
+        # Case 3: Legacy format or missing configuration
+        else:
+            agent_type = node_data.get("agentType", "general")
+            logger.warning(f"No agent_id or agentflow_agent_id provided, using legacy format: {agent_type}")
+            
+            # Fallback to simple response
+            result = {
+                "agent_output": f"Processed by {agent_type} agent",
+                "input": data,
+                "timestamp": datetime.utcnow().isoformat(),
+                "note": "Legacy agent execution - please configure agent_id for full functionality"
+            }
+            
+            return result
     
     async def _execute_ai_agent_node(self, node_data: Dict[str, Any], data: Any) -> Any:
         """

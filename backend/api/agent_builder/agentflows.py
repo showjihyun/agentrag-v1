@@ -1,6 +1,6 @@
 # Agentflow-specific API endpoints
 
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException, Body
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from pydantic import BaseModel
@@ -11,6 +11,7 @@ from backend.core.dependencies import get_db
 from backend.core.auth_dependencies import get_current_user
 from backend.db.models.user import User
 from backend.services.agent_builder.facade import AgentBuilderFacade
+from backend.services.agent_builder.integration_service import AgentWorkflowIntegrationService
 from backend.db.models.flows import Agentflow, AgentflowAgent as AgentflowAgentModel, FlowExecution
 from backend.core.structured_logging import get_logger
 
@@ -146,7 +147,142 @@ async def add_agent_to_agentflow(
 ):
     """Add an agent to an existing Agentflow."""
     try:
-        from backend.services.agent_builder.integration_service import AgentWorkflowIntegrationService
+        from backend.services.agent_builder.shared.errors import (
+            NotFoundError,
+            ValidationError,
+            DomainError,
+        )
+        
+        integration_service = AgentWorkflowIntegrationService(db)
+        
+        agentflow_agent = integration_service.add_agent_to_agentflow(
+            agentflow_id=agentflow_id,
+            agent_id=request.agent_id,
+            role=request.role,
+            name=request.name,
+            description=request.description,
+            capabilities=request.capabilities,
+            priority=request.priority,
+            max_retries=request.max_retries,
+            timeout_seconds=request.timeout_seconds,
+            dependencies=request.dependencies,
+        )
+        
+        db.commit()
+        
+        return {
+            "id": str(agentflow_agent.id),
+            "agent_id": str(agentflow_agent.agent_id),
+            "name": agentflow_agent.name,
+            "role": agentflow_agent.role,
+            "description": agentflow_agent.description,
+            "capabilities": agentflow_agent.capabilities,
+            "priority": agentflow_agent.priority,
+            "max_retries": agentflow_agent.max_retries,
+            "timeout_seconds": agentflow_agent.timeout_seconds,
+            "dependencies": agentflow_agent.dependencies,
+        }
+        
+    except NotFoundError as e:
+        db.rollback()
+        logger.warning(f"Not found: {e.message}")
+        raise HTTPException(status_code=404, detail=e.message)
+    except ValidationError as e:
+        db.rollback()
+        logger.warning(f"Validation error: {e.message}")
+        raise HTTPException(status_code=400, detail=e.message)
+    except DomainError as e:
+        db.rollback()
+        logger.error(f"Domain error: {e.message}")
+        raise HTTPException(status_code=400, detail=e.message)
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to add agent to agentflow: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/{agentflow_id}/agents/{agentflow_agent_id}")
+async def remove_agent_from_agentflow(
+    agentflow_id: str,
+    agentflow_agent_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Remove an agent from an Agentflow."""
+    try:
+        integration_service = AgentWorkflowIntegrationService(db)
+        
+        integration_service.remove_agent_from_agentflow(
+            agentflow_id=agentflow_id,
+            agentflow_agent_id=agentflow_agent_id,
+        )
+        
+        db.commit()
+        
+        return {"message": "Agent removed successfully"}
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to remove agent from agentflow: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/{agentflow_id}/execution-plan")
+async def get_agentflow_execution_plan(
+    agentflow_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get the execution plan for an Agentflow."""
+    try:
+        integration_service = AgentWorkflowIntegrationService(db)
+        
+        plan = integration_service.get_agentflow_execution_plan(agentflow_id)
+        
+        return plan
+        
+    except Exception as e:
+        logger.error(f"Failed to get execution plan: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/{agentflow_id}/execute")
+async def execute_agentflow(
+    agentflow_id: str,
+    input_data: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Execute an Agentflow with the given input."""
+    try:
+        from backend.services.agent_builder.agentflow_orchestrator import AgentflowOrchestrator
+        
+        agentflow = db.query(Agentflow).filter(
+            Agentflow.id == uuid.UUID(agentflow_id)
+        ).first()
+        
+        if not agentflow:
+            raise HTTPException(status_code=404, detail="Agentflow not found")
+        
+        # Check permissions
+        if str(agentflow.user_id) != str(current_user.id) and not agentflow.is_public:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        orchestrator = AgentflowOrchestrator(db)
+        
+        result = await orchestrator.execute_agentflow(
+            agentflow_id=agentflow_id,
+            input_data=input_data,
+            user_id=str(current_user.id),
+        )
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to execute agentflow: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
         
         integration_service = AgentWorkflowIntegrationService(db)
         

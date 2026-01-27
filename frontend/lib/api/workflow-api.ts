@@ -243,6 +243,45 @@ class WorkflowApiClient {
     return new EventSource(url.toString());
   }
 
+  // Agent Integration
+  async addAgentToWorkflow(
+    workflowId: string,
+    agentData: {
+      agent_id: string;
+      position_x?: number;
+      position_y?: number;
+      role?: string;
+      max_retries?: number;
+      timeout_seconds?: number;
+      auto_convert?: boolean;
+    }
+  ): Promise<any> {
+    return this.request(`/api/agent-builder/workflows/${workflowId}/nodes/agent`, {
+      method: 'POST',
+      body: JSON.stringify(agentData),
+    });
+  }
+
+  async getWorkflowAgents(workflowId: string): Promise<{
+    workflow_id: string;
+    agents: Array<{
+      node_id: string;
+      agent_id: string;
+      name: string;
+      description?: string;
+      position: { x: number; y: number };
+      configuration: Record<string, any>;
+      agent_details: {
+        llm_provider: string;
+        llm_model: string;
+        agent_type: string;
+      };
+    }>;
+    total: number;
+  }> {
+    return this.request(`/api/agent-builder/workflows/${workflowId}/agents`);
+  }
+
   // Validation
   async validateWorkflow(workflowId: string): Promise<{
     is_valid: boolean;

@@ -1,444 +1,472 @@
 """
-Integration Service for AgentWorkflows, Agents, and Blocks
+Agent-Workflow Integration Service
 
-This service manages the complex relationships and data flow between
-AgentWorkflows, Agents, and Blocks, ensuring proper integration and execution.
+Provides integration between Agents and Workflows/Agentflows.
+Supports both direct agent execution in agentflows and agent-to-block conversion.
 """
 
 import logging
-from typing import Dict, Any, List, Optional, Tuple
-from datetime import datetime
 import uuid
+from typing import Dict, Any, List, Optional
+from datetime import datetime
 
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_
+from sqlalchemy import and_
 
-from backend.db.models.flows import Agentflow, AgentflowAgent, AgentflowEdge
-from backend.db.models.agent_builder import Agent, Block
-from backend.services.agent_builder.shared.errors import ValidationError, NotFoundError
+from backend.db.models.agent_builder import Agent, AgentTool, Tool
+from backend.db.models.flows import (
+    Agentflow,
+    AgentflowAgent,
+    AgentflowEdge,
+    FlowExecution,
+)
+from backend.db.models.agent_builder import Block, Workflow, WorkflowNode, WorkflowEdge
+from backend.services.agent_builder.shared.errors import (
+    NotFoundError,
+    ValidationError,
+)
 
 logger = logging.getLogger(__name__)
 
 
 class AgentWorkflowIntegrationService:
-    """Service for managing AgentWorkflow, Agent, and Block integration."""
+    """
+    Service for integrating Agents with Workflows and Agentflows.
+    
+    Supports:
+    - Adding agents to agentflows
+    - Converting agents to blocks
+    - Managing agent execution in workflows
+    - Data mapping between agents
+    """
     
     def __init__(self, db: Session):
         self.db = db
     
-    def create_agentflow_with_agents(
+    # ========================================================================
+    # OPTION 1: Direct Agent Integration with Agentflows
+    # ========================================================================
+    
+    def add_agent_to_agentflow(
         self,
-        user_id: str,
-        agentflow_data: Dict[str, Any],
-        agents_config: List[Dict[str, Any]],
-        edges_config: Optional[List[Dict[str, Any]]] = None
-    ) -> Agentflow:
+        agentflow_id: str,
+        agent_id: str,
+        role: str,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        capabilities: Optional[List[str]] = None,
+        priority: int = 1,
+        max_retries: int = 3,
+        timeout_seconds: int = 60,
+        dependencies: Optional[List[str]] = None,
+        input_mapping: Optional[Dict[str, Any]] = None,
+        output_mapping: Optional[Dict[str, Any]] = None,
+        conditional_logic: Optional[Dict[str, Any]] = None,
+        parallel_group: Optional[str] = None,
+        position_x: float = 0,
+        position_y: float = 0,
+    ) -> AgentflowAgent:
         """
-        Create an Agentflow with associated agents and connections.
+        Add an agent to an agentflow.
         
         Args:
-            user_id: User ID
-            agentflow_data: Agentflow configuration
-            agents_config: List of agent configurations
-            edges_config: Optional list of edge configurations
+            agentflow_id: ID of the agentflow
+            agent_id: ID of the agent to add
+            role: Role of the agent in the flow (e.g., 'researcher', 'writer', 'reviewer')
+            name: Display name (defaults to agent name)
+            description: Description of agent's role in this flow
+            capabilities: List of capabilities this agent provides
+            priority: Execution priority (lower = earlier)
+            max_retries: Maximum retry attempts
+            timeout_seconds: Timeout for agent execution
+            dependencies: List of agent IDs this depends on
+            input_mapping: How to map inputs from previous agents
+            output_mapping: How to map outputs to next agents
+            conditional_logic: Conditions for execution
+            parallel_group: Group ID for parallel execution
+            position_x: X position in visual editor
+            position_y: Y position in visual editor
             
         Returns:
-            Created Agentflow with all relationships
+            Created AgentflowAgent instance
         """
-        try:
-            # Create Agentflow
-            agentflow = Agentflow(
-                user_id=uuid.UUID(user_id),
-                name=agentflow_data["name"],
-                description=agentflow_data.get("description"),
-                orchestration_type=agentflow_data.get("orchestration_type", "sequential"),
-                supervisor_config=agentflow_data.get("supervisor_config", {}),
-                graph_definition=agentflow_data.get("graph_definition", {}),
-                tags=agentflow_data.get("tags", []),
-                category=agentflow_data.get("category"),
+        # Validate agentflow exists
+        agentflow = self.db.query(Agentflow).filter(
+            Agentflow.id == uuid.UUID(agentflow_id)
+        ).first()
+        if not agentflow:
+            raise NotFoundError("Agentflow", agentflow_id)
+        
+        # Validate agent exists
+        agent = self.db.query(Agent).filter(
+            Agent.id == uuid.UUID(agent_id)
+        ).first()
+        if not agent:
+            raise NotFoundError("Agent", agent_id)
+        
+        # Check if agent already in agentflow
+        existing = self.db.query(AgentflowAgent).filter(
+            and_(
+                AgentflowAgent.agentflow_id == uuid.UUID(agentflow_id),
+                AgentflowAgent.agent_id == uuid.UUID(agent_id)
             )
-            
-            self.db.add(agentflow)
-            self.db.flush()  # Get the ID
-            
-            # Create AgentflowAgent associations
-            agentflow_agents = []
-            for agent_config in agents_config:
-                # Validate agent exists
-                agent = self.db.query(Agent).filter(
-                    Agent.id == uuid.UUID(agent_config["agent_id"])
-                ).first()
-                
-                if not agent:
-                    raise NotFoundError(f"Agent {agent_config['agent_id']} not found")
-                
-                # Create or find associated block
-                block_id = None
-                if agent_config.get("create_block", False):
-                    block_id = self._create_agent_block(user_id, agent, agent_config)
-                elif agent_config.get("block_id"):
-                    block_id = uuid.UUID(agent_config["block_id"])
-                
-                agentflow_agent = AgentflowAgent(
-                    agentflow_id=agentflow.id,
-                    agent_id=agent.id,
-                    block_id=block_id,
-                    name=agent_config.get("name", agent.name),
-                    role=agent_config.get("role", "worker"),
-                    description=agent_config.get("description", agent.description),
-                    capabilities=agent_config.get("capabilities", []),
-                    priority=agent_config.get("priority", 1),
-                    max_retries=agent_config.get("max_retries", 3),
-                    timeout_seconds=agent_config.get("timeout_seconds", 60),
-                    dependencies=agent_config.get("dependencies", []),
-                    input_mapping=agent_config.get("input_mapping", {}),
-                    output_mapping=agent_config.get("output_mapping", {}),
-                    conditional_logic=agent_config.get("conditional_logic", {}),
-                    parallel_group=agent_config.get("parallel_group"),
-                    position_x=agent_config.get("position_x", 0),
-                    position_y=agent_config.get("position_y", 0),
-                )
-                
-                self.db.add(agentflow_agent)
-                agentflow_agents.append(agentflow_agent)
-            
-            self.db.flush()  # Get AgentflowAgent IDs
-            
-            # Create edges if provided
-            if edges_config:
-                self._create_agentflow_edges(agentflow.id, agentflow_agents, edges_config)
-            
-            # Update graph definition with agent and block information
-            self._update_graph_definition(agentflow, agentflow_agents)
-            
-            self.db.commit()
-            return agentflow
-            
-        except Exception as e:
-            self.db.rollback()
-            logger.error(f"Failed to create agentflow with agents: {e}")
-            raise
-    
-    def _create_agent_block(
-        self,
-        user_id: str,
-        agent: Agent,
-        agent_config: Dict[str, Any]
-    ) -> uuid.UUID:
-        """Create a Block representation for an Agent."""
-        block = Block(
-            user_id=uuid.UUID(user_id),
-            name=f"{agent.name} Block",
-            description=f"Block representation of agent: {agent.name}",
-            block_type="composite",  # Agent blocks are composite
-            input_schema={
-                "type": "object",
-                "properties": {
-                    "input": {"type": "string", "description": "Input text for the agent"},
-                    "context": {"type": "object", "description": "Context data"}
-                },
-                "required": ["input"]
-            },
-            output_schema={
-                "type": "object",
-                "properties": {
-                    "output": {"type": "string", "description": "Agent response"},
-                    "metadata": {"type": "object", "description": "Execution metadata"}
-                },
-                "required": ["output"]
-            },
-            configuration={
-                "agent_id": str(agent.id),
-                "agent_type": agent.agent_type,
-                "llm_provider": agent.llm_provider,
-                "llm_model": agent.llm_model,
-                "tools": [{"tool_id": str(tool.tool_id)} for tool in agent.tools],
-                "visual_config": agent_config.get("visual_config", {})
-            },
-            implementation=f"agent_executor:{agent.id}",
+        ).first()
+        if existing:
+            raise ValidationError(f"Agent {agent_id} already in agentflow {agentflow_id}")
+        
+        # Extract capabilities from agent's tools if not provided
+        if capabilities is None:
+            capabilities = []
+            agent_tools = self.db.query(AgentTool).filter(
+                AgentTool.agent_id == agent.id
+            ).all()
+            for at in agent_tools:
+                tool = self.db.query(Tool).filter(Tool.id == at.tool_id).first()
+                if tool:
+                    capabilities.append(tool.name)
+        
+        # Create AgentflowAgent
+        agentflow_agent = AgentflowAgent(
+            agentflow_id=uuid.UUID(agentflow_id),
+            agent_id=uuid.UUID(agent_id),
+            name=name or agent.name,
+            role=role,
+            description=description or agent.description,
+            capabilities=capabilities,
+            priority=priority,
+            max_retries=max_retries,
+            timeout_seconds=timeout_seconds,
+            dependencies=dependencies or [],
+            input_mapping=input_mapping or {},
+            output_mapping=output_mapping or {},
+            conditional_logic=conditional_logic or {},
+            parallel_group=parallel_group,
+            position_x=position_x,
+            position_y=position_y,
         )
         
-        self.db.add(block)
+        self.db.add(agentflow_agent)
         self.db.flush()
-        return block.id
+        
+        logger.info(f"Added agent {agent_id} to agentflow {agentflow_id} with role {role}")
+        
+        return agentflow_agent
     
-    def _create_agentflow_edges(
+    def remove_agent_from_agentflow(
         self,
-        agentflow_id: uuid.UUID,
-        agentflow_agents: List[AgentflowAgent],
-        edges_config: List[Dict[str, Any]]
-    ):
-        """Create edges between AgentflowAgents."""
-        agent_map = {agent.name: agent for agent in agentflow_agents}
-        
-        for edge_config in edges_config:
-            source_name = edge_config["source"]
-            target_name = edge_config["target"]
-            
-            if source_name not in agent_map or target_name not in agent_map:
-                logger.warning(f"Edge references unknown agents: {source_name} -> {target_name}")
-                continue
-            
-            edge = AgentflowEdge(
-                agentflow_id=agentflow_id,
-                source_agent_id=agent_map[source_name].id,
-                target_agent_id=agent_map[target_name].id,
-                edge_type=edge_config.get("edge_type", "data_flow"),
-                condition=edge_config.get("condition", {}),
-                data_mapping=edge_config.get("data_mapping", {}),
-                label=edge_config.get("label"),
-                style=edge_config.get("style", {}),
-            )
-            
-            self.db.add(edge)
-    
-    def _update_graph_definition(
-        self,
-        agentflow: Agentflow,
-        agentflow_agents: List[AgentflowAgent]
-    ):
-        """Update the graph definition with agent and block information."""
-        nodes = []
-        edges = []
-        
-        # Create nodes from agents
-        for agent in agentflow_agents:
-            node = {
-                "id": str(agent.id),
-                "type": "agent",
-                "data": {
-                    "agent_id": str(agent.agent_id) if agent.agent_id else None,
-                    "block_id": str(agent.block_id) if agent.block_id else None,
-                    "name": agent.name,
-                    "role": agent.role,
-                    "capabilities": agent.capabilities,
-                    "priority": agent.priority,
-                    "max_retries": agent.max_retries,
-                    "timeout_seconds": agent.timeout_seconds,
-                    "input_mapping": agent.input_mapping,
-                    "output_mapping": agent.output_mapping,
-                    "conditional_logic": agent.conditional_logic,
-                },
-                "position": {
-                    "x": agent.position_x,
-                    "y": agent.position_y,
-                }
-            }
-            nodes.append(node)
-        
-        # Create edges from dependencies and explicit edges
-        for agent in agentflow_agents:
-            for dep_name in agent.dependencies:
-                # Find dependency agent
-                dep_agent = next((a for a in agentflow_agents if a.name == dep_name), None)
-                if dep_agent:
-                    edge = {
-                        "id": f"{dep_agent.id}-{agent.id}",
-                        "source": str(dep_agent.id),
-                        "target": str(agent.id),
-                        "type": "dependency",
-                        "data": {"type": "dependency"}
-                    }
-                    edges.append(edge)
-        
-        # Add explicit edges from database
-        db_edges = self.db.query(AgentflowEdge).filter(
-            AgentflowEdge.agentflow_id == agentflow.id
-        ).all()
-        
-        for db_edge in db_edges:
-            edge = {
-                "id": str(db_edge.id),
-                "source": str(db_edge.source_agent_id),
-                "target": str(db_edge.target_agent_id),
-                "type": db_edge.edge_type,
-                "data": {
-                    "type": db_edge.edge_type,
-                    "condition": db_edge.condition,
-                    "data_mapping": db_edge.data_mapping,
-                    "label": db_edge.label,
-                    "style": db_edge.style,
-                }
-            }
-            edges.append(edge)
-        
-        # Update graph definition
-        agentflow.graph_definition = {
-            "nodes": nodes,
-            "edges": edges,
-            "viewport": {"x": 0, "y": 0, "zoom": 1},
-            "metadata": {
-                "version": "1.0",
-                "created_at": datetime.utcnow().isoformat(),
-                "orchestration_type": agentflow.orchestration_type,
-                "supervisor_enabled": bool(agentflow.supervisor_config.get("enabled", False)),
-            }
-        }
-    
-    def get_agentflow_execution_plan(self, agentflow_id: str) -> Dict[str, Any]:
+        agentflow_id: str,
+        agentflow_agent_id: str,
+    ) -> None:
         """
-        Generate an execution plan for an Agentflow.
+        Remove an agent from an agentflow.
         
+        Args:
+            agentflow_id: ID of the agentflow
+            agentflow_agent_id: ID of the AgentflowAgent to remove
+        """
+        agentflow_agent = self.db.query(AgentflowAgent).filter(
+            and_(
+                AgentflowAgent.id == uuid.UUID(agentflow_agent_id),
+                AgentflowAgent.agentflow_id == uuid.UUID(agentflow_id)
+            )
+        ).first()
+        
+        if not agentflow_agent:
+            raise NotFoundError(f"AgentflowAgent {agentflow_agent_id} not found in agentflow {agentflow_id}")
+        
+        # Remove edges connected to this agent
+        self.db.query(AgentflowEdge).filter(
+            (AgentflowEdge.source_agent_id == agentflow_agent.id) |
+            (AgentflowEdge.target_agent_id == agentflow_agent.id)
+        ).delete()
+        
+        # Remove the agent
+        self.db.delete(agentflow_agent)
+        self.db.flush()
+        
+        logger.info(f"Removed agent {agentflow_agent_id} from agentflow {agentflow_id}")
+    
+    def update_agentflow_agent(
+        self,
+        agentflow_id: str,
+        agentflow_agent_id: str,
+        **updates,
+    ) -> AgentflowAgent:
+        """
+        Update an agent's configuration in an agentflow.
+        
+        Args:
+            agentflow_id: ID of the agentflow
+            agentflow_agent_id: ID of the AgentflowAgent to update
+            **updates: Fields to update
+            
         Returns:
-            Execution plan with agent order, dependencies, and parallel groups
+            Updated AgentflowAgent instance
+        """
+        agentflow_agent = self.db.query(AgentflowAgent).filter(
+            and_(
+                AgentflowAgent.id == uuid.UUID(agentflow_agent_id),
+                AgentflowAgent.agentflow_id == uuid.UUID(agentflow_id)
+            )
+        ).first()
+        
+        if not agentflow_agent:
+            raise NotFoundError(f"AgentflowAgent {agentflow_agent_id} not found")
+        
+        # Update fields
+        for key, value in updates.items():
+            if hasattr(agentflow_agent, key) and value is not None:
+                setattr(agentflow_agent, key, value)
+        
+        self.db.flush()
+        
+        logger.info(f"Updated agentflow agent {agentflow_agent_id}")
+        
+        return agentflow_agent
+    
+    def add_edge_between_agents(
+        self,
+        agentflow_id: str,
+        source_agent_id: str,
+        target_agent_id: str,
+        edge_type: str = "data_flow",
+        condition: Optional[Dict[str, Any]] = None,
+        data_mapping: Optional[Dict[str, Any]] = None,
+        label: Optional[str] = None,
+        style: Optional[Dict[str, Any]] = None,
+    ) -> AgentflowEdge:
+        """
+        Add an edge between two agents in an agentflow.
+        
+        Args:
+            agentflow_id: ID of the agentflow
+            source_agent_id: ID of source AgentflowAgent
+            target_agent_id: ID of target AgentflowAgent
+            edge_type: Type of edge (data_flow, control_flow, conditional)
+            condition: Condition for edge activation
+            data_mapping: How to map data between agents
+            label: Edge label
+            style: Visual styling
+            
+        Returns:
+            Created AgentflowEdge instance
+        """
+        # Validate agents exist
+        source = self.db.query(AgentflowAgent).filter(
+            AgentflowAgent.id == uuid.UUID(source_agent_id)
+        ).first()
+        target = self.db.query(AgentflowAgent).filter(
+            AgentflowAgent.id == uuid.UUID(target_agent_id)
+        ).first()
+        
+        if not source or not target:
+            raise NotFoundError("Source or target agent not found")
+        
+        # Check if edge already exists
+        existing = self.db.query(AgentflowEdge).filter(
+            and_(
+                AgentflowEdge.source_agent_id == uuid.UUID(source_agent_id),
+                AgentflowEdge.target_agent_id == uuid.UUID(target_agent_id)
+            )
+        ).first()
+        if existing:
+            raise ValidationError("Edge already exists between these agents")
+        
+        # Create edge
+        edge = AgentflowEdge(
+            agentflow_id=uuid.UUID(agentflow_id),
+            source_agent_id=uuid.UUID(source_agent_id),
+            target_agent_id=uuid.UUID(target_agent_id),
+            edge_type=edge_type,
+            condition=condition or {},
+            data_mapping=data_mapping or {},
+            label=label,
+            style=style or {},
+        )
+        
+        self.db.add(edge)
+        self.db.flush()
+        
+        logger.info(f"Added edge from {source_agent_id} to {target_agent_id}")
+        
+        return edge
+    
+    def get_agentflow_execution_plan(
+        self,
+        agentflow_id: str,
+    ) -> Dict[str, Any]:
+        """
+        Generate an execution plan for an agentflow based on its orchestration type.
+        
+        Args:
+            agentflow_id: ID of the agentflow
+            
+        Returns:
+            Execution plan with agent order and dependencies
         """
         agentflow = self.db.query(Agentflow).filter(
             Agentflow.id == uuid.UUID(agentflow_id)
         ).first()
-        
         if not agentflow:
             raise NotFoundError(f"Agentflow {agentflow_id} not found")
         
         agents = self.db.query(AgentflowAgent).filter(
-            AgentflowAgent.agentflow_id == agentflow.id
+            AgentflowAgent.agentflow_id == uuid.UUID(agentflow_id)
         ).order_by(AgentflowAgent.priority).all()
         
         edges = self.db.query(AgentflowEdge).filter(
-            AgentflowEdge.agentflow_id == agentflow.id
+            AgentflowEdge.agentflow_id == uuid.UUID(agentflow_id)
         ).all()
         
-        # Build execution plan based on orchestration type
-        if agentflow.orchestration_type == "sequential":
-            execution_plan = self._build_sequential_plan(agents, edges)
-        elif agentflow.orchestration_type == "parallel":
-            execution_plan = self._build_parallel_plan(agents, edges)
-        elif agentflow.orchestration_type == "hierarchical":
-            execution_plan = self._build_hierarchical_plan(agents, edges)
-        else:
-            execution_plan = self._build_adaptive_plan(agents, edges, agentflow.orchestration_type)
+        orchestration_type = agentflow.orchestration_type
         
-        return {
-            "agentflow_id": str(agentflow.id),
-            "orchestration_type": agentflow.orchestration_type,
-            "execution_plan": execution_plan,
-            "supervisor_config": agentflow.supervisor_config,
-            "total_agents": len(agents),
-            "total_edges": len(edges),
-        }
+        # Build execution plan based on orchestration type
+        if orchestration_type == "sequential":
+            return self._build_sequential_plan(agents, edges)
+        elif orchestration_type == "parallel":
+            return self._build_parallel_plan(agents, edges)
+        elif orchestration_type == "hierarchical":
+            return self._build_hierarchical_plan(agents, edges, agentflow.supervisor_config)
+        elif orchestration_type == "adaptive":
+            return self._build_adaptive_plan(agents, edges)
+        else:
+            # Default to sequential for advanced types
+            return self._build_sequential_plan(agents, edges)
     
     def _build_sequential_plan(
         self,
         agents: List[AgentflowAgent],
-        edges: List[AgentflowEdge]
-    ) -> List[Dict[str, Any]]:
+        edges: List[AgentflowEdge],
+    ) -> Dict[str, Any]:
         """Build sequential execution plan."""
-        return [
-            {
-                "step": i + 1,
-                "agent_id": str(agent.id),
-                "name": agent.name,
-                "role": agent.role,
-                "dependencies": agent.dependencies,
-                "parallel_group": None,
-                "execution_type": "sequential"
-            }
-            for i, agent in enumerate(agents)
-        ]
+        return {
+            "type": "sequential",
+            "stages": [
+                {
+                    "stage": idx,
+                    "agents": [
+                        {
+                            "id": str(agent.id),
+                            "agent_id": str(agent.agent_id),
+                            "name": agent.name,
+                            "role": agent.role,
+                            "priority": agent.priority,
+                        }
+                    ],
+                }
+                for idx, agent in enumerate(agents)
+            ],
+            "edges": [
+                {
+                    "source": str(edge.source_agent_id),
+                    "target": str(edge.target_agent_id),
+                    "type": edge.edge_type,
+                    "data_mapping": edge.data_mapping,
+                }
+                for edge in edges
+            ],
+        }
     
     def _build_parallel_plan(
         self,
         agents: List[AgentflowAgent],
-        edges: List[AgentflowEdge]
-    ) -> List[Dict[str, Any]]:
+        edges: List[AgentflowEdge],
+    ) -> Dict[str, Any]:
         """Build parallel execution plan."""
-        # Group agents by parallel_group or treat all as parallel
-        groups = {}
+        # Group agents by parallel_group
+        groups: Dict[str, List[AgentflowAgent]] = {}
         for agent in agents:
-            group_key = agent.parallel_group or "default"
-            if group_key not in groups:
-                groups[group_key] = []
-            groups[group_key].append(agent)
+            group = agent.parallel_group or "default"
+            if group not in groups:
+                groups[group] = []
+            groups[group].append(agent)
         
-        plan = []
-        for group_name, group_agents in groups.items():
-            plan.append({
-                "step": len(plan) + 1,
-                "execution_type": "parallel",
-                "parallel_group": group_name,
-                "agents": [
-                    {
-                        "agent_id": str(agent.id),
-                        "name": agent.name,
-                        "role": agent.role,
-                        "dependencies": agent.dependencies,
-                    }
-                    for agent in group_agents
-                ]
-            })
-        
-        return plan
+        return {
+            "type": "parallel",
+            "groups": [
+                {
+                    "group": group_name,
+                    "agents": [
+                        {
+                            "id": str(agent.id),
+                            "agent_id": str(agent.agent_id),
+                            "name": agent.name,
+                            "role": agent.role,
+                        }
+                        for agent in group_agents
+                    ],
+                }
+                for group_name, group_agents in groups.items()
+            ],
+            "edges": [
+                {
+                    "source": str(edge.source_agent_id),
+                    "target": str(edge.target_agent_id),
+                    "type": edge.edge_type,
+                    "data_mapping": edge.data_mapping,
+                }
+                for edge in edges
+            ],
+        }
     
     def _build_hierarchical_plan(
         self,
         agents: List[AgentflowAgent],
-        edges: List[AgentflowEdge]
-    ) -> List[Dict[str, Any]]:
-        """Build hierarchical execution plan."""
-        # Find root agents (no incoming edges)
-        agent_ids = {str(agent.id) for agent in agents}
-        target_ids = {str(edge.target_agent_id) for edge in edges}
-        root_ids = agent_ids - target_ids
+        edges: List[AgentflowEdge],
+        supervisor_config: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Build hierarchical execution plan with manager/worker roles."""
+        managers = [a for a in agents if a.role == "manager"]
+        workers = [a for a in agents if a.role != "manager"]
         
-        # Build hierarchy levels
-        levels = []
-        processed = set()
-        current_level = list(root_ids)
-        
-        while current_level:
-            level_agents = [
-                agent for agent in agents 
-                if str(agent.id) in current_level
-            ]
-            
-            levels.append({
-                "level": len(levels) + 1,
-                "execution_type": "parallel",
-                "agents": [
-                    {
-                        "agent_id": str(agent.id),
-                        "name": agent.name,
-                        "role": agent.role,
-                        "dependencies": agent.dependencies,
-                    }
-                    for agent in level_agents
-                ]
-            })
-            
-            processed.update(current_level)
-            
-            # Find next level (agents whose dependencies are all processed)
-            next_level = []
-            for agent in agents:
-                if str(agent.id) not in processed:
-                    deps_satisfied = all(
-                        dep_name in [a.name for a in agents if str(a.id) in processed]
-                        for dep_name in agent.dependencies
-                    )
-                    if deps_satisfied:
-                        next_level.append(str(agent.id))
-            
-            current_level = next_level
-        
-        return levels
+        return {
+            "type": "hierarchical",
+            "supervisor": supervisor_config,
+            "managers": [
+                {
+                    "id": str(agent.id),
+                    "agent_id": str(agent.agent_id),
+                    "name": agent.name,
+                    "role": agent.role,
+                }
+                for agent in managers
+            ],
+            "workers": [
+                {
+                    "id": str(agent.id),
+                    "agent_id": str(agent.agent_id),
+                    "name": agent.name,
+                    "role": agent.role,
+                    "capabilities": agent.capabilities,
+                }
+                for agent in workers
+            ],
+            "edges": [
+                {
+                    "source": str(edge.source_agent_id),
+                    "target": str(edge.target_agent_id),
+                    "type": edge.edge_type,
+                    "data_mapping": edge.data_mapping,
+                }
+                for edge in edges
+            ],
+        }
     
     def _build_adaptive_plan(
         self,
         agents: List[AgentflowAgent],
         edges: List[AgentflowEdge],
-        orchestration_type: str
     ) -> Dict[str, Any]:
-        """Build adaptive execution plan for advanced orchestration types."""
+        """Build adaptive execution plan with conditional routing."""
         return {
-            "execution_type": "adaptive",
-            "orchestration_type": orchestration_type,
+            "type": "adaptive",
             "agents": [
                 {
-                    "agent_id": str(agent.id),
+                    "id": str(agent.id),
+                    "agent_id": str(agent.agent_id),
                     "name": agent.name,
                     "role": agent.role,
                     "capabilities": agent.capabilities,
-                    "priority": agent.priority,
-                    "dependencies": agent.dependencies,
                     "conditional_logic": agent.conditional_logic,
                 }
                 for agent in agents
@@ -453,103 +481,209 @@ class AgentWorkflowIntegrationService:
                 }
                 for edge in edges
             ],
-            "adaptive_config": {
-                "dynamic_routing": orchestration_type == "dynamic_routing",
-                "consensus_building": orchestration_type == "consensus_building",
-                "swarm_intelligence": orchestration_type == "swarm_intelligence",
-                "event_driven": orchestration_type == "event_driven",
-                "reflection": orchestration_type == "reflection",
-            }
         }
     
-    def validate_agentflow_integrity(self, agentflow_id: str) -> Dict[str, Any]:
+    # ========================================================================
+    # OPTION 2: Agent to Block Conversion
+    # ========================================================================
+    
+    def convert_agent_to_block(
+        self,
+        agent_id: str,
+        create_new: bool = True,
+    ) -> Block:
         """
-        Validate the integrity of an Agentflow's agent and block relationships.
+        Convert an agent to a reusable block.
         
+        Args:
+            agent_id: ID of the agent to convert
+            create_new: If True, create a new block; if False, update existing
+            
         Returns:
-            Validation report with issues and recommendations
+            Created or updated Block instance
         """
-        agentflow = self.db.query(Agentflow).filter(
-            Agentflow.id == uuid.UUID(agentflow_id)
+        agent = self.db.query(Agent).filter(
+            Agent.id == uuid.UUID(agent_id)
+        ).first()
+        if not agent:
+            raise NotFoundError(f"Agent {agent_id} not found")
+        
+        # Check if block already exists for this agent
+        existing_block = self.db.query(Block).filter(
+            Block.name == f"Agent: {agent.name}"
         ).first()
         
-        if not agentflow:
-            raise NotFoundError(f"Agentflow {agentflow_id} not found")
+        if existing_block and not create_new:
+            block = existing_block
+        else:
+            block = Block(
+                user_id=agent.user_id,
+                name=f"Agent: {agent.name}",
+                description=agent.description or f"Block created from agent {agent.name}",
+                block_type="composite",  # Agent blocks are composite
+                is_public=agent.is_public,
+            )
+            self.db.add(block)
+            self.db.flush()
         
-        agents = self.db.query(AgentflowAgent).filter(
-            AgentflowAgent.agentflow_id == agentflow.id
-        ).all()
-        
-        edges = self.db.query(AgentflowEdge).filter(
-            AgentflowEdge.agentflow_id == agentflow.id
-        ).all()
-        
-        issues = []
-        recommendations = []
-        
-        # Check for orphaned agents
-        for agent in agents:
-            if agent.agent_id:
-                db_agent = self.db.query(Agent).filter(Agent.id == agent.agent_id).first()
-                if not db_agent:
-                    issues.append(f"Agent {agent.name} references non-existent agent {agent.agent_id}")
-            
-            if agent.block_id:
-                db_block = self.db.query(Block).filter(Block.id == agent.block_id).first()
-                if not db_block:
-                    issues.append(f"Agent {agent.name} references non-existent block {agent.block_id}")
-        
-        # Check for circular dependencies
-        def has_circular_dependency(agent_name, visited, path):
-            if agent_name in path:
-                return True
-            if agent_name in visited:
-                return False
-            
-            visited.add(agent_name)
-            path.add(agent_name)
-            
-            agent = next((a for a in agents if a.name == agent_name), None)
-            if agent:
-                for dep in agent.dependencies:
-                    if has_circular_dependency(dep, visited, path):
-                        return True
-            
-            path.remove(agent_name)
-            return False
-        
-        visited = set()
-        for agent in agents:
-            if agent.name not in visited:
-                if has_circular_dependency(agent.name, visited, set()):
-                    issues.append(f"Circular dependency detected involving agent {agent.name}")
-        
-        # Check edge consistency
-        agent_ids = {str(agent.id) for agent in agents}
-        for edge in edges:
-            if str(edge.source_agent_id) not in agent_ids:
-                issues.append(f"Edge references non-existent source agent {edge.source_agent_id}")
-            if str(edge.target_agent_id) not in agent_ids:
-                issues.append(f"Edge references non-existent target agent {edge.target_agent_id}")
-        
-        # Generate recommendations
-        if len(agents) == 0:
-            recommendations.append("Add at least one agent to the agentflow")
-        elif len(agents) == 1:
-            recommendations.append("Consider adding more agents for better workflow distribution")
-        
-        if agentflow.orchestration_type == "parallel" and not any(agent.parallel_group for agent in agents):
-            recommendations.append("Define parallel groups for better parallel execution control")
-        
-        if agentflow.supervisor_config.get("enabled") and not agentflow.supervisor_config.get("llm_provider"):
-            recommendations.append("Configure supervisor LLM provider for AI-powered orchestration")
-        
-        return {
-            "agentflow_id": str(agentflow.id),
-            "validation_status": "valid" if not issues else "invalid",
-            "issues": issues,
-            "recommendations": recommendations,
-            "agent_count": len(agents),
-            "edge_count": len(edges),
-            "orchestration_type": agentflow.orchestration_type,
+        # Build input/output schemas
+        input_schema = {
+            "type": "object",
+            "properties": {
+                "input": {
+                    "type": "string",
+                    "description": "Input text for the agent",
+                },
+                "context": {
+                    "type": "object",
+                    "description": "Additional context",
+                },
+            },
+            "required": ["input"],
         }
+        
+        output_schema = {
+            "type": "object",
+            "properties": {
+                "output": {
+                    "type": "string",
+                    "description": "Agent response",
+                },
+                "metadata": {
+                    "type": "object",
+                    "description": "Execution metadata",
+                },
+            },
+        }
+        
+        # Build configuration from agent
+        configuration = {
+            "agent_id": str(agent.id),
+            "agent_type": agent.agent_type,
+            "llm_provider": agent.llm_provider,
+            "llm_model": agent.llm_model,
+            "configuration": agent.configuration,
+            "context_items": agent.context_items,
+            "mcp_servers": agent.mcp_servers,
+        }
+        
+        # Get agent tools
+        agent_tools = self.db.query(AgentTool).filter(
+            AgentTool.agent_id == agent.id
+        ).all()
+        tool_ids = [str(at.tool_id) for at in agent_tools]
+        configuration["tool_ids"] = tool_ids
+        
+        # Update block
+        block.input_schema = input_schema
+        block.output_schema = output_schema
+        block.configuration = configuration
+        block.implementation = "agent_executor"  # Special implementation type
+        
+        self.db.flush()
+        
+        logger.info(f"Converted agent {agent_id} to block {block.id}")
+        
+        return block
+    
+    def add_agent_block_to_workflow(
+        self,
+        workflow_id: str,
+        agent_id: str,
+        position_x: float = 0,
+        position_y: float = 0,
+        auto_convert: bool = True,
+        role: str = "worker",
+        max_retries: int = 3,
+        timeout_seconds: int = 60,
+    ) -> WorkflowNode:
+        """
+        Add an agent as a block node to a workflow.
+        
+        Args:
+            workflow_id: ID of the workflow
+            agent_id: ID of the agent
+            position_x: X position in visual editor
+            position_y: Y position in visual editor
+            auto_convert: If True, automatically convert agent to block
+            role: Agent role in workflow
+            max_retries: Maximum retry attempts
+            timeout_seconds: Timeout for agent execution
+            
+        Returns:
+            Created WorkflowNode instance
+        """
+        workflow = self.db.query(Workflow).filter(
+            Workflow.id == uuid.UUID(workflow_id)
+        ).first()
+        if not workflow:
+            raise NotFoundError(f"Workflow {workflow_id} not found")
+        
+        agent = self.db.query(Agent).filter(
+            Agent.id == uuid.UUID(agent_id)
+        ).first()
+        if not agent:
+            raise NotFoundError(f"Agent {agent_id} not found")
+        
+        # Option 1: Convert agent to block (for visual representation)
+        if auto_convert:
+            block = self.convert_agent_to_block(agent_id, create_new=False)
+            block_id = block.id
+            
+            # Create workflow node with block reference
+            node = WorkflowNode(
+                workflow_id=uuid.UUID(workflow_id),
+                node_type="agent",  # Special node type for agents
+                node_ref_id=str(block_id),
+                name=agent.name,
+                description=agent.description,
+                configuration={
+                    "agent_id": str(agent_id),
+                    "block_id": str(block_id),
+                    "role": role,
+                    "max_retries": max_retries,
+                    "timeout_seconds": timeout_seconds,
+                },
+                position_x=position_x,
+                position_y=position_y,
+            )
+        else:
+            # Option 2: Direct agent reference (simpler, no block conversion)
+            node = WorkflowNode(
+                workflow_id=uuid.UUID(workflow_id),
+                node_type="agent",
+                node_ref_id=str(agent_id),  # Direct agent reference
+                name=agent.name,
+                description=agent.description,
+                configuration={
+                    "agent_id": str(agent_id),
+                    "agentId": str(agent_id),  # For compatibility
+                    "role": role,
+                    "max_retries": max_retries,
+                    "timeout_seconds": timeout_seconds,
+                },
+                position_x=position_x,
+                position_y=position_y,
+            )
+        
+        self.db.add(node)
+        self.db.flush()
+        
+        logger.info(f"Added agent {agent_id} as node to workflow {workflow_id}")
+        
+        return node
+    
+    def sync_agent_to_block(
+        self,
+        agent_id: str,
+    ) -> Block:
+        """
+        Sync agent changes to its corresponding block.
+        
+        Args:
+            agent_id: ID of the agent
+            
+        Returns:
+            Updated Block instance
+        """
+        return self.convert_agent_to_block(agent_id, create_new=False)

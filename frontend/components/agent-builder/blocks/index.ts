@@ -8,6 +8,10 @@ import GeminiAutoOptimizerBlock from './GeminiAutoOptimizerBlock';
 import PredictiveRoutingBlock from './PredictiveRoutingBlock';
 import GeminiBlockRenderer from './GeminiBlockRenderer';
 
+// Agentic Workflow Blocks
+export { AgenticBlockPalette } from './AgenticBlockPalette';
+export { AgenticBlockConfigPanel } from './AgenticBlockConfigPanel';
+
 // Re-export for external use
 export { 
   GeminiVisionBlock,

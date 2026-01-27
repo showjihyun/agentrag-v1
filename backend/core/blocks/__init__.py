@@ -19,6 +19,14 @@ from backend.core.blocks.parallel_block import ParallelBlock
 from backend.core.blocks.openai_block import OpenAIBlock
 from backend.core.blocks.knowledge_base_block import KnowledgeBaseBlock, KnowledgeBaseUploadBlock
 
+# Import agentic blocks registration
+try:
+    from backend.core.blocks.agentic import register_blocks
+    # Registration happens on import
+except ImportError as e:
+    import logging
+    logging.getLogger(__name__).warning(f"Failed to register agentic blocks: {e}")
+
 __all__ = [
     # Registry
     "BlockRegistry",

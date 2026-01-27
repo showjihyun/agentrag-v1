@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Search, Filter, MoreVertical, Edit, Play, Copy, Trash, Box, Zap, Code, Layers, ArrowDownToLine, ArrowUpFromLine, Bot, Brain, Settings2 } from 'lucide-react';
+import { Plus, Search, Filter, MoreVertical, Edit, Play, Copy, Trash, Box, Zap, Code, Layers, ArrowDownToLine, ArrowUpFromLine, Bot, Brain, Settings2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -45,6 +45,15 @@ export default function BuildingBlocksPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('name');
   const [activeTab, setActiveTab] = useState('all');
+
+  // Handle Agentic tab click - redirect to agentic-demo page
+  const handleTabChange = (value: string) => {
+    if (value === 'agentic') {
+      router.push('/agent-builder/workflows/agentic-demo');
+    } else {
+      setActiveTab(value);
+    }
+  };
 
   useEffect(() => {
     loadData();
@@ -262,13 +271,17 @@ export default function BuildingBlocksPage() {
       </div>
 
       {/* Tabs for Categories */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-6">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="all">All</TabsTrigger>
           <TabsTrigger value="agents">AI Agents</TabsTrigger>
-          <TabsTrigger value="llm">LLM Blocks</TabsTrigger>
-          <TabsTrigger value="tool">Tool Blocks</TabsTrigger>
-          <TabsTrigger value="logic">Logic Blocks</TabsTrigger>
+          <TabsTrigger value="agentic">
+            <Sparkles className="mr-1 h-3 w-3" />
+            Agentic
+          </TabsTrigger>
+          <TabsTrigger value="llm">LLM</TabsTrigger>
+          <TabsTrigger value="tool">Tools</TabsTrigger>
+          <TabsTrigger value="logic">Logic</TabsTrigger>
           <TabsTrigger value="composite">Composite</TabsTrigger>
         </TabsList>
 

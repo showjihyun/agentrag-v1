@@ -8,6 +8,7 @@ from functools import lru_cache
 
 from backend.core.auth_dependencies import get_current_user
 from backend.db.database import get_db
+from backend.db.session_utils import get_db_session
 from backend.db.models.user import User
 from backend.core.tools.registry import ToolRegistry
 
@@ -86,8 +87,7 @@ async def list_tools(
         
         # Also get tools from database (custom tools)
         from backend.db.models.agent_builder import Tool as DBTool
-        db = next(get_db())
-        try:
+        with get_db_session() as db:
             query = db.query(DBTool)
             if category:
                 query = query.filter(DBTool.category == category)
@@ -111,8 +111,6 @@ async def list_tools(
                     "params": db_tool.input_schema or {},
                     "outputs": db_tool.output_schema or {},
                 })
-        finally:
-            db.close()
         
         # Apply search filter if provided
         if search:
@@ -187,8 +185,7 @@ async def get_tool(
         
         # Try database
         from backend.db.models.agent_builder import Tool as DBTool
-        db = next(get_db())
-        try:
+        with get_db_session() as db:
             db_tool = db.query(DBTool).filter(DBTool.id == tool_id).first()
             if db_tool:
                 return {
@@ -202,8 +199,6 @@ async def get_tool(
                     "params": db_tool.input_schema or {},
                     "outputs": db_tool.output_schema or {},
                 }
-        finally:
-            db.close()
         
         # Not found
         raise HTTPException(

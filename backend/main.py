@@ -824,6 +824,7 @@ app.include_router(event_store.router)
 from backend.api.agent_builder import (
     agents as agent_builder_agents,
     blocks as agent_builder_blocks,
+    block_types as agent_builder_block_types,  # Block Types Registry API
     workflows as agent_builder_workflows,
     knowledgebases as agent_builder_knowledgebases,
     variables as agent_builder_variables,
@@ -928,6 +929,7 @@ from backend.api.admin import rate_limit_management
 app.include_router(agent_builder_dashboard.router)
 app.include_router(agent_builder_agents.router)
 app.include_router(agent_builder_blocks.router)
+app.include_router(agent_builder_block_types.router)  # Block Types Registry API
 app.include_router(agent_builder_workflows.router)
 app.include_router(agent_builder_knowledgebases.router)
 app.include_router(agent_builder_knowledge_graphs.router)
@@ -998,6 +1000,10 @@ app.include_router(agent_builder_chatflows.router)  # Chatflow-specific API
 app.include_router(agent_builder_embed.router)  # Embed widget for Chatflows
 app.include_router(agent_builder_flow_templates.router)  # Flow templates management
 app.include_router(agent_builder_nlp_generator.router)  # NLP Workflow Generator
+
+# Agentic Workflow Patterns API
+from backend.api import agentic_rag
+app.include_router(agentic_rag.router)  # Agentic RAG with intelligent retrieval
 app.include_router(agent_builder_gemini_multimodal.router)  # Gemini 3.0 MultiModal API
 app.include_router(agent_builder_gemini_templates.router)  # Gemini MultiModal Templates
 app.include_router(agent_builder_gemini_realtime.router)  # Gemini Real-time Execution

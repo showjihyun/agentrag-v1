@@ -10,11 +10,14 @@ import asyncio
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 import uuid
+import json
 
 from sqlalchemy.orm import Session
 
-from backend.db.models.agent_builder import Workflow, WorkflowExecution
+from backend.db.models.agent_builder import Workflow, WorkflowExecution, Agent
+from backend.db.models.flows import Agentflow, AgentflowAgent, AgentflowEdge, FlowExecution
 from backend.services.agent_builder.workflow_executor import WorkflowExecutor
+from backend.services.agent_builder.integration_service import AgentWorkflowIntegrationService
 from backend.db.models.flows import TokenUsage
 
 logger = logging.getLogger(__name__)
