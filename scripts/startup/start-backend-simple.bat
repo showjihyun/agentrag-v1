@@ -26,8 +26,22 @@ echo PYTHONPATH set to: %PYTHONPATH%
 cd backend
 echo.
 
+REM Get local IP address
+for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /c:"IPv4"') do (
+    set IP=%%a
+    goto :found
+)
+
+:found
+REM Trim spaces
+for /f "tokens=* delims= " %%a in ("%IP%") do set IP=%%a
+
 REM Start uvicorn
-echo Starting uvicorn on http://localhost:8000
+echo Starting uvicorn on all network interfaces
+echo - Local:   http://localhost:8000
+echo - Network: http://%IP%:8000
+echo - Docs:    http://%IP%:8000/docs
+echo.
 echo Press Ctrl+C to stop
 echo.
 

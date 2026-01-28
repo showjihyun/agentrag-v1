@@ -139,13 +139,28 @@ call deactivate
 cd ..
 echo.
 
+REM Get local IP address
+for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /c:"IPv4"') do (
+    set LOCAL_IP=%%a
+    goto :ip_found
+)
+
+:ip_found
+REM Trim spaces
+for /f "tokens=* delims= " %%a in ("%LOCAL_IP%") do set LOCAL_IP=%%a
+
 REM Start servers
 echo [6/6] Starting servers...
 echo.
 echo ========================================
-echo   Backend:  http://localhost:8000
-echo   Frontend: http://localhost:3000
-echo   API Docs: http://localhost:8000/docs
+echo   Backend:
+echo   - Local:   http://localhost:8000
+echo   - Network: http://%LOCAL_IP%:8000
+echo   - Docs:    http://%LOCAL_IP%:8000/docs
+echo.
+echo   Frontend:
+echo   - Local:   http://localhost:3000
+echo   - Network: http://%LOCAL_IP%:3000
 echo ========================================
 echo.
 echo Press Ctrl+C to stop servers.
@@ -158,15 +173,20 @@ REM Wait for backend to start
 timeout /t 3 /nobreak >nul
 
 REM Start frontend server (new window)
-start "Agent Builder - Frontend" cmd /k "cd /d %~dp0frontend && npm run dev"
+start "Agent Builder - Frontend" cmd /k "cd /d %~dp0frontend && npm run dev -- -H 0.0.0.0"
 
 echo.
 echo ========================================
 echo   Servers started successfully!
 echo ========================================
 echo.
-echo Backend:  http://localhost:8000
-echo Frontend: http://localhost:3000
+echo Backend:
+echo - Local:   http://localhost:8000
+echo - Network: http://%LOCAL_IP%:8000
+echo.
+echo Frontend:
+echo - Local:   http://localhost:3000
+echo - Network: http://%LOCAL_IP%:3000
 echo.
 echo Check the new windows for server logs.
 echo Close those windows to stop the servers.
