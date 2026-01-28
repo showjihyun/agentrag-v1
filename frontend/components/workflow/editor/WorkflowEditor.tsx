@@ -111,6 +111,9 @@ interface ExecutionLog {
   message: string;
   timestamp: Date;
   duration?: number;
+  output?: any;  // ✅ 노드 출력 결과
+  input?: any;   // ✅ 노드 입력 데이터
+  error?: string; // ✅ 에러 메시지
 }
 
 // 노드 타입 정의
@@ -272,24 +275,31 @@ const WorkflowEditorContent: React.FC<WorkflowEditorProps> = ({
       // 실행 로그 추가
       const log: ExecutionLog = {
         id: `${update.execution_id}_${Date.now()}`,
-        nodeId: update.data.node_id || 'workflow',
-        nodeName: update.data.node_name || update.update_type,
+        nodeId: update.node_id || update.data?.node_id || 'workflow',
+        nodeName: update.data?.node_name || update.update_type,
         status: update.update_type.includes('error') ? 'error' 
               : update.update_type.includes('complete') ? 'success' 
               : 'running',
-        message: update.data.message || JSON.stringify(update.data),
+        message: update.data?.message || JSON.stringify(update.data || {}),
         timestamp: new Date(update.timestamp),
-        duration: update.data.execution_time_ms,
+        duration: update.duration_ms || update.data?.execution_time_ms,
+        output: update.output || update.data?.output || update.data?.result,  // ✅ 여러 경로 확인
+        input: update.input || update.data?.input,  // ✅ input 추가
+        error: update.error || update.data?.error,  // ✅ error 추가
       };
       setExecutionLogs(prev => [...prev, log]);
       
       // AI 노드 결과를 채팅 메시지로 추가
-      if (update.update_type === 'node_complete' && update.data.node_type) {
-        const aiNodeTypes = ['llm', 'agent', 'orchestration'];
+      if (update.update_type === 'node_complete' && update.data?.node_type) {
+        const aiNodeTypes = ['llm', 'agent', 'orchestration', 'ai_agent'];
         if (aiNodeTypes.includes(update.data.node_type)) {
+          // output에서 response 추출
+          const outputData = update.output || update.data?.output || update.data?.result;
+          const responseText = outputData?.response || outputData?.output || JSON.stringify(outputData, null, 2);
+          
           const aiResponse: ChatMessage = {
             role: 'assistant',
-            content: update.data.result?.response || update.data.result?.output || JSON.stringify(update.data.result, null, 2),
+            content: responseText,
             timestamp: new Date(update.timestamp),
           };
           setChatMessages(prev => [...prev, aiResponse]);
@@ -300,7 +310,7 @@ const WorkflowEditorContent: React.FC<WorkflowEditorProps> = ({
       if (update.update_type === 'workflow_complete') {
         const finalMessage: ChatMessage = {
           role: 'assistant',
-          content: `✅ Workflow completed successfully!\n\nExecution Time: ${update.data.execution_time_seconds?.toFixed(2)}s\n\nResults:\n${JSON.stringify(update.data.results, null, 2)}`,
+          content: `✅ Workflow completed successfully!\n\nExecution Time: ${update.data?.execution_time_seconds?.toFixed(2)}s\n\nResults:\n${JSON.stringify(update.data?.results, null, 2)}`,
           timestamp: new Date(update.timestamp),
         };
         setChatMessages(prev => [...prev, finalMessage]);
@@ -310,7 +320,7 @@ const WorkflowEditorContent: React.FC<WorkflowEditorProps> = ({
       if (update.update_type === 'workflow_error' || update.update_type === 'node_error') {
         const errorMessage: ChatMessage = {
           role: 'assistant',
-          content: `❌ Error: ${update.data.error || 'Unknown error occurred'}`,
+          content: `❌ Error: ${update.error || update.data?.error || 'Unknown error occurred'}`,
           timestamp: new Date(update.timestamp),
         };
         setChatMessages(prev => [...prev, errorMessage]);

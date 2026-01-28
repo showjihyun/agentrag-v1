@@ -11,6 +11,12 @@ from .llm_handler import LLMNodeHandler
 from .code_handler import CodeNodeHandler
 from .http_handler import HTTPNodeHandler
 from .start_end_handler import StartNodeHandler, EndNodeHandler
+from .agentic_handlers import (
+    AgenticReflectionHandler,
+    AgenticPlanningHandler,
+    AgenticToolSelectorHandler,
+    AgenticRAGHandler,
+)
 
 __all__ = [
     "AgentNodeHandler",
@@ -21,4 +27,8 @@ __all__ = [
     "HTTPNodeHandler",
     "StartNodeHandler",
     "EndNodeHandler",
+    "AgenticReflectionHandler",
+    "AgenticPlanningHandler",
+    "AgenticToolSelectorHandler",
+    "AgenticRAGHandler",
 ]

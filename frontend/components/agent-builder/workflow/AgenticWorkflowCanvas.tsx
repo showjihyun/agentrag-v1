@@ -136,7 +136,12 @@ function AgenticWorkflowCanvasInner({
     setNodes((nds) =>
       nds.map((node) =>
         node.id === selectedNode.id
-          ? { ...node, data: { ...node.data, config } }
+          ? { 
+              ...node, 
+              data: { ...node.data, config },
+              // Preserve position explicitly
+              position: node.position,
+            }
           : node
       )
     );
@@ -160,7 +165,12 @@ function AgenticWorkflowCanvasInner({
       setNodes((nds) =>
         nds.map((n) =>
           n.id === node.id
-            ? { ...n, data: { ...n.data, status: 'running' } }
+            ? { 
+                ...n, 
+                data: { ...n.data, status: 'running' },
+                // Preserve position explicitly
+                position: n.position,
+              }
             : n
         )
       );
@@ -178,7 +188,9 @@ function AgenticWorkflowCanvasInner({
                   iterationCount: Math.floor(Math.random() * 3) + 1,
                   qualityScore: Math.random() * 0.3 + 0.7,
                   confidenceScore: Math.random() * 0.2 + 0.8,
-                } 
+                },
+                // Preserve position explicitly
+                position: n.position,
               }
             : n
         )
@@ -195,6 +207,8 @@ function AgenticWorkflowCanvasInner({
       nds.map((node) => ({
         ...node,
         data: { ...node.data, status: 'idle' },
+        // Preserve position explicitly
+        position: node.position,
       }))
     );
   }, [setNodes]);
@@ -287,7 +301,15 @@ function AgenticWorkflowCanvasInner({
             onConnect={onConnect}
             onNodeClick={onNodeClick}
             nodeTypes={nodeTypes}
-            fitView
+            fitView={false}
+            defaultViewport={{ x: 0, y: 0, zoom: 1 }}
+            minZoom={0.1}
+            maxZoom={4}
+            nodesDraggable={true}
+            nodesConnectable={true}
+            elementsSelectable={true}
+            snapToGrid={true}
+            snapGrid={[15, 15]}
             className="bg-muted/30"
           >
             <Background />

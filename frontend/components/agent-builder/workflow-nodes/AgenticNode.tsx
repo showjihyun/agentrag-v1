@@ -94,26 +94,30 @@ function AgenticNode({ data, selected }: NodeProps<AgenticNodeData>) {
       className={cn(
         'min-w-[280px] transition-all duration-200',
         selected && 'ring-2 ring-primary ring-offset-2',
-        data.status === 'running' && 'animate-pulse'
+        data.status === 'running' && 'ring-1 ring-primary/30'
       )}
     >
       {/* Input Handle */}
       <Handle
         type="target"
         position={Position.Left}
-        className="w-3 h-3 !bg-primary"
+        className="w-3 h-3 !bg-primary transition-all duration-200 hover:scale-110"
       />
 
       <CardHeader className="p-3 pb-2">
         {/* Header with gradient background */}
         <div
           className={cn(
-            'flex items-center gap-2 p-2 rounded-lg bg-gradient-to-r',
-            colors.bg
+            'flex items-center gap-2 p-2 rounded-lg bg-gradient-to-r transition-all duration-300',
+            colors.bg,
+            data.status === 'running' && 'shadow-md'
           )}
         >
           <div className="p-1.5 rounded-md bg-white/20 backdrop-blur-sm">
-            <Icon className="h-4 w-4 text-white" />
+            <Icon className={cn(
+              'h-4 w-4 text-white transition-all duration-300',
+              data.status === 'running' && 'animate-pulse'
+            )} />
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="text-sm font-semibold text-white truncate">
@@ -126,7 +130,7 @@ function AgenticNode({ data, selected }: NodeProps<AgenticNodeData>) {
             </Badge>
             <StatusIcon 
               className={cn(
-                'h-4 w-4',
+                'h-4 w-4 transition-all duration-200',
                 data.status === 'running' && 'animate-spin',
                 data.status === 'success' && 'text-green-500',
                 data.status === 'error' && 'text-red-500',
@@ -197,7 +201,7 @@ function AgenticNode({ data, selected }: NodeProps<AgenticNodeData>) {
       <Handle
         type="source"
         position={Position.Right}
-        className="w-3 h-3 !bg-primary"
+        className="w-3 h-3 !bg-primary transition-all duration-200 hover:scale-110"
       />
     </Card>
   );

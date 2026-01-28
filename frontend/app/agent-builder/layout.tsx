@@ -167,7 +167,7 @@ import { AgentBuilderErrorBoundary } from '@/components/agent-builder/AgentBuild
 import { useAgentBuilderStore } from '@/lib/stores/agent-builder-store';
 
 // Sidebar width constants
-const SIDEBAR_WIDTH = 314; // 264px + 50px = 314px
+const SIDEBAR_WIDTH = 72; // Compact icon-only width
 const SIDEBAR_COLLAPSED_WIDTH = 0;
 
 export default function AgentBuilderLayout({
@@ -208,96 +208,70 @@ export default function AgentBuilderLayout({
           <aside
             className={cn(
               "fixed inset-y-0 left-0 z-50 border-r bg-card transition-all duration-300 ease-in-out lg:static",
-              // Mobile: slide in/out
-              safeSidebarOpen ? "translate-x-0" : "-translate-x-full",
-              // Desktop: collapse/expand with width transition
+              // Mobile: slide in/out (full width on mobile)
+              safeSidebarOpen ? "translate-x-0 w-[314px]" : "-translate-x-full w-[314px]",
+              // Desktop: compact icon-only width
               "lg:translate-x-0",
-              safeSidebarCollapsed ? "lg:w-0 lg:border-r-0 lg:overflow-hidden" : "lg:w-[314px]"
+              safeSidebarCollapsed ? "lg:w-0 lg:border-r-0 lg:overflow-hidden" : "lg:w-[72px]"
             )}
-            style={{
-              width: safeSidebarCollapsed ? 0 : SIDEBAR_WIDTH,
-            }}
           >
             {/* Header */}
-            <div className="flex h-16 items-center justify-between border-b px-4">
-              <Link href="/agent-builder" className="group flex items-center gap-2 hover:opacity-90 transition-opacity">
+            <div className="flex h-16 items-center justify-center border-b px-2">
+              <Link href="/agent-builder" className="group flex items-center hover:opacity-90 transition-opacity lg:hidden">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
                   <Sparkles className="h-4 w-4 text-primary-foreground" />
                 </div>
-                <h2 className="text-lg font-semibold">Agent Builder</h2>
+                <h2 className="text-lg font-semibold ml-2">Agent Builder</h2>
               </Link>
-              <div className="flex items-center gap-1">
-                {/* Desktop collapse button */}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="hidden lg:flex"
-                  onClick={() => setSidebarCollapsed(true)}
-                  title="Collapse sidebar"
-                >
-                  <PanelLeftClose className="h-5 w-5" />
-                </Button>
-                {/* Mobile close button */}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="lg:hidden"
-                  onClick={() => setSidebarOpen(false)}
-                >
-                  <X className="h-5 w-5" />
-                </Button>
-              </div>
+              {/* Desktop: Icon only */}
+              <Link href="/agent-builder" className="hidden lg:flex items-center hover:opacity-90 transition-opacity" title="Agent Builder">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
+                  <Sparkles className="h-5 w-5 text-primary-foreground" />
+                </div>
+              </Link>
+              {/* Mobile close button */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="lg:hidden absolute right-2"
+                onClick={() => setSidebarOpen(false)}
+              >
+                <X className="h-5 w-5" />
+              </Button>
             </div>
 
             <ScrollArea className="h-[calc(100vh-4rem)]">
-              <nav className="space-y-2 p-4">
+              <nav className="space-y-2 p-2">
                 {/* Flow Types Section */}
                 <div className="mb-4">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 px-3">
+                  <div className="flex items-center justify-center mb-3 px-1">
                     <div className="h-1 w-1 rounded-full bg-blue-500"></div>
-                    Flows
                   </div>
                   <div className="space-y-1">
                     {navigation.slice(0, 4).map((item) => {
                       const Icon = item.icon;
                       const isActive = pathname?.startsWith(item.href);
                       return (
-                        <Link key={item.name} href={item.href}>
+                        <Link key={item.name} href={item.href} title={item.name}>
                           <div
                             className={cn(
-                              "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800/60",
+                              "group relative flex items-center justify-center rounded-xl p-2.5 transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800/60",
                               isActive 
-                                ? "bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/50 dark:to-purple-950/50 text-blue-700 dark:text-blue-300 shadow-sm border border-blue-200/50 dark:border-blue-800/50" 
-                                : "text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100"
+                                ? "bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/50 dark:to-purple-950/50 shadow-sm border border-blue-200/50 dark:border-blue-800/50" 
+                                : "hover:scale-105"
                             )}
                             onClick={() => setSidebarOpen(false)}
                           >
                             <div className={cn(
-                              "flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
+                              "flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
                               isActive 
                                 ? "bg-gradient-to-br from-blue-500 to-purple-500 text-white shadow-sm" 
                                 : "bg-slate-100 dark:bg-slate-800 group-hover:bg-slate-200 dark:group-hover:bg-slate-700"
                             )}>
-                              <Icon className="h-4 w-4" />
+                              <Icon className="h-5 w-5" />
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="truncate">{item.name}</span>
-                                {item.badge && (
-                                  <Badge 
-                                    variant={item.badgeVariant || 'default'} 
-                                    className="text-[10px] px-1.5 py-0.5 h-5"
-                                  >
-                                    {item.badge}
-                                  </Badge>
-                                )}
-                              </div>
-                              <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
-                                {item.description}
-                              </p>
-                            </div>
-                            {isActive && (
-                              <ChevronRight className="h-4 w-4 text-blue-500" />
+                            {item.badge && (
+                              <div className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-blue-500 border-2 border-background"></div>
                             )}
                           </div>
                         </Link>
@@ -310,51 +284,34 @@ export default function AgentBuilderLayout({
 
                 {/* Building Blocks Section */}
                 <div className="mb-4">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 px-3">
+                  <div className="flex items-center justify-center mb-3 px-1">
                     <div className="h-1 w-1 rounded-full bg-green-500"></div>
-                    Building Blocks
                   </div>
                   <div className="space-y-1">
                     {navigation.slice(4, 8).map((item) => {
                       const Icon = item.icon;
                       const isActive = pathname?.startsWith(item.href);
                       return (
-                        <Link key={item.name} href={item.href}>
+                        <Link key={item.name} href={item.href} title={item.name}>
                           <div
                             className={cn(
-                              "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800/60",
+                              "group relative flex items-center justify-center rounded-xl p-2.5 transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800/60",
                               isActive 
-                                ? "bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/50 dark:to-emerald-950/50 text-green-700 dark:text-green-300 shadow-sm border border-green-200/50 dark:border-green-800/50" 
-                                : "text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100"
+                                ? "bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/50 dark:to-emerald-950/50 shadow-sm border border-green-200/50 dark:border-green-800/50" 
+                                : "hover:scale-105"
                             )}
                             onClick={() => setSidebarOpen(false)}
                           >
                             <div className={cn(
-                              "flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
+                              "flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
                               isActive 
                                 ? "bg-gradient-to-br from-green-500 to-emerald-500 text-white shadow-sm" 
                                 : "bg-slate-100 dark:bg-slate-800 group-hover:bg-slate-200 dark:group-hover:bg-slate-700"
                             )}>
-                              <Icon className="h-4 w-4" />
+                              <Icon className="h-5 w-5" />
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="truncate">{item.name}</span>
-                                {item.badge && (
-                                  <Badge 
-                                    variant={item.badgeVariant || 'default'} 
-                                    className="text-[10px] px-1.5 py-0.5 h-5"
-                                  >
-                                    {item.badge}
-                                  </Badge>
-                                )}
-                              </div>
-                              <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
-                                {item.description}
-                              </p>
-                            </div>
-                            {isActive && (
-                              <ChevronRight className="h-4 w-4 text-green-500" />
+                            {item.badge && (
+                              <div className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-green-500 border-2 border-background"></div>
                             )}
                           </div>
                         </Link>
@@ -367,52 +324,32 @@ export default function AgentBuilderLayout({
 
                 {/* Data & Knowledge Section */}
                 <div className="mb-4">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 px-3">
+                  <div className="flex items-center justify-center mb-3 px-1">
                     <div className="h-1 w-1 rounded-full bg-orange-500"></div>
-                    Data & Knowledge
                   </div>
                   <div className="space-y-1">
                     {navigation.slice(8, 10).map((item) => {
                       const Icon = item.icon;
                       const isActive = pathname?.startsWith(item.href);
                       return (
-                        <Link key={item.name} href={item.href}>
+                        <Link key={item.name} href={item.href} title={item.name}>
                           <div
                             className={cn(
-                              "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800/60",
+                              "group relative flex items-center justify-center rounded-xl p-2.5 transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800/60",
                               isActive 
-                                ? "bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-950/50 dark:to-amber-950/50 text-orange-700 dark:text-orange-300 shadow-sm border border-orange-200/50 dark:border-orange-800/50" 
-                                : "text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100"
+                                ? "bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-950/50 dark:to-amber-950/50 shadow-sm border border-orange-200/50 dark:border-orange-800/50" 
+                                : "hover:scale-105"
                             )}
                             onClick={() => setSidebarOpen(false)}
                           >
                             <div className={cn(
-                              "flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
+                              "flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
                               isActive 
                                 ? "bg-gradient-to-br from-orange-500 to-amber-500 text-white shadow-sm" 
                                 : "bg-slate-100 dark:bg-slate-800 group-hover:bg-slate-200 dark:group-hover:bg-slate-700"
                             )}>
-                              <Icon className="h-4 w-4" />
+                              <Icon className="h-5 w-5" />
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="truncate">{item.name}</span>
-                                {item.badge && (
-                                  <Badge 
-                                    variant={item.badgeVariant || 'default'} 
-                                    className="text-[10px] px-1.5 py-0.5 h-5"
-                                  >
-                                    {item.badge}
-                                  </Badge>
-                                )}
-                              </div>
-                              <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
-                                {item.description}
-                              </p>
-                            </div>
-                            {isActive && (
-                              <ChevronRight className="h-4 w-4 text-orange-500" />
-                            )}
                           </div>
                         </Link>
                       );
@@ -424,51 +361,34 @@ export default function AgentBuilderLayout({
 
                 {/* Observability Section */}
                 <div className="mb-4">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 px-3">
+                  <div className="flex items-center justify-center mb-3 px-1">
                     <div className="h-1 w-1 rounded-full bg-purple-500"></div>
-                    Observability
                   </div>
                   <div className="space-y-1">
                     {navigation.slice(10, 12).map((item) => {
                       const Icon = item.icon;
                       const isActive = pathname?.startsWith(item.href);
                       return (
-                        <Link key={item.name} href={item.href}>
+                        <Link key={item.name} href={item.href} title={item.name}>
                           <div
                             className={cn(
-                              "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800/60",
+                              "group relative flex items-center justify-center rounded-xl p-2.5 transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800/60",
                               isActive 
-                                ? "bg-gradient-to-r from-purple-50 to-violet-50 dark:from-purple-950/50 dark:to-violet-950/50 text-purple-700 dark:text-purple-300 shadow-sm border border-purple-200/50 dark:border-purple-800/50" 
-                                : "text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100"
+                                ? "bg-gradient-to-r from-purple-50 to-violet-50 dark:from-purple-950/50 dark:to-violet-950/50 shadow-sm border border-purple-200/50 dark:border-purple-800/50" 
+                                : "hover:scale-105"
                             )}
                             onClick={() => setSidebarOpen(false)}
                           >
                             <div className={cn(
-                              "flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
+                              "flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
                               isActive 
                                 ? "bg-gradient-to-br from-purple-500 to-violet-500 text-white shadow-sm" 
                                 : "bg-slate-100 dark:bg-slate-800 group-hover:bg-slate-200 dark:group-hover:bg-slate-700"
                             )}>
-                              <Icon className="h-4 w-4" />
+                              <Icon className="h-5 w-5" />
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="truncate">{item.name}</span>
-                                {item.badge && (
-                                  <Badge 
-                                    variant={item.badgeVariant || 'default'} 
-                                    className="text-[10px] px-1.5 py-0.5 h-5"
-                                  >
-                                    {item.badge}
-                                  </Badge>
-                                )}
-                              </div>
-                              <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
-                                {item.description}
-                              </p>
-                            </div>
-                            {isActive && (
-                              <ChevronRight className="h-4 w-4 text-purple-500" />
+                            {item.badge && (
+                              <div className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-purple-500 border-2 border-background"></div>
                             )}
                           </div>
                         </Link>
@@ -481,51 +401,34 @@ export default function AgentBuilderLayout({
 
                 {/* Developer Section */}
                 <div className="mb-4">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 px-3">
+                  <div className="flex items-center justify-center mb-3 px-1">
                     <div className="h-1 w-1 rounded-full bg-indigo-500"></div>
-                    Developer
                   </div>
                   <div className="space-y-1">
                     {navigation.slice(12).map((item) => {
                       const Icon = item.icon;
                       const isActive = pathname?.startsWith(item.href);
                       return (
-                        <Link key={item.name} href={item.href}>
+                        <Link key={item.name} href={item.href} title={item.name}>
                           <div
                             className={cn(
-                              "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800/60",
+                              "group relative flex items-center justify-center rounded-xl p-2.5 transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800/60",
                               isActive 
-                                ? "bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-indigo-950/50 dark:to-blue-950/50 text-indigo-700 dark:text-indigo-300 shadow-sm border border-indigo-200/50 dark:border-indigo-800/50" 
-                                : "text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100"
+                                ? "bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-indigo-950/50 dark:to-blue-950/50 shadow-sm border border-indigo-200/50 dark:border-indigo-800/50" 
+                                : "hover:scale-105"
                             )}
                             onClick={() => setSidebarOpen(false)}
                           >
                             <div className={cn(
-                              "flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
+                              "flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
                               isActive 
                                 ? "bg-gradient-to-br from-indigo-500 to-blue-500 text-white shadow-sm" 
                                 : "bg-slate-100 dark:bg-slate-800 group-hover:bg-slate-200 dark:group-hover:bg-slate-700"
                             )}>
-                              <Icon className="h-4 w-4" />
+                              <Icon className="h-5 w-5" />
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="truncate">{item.name}</span>
-                                {item.badge && (
-                                  <Badge 
-                                    variant={item.badgeVariant || 'default'} 
-                                    className="text-[10px] px-1.5 py-0.5 h-5"
-                                  >
-                                    {item.badge}
-                                  </Badge>
-                                )}
-                              </div>
-                              <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
-                                {item.description}
-                              </p>
-                            </div>
-                            {isActive && (
-                              <ChevronRight className="h-4 w-4 text-indigo-500" />
+                            {item.badge && (
+                              <div className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-indigo-500 border-2 border-background"></div>
                             )}
                           </div>
                         </Link>
@@ -542,33 +445,24 @@ export default function AgentBuilderLayout({
                     const Icon = item.icon;
                     const isActive = pathname?.startsWith(item.href);
                     return (
-                      <Link key={item.name} href={item.href}>
+                      <Link key={item.name} href={item.href} title={item.name}>
                         <div
                           className={cn(
-                            "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800/60",
+                            "group relative flex items-center justify-center rounded-xl p-2.5 transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800/60",
                             isActive 
-                              ? "bg-gradient-to-r from-slate-50 to-gray-50 dark:from-slate-800/50 dark:to-gray-800/50 text-slate-700 dark:text-slate-300 shadow-sm border border-slate-200/50 dark:border-slate-700/50" 
-                              : "text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100"
+                              ? "bg-gradient-to-r from-slate-50 to-gray-50 dark:from-slate-800/50 dark:to-gray-800/50 shadow-sm border border-slate-200/50 dark:border-slate-700/50" 
+                              : "hover:scale-105"
                           )}
                           onClick={() => setSidebarOpen(false)}
                         >
                           <div className={cn(
-                            "flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
+                            "flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
                             isActive 
                               ? "bg-gradient-to-br from-slate-500 to-gray-500 text-white shadow-sm" 
                               : "bg-slate-100 dark:bg-slate-800 group-hover:bg-slate-200 dark:group-hover:bg-slate-700"
                           )}>
-                            <Icon className="h-4 w-4" />
+                            <Icon className="h-5 w-5" />
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <span className="truncate">{item.name}</span>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
-                              {item.description}
-                            </p>
-                          </div>
-                          {isActive && (
-                            <ChevronRight className="h-4 w-4 text-slate-500" />
-                          )}
                         </div>
                       </Link>
                     );
@@ -585,11 +479,11 @@ export default function AgentBuilderLayout({
               <Button
                 variant="outline"
                 size="icon"
-                className="hidden lg:flex absolute left-2 top-4 z-10 h-8 w-8 shadow-md bg-background hover:bg-accent"
+                className="hidden lg:flex fixed left-2 top-4 z-10 h-9 w-9 shadow-lg bg-background hover:bg-accent border-2"
                 onClick={() => setSidebarCollapsed(false)}
                 title="Expand sidebar"
               >
-                <PanelLeft className="h-4 w-4" />
+                <PanelLeft className="h-5 w-5" />
               </Button>
             )}
             

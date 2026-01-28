@@ -49,6 +49,35 @@ def register_agentic_blocks():
                     "min": 0.0,
                     "max": 1.0,
                     "step": 0.1
+                },
+                {
+                    "id": "llm_provider",
+                    "type": "dropdown",
+                    "title": "LLM Provider",
+                    "required": False,
+                    "default": "ollama",
+                    "options": [
+                        {"label": "Ollama (Local)", "value": "ollama"},
+                        {"label": "OpenAI", "value": "openai"},
+                        {"label": "Claude (Anthropic)", "value": "claude"}
+                    ]
+                },
+                {
+                    "id": "llm_model",
+                    "type": "text",
+                    "title": "Model Name",
+                    "required": False,
+                    "placeholder": "e.g., llama3.3:70b, gpt-4, claude-3-sonnet"
+                },
+                {
+                    "id": "temperature",
+                    "type": "slider",
+                    "title": "Temperature",
+                    "required": False,
+                    "default": 0.7,
+                    "min": 0.0,
+                    "max": 2.0,
+                    "step": 0.1
                 }
             ],
             "inputs": {
@@ -101,6 +130,35 @@ def register_agentic_blocks():
                     "title": "Enable Replanning",
                     "required": False,
                     "default": True
+                },
+                {
+                    "id": "llm_provider",
+                    "type": "dropdown",
+                    "title": "LLM Provider",
+                    "required": False,
+                    "default": "ollama",
+                    "options": [
+                        {"label": "Ollama (Local)", "value": "ollama"},
+                        {"label": "OpenAI", "value": "openai"},
+                        {"label": "Claude (Anthropic)", "value": "claude"}
+                    ]
+                },
+                {
+                    "id": "llm_model",
+                    "type": "text",
+                    "title": "Model Name",
+                    "required": False,
+                    "placeholder": "e.g., llama3.3:70b, gpt-4, claude-3-sonnet"
+                },
+                {
+                    "id": "temperature",
+                    "type": "slider",
+                    "title": "Temperature",
+                    "required": False,
+                    "default": 0.7,
+                    "min": 0.0,
+                    "max": 2.0,
+                    "step": 0.1
                 }
             ],
             "inputs": {
@@ -153,6 +211,35 @@ def register_agentic_blocks():
                         {"label": "Cost Aware", "value": "cost_aware"},
                         {"label": "Success Rate", "value": "success_rate"}
                     ]
+                },
+                {
+                    "id": "llm_provider",
+                    "type": "dropdown",
+                    "title": "LLM Provider",
+                    "required": False,
+                    "default": "ollama",
+                    "options": [
+                        {"label": "Ollama (Local)", "value": "ollama"},
+                        {"label": "OpenAI", "value": "openai"},
+                        {"label": "Claude (Anthropic)", "value": "claude"}
+                    ]
+                },
+                {
+                    "id": "llm_model",
+                    "type": "text",
+                    "title": "Model Name",
+                    "required": False,
+                    "placeholder": "e.g., llama3.3:70b, gpt-4, claude-3-sonnet"
+                },
+                {
+                    "id": "temperature",
+                    "type": "slider",
+                    "title": "Temperature",
+                    "required": False,
+                    "default": 0.3,
+                    "min": 0.0,
+                    "max": 2.0,
+                    "step": 0.1
                 }
             ],
             "inputs": {
@@ -231,6 +318,35 @@ def register_agentic_blocks():
                     "default": 3,
                     "min": 1,
                     "max": 5
+                },
+                {
+                    "id": "llm_provider",
+                    "type": "dropdown",
+                    "title": "LLM Provider",
+                    "required": False,
+                    "default": "ollama",
+                    "options": [
+                        {"label": "Ollama (Local)", "value": "ollama"},
+                        {"label": "OpenAI", "value": "openai"},
+                        {"label": "Claude (Anthropic)", "value": "claude"}
+                    ]
+                },
+                {
+                    "id": "llm_model",
+                    "type": "text",
+                    "title": "Model Name",
+                    "required": False,
+                    "placeholder": "e.g., llama3.3:70b, gpt-4, claude-3-sonnet"
+                },
+                {
+                    "id": "temperature",
+                    "type": "slider",
+                    "title": "Temperature",
+                    "required": False,
+                    "default": 0.7,
+                    "min": 0.0,
+                    "max": 2.0,
+                    "step": 0.1
                 }
             ],
             "inputs": {

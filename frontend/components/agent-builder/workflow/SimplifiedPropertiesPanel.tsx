@@ -205,6 +205,18 @@ export const SimplifiedPropertiesPanel = ({
     (localData.category === 'ai' && (localData.name?.includes('Agent') || localData.label?.includes('Agent')))
   );
 
+  // Check if node is a control flow node (Start, End, Condition, etc.)
+  const isControlNode = node?.type === 'start' || 
+    node?.type === 'end' || 
+    node?.type === 'condition' ||
+    localData.category === 'control' ||
+    localData.type === 'start' ||
+    localData.type === 'end' ||
+    localData.type === 'condition';
+
+  // Check if node needs LLM configuration
+  const needsLLMConfig = isAIAgentTool && !isControlNode;
+
   if (!node || !isOpen) return null;
 
   return (
@@ -334,12 +346,62 @@ export const SimplifiedPropertiesPanel = ({
 
               {/* Config Tab */}
               <TabsContent value="config" className="space-y-4 mt-0">
+                {/* Control Node Config */}
+                {isControlNode && (
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm">Control Flow Settings</CardTitle>
+                      <CardDescription className="text-xs">
+                        Configure control flow behavior
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {node?.type === 'start' && (
+                        <div className="p-3 rounded-lg bg-muted/50 border border-border">
+                          <p className="text-sm font-medium mb-1">Start Node</p>
+                          <p className="text-xs text-muted-foreground">
+                            This is the entry point of your workflow. Configure the basic properties in the Basic tab.
+                          </p>
+                        </div>
+                      )}
+                      {node?.type === 'end' && (
+                        <div className="p-3 rounded-lg bg-muted/50 border border-border">
+                          <p className="text-sm font-medium mb-1">End Node</p>
+                          <p className="text-xs text-muted-foreground">
+                            This marks the completion of your workflow. You can configure output handling here.
+                          </p>
+                        </div>
+                      )}
+                      {node?.type === 'condition' && (
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="condition-expression" className="text-xs font-medium">
+                              Condition Expression
+                            </Label>
+                            <Textarea
+                              id="condition-expression"
+                              value={localData.parameters?.condition || ''}
+                              onChange={(e) => updateParameter('condition', e.target.value)}
+                              placeholder="e.g., input.value > 10"
+                              rows={3}
+                              className="resize-none text-sm font-mono"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Enter a JavaScript expression that evaluates to true or false
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
                 {/* Tool-specific config */}
-                {(() => {
+                {!isControlNode && (() => {
                   const configKey = localData.tool_id || node?.type;
                   const ToolConfigComponent = configKey ? getToolConfig(configKey) : null;
                   
-                  if (ToolConfigComponent && !isAIAgentTool) {
+                  if (ToolConfigComponent && !needsLLMConfig) {
                     return (
                       <Suspense fallback={<ConfigLoadingFallback />}>
                         <ToolConfigComponent
@@ -353,7 +415,7 @@ export const SimplifiedPropertiesPanel = ({
                 })()}
 
                 {/* AI Agent Config */}
-                {(isAIAgentTool || !getToolConfig(localData.tool_id || node?.type)) && (
+                {needsLLMConfig && (
                   <>
                     {/* LLM Configuration */}
                     <Card>

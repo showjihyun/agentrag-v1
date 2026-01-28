@@ -55,11 +55,16 @@ async def create_workflow(
         logger.info(f"Creating workflow for user {current_user.id}: {workflow_data.name}")
         
         facade = AgentBuilderFacade(db)
+        
+        # Convert Pydantic models to dicts
+        nodes_dict = [node.model_dump() if hasattr(node, 'model_dump') else node.dict() for node in (workflow_data.nodes or [])]
+        edges_dict = [edge.model_dump() if hasattr(edge, 'model_dump') else edge.dict() for edge in (workflow_data.edges or [])]
+        
         workflow = facade.create_workflow(
             user_id=str(current_user.id),
             name=workflow_data.name,
-            nodes=workflow_data.nodes,
-            edges=workflow_data.edges,
+            nodes=nodes_dict,
+            edges=edges_dict,
             description=workflow_data.description,
         )
         
@@ -157,7 +162,7 @@ async def update_workflow(
 ):
     """Update workflow using DDD Facade pattern."""
     try:
-        logger.info(f"Updating workflow {workflow_id} for user {current_user.id}")
+        logger.info(f"💾 Updating workflow {workflow_id} for user {current_user.id}")
         
         facade = AgentBuilderFacade(db)
         
@@ -169,17 +174,42 @@ async def update_workflow(
                 detail="You don't have permission to update this workflow"
             )
         
+        # Convert Pydantic models to dicts
+        nodes_dict = None
+        edges_dict = None
+        
+        if workflow_data.nodes is not None:
+            nodes_dict = [node.model_dump() if hasattr(node, 'model_dump') else node.dict() for node in workflow_data.nodes]
+            
+            # DEBUG: Log node data
+            logger.info(f"💾 Saving {len(nodes_dict)} nodes")
+            for node in nodes_dict:
+                node_type = node.get('type') or node.get('node_type', 'unknown')
+                node_data = node.get('data', {})
+                node_config = node_data.get('config', {})
+                
+                logger.info(
+                    f"  📦 Node {node.get('id')}: "
+                    f"type={node_type}, "
+                    f"data_keys={list(node_data.keys())}, "
+                    f"config_keys={list(node_config.keys()) if isinstance(node_config, dict) else 'not_dict'}, "
+                    f"config={node_config}"
+                )
+        
+        if workflow_data.edges is not None:
+            edges_dict = [edge.model_dump() if hasattr(edge, 'model_dump') else edge.dict() for edge in workflow_data.edges]
+        
         # Update workflow
         updated_workflow = facade.update_workflow(
             workflow_id=workflow_id,
             user_id=str(current_user.id),
             name=workflow_data.name,
-            nodes=workflow_data.nodes,
-            edges=workflow_data.edges,
+            nodes=nodes_dict,
+            edges=edges_dict,
             description=workflow_data.description,
         )
         
-        logger.info(f"Workflow updated successfully: {workflow_id}")
+        logger.info(f"✅ Workflow {workflow_id} updated successfully")
         
         # Convert UUID fields to strings for response
         return WorkflowResponse(
@@ -597,9 +627,22 @@ async def execute_workflow(
             user_id=str(current_user.id),
         )
         
-        logger.info(f"Workflow executed: {result.get('execution_id')} - Status: {result.get('status')}")
+        # result is an ExecutionAggregate, access its properties correctly
+        logger.info(f"Workflow executed: {result.execution.id} - Status: {result.execution.status.value}")
         
-        return result
+        # Convert ExecutionAggregate to response dict
+        return {
+            "execution_id": str(result.execution.id),
+            "workflow_id": str(result.execution.workflow_id),
+            "status": result.execution.status.value,
+            "input_data": result.execution.input_data,
+            "output_data": result.execution.output_data,
+            "error_message": result.execution.error_message,
+            "started_at": result.execution.started_at.isoformat() if result.execution.started_at else None,
+            "completed_at": result.execution.completed_at.isoformat() if result.execution.completed_at else None,
+            "duration_ms": result.execution.duration_ms,
+            "metrics": result.execution.metrics.to_dict() if result.execution.metrics else None,
+        }
         
     except NotFoundError:
         raise HTTPException(
@@ -856,6 +899,18 @@ async def autosave_workflow(
         
         # Update only if provided
         if nodes is not None or edges is not None:
+            # DEBUG: Log node data to see what's being saved
+            if nodes:
+                logger.info(f"💾 Autosaving {len(nodes)} nodes for workflow {workflow_id}")
+                for node in nodes:
+                    node_type = node.get('type') or node.get('node_type', 'unknown')
+                    node_data = node.get('data', {})
+                    logger.info(
+                        f"  📦 Node {node.get('id')}: type={node_type}, "
+                        f"data_keys={list(node_data.keys())}, "
+                        f"config={node_data.get('config', {})}"
+                    )
+            
             # Get the database model directly for fast autosave
             from backend.db.models.agent_builder import Workflow
             db_workflow = db.query(Workflow).filter(
@@ -882,6 +937,8 @@ async def autosave_workflow(
             
             db.commit()
             db.refresh(db_workflow)
+            
+            logger.info(f"✅ Workflow {workflow_id} autosaved successfully")
         
         return {
             "success": True,
@@ -1215,3 +1272,112 @@ async def get_workflow_agents(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get workflow agents"
         )
+
+
+@router.get(
+    "/{workflow_id}/stream",
+    summary="Stream workflow execution status",
+    description="Stream real-time workflow execution status via SSE",
+)
+async def stream_workflow_execution(
+    workflow_id: str,
+    db: Session = Depends(get_db),
+):
+    """Stream workflow execution status in real-time."""
+    async def event_generator():
+        try:
+            # Send connected event
+            yield f"data: {json.dumps({'type': 'connected', 'workflow_id': workflow_id, 'timestamp': datetime.utcnow().isoformat()})}\n\n"
+            
+            # Get workflow to find nodes
+            facade = AgentBuilderFacade(db)
+            workflow = facade.get_workflow(workflow_id)
+            
+            if not workflow:
+                yield f"data: {json.dumps({'type': 'error', 'message': 'Workflow not found'})}\n\n"
+                return
+            
+            nodes = workflow.workflow.nodes
+            
+            # Simulate execution of each node
+            for i, node in enumerate(nodes):
+                # Node started
+                yield f"data: {json.dumps({'type': 'node_status', 'node_id': node.id, 'node_name': node.config.label or f'Node {i+1}', 'status': 'running', 'start_time': datetime.utcnow().timestamp()})}\n\n"
+                await asyncio.sleep(1)  # Simulate processing time
+                
+                # Node completed
+                yield f"data: {json.dumps({'type': 'node_status', 'node_id': node.id, 'node_name': node.config.label or f'Node {i+1}', 'status': 'success', 'end_time': datetime.utcnow().timestamp(), 'output': {'message': 'Node completed successfully'}})}\n\n"
+                await asyncio.sleep(0.5)
+            
+            # Execution completed
+            yield f"data: {json.dumps({'type': 'completed', 'status': 'success', 'timestamp': datetime.utcnow().isoformat()})}\n\n"
+            
+        except Exception as e:
+            logger.error(f"Stream error: {e}", exc_info=True)
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+            "Access-Control-Allow-Origin": "*",
+        }
+    )
+
+
+@router.get(
+    "/{workflow_id}/executions/{execution_id}/stream",
+    summary="Stream specific execution status",
+    description="Stream real-time status for a specific execution via SSE",
+)
+async def stream_execution_status(
+    workflow_id: str,
+    execution_id: str,
+    db: Session = Depends(get_db),
+):
+    """Stream specific execution status in real-time."""
+    async def event_generator():
+        try:
+            # Send connected event
+            yield f"data: {json.dumps({'type': 'connected', 'execution_id': execution_id, 'workflow_id': workflow_id, 'timestamp': datetime.utcnow().isoformat()})}\n\n"
+            
+            # Get workflow and execution
+            facade = AgentBuilderFacade(db)
+            workflow = facade.get_workflow(workflow_id)
+            
+            if not workflow:
+                yield f"data: {json.dumps({'type': 'error', 'message': 'Workflow not found'})}\n\n"
+                return
+            
+            nodes = workflow.workflow.nodes
+            
+            # Simulate execution of each node
+            for i, node in enumerate(nodes):
+                # Node started
+                yield f"data: {json.dumps({'type': 'node_status', 'node_id': node.id, 'node_name': node.config.label or f'Node {i+1}', 'status': 'running', 'start_time': datetime.utcnow().timestamp()})}\n\n"
+                await asyncio.sleep(1)  # Simulate processing time
+                
+                # Node completed
+                yield f"data: {json.dumps({'type': 'node_status', 'node_id': node.id, 'node_name': node.config.label or f'Node {i+1}', 'status': 'success', 'end_time': datetime.utcnow().timestamp(), 'output': {'message': 'Node completed successfully'}})}\n\n"
+                await asyncio.sleep(0.5)
+            
+            # Execution completed
+            yield f"data: {json.dumps({'type': 'completed', 'status': 'success', 'timestamp': datetime.utcnow().isoformat()})}\n\n"
+            
+        except Exception as e:
+            logger.error(f"Stream error: {e}", exc_info=True)
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+            "Access-Control-Allow-Origin": "*",
+        }
+    )

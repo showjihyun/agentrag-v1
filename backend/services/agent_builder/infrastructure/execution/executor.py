@@ -20,8 +20,10 @@ from backend.services.agent_builder.domain.execution.aggregate import ExecutionA
 from backend.services.agent_builder.domain.execution.value_objects import ExecutionStatus, StepType
 from backend.services.agent_builder.infrastructure.execution.node_handler_registry import NodeHandlerRegistry
 from backend.services.agent_builder.infrastructure.execution.base_handler import NodeExecutionResult
+from backend.core.execution_logging import get_execution_logger
 
 logger = logging.getLogger(__name__)
+exec_logger = get_execution_logger(__name__)
 
 
 class UnifiedExecutor:
@@ -105,7 +107,15 @@ class UnifiedExecutor:
             trace_id=str(uuid4()),
         )
         
-        logger.info(f"Starting workflow execution: {workflow.id}, exec_id: {execution.id}")
+        # Log workflow start
+        exec_logger.workflow_start(
+            workflow_id=str(workflow.id),
+            workflow_name=workflow.name or "Unnamed Workflow",
+            orchestration_type="sequential",
+            execution_id=str(execution.id),
+            user_id=user_id,
+            node_count=len(workflow.nodes)
+        )
         
         try:
             # Start execution
@@ -120,17 +130,72 @@ class UnifiedExecutor:
             # Complete execution
             execution.complete(result)
             
+            duration_ms = int((datetime.utcnow() - execution.execution.started_at).total_seconds() * 1000)
+            
+            # Log workflow end
+            exec_logger.workflow_end(
+                workflow_id=str(workflow.id),
+                workflow_name=workflow.name or "Unnamed Workflow",
+                success=True,
+                duration_ms=duration_ms,
+                execution_id=str(execution.id)
+            )
+            
         except asyncio.TimeoutError:
-            logger.error(f"Workflow execution timed out: {execution.id}")
+            exec_logger.error(
+                f"워크플로우 타임아웃 / Workflow timed out after {timeout}s",
+                workflow_id=str(workflow.id),
+                execution_id=str(execution.id),
+                timeout_seconds=timeout
+            )
             execution.timeout()
             
+            duration_ms = int((datetime.utcnow() - execution.execution.started_at).total_seconds() * 1000)
+            exec_logger.workflow_end(
+                workflow_id=str(workflow.id),
+                workflow_name=workflow.name or "Unnamed Workflow",
+                success=False,
+                duration_ms=duration_ms,
+                execution_id=str(execution.id),
+                error="Timeout"
+            )
+            
         except asyncio.CancelledError:
-            logger.info(f"Workflow execution cancelled: {execution.id}")
+            exec_logger.warning(
+                f"워크플로우 취소됨 / Workflow cancelled",
+                workflow_id=str(workflow.id),
+                execution_id=str(execution.id)
+            )
             execution.cancel()
             
+            duration_ms = int((datetime.utcnow() - execution.execution.started_at).total_seconds() * 1000)
+            exec_logger.workflow_end(
+                workflow_id=str(workflow.id),
+                workflow_name=workflow.name or "Unnamed Workflow",
+                success=False,
+                duration_ms=duration_ms,
+                execution_id=str(execution.id),
+                error="Cancelled"
+            )
+            
         except Exception as e:
-            logger.error(f"Workflow execution failed: {e}", exc_info=True)
+            exec_logger.error(
+                f"워크플로우 실행 실패 / Workflow execution failed: {e}",
+                error_type=type(e).__name__,
+                workflow_id=str(workflow.id),
+                execution_id=str(execution.id)
+            )
             execution.fail(str(e), "EXECUTION_ERROR")
+            
+            duration_ms = int((datetime.utcnow() - execution.execution.started_at).total_seconds() * 1000)
+            exec_logger.workflow_end(
+                workflow_id=str(workflow.id),
+                workflow_name=workflow.name or "Unnamed Workflow",
+                success=False,
+                duration_ms=duration_ms,
+                execution_id=str(execution.id),
+                error=str(e)
+            )
         
         # Save execution to database
         await self._save_execution(execution)
@@ -310,6 +375,13 @@ class UnifiedExecutor:
         """Execute a single node."""
         start_time = time.time()
         
+        # Log node start
+        exec_logger.node_start(
+            node_id=str(node.id),
+            node_name=node.name or f"Node {node.id}",
+            node_type=node.node_type.value
+        )
+        
         # Record step start
         execution.record_node_start(node.id, node.node_type.value, input_data)
         
@@ -318,7 +390,11 @@ class UnifiedExecutor:
         
         if not handler:
             # Fallback for unregistered types
-            logger.warning(f"No handler for node type: {node.node_type.value}")
+            exec_logger.warning(
+                f"핸들러 없음 / No handler for node type: {node.node_type.value}",
+                node_id=str(node.id),
+                node_type=node.node_type.value
+            )
             return NodeExecutionResult(
                 success=True,
                 output=input_data,
@@ -329,6 +405,24 @@ class UnifiedExecutor:
             # Validate
             is_valid, errors = await handler.validate(node)
             if not is_valid:
+                duration_ms = int((time.time() - start_time) * 1000)
+                
+                exec_logger.error(
+                    f"노드 검증 실패 / Node validation failed: {'; '.join(errors)}",
+                    node_id=str(node.id),
+                    node_name=node.name or f"Node {node.id}",
+                    errors=errors
+                )
+                
+                exec_logger.node_end(
+                    node_id=str(node.id),
+                    node_name=node.name or f"Node {node.id}",
+                    node_type=node.node_type.value,
+                    success=False,
+                    duration_ms=duration_ms,
+                    error="Validation failed"
+                )
+                
                 return NodeExecutionResult(
                     success=False,
                     output={},
@@ -338,6 +432,18 @@ class UnifiedExecutor:
             
             # Execute
             result = await handler.execute(node, context, input_data)
+            
+            duration_ms = int((time.time() - start_time) * 1000)
+            
+            # Log node end
+            exec_logger.node_end(
+                node_id=str(node.id),
+                node_name=node.name or f"Node {node.id}",
+                node_type=node.node_type.value,
+                success=result.success,
+                duration_ms=duration_ms,
+                error=result.error_message if not result.success else None
+            )
             
             # Record completion
             if result.success:
@@ -349,6 +455,24 @@ class UnifiedExecutor:
             
         except Exception as e:
             duration_ms = int((time.time() - start_time) * 1000)
+            
+            exec_logger.error(
+                f"노드 실행 예외 / Node execution exception: {e}",
+                error_type=type(e).__name__,
+                node_id=str(node.id),
+                node_name=node.name or f"Node {node.id}",
+                node_type=node.node_type.value
+            )
+            
+            exec_logger.node_end(
+                node_id=str(node.id),
+                node_name=node.name or f"Node {node.id}",
+                node_type=node.node_type.value,
+                success=False,
+                duration_ms=duration_ms,
+                error=str(e)
+            )
+            
             execution.record_node_error(node.id, str(e), duration_ms)
             
             return NodeExecutionResult(

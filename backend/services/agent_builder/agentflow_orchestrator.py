@@ -16,8 +16,10 @@ from sqlalchemy.orm import Session
 from backend.db.models.flows import Agentflow, AgentflowAgent, AgentflowEdge, FlowExecution
 from backend.services.agent_builder.agentflow_agent_executor import AgentflowAgentExecutor
 from backend.services.agent_builder.integration_service import AgentWorkflowIntegrationService
+from backend.core.execution_logging import get_execution_logger
 
 logger = logging.getLogger(__name__)
+exec_logger = get_execution_logger(__name__)
 
 
 class AgentflowOrchestrator:
@@ -56,18 +58,29 @@ class AgentflowOrchestrator:
         start_time = datetime.utcnow()
         execution_id = str(uuid.uuid4())
         
-        logger.info(f"Starting agentflow execution: {agentflow_id}, execution_id: {execution_id}")
-        
         # Get agentflow
         agentflow = self.db.query(Agentflow).filter(
             Agentflow.id == uuid.UUID(agentflow_id)
         ).first()
         
         if not agentflow:
+            exec_logger.error(
+                f"Agentflow를 찾을 수 없음 / Agentflow not found: {agentflow_id}",
+                agentflow_id=agentflow_id
+            )
             return {
                 "success": False,
                 "error": f"Agentflow {agentflow_id} not found",
             }
+        
+        # Log workflow start
+        exec_logger.workflow_start(
+            workflow_id=agentflow_id,
+            workflow_name=agentflow.name or "Unnamed Agentflow",
+            orchestration_type=agentflow.orchestration_type,
+            execution_id=execution_id,
+            user_id=user_id
+        )
         
         # Create execution record
         execution = FlowExecution(
@@ -88,6 +101,11 @@ class AgentflowOrchestrator:
             # Execute based on orchestration type
             orchestration_type = agentflow.orchestration_type
             
+            exec_logger.info(
+                f"오케스트레이션 타입 / Orchestration type: {orchestration_type}",
+                orchestration_type=orchestration_type
+            )
+            
             if orchestration_type == "sequential":
                 result = await self._execute_sequential(plan, input_data, user_id)
             elif orchestration_type == "parallel":
@@ -98,7 +116,10 @@ class AgentflowOrchestrator:
                 result = await self._execute_adaptive(plan, input_data, user_id)
             else:
                 # Default to sequential for advanced types
-                logger.warning(f"Orchestration type {orchestration_type} not fully implemented, using sequential")
+                exec_logger.warning(
+                    f"오케스트레이션 타입 미구현 / Orchestration type not fully implemented: {orchestration_type}, using sequential",
+                    orchestration_type=orchestration_type
+                )
                 result = await self._execute_sequential(plan, input_data, user_id)
             
             # Update execution record
@@ -116,6 +137,16 @@ class AgentflowOrchestrator:
             
             duration_ms = int((execution.completed_at - start_time).total_seconds() * 1000)
             
+            # Log workflow end
+            exec_logger.workflow_end(
+                workflow_id=agentflow_id,
+                workflow_name=agentflow.name or "Unnamed Agentflow",
+                success=result.get("success", False),
+                duration_ms=duration_ms,
+                execution_id=execution_id,
+                agent_count=len(result.get("agent_results", []))
+            )
+            
             return {
                 "success": result.get("success", False),
                 "execution_id": execution_id,
@@ -128,12 +159,30 @@ class AgentflowOrchestrator:
             }
             
         except Exception as e:
-            logger.error(f"Agentflow execution failed: {e}", exc_info=True)
+            # Log error
+            exec_logger.error(
+                f"Agentflow 실행 실패 / Agentflow execution failed: {e}",
+                error_type=type(e).__name__,
+                agentflow_id=agentflow_id,
+                execution_id=execution_id
+            )
             
             execution.status = "failed"
             execution.error_message = str(e)
             execution.completed_at = datetime.utcnow()
             self.db.commit()
+            
+            duration_ms = int((execution.completed_at - start_time).total_seconds() * 1000)
+            
+            # Log workflow end with failure
+            exec_logger.workflow_end(
+                workflow_id=agentflow_id,
+                workflow_name=agentflow.name or "Unnamed Agentflow",
+                success=False,
+                duration_ms=duration_ms,
+                execution_id=execution_id,
+                error=str(e)
+            )
             
             return {
                 "success": False,

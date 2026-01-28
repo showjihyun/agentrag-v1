@@ -531,8 +531,8 @@ export default function WorkflowViewPage() {
       logger.log('✅ Workflow execution started:', execId);
       setExecutionId(execId);
       
-      // Start listening to execution stream
-      await streamWorkflowExecution(execId, inputData);
+      // The useWorkflowExecutionStream hook will automatically start listening
+      // to the execution stream once executionId is set
       
     } catch (error: any) {
       logger.error('❌ Failed to start execution:', error);

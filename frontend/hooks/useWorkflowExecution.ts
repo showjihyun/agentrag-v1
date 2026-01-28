@@ -280,23 +280,50 @@ export function useWorkflowExecution(
         eventSourceRef.current.close();
       }
 
-      // Create request body
-      const requestBody = {
-        workflow_data: workflow,
-        input_data: inputData,
-        execution_mode: 'streaming',
-        timeout_seconds: timeout
-      };
-
-      // Start streaming execution
-      const response = await fetch('/api/agent-builder/workflow-execution/execute', {
+      // Step 1: Save workflow first to get workflow_id
+      const saveResponse = await fetch('/api/agent-builder/workflows', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'text/event-stream',
         },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify({
+          name: workflow.name || 'Temp Workflow',
+          description: workflow.description || 'Temporary workflow for execution',
+          nodes: workflow.nodes,
+          edges: workflow.edges,
+          metadata: workflow.metadata || {},
+        })
       });
+
+      if (!saveResponse.ok) {
+        throw new Error(`Failed to save workflow: ${saveResponse.status}`);
+      }
+
+      const savedWorkflow = await saveResponse.json();
+      const workflowId = savedWorkflow.workflow?.id || savedWorkflow.id;
+
+      if (!workflowId) {
+        throw new Error('Failed to get workflow ID from save response');
+      }
+
+      // Get auth token from localStorage or cookie
+      const token = localStorage.getItem('token') || document.cookie
+        .split('; ')
+        .find(row => row.startsWith('token='))
+        ?.split('=')[1];
+
+      // Step 2: Execute saved workflow with streaming
+      const inputDataParam = encodeURIComponent(JSON.stringify(inputData));
+      const tokenParam = token ? `&token=${encodeURIComponent(token)}` : '';
+      const response = await fetch(
+        `/api/agent-builder/workflows/${workflowId}/execute/stream?input_data=${inputDataParam}${tokenParam}`,
+        {
+          method: 'GET',
+          headers: {
+            'Accept': 'text/event-stream',
+          },
+        }
+      );
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);

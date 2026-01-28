@@ -24,6 +24,23 @@ class NodeEntity:
     created_at: datetime = field(default_factory=datetime.utcnow)
     
     @property
+    def name(self) -> str:
+        """Get node name from config or generate default."""
+        # Try to get name from config
+        if hasattr(self.config, 'extra') and isinstance(self.config.extra, dict):
+            # Check various possible name fields
+            name = (
+                self.config.extra.get('name') or
+                self.config.extra.get('label') or
+                self.config.extra.get('title')
+            )
+            if name:
+                return str(name)
+        
+        # Generate default name based on node type
+        return f"{self.node_type.value.replace('_', ' ').title()} Node"
+    
+    @property
     def is_entry_point(self) -> bool:
         return self.node_type in (NodeType.START, NodeType.TRIGGER, NodeType.WEBHOOK, NodeType.SCHEDULE)
     
@@ -54,13 +71,50 @@ class NodeEntity:
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any], workflow_id: UUID) -> "NodeEntity":
-        node_type_str = data.get("node_type", "block")
+        # Check for blockType in data (for agentic blocks from frontend)
+        node_data = data.get("data", {})
+        block_type = node_data.get("blockType")
+        
+        # Use blockType if available (agentic blocks), otherwise use node_type
+        if block_type and block_type.startswith("agentic_"):
+            node_type_str = block_type
+        else:
+            node_type_str = data.get("node_type") or data.get("type", "block")
+        
         try:
             node_type = NodeType(node_type_str)
         except ValueError:
+            # If not a standard NodeType, treat as BLOCK
             node_type = NodeType.BLOCK
         
-        config = NodeConfig.from_dict(data.get("configuration", {}))
+        # Merge configuration from multiple sources
+        config_data = data.get("configuration", {}).copy()
+        
+        # Initialize extra dict if not present
+        if "extra" not in config_data:
+            config_data["extra"] = {}
+        
+        # For AI Agent nodes, also check data.config for inline LLM configuration
+        if node_type in (NodeType.AGENT, NodeType.AI_AGENT) and "config" in node_data:
+            # Store the config in extra.config for AgentNodeHandler to find
+            config_data["extra"]["config"] = node_data["config"]
+            
+            # Also extract common fields for easier access
+            agent_config = node_data.get("config", {})
+            if "provider" in agent_config or "llm_provider" in agent_config:
+                config_data["extra"]["provider"] = agent_config.get("provider") or agent_config.get("llm_provider")
+            if "model" in agent_config:
+                config_data["extra"]["model"] = agent_config.get("model")
+        
+        # Store blockType in extra for agentic blocks
+        if block_type:
+            config_data["extra"]["blockType"] = block_type
+            # Also copy other data fields to extra
+            for key, value in node_data.items():
+                if key not in ["blockType", "label", "status", "icon", "config"]:
+                    config_data["extra"][key] = value
+        
+        config = NodeConfig.from_dict(config_data)
         
         return cls(
             id=data.get("id", str(uuid4())),
@@ -68,8 +122,8 @@ class NodeEntity:
             node_type=node_type,
             config=config,
             position=Position(
-                x=data.get("position_x", 0),
-                y=data.get("position_y", 0),
+                x=data.get("position_x") or data.get("position", {}).get("x", 0),
+                y=data.get("position_y") or data.get("position", {}).get("y", 0),
             ),
             node_ref_id=data.get("node_ref_id"),
         )

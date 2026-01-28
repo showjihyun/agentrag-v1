@@ -20,6 +20,12 @@ class NodeType(str, Enum):
     AI_AGENT = "ai_agent"
     LLM = "llm"
     
+    # Agentic Blocks
+    AGENTIC_REFLECTION = "agentic_reflection"
+    AGENTIC_PLANNING = "agentic_planning"
+    AGENTIC_TOOL_SELECTOR = "agentic_tool_selector"
+    AGENTIC_RAG = "agentic_rag"
+    
     # Control Flow
     CONDITION = "condition"
     LOOP = "loop"
@@ -76,7 +82,7 @@ class Position:
     y: float = 0.0
 
 
-@dataclass(frozen=True)
+@dataclass
 class NodeConfig:
     """Node configuration value object."""
     node_type: NodeType
@@ -109,7 +115,7 @@ class NodeConfig:
     code: Optional[str] = None
     language: str = "python"
     
-    # Additional config
+    # Additional config (mutable for runtime modifications)
     extra: Dict[str, Any] = field(default_factory=dict)
     
     def to_dict(self) -> Dict[str, Any]:
