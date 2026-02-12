@@ -226,9 +226,9 @@ export default function WorkflowViewPage() {
   };
 
   // Stream workflow execution and update node statuses
-  const streamWorkflowExecution = async (execId: string, inputData: string) => {
+  const streamWorkflowExecution = async (execId: string, inputData: string, authToken?: string) => {
     try {
-      let token = getAccessToken();
+      let token = authToken || getAccessToken();
       
       // In development mode, token should already be set by startExecution
       // But double-check just in case
@@ -240,11 +240,14 @@ export default function WorkflowViewPage() {
         throw new Error('Authentication required. Please log in again.');
       }
       
-      // SSE endpoint expects token as query parameter, not header
+      // SSE endpoint: send token via both header and query param for compatibility
       const response = await fetch(
-        `/api/agent-builder/workflows/${workflowId}/execute/stream?input_data=${encodeURIComponent(JSON.stringify({ user_query: inputData }))}&token=${encodeURIComponent(token)}`,
+        `/api/agent-builder/workflows/${workflowId}/execute/stream?input_data=${encodeURIComponent(JSON.stringify({ user_query: inputData }))}`,
         {
           method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
         }
       );
 
@@ -403,8 +406,14 @@ export default function WorkflowViewPage() {
                   description: 'Workflow executed successfully',
                 });
               } else if (event.type === 'error') {
-                logger.error('❌ Workflow error:', event.data);
-                throw new Error(event.data.message || 'Workflow execution failed');
+                logger.warn('⚠️ Workflow error event:', event.data);
+                setExecuting(false);
+                setExecutionEndTime(Date.now());
+                toast({
+                  title: 'Execution Error',
+                  description: event.data?.message || 'Workflow execution failed',
+                });
+                return; // Stop processing stream
               } else {
                 logger.warn('⚠️ Unknown event type:', event.type);
               }
@@ -415,7 +424,7 @@ export default function WorkflowViewPage() {
         }
       }
     } catch (error: any) {
-      logger.error('❌ Stream error:', error);
+      logger.warn('⚠️ Stream error:', error.message || error);
       setExecuting(false);
       toast({
         title: 'Stream Error',
@@ -441,6 +450,7 @@ export default function WorkflowViewPage() {
     
     // Switch to canvas tab to show execution animation
     setActiveTab('canvas');
+    setIsSimulation(true); // Set before setExecuting to prevent SSE hook from firing
     setExecuting(true);
     setExecutionStartTime(Date.now());
     setShowExecutionLog(true); // Auto-show log panel when execution starts
@@ -531,8 +541,17 @@ export default function WorkflowViewPage() {
       logger.log('✅ Workflow execution started:', execId);
       setExecutionId(execId);
       
-      // The useWorkflowExecutionStream hook will automatically start listening
-      // to the execution stream once executionId is set
+      // Try streaming execution for real-time output with actual AI Agent responses
+      // Falls back to useWorkflowExecutionStream SSE hook if streaming fails
+      try {
+        await streamWorkflowExecution(execId, inputData, token);
+      } catch (streamError: any) {
+        logger.warn('⚠️ Streaming execution failed, falling back to SSE hook:', streamError.message);
+        // Reset simulation mode so useWorkflowExecutionStream SSE hook takes over
+        setIsSimulation(false);
+        // The useWorkflowExecutionStream hook will automatically connect
+        // using the executionId that was already set above
+      }
       
     } catch (error: any) {
       logger.error('❌ Failed to start execution:', error);

@@ -1,77 +1,9 @@
 /* Workflow Execution Visualization Styles */
 
-/* Node Status Colors */
-.node-idle {
-  border: 2px solid #d1d5db;
-  background-color: #ffffff;
-}
+/* Node Status Colors - REMOVED: Now handled by workflow-execution-animation.css */
+/* All .node-* styles are now in workflow-execution-animation.css to avoid conflicts */
 
-.node-pending {
-  border: 2px solid #fbbf24;
-  background-color: #fef3c7;
-  box-shadow: 0 0 10px rgba(251, 191, 36, 0.3);
-}
-
-.node-running {
-  border: 3px solid #3b82f6;
-  background-color: #dbeafe;
-  box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
-  animation: pulse-blue 2s infinite;
-}
-
-.node-success {
-  border: 2px solid #10b981;
-  background-color: #d1fae5;
-  box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
-}
-
-.node-error {
-  border: 2px solid #ef4444;
-  background-color: #fee2e2;
-  box-shadow: 0 0 10px rgba(239, 68, 68, 0.3);
-  animation: shake 0.5s;
-}
-
-.node-skipped {
-  border: 2px dashed #9ca3af;
-  background-color: #f3f4f6;
-  opacity: 0.6;
-}
-
-/* Pulse Animation for Running Nodes */
-@keyframes pulse-blue {
-  0%, 100% {
-    box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
-    transform: scale(1);
-  }
-  50% {
-    box-shadow: 0 0 30px rgba(59, 130, 246, 0.8);
-    transform: scale(1.02);
-  }
-}
-
-/* Shake Animation for Error Nodes */
-@keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
-  20%, 40%, 60%, 80% { transform: translateX(5px); }
-}
-
-/* Success Fade In Animation */
-@keyframes fade-in-success {
-  from {
-    opacity: 0;
-    transform: scale(0.8);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.node-success {
-  animation: fade-in-success 0.3s ease-out;
-}
+/* Animations - REMOVED: Now handled by workflow-execution-animation.css */
 
 /* Status Badge */
 .node-status-badge {

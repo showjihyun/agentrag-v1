@@ -53,12 +53,12 @@ class AgentNodeHandler(BaseNodeHandler):
                     config.extra["config"] = {}
                 
                 config.extra["config"]["provider"] = "ollama"
-                config.extra["config"]["model"] = "llama3.3:70b"
+                config.extra["config"]["model"] = ""  # Use settings default
                 config.extra["config"]["temperature"] = 0.7
                 config.extra["config"]["max_tokens"] = 1000
                 
                 exec_logger.info(
-                    f"✅ 기본 LLM 설정 적용됨 / Default LLM config applied: ollama/llama3.3:70b",
+                    f"✅ 기본 LLM 설정 적용됨 / Default LLM config applied: ollama (settings default model)",
                     node_id=str(node.id)
                 )
         
@@ -193,37 +193,40 @@ class AgentNodeHandler(BaseNodeHandler):
         context: ExecutionContext,
     ) -> Dict[str, Any]:
         """Execute LLM with inline configuration."""
-        from backend.services.llm_service import LLMService
+        from backend.services.llm_manager import LLMManager, LLMProvider
         
         # Get LLM configuration from node
         llm_config = node.config.extra.get("parameters") or node.config.extra.get("config") or {}
         
         provider = llm_config.get("provider", "ollama")
-        model = llm_config.get("model", "llama3.3:70b")
+        model = llm_config.get("model", None)  # Let LLMManager use settings default
         system_prompt = llm_config.get("system_prompt", "You are a helpful AI assistant.")
         temperature = llm_config.get("temperature", 0.7)
         max_tokens = llm_config.get("max_tokens", 1000)
         
-        logger.info(f"Using inline LLM: {provider}/{model}")
+        logger.info(f"Using inline LLM: {provider}/{model or 'default'}")
         
-        # Create LLM service
-        llm_service = LLMService()
+        # Create LLM manager with node configuration
+        try:
+            llm_provider = LLMProvider(provider)
+        except ValueError:
+            llm_provider = LLMProvider.OLLAMA
+        
+        llm = LLMManager(provider=llm_provider, model=model)
         
         # Execute LLM
-        response = await llm_service.generate(
-            prompt=query,
+        response = await llm.generate_with_system(
             system_prompt=system_prompt,
-            provider=provider,
-            model=model,
+            user_message=query,
             temperature=temperature,
             max_tokens=max_tokens,
         )
         
+        # response is a string from LLMManager
         return {
-            "response": response.get("content", ""),
-            "model": model,
-            "provider": provider,
-            "tokens_used": response.get("tokens_used", 0),
+            "response": response if isinstance(response, str) else str(response),
+            "model": llm.model,
+            "provider": llm.provider.value,
         }
 
 

@@ -35,7 +35,7 @@ export function ExecutionLogPanel({ nodeStatuses, isExecuting, startTime, endTim
       nodeId: status.nodeId,
       nodeName: status.nodeName || 'Unknown Node',
       status: status.status,
-      message: getStatusMessage(status.status, status.nodeName),
+      message: getStatusMessage(status.status, status.nodeName, status.output),
       duration: status.endTime && status.startTime ? status.endTime - status.startTime : undefined,
       input: status.input,
       output: status.output,
@@ -213,9 +213,31 @@ function LogEntry({ log }: { log: ExecutionLog }) {
               <div className="text-xs font-semibold text-gray-800 mb-1.5 flex items-center gap-1">
                 <span className="text-purple-600">📤</span> Output:
               </div>
-              <pre className="text-xs bg-slate-800 text-purple-100 p-3 rounded-md overflow-x-auto max-h-40 border border-slate-700 font-mono">
-                {typeof log.output === 'string' ? log.output : JSON.stringify(log.output, null, 2)}
-              </pre>
+              {/* AI Agent response: show formatted response */}
+              {log.output.response ? (
+                <div className="space-y-2">
+                  <div className="text-xs bg-slate-800 text-purple-100 p-3 rounded-md overflow-x-auto max-h-60 border border-slate-700 whitespace-pre-wrap">
+                    {log.output.response}
+                  </div>
+                  {(log.output.ai_agent_config || log.output.execution_details) && (
+                    <details className="text-xs">
+                      <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+                        Metadata
+                      </summary>
+                      <pre className="mt-1 bg-slate-800 text-slate-300 p-2 rounded-md overflow-x-auto max-h-32 border border-slate-700 font-mono text-[10px]">
+                        {JSON.stringify({
+                          ...(log.output.ai_agent_config || {}),
+                          ...(log.output.execution_details || {}),
+                        }, null, 2)}
+                      </pre>
+                    </details>
+                  )}
+                </div>
+              ) : (
+                <pre className="text-xs bg-slate-800 text-purple-100 p-3 rounded-md overflow-x-auto max-h-40 border border-slate-700 font-mono">
+                  {typeof log.output === 'string' ? log.output : JSON.stringify(log.output, null, 2)}
+                </pre>
+              )}
             </div>
           )}
         </div>
@@ -224,7 +246,26 @@ function LogEntry({ log }: { log: ExecutionLog }) {
   );
 }
 
-function getStatusMessage(status: string, nodeName: string): string {
+function getStatusMessage(status: string, nodeName: string, output?: any): string {
+  // For completed nodes with output, show a preview of the actual output
+  if (status === 'success' && output) {
+    // AI Agent response
+    if (output.response) {
+      const preview = String(output.response).slice(0, 120);
+      return preview + (String(output.response).length > 120 ? '...' : '');
+    }
+    // Generic message field
+    if (output.message && output.message !== 'Node completed successfully') {
+      const preview = String(output.message).slice(0, 120);
+      return preview + (String(output.message).length > 120 ? '...' : '');
+    }
+    // Content field
+    if (output.content) {
+      const preview = String(output.content).slice(0, 120);
+      return preview + (String(output.content).length > 120 ? '...' : '');
+    }
+  }
+
   switch (status) {
     case 'pending':
       return 'Waiting to execute...';

@@ -33,6 +33,19 @@ class WorkflowAggregate:
         return self._workflow.id
     
     @property
+    def user_id(self) -> UUID:
+        return self._workflow.user_id
+    
+    @property
+    def is_public(self) -> bool:
+        return self._workflow.is_public
+    
+    @property
+    def graph_definition(self) -> Dict[str, Any]:
+        """Graph definition dict compatible with WorkflowExecutor."""
+        return self._workflow.to_graph_definition()
+    
+    @property
     def workflow(self) -> WorkflowEntity:
         return self._workflow
     

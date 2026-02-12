@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 import json
 import asyncio
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Header
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Header, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -786,6 +786,7 @@ async def duplicate_workflow(
 )
 async def execute_workflow_stream(
     workflow_id: str,
+    request: Request,
     input_data: str = Query("{}", description="JSON string of input data"),
     token: Optional[str] = Query(None, description="Auth token for SSE"),
     db: Session = Depends(get_db),
@@ -805,15 +806,24 @@ async def execute_workflow_stream(
     """
     async def event_generator():
         try:
-            # Authenticate user
-            if not token or token == 'null':
+            # Resolve token: query param > Authorization header
+            auth_token = token
+            if not auth_token or auth_token in ('null', 'undefined', ''):
+                auth_header = request.headers.get('authorization', '')
+                if auth_header.startswith('Bearer '):
+                    auth_token = auth_header[7:]
+            
+            if not auth_token or auth_token in ('null', 'undefined', ''):
                 yield f"data: {json.dumps({'type': 'error', 'data': {'message': 'Authentication required'}})}\n\n"
                 return
             
+            # Clean token: URL decode
+            import urllib.parse
+            clean_token = urllib.parse.unquote(auth_token).strip()
+            
             from backend.services.auth_service import AuthService
-            payload = AuthService.decode_token(token)
+            payload = AuthService.decode_token(clean_token)
             if not payload:
-                yield f"data: {json.dumps({'type': 'error', 'data': {'message': 'Invalid token'}})}\n\n"
                 return
             
             user_id = payload.get("sub")
@@ -827,7 +837,7 @@ async def execute_workflow_stream(
                 return
             
             # Check permissions
-            if str(workflow.workflow.user_id) != str(user_id) and not workflow.workflow.is_public:
+            if str(workflow.user_id) != str(user_id) and not workflow.is_public:
                 yield f"data: {json.dumps({'type': 'error', 'data': {'message': 'Access denied'}})}\n\n"
                 return
             
@@ -1297,17 +1307,53 @@ async def stream_workflow_execution(
                 yield f"data: {json.dumps({'type': 'error', 'message': 'Workflow not found'})}\n\n"
                 return
             
-            nodes = workflow.workflow.nodes
+            # Use real executor for actual node execution
+            from backend.services.agent_builder.workflow_executor import WorkflowExecutor
             
-            # Simulate execution of each node
-            for i, node in enumerate(nodes):
-                # Node started
-                yield f"data: {json.dumps({'type': 'node_status', 'node_id': node.id, 'node_name': node.config.label or f'Node {i+1}', 'status': 'running', 'start_time': datetime.utcnow().timestamp()})}\n\n"
-                await asyncio.sleep(1)  # Simulate processing time
+            executor = WorkflowExecutor(workflow, db)
+            graph = workflow.graph_definition
+            nodes_list = graph.get("nodes", [])
+            edges_list = graph.get("edges", [])
+            
+            # Build node name lookup
+            node_names = {}
+            for n in nodes_list:
+                n_data = n.get("data") or n.get("configuration", {})
+                node_names[n["id"]] = n_data.get("label") or n_data.get("name") or n.get("type", "Node")
+            
+            # Find start node and execute
+            start_node = None
+            for n in nodes_list:
+                node_type = n.get("type") or n.get("node_type")
+                config_type = n.get("configuration", {}).get("type")
+                effective_type = config_type if node_type == "control" and config_type else (node_type or config_type)
+                if effective_type == "start" or (effective_type and effective_type.startswith("trigger")):
+                    start_node = n
+                    break
+            
+            if not start_node:
+                # Fallback: use first node
+                start_node = nodes_list[0] if nodes_list else None
+            
+            if not start_node:
+                yield f"data: {json.dumps({'type': 'error', 'message': 'No nodes found in workflow'})}\n\n"
+                return
+            
+            from backend.services.agent_builder.workflow_executor import _stream_node_execution
+            
+            async for event in _stream_node_execution(executor, start_node, nodes_list, edges_list, {}):
+                # Convert event format to match what useWorkflowExecutionStream expects
+                if event.get("type") == "node_start":
+                    node_id = event["data"]["node_id"]
+                    yield f"data: {json.dumps({'type': 'node_status', 'node_id': node_id, 'node_name': node_names.get(node_id, event['data'].get('label', 'Node')), 'status': 'running', 'start_time': datetime.utcnow().timestamp()})}\n\n"
+                elif event.get("type") == "node_complete":
+                    node_id = event["data"]["node_id"]
+                    yield f"data: {json.dumps({'type': 'node_status', 'node_id': node_id, 'node_name': node_names.get(node_id, 'Node'), 'status': 'success', 'end_time': datetime.utcnow().timestamp(), 'output': event['data'].get('output')})}\n\n"
+                elif event.get("type") == "node_error":
+                    node_id = event["data"]["node_id"]
+                    yield f"data: {json.dumps({'type': 'node_status', 'node_id': node_id, 'node_name': node_names.get(node_id, 'Node'), 'status': 'failed', 'end_time': datetime.utcnow().timestamp(), 'error': event['data'].get('error')})}\n\n"
                 
-                # Node completed
-                yield f"data: {json.dumps({'type': 'node_status', 'node_id': node.id, 'node_name': node.config.label or f'Node {i+1}', 'status': 'success', 'end_time': datetime.utcnow().timestamp(), 'output': {'message': 'Node completed successfully'}})}\n\n"
-                await asyncio.sleep(0.5)
+                await asyncio.sleep(0.01)
             
             # Execution completed
             yield f"data: {json.dumps({'type': 'completed', 'status': 'success', 'timestamp': datetime.utcnow().isoformat()})}\n\n"
@@ -1352,17 +1398,61 @@ async def stream_execution_status(
                 yield f"data: {json.dumps({'type': 'error', 'message': 'Workflow not found'})}\n\n"
                 return
             
-            nodes = workflow.workflow.nodes
+            # Use real executor for actual node execution
+            from backend.services.agent_builder.workflow_executor import WorkflowExecutor, _stream_node_execution
             
-            # Simulate execution of each node
-            for i, node in enumerate(nodes):
-                # Node started
-                yield f"data: {json.dumps({'type': 'node_status', 'node_id': node.id, 'node_name': node.config.label or f'Node {i+1}', 'status': 'running', 'start_time': datetime.utcnow().timestamp()})}\n\n"
-                await asyncio.sleep(1)  # Simulate processing time
+            executor = WorkflowExecutor(workflow, db, execution_id)
+            graph = workflow.graph_definition
+            nodes_list = graph.get("nodes", [])
+            edges_list = graph.get("edges", [])
+            
+            # Build node name lookup
+            node_names = {}
+            for n in nodes_list:
+                n_data = n.get("data") or n.get("configuration", {})
+                node_names[n["id"]] = n_data.get("label") or n_data.get("name") or n.get("type", "Node")
+            
+            # Find start node
+            start_node = None
+            for n in nodes_list:
+                node_type = n.get("type") or n.get("node_type")
+                config_type = n.get("configuration", {}).get("type")
+                effective_type = config_type if node_type == "control" and config_type else (node_type or config_type)
+                if effective_type == "start" or (effective_type and effective_type.startswith("trigger")):
+                    start_node = n
+                    break
+            
+            if not start_node:
+                start_node = nodes_list[0] if nodes_list else None
+            
+            if not start_node:
+                yield f"data: {json.dumps({'type': 'error', 'message': 'No nodes found in workflow'})}\n\n"
+                return
+            
+            # Try to get input_data from execution record
+            input_data = {}
+            try:
+                from backend.db.models.agent_builder import WorkflowExecution
+                exec_record = db.query(WorkflowExecution).filter(
+                    WorkflowExecution.id == execution_id
+                ).first()
+                if exec_record and exec_record.input_data:
+                    input_data = exec_record.input_data
+            except Exception:
+                pass
+            
+            async for event in _stream_node_execution(executor, start_node, nodes_list, edges_list, input_data):
+                if event.get("type") == "node_start":
+                    node_id = event["data"]["node_id"]
+                    yield f"data: {json.dumps({'type': 'node_status', 'node_id': node_id, 'node_name': node_names.get(node_id, event['data'].get('label', 'Node')), 'status': 'running', 'start_time': datetime.utcnow().timestamp()})}\n\n"
+                elif event.get("type") == "node_complete":
+                    node_id = event["data"]["node_id"]
+                    yield f"data: {json.dumps({'type': 'node_status', 'node_id': node_id, 'node_name': node_names.get(node_id, 'Node'), 'status': 'success', 'end_time': datetime.utcnow().timestamp(), 'output': event['data'].get('output')})}\n\n"
+                elif event.get("type") == "node_error":
+                    node_id = event["data"]["node_id"]
+                    yield f"data: {json.dumps({'type': 'node_status', 'node_id': node_id, 'node_name': node_names.get(node_id, 'Node'), 'status': 'failed', 'end_time': datetime.utcnow().timestamp(), 'error': event['data'].get('error')})}\n\n"
                 
-                # Node completed
-                yield f"data: {json.dumps({'type': 'node_status', 'node_id': node.id, 'node_name': node.config.label or f'Node {i+1}', 'status': 'success', 'end_time': datetime.utcnow().timestamp(), 'output': {'message': 'Node completed successfully'}})}\n\n"
-                await asyncio.sleep(0.5)
+                await asyncio.sleep(0.01)
             
             # Execution completed
             yield f"data: {json.dumps({'type': 'completed', 'status': 'success', 'timestamp': datetime.utcnow().isoformat()})}\n\n"
